@@ -1,0 +1,234 @@
+#include "TextBox.h"
+
+#include "mle/ui/Element.h"
+#include "mle/window/Types.h"
+#include "mle/window/Window.h"
+
+namespace mle::ui::element_renderable {
+TextBox::TextBox(ElementRef element) :
+    Text(element) {
+    MLE_LOG_THIS;
+    window::getUIM().addTextListener([](char32 codepoint) { MLE_VW((int)codepoint); });
+
+    lmb_out_listener_ = std::make_unique<window::KeyListener>();
+    lmb_out_listener_->setKey(window::Key::MOUSE_LEFT)
+        .setState(window::KeyState::PRESSED)
+        .setPriority(1000)
+        .setMods(window::KeyModFlagBits::ANY)
+        .setCallback([this](UserPtr) { unfocus(); });
+
+    element_->listenKeyOnHover("lmb", [this]() {
+        MLE_I("lmb");
+        beginRangeSelection(getHoveredChar());
+    });
+    element_->setOnHoverOut([this]() { lmb_out_listener_->sign(); });
+}
+
+TextBox::~TextBox() {
+    MLE_LOG_THIS;
+    if (text_listener_id_ != INVALID_ID) {
+        window::getUIM().removeTextListener(text_listener_id_);
+    }
+}
+
+void TextBox::setFocus(bool v) {
+    if (v) {
+        focus();
+    } else {
+        unfocus();
+    }
+}
+
+void TextBox::focus() {
+    if (focused_) {
+        return;
+    }
+    focused_ = true;
+    render_selection_ = true;
+    blink_timer_.reset();
+    selected_range_ = {{}, {}};
+
+    element_->listenKey("backspace", [this]() { backspace(); });
+    element_->listenKey("enter", [this]() { enter(); });
+    element_->listenKey("escape", [this]() { escape(); });
+}
+
+void TextBox::unfocus() {
+    if (!focused_) {
+        return;
+    }
+
+    focused_ = false;
+    render_selection_ = false;
+    selected_range_ = {{}, {}};
+
+    element_->unlistenKey("backspace");
+    element_->unlistenKey("enter");
+    element_->unlistenKey("escape");
+    lmb_out_listener_->unsign();
+}
+
+void TextBox::beginRangeSelection(CharPos pos) {
+    MLE_W(MLE_2V(pos.line, pos.pos));
+    focus();
+    selected_range_ = {pos, pos};
+}
+
+void TextBox::backspace() {
+    MLE_I("backspace");
+}
+
+void TextBox::enter() {
+    MLE_I("enter");
+}
+
+void TextBox::escape() {
+    MLE_I("escape");
+    unfocus();
+}
+
+void TextBox::getRenderData(int layer, RenderableData& data) const {
+    Text::getRenderData(layer, data);
+
+    auto color = color_.withAMultiplied(element_->getOpacity());
+
+    if (render_selection_) {
+        if (selected_range_.first == selected_range_.second) {
+            renderCursor(layer, data, color);
+        } else {
+            renderSelection(layer, data, color);
+        }
+    }
+}
+
+void TextBox::renderCursor(int layer, RenderableData& data, Color color) const {
+    RectInstance cursor;
+
+    auto selected_char = selected_range_.first;
+
+    f32 r_text_max_h = getRTextMaxH();
+    f32 r_width = r_text_bounds_.size.x / r_text_.max_width;
+    f32 text_height = text_height_ != 0 ? text_height_ : 1 / r_text_max_h;
+
+    auto parent_on_parent_clamped = clamp(element_->getRectOnParent(), {0, 0, 1, 1});
+    auto parent_on_parent_clamped_relative_transformation = calculateRelativeTransformation(element_->getRectOnParent(), parent_on_parent_clamped);
+    auto parent_rect_on_root = element_->getRectOnRoot();
+
+    const auto& line = r_text_.lines.at(selected_char.line);
+
+    Rectf on_parent{};
+    on_parent.pos = r_text_bounds_.pos;
+    if (selected_char.pos == static_cast<int>(line.chars.size())) {
+        on_parent.pos.x += r_width * (line.chars.back().on_line.pos.x + line.chars.back().on_line.size.x);
+    } else {
+        on_parent.pos.x += r_width * line.chars[selected_char.pos].on_line.pos.x;
+        on_parent.pos.x -= font_->getCodepointData(line.text.get(selected_char.pos)).origin.x * r_width;
+    }
+    on_parent.pos.x -= r_width * font_->getCursorWidth();
+    on_parent.pos.y += text_height * (static_cast<f32>(selected_char.line) * (1 + font_->getLineGap()));
+    on_parent.size.x = r_width * font_->getCursorWidth();
+    on_parent.size.y = text_height;
+
+    auto on_parent_clamped = clamp(on_parent, parent_on_parent_clamped_relative_transformation);
+
+    cursor.pos = parent_rect_on_root.pos + parent_rect_on_root.size * on_parent_clamped.pos;
+    cursor.size = parent_rect_on_root.size * on_parent_clamped.size;
+
+    bool blink = std::sin(blink_timer_.elapsedSecFloat() * blink_frequency_) > 0;
+    cursor.color = color.withAMultiplied(static_cast<f32>(blink));
+
+    data[layer].rects.push_back(cursor);
+}
+
+void TextBox::renderSelection(int layer, RenderableData& data, Color color) const {
+    std::vector<RectInstance> rects;
+
+    CharPos range_begin, range_end;
+    if (selected_range_.first.line > selected_range_.second.line ||
+        (selected_range_.first.line == selected_range_.second.line && selected_range_.first.pos > selected_range_.second.pos)) {
+        range_begin = selected_range_.second;
+        range_end = selected_range_.first;
+    } else {
+        range_begin = selected_range_.first;
+        range_end = selected_range_.second;
+    }
+
+    int range_size = range_end.line - range_begin.line + 1;
+    rects.resize(range_size);
+
+    if (range_size == 1) {
+        rects[0] = makeRectOnLine(range_begin.line, range_begin.pos, range_end.pos);
+    } else {
+        rects[0] = makeRectOnLine(range_begin.line, range_begin.pos);
+        rects[range_size - 1] = makeRectOnLine(range_end.line, 0, range_end.pos);
+
+        if (range_size >= 3) {
+            for (int i = range_begin.line + 1; i < range_end.line; i++) {
+                rects[i - range_begin.line] = makeRectOnLine(i);
+            }
+        }
+    }
+
+    for (auto& rect : rects) {
+        rect.color = color.withAMultiplied(0.3F);
+        data[layer + 1].rects.push_back(rect);
+    }
+}
+
+RectInstance TextBox::makeRectOnLine(int line, int from, int to) const {
+    RectInstance ret;
+    const auto& line_data = r_text_.lines.at(line);
+
+    f32 r_text_max_h = getRTextMaxH();
+    f32 r_width = r_text_bounds_.size.x / r_text_.max_width;
+    f32 text_height = text_height_ != 0 ? text_height_ : 1 / r_text_max_h;
+
+    auto parent_on_parent_clamped = clamp(element_->getRectOnParent(), {0, 0, 1, 1});
+    auto parent_on_parent_clamped_relative_transformation = calculateRelativeTransformation(element_->getRectOnParent(), parent_on_parent_clamped);
+    auto parent_rect_on_root = element_->getRectOnRoot();
+
+    Rectf on_parent{};
+    if (to == max<int>()) {
+        if (from < static_cast<int>(line_data.chars.size())) {
+            on_parent.size.x = r_width * (line_data.chars.back().on_line.pos.x + line_data.chars.back().on_line.size.x);
+            if (from != 0) {
+                on_parent.pos.x = r_width * line_data.chars.at(from).on_line.pos.x;
+                on_parent.size.x -= r_width * line_data.chars.at(from).on_line.pos.x;
+            }
+        } else {
+            on_parent.pos.x = r_width * (line_data.chars.back().on_line.pos.x + line_data.chars.back().on_line.size.x);
+            on_parent.size.x = 0;
+        }
+        on_parent.size.x += r_width * font_->getCodepointData(' ').advance;
+    } else {
+        on_parent.pos.x = r_width * line_data.chars.at(from).on_line.pos.x;
+        on_parent.size.x =
+            r_width * (line_data.chars.at(to - 1).on_line.pos.x + line_data.chars.at(to - 1).on_line.size.x - line_data.chars.at(from).on_line.pos.x);
+    }
+    if (from == 0) {
+        on_parent.size.x += on_parent.pos.x;
+        on_parent.pos.x = 0;
+    }
+
+    on_parent.pos.y = text_height * (static_cast<f32>(line) * (1 + font_->getLineGap()));
+    on_parent.size.y = text_height;
+
+    on_parent.pos += r_text_bounds_.pos;
+
+    auto on_parent_clamped = clamp(on_parent, parent_on_parent_clamped_relative_transformation);
+
+    ret.pos = parent_rect_on_root.pos + parent_rect_on_root.size * on_parent_clamped.pos;
+    ret.size = parent_rect_on_root.size * on_parent_clamped.size;
+
+    return ret;
+}
+
+void TextBox::registerLuaTypes() {
+    auto ut = lua::newUsertype<TextBox>("ui_Element_Renderable_TextBox", sol::no_constructor, sol::base_classes, sol::bases<Element::Renderable, Text>());
+
+    ut["beginRangeSelection"] = &TextBox::beginRangeSelection;
+    ut["endRangeSelection"] = &TextBox::endRangeSelection;
+    ut["setRenderSelection"] = &TextBox::setRenderSelection;
+}
+
+}  // namespace mle::ui::element_renderable
