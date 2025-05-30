@@ -10,3 +10,6 @@
 [submodule "external/LuaJIT"]
 	path = external/LuaJIT
 	url = https://github.com/LuaJIT/LuaJIT
+[submodule "external/sol2"]
+	path = external/sol2
+	url = https://github.com/ThePhD/sol2
