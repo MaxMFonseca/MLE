@@ -1,0 +1,42 @@
+<!-- footer.html -->
+
+<script>
+function rewriteLinks(root = document) {
+  const anchors = root.querySelectorAll('a[href]');
+  anchors.forEach(a => {
+    const originalHref = a.getAttribute('href');
+    a.setAttribute('target', '_top');
+
+    if (
+      !originalHref ||
+      originalHref.startsWith('http') ||
+      originalHref.startsWith('mailto:') ||
+      originalHref.startsWith('javascript:') ||
+      originalHref.startsWith('/docs/')
+    ) return;
+
+    const [path, hash = ''] = originalHref.split('#');
+    if (!path.endsWith('.html')) return;
+
+    const newHref = `/docs/${path.replace(/\.html$/, '')}${hash ? `#${hash}` : ''}`;
+    a.setAttribute('href', newHref);
+    console.log(`[REWRITE] ${originalHref} → ${newHref}`);
+  });
+}
+
+window.addEventListener('load', () => {
+  rewriteLinks();
+
+  // Observe future changes (e.g., from search results or dynamic nav)
+  const observer = new MutationObserver(mutations => {
+    mutations.forEach(m => {
+      m.addedNodes.forEach(node => {
+        if (node.nodeType === 1) rewriteLinks(node);
+      });
+    });
+  });
+
+  observer.observe(document.body, { childList: true, subtree: true });
+});
+</script>
+
