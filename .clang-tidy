@@ -1,0 +1,84 @@
+Checks: "*,
+  -readability-identifier-length,
+  -readability-redundant-access-specifiers,
+  -readability-simplify-boolean-expr,
+  -readability-isolate-declaration,
+  -readability-magic-numbers,
+  -cppcoreguidelines-avoid-magic-numbers,
+  -cppcoreguidelines-pro-type-union-access,
+  -cppcoreguidelines-owning-memory,
+  -cppcoreguidelines-non-private-member-variables-in-classes,
+  -cppcoreguidelines-pro-type-reinterpret-cast,
+  -misc-non-private-member-variables-in-classes,
+  -cppcoreguidelines-pro-type-static-cast-downcast,
+  -readability-redundant-member-init,
+  -bugprone-easily-swappable-parameters,
+  -llvmlibc-*,
+  -llvm-header-guard,
+  -misc-static-assert,
+  -hicpp-static-assert,
+  -cert-dcl03-c,
+  -google-readability-todo,
+  -cppcoreguidelines-avoid-const-or-ref-data-members,
+  -altera-unroll-loops,
+  -modernize-use-trailing-return-type,
+  -fuchsia-default-arguments-calls,
+  -fuchsia-default-arguments-declarations,
+  -fuchsia-overloaded-operator,
+  -fuchsia-statically-constructed-objects,
+  -altera-struct-pack-align"
+
+# -readability-identifier-length: We always name things meaningfully by default, so this check does nothing but annoy while working with math.
+# -readability-redundant-access-specifiers: No need for checking — we use this for separation.
+# -readability-simplify-boolean-expr: We use this verbosity for clarity.
+# -readability-isolate-declaration: We don’t use raw pointers, and I like using this style.
+# -readability-magic-numbers: Impossible to work without them in math, graphics, UI...
+# -cppcoreguidelines-avoid-magic-numbers: ^^^
+# -cppcoreguidelines-pro-type-union-access: This breaks GLM.
+# -cppcoreguidelines-owning-memory: This is handled internally using macros for ownership: `<T>Ref` and `<T>Hnd`. Check guide.
+# -cppcoreguidelines-pro-type-reinterpret-cast: Allowed for low-level memory operations
+# -cppcoreguidelines-non-private-member-variables-in-classes: This flags `protected` members. Public fields in classes are still prohibited.
+# -misc-non-private-member-variables-in-classes: ^^^
+# -cppcoreguidelines-pro-type-static-cast-downcast: This hurts performance. Maybe create a macro to use `static_cast` in release and `dynamic_cast` in dev?
+# -readability-redundant-member-init: Sometimes explicitness is desired.
+# -bugprone-easily-swappable-parameters: This warns on vendor interfaces.
+# -llvmlibc-*: LLVM libc rules not relevant.
+# -llvm-header-guard: `#pragma once` is preferred.
+# -misc-static-assert: This breaks `MLE_UNREACHABLE` (because `assert(false)` is used in debug builds) and the check is trivial.
+# -hicpp-static-assert: ^^^
+# -cert-dcl03-c: ^^^
+# -google-readability-todo: Google-specific.
+# -cppcoreguidelines-avoid-const-or-ref-data-members: `const` references are used extensively throughout the codebase.
+# -altera-unroll-loops: No.
+# -modernize-use-trailing-return-type: No.
+# -fuchsia-default-arguments-calls: No.
+# -fuchsia-default-arguments-declarations: No.
+# -fuchsia-overloaded-operator: No.
+# -fuchsia-statically-constructed-objects: We use singletons.
+# -altera-struct-pack-align: Hard to work with — maybe enable later.
+
+WarningsAsErrors: "*"
+
+CheckOptions:
+  readability-identifier-naming.NamespaceCase: lower_case
+  readability-identifier-naming.ClassCase: CamelCase
+  readability-identifier-naming.StructCase: CamelCase
+  readability-identifier-naming.TemplateParameterCase: CamelCase
+  readability-identifier-naming.FunctionCase: camelBack
+  readability-identifier-naming.VariableCase: lower_case
+  readability-identifier-naming.ClassMemberCase: lower_case
+  readability-identifier-naming.ClassMemberSuffix: _
+  readability-identifier-naming.PrivateMemberSuffix: _
+  readability-identifier-naming.ProtectedMemberSuffix: _
+  readability-identifier-naming.GlobalVariableSuffix: _
+  readability-identifier-naming.EnumConstantCase: UPPER_CASE
+  readability-identifier-naming.ConstexprVariableCase: UPPER_CASE
+  readability-identifier-naming.GlobalConstantCase: UPPER_CASE
+  readability-identifier-naming.MemberConstantCase: UPPER_CASE
+  readability-identifier-naming.StaticConstantCase: UPPER_CASE
+  readability-function-cognitive-complexity.Threshold: 40
+  readability-function-cognitive-complexity.IgnoreMacros: true
+  readability-implicit-bool-conversion.AllowIntegerConditions: 1
+  readability-implicit-bool-conversion.AllowPointerConditions: 1
+  cppcoreguidelines-macro-usage.AllowedRegexp: LOG_*
+  misc-non-private-member-variables-in-classes.IgnoreClassesWithAllMemberVariablesBeingPublic: true
