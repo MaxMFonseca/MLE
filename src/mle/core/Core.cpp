@@ -14,8 +14,8 @@
 #include "mle/window/Window.h"
 
 namespace mle::core {
-namespace impl {
-class Data {
+namespace {
+class Impl {
   public:
     void init(CI ci);
     void run();
@@ -56,7 +56,7 @@ class Data {
     } current_second_times_;
 };
 
-void Data::updateSecondTimes(std::chrono::seconds current) {
+void Impl::updateSecondTimes(std::chrono::seconds current) {
     MLE_I("second: {}, ups: {}({:.3f}ms) | fps: {}({:.3f}ms)", seconds_running_.count(), current_second_times_.updates,
           current_second_times_.time_updating.count() / (f32)current_second_times_.updates / 1'000'000.F, current_second_times_.frames,
           current_second_times_.time_rendering.count() / (f32)current_second_times_.frames / 1'000'000.F);
@@ -73,7 +73,7 @@ void Data::updateSecondTimes(std::chrono::seconds current) {
     current_second_times_.time_rendering = 0ns;
 }
 
-void Data::update() {
+void Impl::update() {
     Stopwatch sw;
 
     update_call_count_++;
@@ -88,7 +88,7 @@ void Data::update() {
     current_second_times_.time_updating += sw.elapsed<std::chrono::nanoseconds>();
 }
 
-void Data::render() {
+void Impl::render() {
     Stopwatch sw;
 
     // render_call_count_++;
@@ -105,7 +105,7 @@ void Data::render() {
     current_second_times_.time_rendering += sw.elapsed<std::chrono::nanoseconds>();
 }
 
-void Data::registerLuaTypesMath() {
+void Impl::registerLuaTypesMath() {
     lua::newUsertype<vec2i>("vec2i", sol::constructors<vec2i(i32, i32)>(), "x", &vec2i::x, "y", &vec2i::y);
     lua::newUsertype<vec3i>("vec3i", sol::constructors<vec3i(i32, i32, i32)>(), "x", &vec3i::x, "y", &vec3i::y, "z", &vec3i::z);
     lua::newUsertype<vec4i>("vec4i", sol::constructors<vec4i(i32, i32, i32, i32)>(), "x", &vec4i::x, "y", &vec4i::y, "z", &vec4i::z, "w", &vec4i::w);
@@ -117,7 +117,7 @@ void Data::registerLuaTypesMath() {
     lua::newUsertype<Rectf>("rectf", sol::constructors<Rectf(f32, f32, f32, f32), Rectf(vec2f, vec2f)>(), "pos", &Rectf::pos, "size", &Rectf::size);
 }
 
-void Data::registerLuaTypes(const CI& ci) {
+void Impl::registerLuaTypes(const CI& ci) {
     MLE_I("Registering Lua types");
     MLE_T("Common");
     registerLuaTypesMath();
@@ -130,7 +130,7 @@ void Data::registerLuaTypes(const CI& ci) {
     }
 }
 
-void Data::shutdown() {
+void Impl::shutdown() {
     MLE_I("Shutting down MLE Core");
     // renderer::waitIdle();
     MLE_I("MLE Core shutting down after {}s", seconds_running_.count());
@@ -146,12 +146,12 @@ void Data::shutdown() {
     MLE_I("MLE Core shut down successfully");
 }
 
-void Data::logInitParams(const CI& ci) {
+void Impl::logInitParams(const CI& ci) {
     MLE_I("Init params:");
     MLE_I("  app_name: {}", ci.app_name);
 }
 
-void Data::init(CI ci) {  // NOLINT
+void Impl::init(CI ci) {  // NOLINT
     logger::init();
     MLE_I("Initializing MLE Core");
     state_ = State::INITIALIZING;
@@ -184,7 +184,7 @@ void Data::init(CI ci) {  // NOLINT
     MLE_I("Core initialized successfully!");
 }
 
-void Data::run() {
+void Impl::run() {
     MLE_I("--------------------------- RUN ---------------------------");
     // ui::switchController();
 
@@ -212,32 +212,30 @@ void Data::run() {
     shutdown();
 }
 
-void Data::stop() {
+void Impl::stop() {
     MLE_I("Core Stop called!");
     state_ = State::STOPPING;
 }
 
-void Data::accumulateKPI(SecondKPIType kpi, std::chrono::nanoseconds value) {
+void Impl::accumulateKPI(SecondKPIType kpi, std::chrono::nanoseconds value) {
     current_second_times_.other_kpi.at(static_cast<u32>(kpi)) += value;
 }
 
-std::chrono::milliseconds Data::getRunningTimeMS() const {
+std::chrono::milliseconds Impl::getRunningTimeMS() const {
     return running_stopwatch_.elapsed<std::chrono::milliseconds>();
 }
 
-f32 Data::getRunningTimeFloat() const {
+f32 Impl::getRunningTimeFloat() const {
     return running_time_float_;
 }
-}  // namespace impl
 
-namespace {
 // TODO: I will probably allocate this at a linear allocator along the other core singletons in the future
-std::unique_ptr<impl::Data> i_;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+std::unique_ptr<Impl> i_;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 }  // namespace
 
 void init(CI ci) {
     MLE_ASSERT(!i_);
-    i_ = std::make_unique<impl::Data>();
+    i_ = std::make_unique<Impl>();
     i_->init(std::move(ci));
 }
 

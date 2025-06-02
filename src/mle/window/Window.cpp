@@ -2,15 +2,13 @@
 
 #include "GLFW/glfw3.h"
 #include "mle/common/Logger.h"
-#include "mle/common/Utils.h"
 #include "mle/lua/Utils.h"
 #include "mle/window/Types.h"
 #include "mle/window/UserInputManager.h"
-#include "mle/window/Utils.h"
 
 namespace mle::window {
-namespace impl {
-class Data {
+namespace {
+class Impl {
   public:
     inline Result init(const CI& ci);
     inline void update();
@@ -47,7 +45,7 @@ class Data {
     UserInputManager uim_;
 };
 
-Result Data::init(const CI& ci) {
+Result Impl::init(const CI& ci) {
     MLE_I("Initializing Window Module");
 
     MLE_T("GLFW");
@@ -85,14 +83,14 @@ Result Data::init(const CI& ci) {
     return Result::OK;
 }
 
-void Data::applyLuaOverrides(const sol::table& table) {
+void Impl::applyLuaOverrides(const sol::table& table) {
     lua::tryGetKey(table, "title", target_config_.title);
     lua::tryGetKey(table, "width", target_config_.size.x);
     lua::tryGetKey(table, "height", target_config_.size.y);
     lua::tryAs(table["size"], target_config_.size);
 }
 
-void Data::registerCallbacks() {
+void Impl::registerCallbacks() {
     glfwSetWindowUserPointer(window_, this);
 
     glfwSetWindowCloseCallback(window_, onWindowClose);
@@ -106,53 +104,51 @@ void Data::registerCallbacks() {
     glfwSetCharCallback(window_, onChar);
 }
 
-void Data::shutdown() {
+void Impl::shutdown() {
     MLE_I("Shutting down Window Module");
     glfwDestroyWindow(window_);
     glfwTerminate();
     MLE_D("Module shut down successfully!");
 }
 
-void Data::update() {
+void Impl::update() {
     glfwPollEvents();
     uim_.update();
 }
 
-namespace {
 auto& windowToSelf(GLFWWindowRef glfw_window) {
-    return asRef<Data>(glfwGetWindowUserPointer(glfw_window));
+    return asRef<Impl>(glfwGetWindowUserPointer(glfw_window));
 }
-}  // namespace
 
-void Data::onWindowClose(GLFWWindowRef glfw_window) {
+void Impl::onWindowClose(GLFWWindowRef glfw_window) {
     auto& self = windowToSelf(glfw_window);
     self.ed_.dispatch(events::WindowClose{});
 }
 
-void Data::onWindowResize(GLFWWindowRef glfw_window, int width, int height) {
+void Impl::onWindowResize(GLFWWindowRef glfw_window, int width, int height) {
     auto& self = windowToSelf(glfw_window);
     MLE_I("Window resized to {}x{}", width, height);
     self.current_config_.size = {width, height};
     self.ed_.dispatch(events::WindowResize{{width, height}});
 }
 
-void Data::onWindowIconify(GLFWWindowRef glfw_window, int iconified) {
+void Impl::onWindowIconify(GLFWWindowRef glfw_window, int iconified) {
     auto& self = windowToSelf(glfw_window);
     MLE_I("Window iconify: {}", iconified);
     self.ed_.dispatch(events::WindowIconify{as<bool>(iconified)});
 }
 
-void Data::onCursorMove(GLFWWindowRef glfw_window, double x, double y) {
+void Impl::onCursorMove(GLFWWindowRef glfw_window, double x, double y) {
     auto& self = windowToSelf(glfw_window);
     self.uim_.setCursorPos({x, y});
 }
 
-void Data::onMouseScroll(GLFWWindowRef glfw_window, [[maybe_unused]] double x, double y) {
+void Impl::onMouseScroll(GLFWWindowRef glfw_window, [[maybe_unused]] double x, double y) {
     auto& self = windowToSelf(glfw_window);
     self.uim_.setScrollOffset(y);
 }
 
-void Data::onMouseButton(GLFWWindowRef glfw_window, int button, int action, int /*mods*/) {
+void Impl::onMouseButton(GLFWWindowRef glfw_window, int button, int action, int /*mods*/) {
     auto& self = windowToSelf(glfw_window);
     if (action == GLFW_PRESS) {
         self.uim_.setPressed(castGlfwMouseButtonToKey(button));
@@ -161,7 +157,7 @@ void Data::onMouseButton(GLFWWindowRef glfw_window, int button, int action, int 
     }
 }
 
-void Data::onKey(GLFWWindowRef glfw_window, int key, int /*scancode*/, int action, int /*mods*/) {
+void Impl::onKey(GLFWWindowRef glfw_window, int key, int /*scancode*/, int action, int /*mods*/) {
     auto& self = windowToSelf(glfw_window);
     if (action == GLFW_PRESS) {
         self.uim_.setPressed(castGlfwKeyToKey(key));
@@ -170,20 +166,18 @@ void Data::onKey(GLFWWindowRef glfw_window, int key, int /*scancode*/, int actio
     }
 }
 
-void Data::onChar(GLFWWindowRef glfw_window, unsigned codepoint) {
+void Impl::onChar(GLFWWindowRef glfw_window, unsigned codepoint) {
     auto& self = windowToSelf(glfw_window);
     self.uim_.pushChar(codepoint);
 }
-}  // namespace impl
 
-namespace {
 // TODO: I will probably allocate this at a linear allocator along the other core singletons in the future
-std::unique_ptr<impl::Data> i_;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+std::unique_ptr<Impl> i_;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 }  // namespace
 
 Result init(const CI& ci) {
     MLE_ASSERT(!i_);
-    i_ = std::make_unique<impl::Data>();
+    i_ = std::make_unique<Impl>();
     auto result = i_->init(ci);
     if (result != Result::OK) {
         MLE_C("Window initialization failed with error: {}", result);

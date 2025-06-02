@@ -6,8 +6,8 @@
 #include "mle/common/Utils.h"
 
 namespace mle::lua {
-namespace impl {
-class Data {
+namespace {
+class Impl {
   public:
     inline Result init();
     inline void shutdown();
@@ -24,7 +24,7 @@ class Data {
     sol::state sol_;
 };
 
-Result Data::init() {
+Result Impl::init() {
     MLE_I("Initializing Lua Module");
 
     sol_.open_libraries(sol::lib::base, sol::lib::package, sol::lib::jit, sol::lib::math, sol::lib::string, sol::lib::table);
@@ -48,16 +48,16 @@ Result Data::init() {
     return Result::OK;
 }
 
-void Data::shutdown() {  // NOLINT this can be static for now but should not be static in the future
+void Impl::shutdown() {  // NOLINT this can be static for now but should not be static in the future
     MLE_I("Shutting down Lua Module");
     MLE_D("Module shut down successfully!");
 }
 
-sol::object Data::scriptFile(const fs::path& file) {
+sol::object Impl::scriptFile(const fs::path& file) {
     return sol_.script_file(file);
 }
 
-sol::object Data::require(const std::string& module_name, bool engine) {
+sol::object Impl::require(const std::string& module_name, bool engine) {
     MLE_D("Requiring Lua module: {}, engine: {}", module_name, engine);
     if (engine) {
         return scriptFile(res::addMleLuaPath(module_name + ".lua"));
@@ -65,20 +65,20 @@ sol::object Data::require(const std::string& module_name, bool engine) {
     return scriptFile(res::addUserLuaPath(module_name + ".lua"));
 }
 
-sol::table Data::getTable(const std::string& name) {
+sol::table Impl::getTable(const std::string& name) {
     return sol_.get<sol::table>(name);
 }
 
-sol::table Data::createTable() {
+sol::table Impl::createTable() {
     return sol_.create_table();
 }
 
-sol::table Data::createTable(const std::string& name) {
+sol::table Impl::createTable(const std::string& name) {
     MLE_D("Creating global table: {}", name);
     return sol_.create_named_table(name);
 }
 
-sol::table Data::createTable(const sol::table& table, bool deep) {
+sol::table Impl::createTable(const sol::table& table, bool deep) {
     sol::table copy = createTable();
 
     if (!deep) {
@@ -108,16 +108,14 @@ sol::table Data::createTable(const sol::table& table, bool deep) {
 
     return copy;
 }
-}  // namespace impl
 
-namespace {
 // TODO: I will probably allocate this at a linear allocator along the other core singletons in the future
-std::unique_ptr<impl::Data> i_;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+std::unique_ptr<Impl> i_;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 }  // namespace
 
 Result init() {
     MLE_ASSERT(!i_);
-    i_ = std::make_unique<impl::Data>();
+    i_ = std::make_unique<Impl>();
     auto result = i_->init();
     if (result != Result::OK) {
         MLE_C("Lua initialization failed with error: {}", result);
