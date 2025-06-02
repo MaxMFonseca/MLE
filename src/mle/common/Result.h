@@ -23,6 +23,7 @@ enum class [[nodiscard]] Result : u8 {
     TEXTURE_PENDING,      ///< Texture upload is pending.
 
     UNKNOWN_ERROR,        ///< An unknown error occurred.
+    NOK,                  ///< A generic error occurred. Bad practice to use this. To be removed.
     PIPELINE_NOT_BUILT,   ///< A pipeline was not built before use.
     INIT_FAILED,          ///< Initialization failed.
     RESOURCE_NOT_FOUND,   ///< A required resource was not found.
@@ -49,6 +50,7 @@ static constexpr const char* toString(Result result) {
         CASE(TEXTURE_PENDING);
 
         CASE(UNKNOWN_ERROR);
+        CASE(NOK);
         CASE(PIPELINE_NOT_BUILT);
         CASE(INIT_FAILED);
         CASE(RESOURCE_NOT_FOUND);

@@ -192,9 +192,11 @@ void update() {
 }
 
 void shutdown() {
-    MLE_ASSERT(i_);
-    i_->shutdown();
-    i_.reset();
+    if (i_) {
+        MLE_I("Shutting down Window Module");
+        i_->shutdown();
+        i_.reset();
+    }
 }
 
 ED& getED() {

@@ -1,7 +1,9 @@
 #pragma once
 
 #define VULKAN_HPP_DISPATCH_LOADER_DYNAMIC 1
+
 #include <spdlog/fmt/fmt.h>
+#include <vk_mem_alloc.h>
 
 #include <memory>
 #include <vulkan/vulkan.hpp>
@@ -43,7 +45,7 @@ struct Texture {
     Rectf rect = {0.0F, 0.0F, 0.0F, 0.0F};
     float aspect_ratio = 0.0F;
 
-    bool operator==(const Texture& other) const { return idx == other.idx && rect == other.rect && aspect_ratio == other.aspect_ratio; }
+    // bool operator==(const Texture& other) const { return idx == other.idx && rect == other.rect && aspect_ratio == other.aspect_ratio; }
 };
 
 struct WriteDescriptorSet {
@@ -66,6 +68,14 @@ struct RenderingInfo {
 }  // namespace mle::renderer
 
 namespace fmt {
+template <>
+struct formatter<vk::Result> : formatter<std::string> {
+    template <typename FormatContext>
+    constexpr auto format(vk::Result result, FormatContext& ctx) const {
+        return format_to(ctx.out(), "{}", vk::to_string(result));
+    }
+};
+
 template <>
 struct formatter<vk::Extent2D> : formatter<std::string> {
     template <typename FormatContext>

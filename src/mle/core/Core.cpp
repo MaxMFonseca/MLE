@@ -10,6 +10,7 @@
 // #include "mle/renderer/Renderer.h"
 // #include "mle/ui/Controller.h"
 // #include "mle/ui/UI.h"
+#include "mle/renderer/Renderer.h"
 #include "mle/window/Events.h"
 #include "mle/window/Window.h"
 
@@ -135,9 +136,8 @@ void Impl::shutdown() {
     // renderer::waitIdle();
     MLE_I("MLE Core shutting down after {}s", seconds_running_.count());
 
-    Stopwatch sw;
     // ui::shutdown();
-    // renderer::shutdown();
+    renderer::shutdown();
     window::shutdown();
     mle_table_.reset();
     lua::shutdown();
@@ -175,7 +175,13 @@ void Impl::init(CI ci) {  // NOLINT
     window_close_listener_ = window::getED().makeEventListener<window::events::WindowClose>([this](const auto&) { stop(); });
 
     MLE_T("Renderer");
-    // renderer::init({});
+    auto renderer_init_r = renderer::init({});
+    if (isError(renderer_init_r)) {
+        MLE_E("Failed to initialize Renderer! Error: {}", renderer_init_r);
+        shutdown();
+        MLE_C("MLE Core initialization failed!");
+        return;
+    }
 
     MLE_T("UI");
     // ui::init({.table = init_config, .init_controller = std::move(ci.init_controller)});

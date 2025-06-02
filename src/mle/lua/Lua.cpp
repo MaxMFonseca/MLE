@@ -125,9 +125,11 @@ Result init() {
 }
 
 void shutdown() {
-    MLE_ASSERT(i_);
-    i_->shutdown();
-    i_.reset();
+    if (i_) {
+        MLE_I("Shutting down Lua Module");
+        i_->shutdown();
+        i_.reset();
+    }
 }
 
 sol::object scriptFile(const fs::path& file) {

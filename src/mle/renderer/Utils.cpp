@@ -2,6 +2,7 @@
 
 #include <utility>
 
+#include "mle/common/Assert.h"
 #include "mle/common/Utils.h"
 
 namespace mle::renderer {
