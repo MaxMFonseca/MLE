@@ -13,13 +13,6 @@ target_link_libraries(MLE glm)
 find_package(Vulkan REQUIRED)
 target_link_libraries(MLE vulkan)
 
-find_package(glslang CONFIG REQUIRED)
-target_link_libraries(MLE
-    glslang::glslang-default-resource-limits
-    glslang::SPIRV
-    glslang::glslang
-    glslang::OSDependent)
-
 target_include_directories(MLE PUBLIC LuaJIT/src)
 target_link_libraries(MLE ${CMAKE_SOURCE_DIR}/external/LuaJIT/src/libluajit.a)
 
