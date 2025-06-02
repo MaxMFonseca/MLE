@@ -174,7 +174,7 @@ void insertPrefix(std::vector<std::string>& v, const std::string& prefix, const 
  *
  * @return A unique ID.
  */
-ID getID();
+ID genID();
 
 /**
  * @brief Retrieves an element from an ID vector by its ID.
@@ -238,7 +238,7 @@ Expected<void> removeFromIDVec(IDVec<T>& v, ID id) {
  */
 template <typename T>
 ID emplaceBackOnIDVec(IDVec<T>& v, T&& t) {
-    auto id = getID();
+    auto id = genID();
     v.emplace_back(id, std::forward<T>(t));
     return id;
 }

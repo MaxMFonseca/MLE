@@ -11,7 +11,7 @@
 #include "mle/common/Logger.h"
 
 namespace mle {
-ID getID() {
+ID genID() {
     static ID id = 0;
     return id++;
 }
