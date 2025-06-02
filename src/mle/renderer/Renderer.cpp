@@ -8,6 +8,7 @@
 #include <vulkan/vulkan_handles.hpp>
 #include <vulkan/vulkan_structs.hpp>
 
+#include "Buffer.h"
 #include "GLFW/glfw3.h"
 #include "mle/window/Window.h"
 
@@ -39,24 +40,26 @@ struct PhysicalDeviceInfo {
 
 class Impl {
   public:
-    Result init();
-    void shutdown();
+    inline Result init();
+    inline void shutdown();
 
     void waitIdle();
 
+    auto getVma() { return vma_; }
+    auto getDevice() { return device_; }
+
   private:
-    Result createVkInstance();
-    Result createVkDebugMessenger();
-    Result createVkSurface();
-    Result createVkDevice();
-    Result pickPhysicalDevice();
+    inline Result createVkInstance();
+    inline Result createVkDebugMessenger();
+    inline Result createVkSurface();
+    inline Result createVkDevice();
+    inline Result pickPhysicalDevice();
+    inline Result pickAioQueueIdx();
+    inline Result createVMA();
+
     [[nodiscard]] Expected<vk::Format> pickFormat(const std::vector<vk::Format>& candidates, vk::FormatFeatureFlags flags) const;
-    Result pickAioQueueIdx();
-    Result createVMA();
 
     [[maybe_unused]] Result createSwapchain();
-
-    void shutdownVkContext();
 
     void logDevice();
 
@@ -554,6 +557,10 @@ void Impl::shutdown() {
     for (auto& it : std::ranges::reverse_view(shutdown_delete_queue_)) {
         it();
     }
+
+    MLE_D("Live instances after shutdown:");
+    LiveCounter<Buffer>::listActiveInstances("Buffer");
+    // LiveCounter<Image>::listActiveInstances("Image");
 }
 
 void Impl::waitIdle() {
@@ -676,5 +683,15 @@ void shutdown() {
         i_->shutdown();
         i_.reset();
     }
+}
+
+VmaAllocator getVma() {
+    MLE_ASSERT(i_);
+    return i_->getVma();
+}
+
+vk::Device getVkDevice() {
+    MLE_ASSERT(i_);
+    return i_->getDevice();
 }
 }  // namespace mle::renderer

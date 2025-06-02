@@ -11,8 +11,7 @@ struct SwapchainRecreated {
 };
 }  // namespace events
 
-using namespace events;
-using ED = EventDispatcher<SwapchainRecreated>;
+using ED = EventDispatcher<events::SwapchainRecreated>;
 
-using SwapchainRecreatedListener = ED::ListenerHnd<SwapchainRecreated>;
+using SwapchainRecreatedListener = ED::ListenerHnd<events::SwapchainRecreated>;
 }  // namespace mle::renderer
