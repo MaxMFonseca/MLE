@@ -10,6 +10,7 @@
 #include "mle/common/Result.h"
 #include "mle/common/Utils.h"
 
+namespace mle::renderer {
 /**
  * @brief Represents a Vulkan buffer with associated memory allocation.
  *
@@ -17,7 +18,6 @@
  * and data uploads using VMA. It supports different allocation types for staging,
  * GPU-only, and host-visible memory.
  */
-namespace mle::renderer {
 class Buffer final : public LiveCounter<Buffer> {
   public:
     /// Configuration structure for buffer creation.
@@ -41,17 +41,38 @@ class Buffer final : public LiveCounter<Buffer> {
 
   public:
     Buffer(const Buffer&) = delete;
-    Buffer(Buffer&&) = delete;
     Buffer& operator=(const Buffer&) = delete;
     Buffer& operator=(Buffer&&) = delete;
+
+    Buffer(Buffer&& other);
 
     /**
      * @brief Creates a Vulkan buffer with the specified configuration.
      *
      * @param ci Buffer creation configuration.
-     * @return an `Expected<BufferHnd>` containing the created buffer handle or an error.
+     * @return a Buffer instance
      */
-    static Expected<BufferHnd> create(const CI& ci);
+    static Buffer create(const CI& ci);
+
+    /**
+     * @brief Creates a Vulkan buffer with the specified configuration and returns a handle.
+     *
+     * @param ci Buffer creation configuration.
+     * @return a BufferHnd containing the created buffer.
+     */
+    static BufferHnd createHnd(const CI& ci);
+
+    /**
+     * @brief Initializes the buffer with the provided creation info.
+     *
+     * @param ci Buffer creation configuration.
+     */
+    void init(const CI& ci);
+
+    /**
+     * @brief Releases the Vulkan buffer and its associated memory.
+     */
+    void release();
 
     /// Destroys the Vulkan buffer and frees its memory.
     ~Buffer();
@@ -61,7 +82,7 @@ class Buffer final : public LiveCounter<Buffer> {
      *
      * @return an `Expected<void*>` containing the mapped memory pointer or an error.
      */
-    Expected<void*> map();
+    void* map();
 
     /// Unmaps the buffer memory if it was previously mapped.
     void unmap();
@@ -71,9 +92,8 @@ class Buffer final : public LiveCounter<Buffer> {
      * @param data Pointer to the data.
      * @param size Size of the data to copy. Defaults to entire buffer.
      * @param offset Offset in the buffer to start writing to.
-     * @return Result indicating success or failure.
      */
-    Result update(const void* data, u64 size = max<u64>(), u64 offset = 0);
+    void update(const void* data, u64 size = max<u64>(), u64 offset = 0);
 
     /**
      * @brief Copies data from another buffer using a command buffer.
@@ -82,17 +102,18 @@ class Buffer final : public LiveCounter<Buffer> {
      * @param size Number of bytes to copy. Defaults to entire buffer.
      * @param offset Offset in the destination buffer.
      */
-    void updateFromBuffer(vk::CommandBuffer cmd, BufferRef src, u64 size = max<u64>(), u64 offset = 0);
+    void update(vk::CommandBuffer cmd, BufferRef src, u64 size = max<u64>(), u64 offset = 0);
 
     /**
      * @brief Uploads data using a temporary staging buffer and a copy command.
+     *
      * @param cmd Command buffer used to record the copy.
      * @param data Pointer to source data.
      * @param size Size of data to copy. Defaults to entire buffer.
      * @param offset Offset in the destination buffer.
      * @return A temporary staging buffer that must be kept alive until the copy completes or an error.
      */
-    [[nodiscard]] Expected<BufferHnd> updateStaged(vk::CommandBuffer cmd, const void* data, u64 size = max<u64>(), u64 offset = 0);
+    [[nodiscard]] Buffer updateStaged(vk::CommandBuffer cmd, const void* data, u64 size = max<u64>(), u64 offset = 0);
 
     /**
      * @brief Returns a descriptor buffer info used for descriptor bindings.

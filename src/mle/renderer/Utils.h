@@ -3,7 +3,9 @@
 #include "Types.h"
 #include "mle/common/Color.h"
 #include "mle/common/Types.h"
+#include "mle/common/Utils.h"
 #include "mle/common/math/Types.h"
+#include "mle/core/Core.h"
 
 namespace mle::renderer {
 inline vk::Extent2D toVkExtent2D(const vec2i& extent) {
@@ -24,5 +26,22 @@ inline vk::ClearColorValue toVkClearColor(const Color& color) {
 }
 
 std::vector<vk::PipelineColorBlendAttachmentState> makeDefaultBlendAttachmentStates(usize count);
+
+inline bool isVkError(vk::Result result) {
+    return as<i64>(result) < 0;
+}
+
+inline void check(vk::Result result) {
+    if (isVkError(result)) {
+        core::unrecoverable("Vulkan error: {}", result);
+    }
+}
+
+template <typename... Args>
+void check(vk::Result result, Args&&... args) {
+    if (isVkError(result)) {
+        core::unrecoverable("Vulkan error: {}, msg: {}", fmt::format(std::forward<Args>(args)...));
+    }
+}
 
 }  // namespace mle::renderer

@@ -22,6 +22,7 @@ class Impl {
     void run();
     void stop();
     void shutdown();
+    void shutdownImediate(const std::string& msg);
     void accumulateKPI(SecondKPIType kpi, std::chrono::nanoseconds value);
     [[nodiscard]] std::chrono::milliseconds getRunningTimeMS() const;
     [[nodiscard]] f32 getRunningTimeFloat() const;
@@ -146,6 +147,19 @@ void Impl::shutdown() {
     MLE_I("MLE Core shut down successfully");
 }
 
+void Impl::shutdownImediate(const std::string& msg) {
+    MLE_C("Unrecoverable error: {}", msg);
+    MLE_C("Shutting down MLE Core immediately!");
+    state_ = State::SHUTDOWN;
+    // ui::shutdown();
+    // renderer::criticalShutdown();
+    // window::criticalShutdown();
+    // mle_table_.reset();
+    // lua::shutdownImediate(msg);
+
+    std::exit(EXIT_FAILURE);  // NOLINT
+}
+
 void Impl::logInitParams(const CI& ci) {
     MLE_I("Init params:");
     MLE_I("  app_name: {}", ci.app_name);
@@ -158,7 +172,7 @@ void Impl::init(CI ci) {  // NOLINT
 
     logInitParams(ci);
     MLE_T("Lua");
-    MLE_ASSERT_RESULT(lua::init());
+    lua::init();
     registerLuaTypes(ci);
 
     MLE_ASSERT_LOG(fs::exists(res::addUserLuaPath("config.lua")), "Create the config.lua file inside {}/{}", RES_BASE_PATH, ResPath::LUA);
@@ -171,17 +185,11 @@ void Impl::init(CI ci) {  // NOLINT
     }
 
     MLE_T("Window");
-    MLE_ASSERT_RESULT(window::init({.table = init_config["window"]}));
+    window::init({.table = init_config["window"]});
     window_close_listener_ = window::getED().makeEventListener<window::events::WindowClose>([this](const auto&) { stop(); });
 
     MLE_T("Renderer");
-    auto renderer_init_r = renderer::init({});
-    if (isError(renderer_init_r)) {
-        MLE_E("Failed to initialize Renderer! Error: {}", renderer_init_r);
-        shutdown();
-        MLE_C("MLE Core initialization failed!");
-        return;
-    }
+    renderer::init({});
 
     MLE_T("UI");
     // ui::init({.table = init_config, .init_controller = std::move(ci.init_controller)});
@@ -269,4 +277,10 @@ f32 getRunningTimeF32() {
     MLE_ASSERT(i_);
     return i_->getRunningTimeFloat();
 }
+
+void unrecoverable(const std::string& msg) {
+    MLE_ASSERT(i_);
+    i_->shutdownImediate(msg);
+}
+
 }  // namespace mle::core

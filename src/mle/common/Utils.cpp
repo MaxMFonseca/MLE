@@ -61,7 +61,7 @@ Expected<usize> readFileSize(const fs::path& path) {
     auto size = std::filesystem::file_size(path, ec);
     if (ec) {
         MLE_E("Failed to stat file '{}': {}", path.generic_string(), ec.message());
-        return std::unexpected(Result::FAILED_TO_OPEN_FILE);
+        return std::unexpected(Result::FAILED_TO_OPEN);
     }
     return static_cast<usize>(size);
 }
@@ -75,13 +75,13 @@ Expected<Bytes> readFile(const fs::path& path, bool binary) {
     file.open(path, binary ? std::ios::ate | std::ios::binary : std::ios::ate);
     if (!file.is_open()) {
         MLE_E("Failed to open file: {}", path.generic_string());
-        return std::unexpected(Result::FAILED_TO_OPEN_FILE);
+        return std::unexpected(Result::FAILED_TO_OPEN);
     }
 
     std::streamsize file_size = file.tellg();
     if (file_size <= 0) {
         MLE_E("File is empty or unreadable: {}", path.generic_string());
-        return std::unexpected(Result::FAILED_TO_OPEN_FILE);
+        return std::unexpected(Result::FAILED_TO_OPEN);
     }
 
     Bytes buffer(static_cast<usize>(file_size));
@@ -90,7 +90,7 @@ Expected<Bytes> readFile(const fs::path& path, bool binary) {
     file.read(reinterpret_cast<char*>(buffer.data()), file_size);
     if (!file) {
         MLE_E("Failed to read file: {}", path.generic_string());
-        return std::unexpected(Result::FAILED_TO_OPEN_FILE);
+        return std::unexpected(Result::FAILED_TO_OPEN);
     }
 
     return buffer;
@@ -100,18 +100,18 @@ Expected<std::string> readFileAsString(const fs::path& path) {
     MLE_T("Reading file: {}", path.generic_string());
 
     std::ifstream file;
-    file.exceptions(std::ios::goodbit);  // Disable throwing
+    file.exceptions(std::ios::goodbit);
 
     file.open(path, std::ios::ate);
     if (!file.is_open()) {
         MLE_E("Failed to open file: {}", path.generic_string());
-        return std::unexpected(Result::FAILED_TO_OPEN_FILE);
+        return std::unexpected(Result::FAILED_TO_OPEN);
     }
 
     std::streamsize file_size = file.tellg();
     if (file_size <= 0) {
         MLE_E("File is empty or unreadable: {}", path.generic_string());
-        return std::unexpected(Result::FAILED_TO_OPEN_FILE);
+        return std::unexpected(Result::FAILED_TO_OPEN);
     }
 
     std::string ret(static_cast<usize>(file_size), '\0');
@@ -120,7 +120,7 @@ Expected<std::string> readFileAsString(const fs::path& path) {
     file.read(ret.data(), file_size);
     if (!file) {
         MLE_E("Failed to read file: {}", path.generic_string());
-        return std::unexpected(Result::FAILED_TO_OPEN_FILE);
+        return std::unexpected(Result::FAILED_TO_OPEN);
     }
 
     return ret;
@@ -138,7 +138,7 @@ Expected<std::vector<fs::path>> getEntriesInDirectory(const fs::path& path) {
     for (fs::directory_iterator it(path, ec), end; it != end; it.increment(ec)) {
         if (ec) {
             MLE_E("Error iterating directory {}: {}", path.generic_string(), ec.message());
-            return std::unexpected(Result::FAILED_TO_OPEN_FILE);
+            return std::unexpected(Result::FAILED_TO_OPEN);
         }
         entries.push_back(it->path());
     }
@@ -158,13 +158,13 @@ Expected<std::vector<fs::path>> getEntriesInDirectoryRecursive(const fs::path& p
     for (fs::recursive_directory_iterator it(path, ec), end; it != end; it.increment(ec)) {
         if (ec) {
             MLE_E("Error during recursive directory iteration on {}: {}", path.generic_string(), ec.message());
-            return std::unexpected(Result::FAILED_TO_OPEN_FILE);
+            return std::unexpected(Result::FAILED_TO_OPEN);
         }
 
         if (it->is_regular_file(ec)) {
             if (ec) {
                 MLE_E("Error checking file type: {}", ec.message());
-                return std::unexpected(Result::FAILED_TO_OPEN_FILE);
+                return std::unexpected(Result::FAILED_TO_OPEN);
             }
             entries.push_back(it->path());
         }

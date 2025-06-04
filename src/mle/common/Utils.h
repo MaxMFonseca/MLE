@@ -263,14 +263,14 @@ Result readFile(const fs::path& path, T& buffer, usize size = 0, bool binary = t
     file.open(path, binary ? std::ios::binary : std::ios::in);
     if (!file.is_open()) {
         MLE_E("Failed to open file: {}", path.generic_string());
-        return Result::FAILED_TO_OPEN_FILE;
+        return Result::FAILED_TO_OPEN;
     }
 
     const usize to_read = size ? size : buffer.size();
     file.read(reinterpret_cast<char*>(buffer.data()), static_cast<std::streamsize>(to_read));
     if (!file) {
         MLE_E("Failed to read file: {}", path.generic_string());
-        return Result::FAILED_TO_OPEN_FILE;
+        return Result::FAILED_TO_OPEN;
     }
 
     return Result::OK;

@@ -34,6 +34,7 @@
 
 #include "mle/common/Result.h"
 // #include "mle/ui/Types.h"
+#include "mle/common/Utils.h"
 #include "mle/window/Events.h"
 
 namespace mle::core {
@@ -70,6 +71,24 @@ void run();
 
 /// Signals the core to stop after the current frame.
 void stop();
+
+/**
+ * @brief Unrecoverable error handler. Shuts down the engine immediately.
+ *
+ * @param msg Error message to log before shutdown.
+ */
+void unrecoverable(const std::string& msg);
+
+/**
+ * @brief Unrecoverable error handler. Shuts down the engine immediately.
+ *
+ * @tparam Args Variadic template arguments to format the error message.
+ * @param args Arguments to format into the error message.
+ */
+template <typename... Args>
+void unrecoverable(fmt::format_string<Args...> fmt_str, Args&&... args) {
+    unrecoverable(fmt::format(fmt_str, std::forward<Args>(args)...));
+}
 
 /// Returns the total time the engine has been running in milliseconds.
 std::chrono::milliseconds getRunningTimeMS();

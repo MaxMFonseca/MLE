@@ -6,25 +6,39 @@
 #include "mle/renderer/Types.h"
 
 namespace mle::renderer {
-class Image final {
+/**
+ * @brief Represents a Vulkan image with associated memory allocation.
+ *
+ * This class wraps a `vk::Image` and manages its lifetime, memory allocation and data uploads using VMA.
+ * It supports different image usage types such as color attachment, depth attachment, and transfer operations.
+ * There are a bunch of helper functions for updating the image data, transitioning its state, and reading image files.
+ */
+class Image final : LiveCounter<Image> {
   public:
+    /// Specifies parameters for image creation.
     struct CreateInfo {
-        vec2i extent;
-        vk::Format format;
-        vk::ImageUsageFlags usage;
-        vk::MemoryPropertyFlags required_mem_flags = {};
+        vk::Image image;                                  ///< From existing image.
+        vec2i extent;                                     ///< Image size in pixels.
+        vk::Format format;                                ///< Pixel format.
+        vk::ImageUsageFlags usage;                        ///< Vulkan usage flags.
+        vk::MemoryPropertyFlags required_mem_flags = {};  ///< Required memory flags (optional).
     };
-    using CI = CreateInfo;
+    using CI = CreateInfo;  ///< Alias for CreateInfo.
 
-    struct CreateInfoSwapchain {
-        vk::Image image;
-    };
-    using CISwapchain = CreateInfoSwapchain;
-
+    /// Specifies parameters for creating an image view.
     struct ViewCreateInfo {};
-    using ViewCI = ViewCreateInfo;
+    using ViewCI = ViewCreateInfo;  ///< Alias for ViewCreateInfo.
 
-    enum class State : u8 { INITIAL, TRANSFER_SRC, TRANSFER_DST, COLOR_ATT, DEPTH_ATT, PRESENT, SHADER_READ };
+    /// Describes the current layout or usage of the image.
+    enum class State : u8 {
+        INITIAL,       ///< Undefined initial state.
+        TRANSFER_SRC,  ///< Used as source in a transfer.
+        TRANSFER_DST,  ///< Used as destination in a transfer.
+        COLOR_ATT,     ///< Used as a color attachment.
+        DEPTH_ATT,     ///< Used as a depth attachment.
+        PRESENT,       ///< Presentable (swapchain).
+        SHADER_READ    ///< Readable in shaders.
+    };
 
   public:
     Image(const Image&) = default;
@@ -32,29 +46,85 @@ class Image final {
     Image& operator=(const Image&) = delete;
     Image& operator=(Image&&) = delete;
 
-    explicit Image(const CI& ci);
-    explicit Image(const CISwapchain& ci);
+    /// Creates a Vulkan image with the specified configuration.
+    static ImageHnd create(const CI& ci);
+
+    /// Destroys the image and associated resources.
     ~Image();
 
+    /**
+     * @brief Uploads image data from a GPU buffer.
+     *
+     * Copies a region of data from a Vulkan buffer into this image. Both extent and offset are
+     * in pixels. If `extent` is zero, the full image size is assumed.
+     *
+     * @param cmd Command buffer used for the copy.
+     * @param buffer GPU buffer containing the source image data.
+     * @param extent Size of the region to copy. Defaults to full image.
+     * @param offset Offset in the destination image. Defaults to (0, 0).
+     */
     void update(vk::CommandBuffer cmd, BufferRef buffer, vec2i extent = {0, 0}, vec2i offset = {0, 0});
+
+    /// Same as `update(cmd, buffer, {extent.x, extent.y}, {offset.x, offset.y})` but using a rect.
+    /// @see update(vk::CommandBuffer cmd, BufferRef buffer, vec2i extent, vec2i offset)
     void update(vk::CommandBuffer cmd, BufferRef buffer, Recti rect) { update(cmd, buffer, {rect.size.x, rect.size.y}, {rect.pos.x, rect.pos.y}); }
+
+    /**
+     * @brief Uploads image data directly from CPU memory.
+     *
+     * Stages the provided data into a temporary buffer and issues a copy to this image.
+     * Returns the staging buffer that should be destroyed after the copy is complete.
+     *
+     * @param cmd Command buffer used for the copy.
+     * @param data Pointer to raw pixel data.
+     * @param extent Size of the region to copy. Defaults to full image.
+     * @param offset Offset in the destination image. Defaults to (0, 0).
+     * @return Temporary staging buffer used for the transfer.
+     */
     [[nodiscard]] BufferHnd update(vk::CommandBuffer cmd, const void* data, vec2i extent = {0, 0}, vec2i offset = {0, 0});
+
+    /// Same as `update(cmd, data, {extent.x, extent.y}, {offset.x, offset.y})` but using a rect.
+    /// @see update(vk::CommandBuffer cmd, const void* data, vec2i extent, vec2i offset)
     auto update(vk::CommandBuffer cmd, const void* data, Recti rect) { return update(cmd, data, {rect.size.x, rect.size.y}, {rect.pos.x, rect.pos.y}); }
+
+    /**
+     * @brief Performs a blit operation from another image.
+     *
+     * Copies a region of one image into this image.
+     *
+     * @param cmd Command buffer to record the blit.
+     * @param src Source image.
+     * @param src_rect Region of the source image to read from.
+     * @param dst_rect Region of this image to write into.
+     */
     void updateBlit(vk::CommandBuffer cmd, ImageRef src, Recti src_rect = {}, Recti dst_rect = {});
 
+    /**
+     * @brief Transitions the image to a new logical state.
+     *
+     * Performs a layout transition and memory barrier so the image can be used in the given state.
+     *
+     * @param cmd Command buffer to record the transition.
+     * @param state New logical image state.
+     */
     void transitionState(vk::CommandBuffer cmd, State state);
+
+    /// Transitions the image to a new state using the current frame's main command buffer.
     void transitionStateInFrame(State state) { transitionState(renderer::getFrameMainCommandBuffer(), state); }
 
-    [[nodiscard]] auto getVkHnd() const { return obj_; }
-    [[nodiscard]] auto get() const { return getVkHnd(); }
-    [[nodiscard]] auto getExtent() const { return extent_; }
+    [[nodiscard]] auto getVkHnd() const { return obj_; }      ///< Returns the Vulkan image handle.
+    [[nodiscard]] auto get() const { return getVkHnd(); }     /// Alias for getVkHnd().
+    [[nodiscard]] auto getExtent() const { return extent_; }  /// Returns the image size in pixels.
+    /// Returns the image size in pixels as a Vulkan extent structure (3D).
+    [[nodiscard]] vk::Extent3D getVkExtent3D() const { return {static_cast<u32>(extent_.x), static_cast<u32>(extent_.y), 1}; }
+    /// Returns the image size in pixels as a Vulkan extent structure (2D).
     [[nodiscard]] vk::Extent2D getVkExtent2D() const { return {static_cast<u32>(extent_.x), static_cast<u32>(extent_.y)}; }
-    [[nodiscard]] auto getFormat() const { return format_; }
-    [[nodiscard]] auto getImageUsage() const { return image_usage_; }
-    [[nodiscard]] auto getDefaultView() const { return default_view_; }
-    [[nodiscard]] auto getCurrentLayout() const { return current_layout_; }
-    [[nodiscard]] u64 getAllocationSize() const;
-    [[nodiscard]] u64 getSizeInBytes() const;
+    [[nodiscard]] auto getFormat() const { return format_; }                 ///< Returns the image format
+    [[nodiscard]] auto getImageUsage() const { return image_usage_; }        ///< Result the image usage flags.
+    [[nodiscard]] auto getDefaultView() const { return default_view_; }      ///< Returns the default image view.
+    [[nodiscard]] auto getCurrentLayout() const { return current_layout_; }  ///< Returns the current image layout.
+    [[nodiscard]] u64 getAllocationSize() const;                             ///< Returns the size of the image allocation in bytes.
+    [[nodiscard]] u64 getSizeInBytes() const;                                ///< Returns the size of the image in bytes (extent * format size).
 
     static int getFormatChannelCount(vk::Format format);
     static vk::Format getDefaultFormatForChannelCount(int c);

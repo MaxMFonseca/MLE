@@ -17,25 +17,13 @@ namespace mle {
 
 /// Represents the outcome of an operation.
 enum class [[nodiscard]] Result : u8 {
-    OK,                   ///< Operation succeeded.
-    FRAME_SKIP,           ///< Frame was intentionally skipped.
-    IMAGE_COUNT_CHANGED,  ///< Swapchain image count changed.
-    TEXTURE_PENDING,      ///< Texture upload is pending.
+    OK,       ///< Operation succeeded.
+    TIMEOUT,  ///< Operation timed out.
 
-    UNKNOWN_ERROR,        ///< An unknown error occurred.
-    NOK,                  ///< A generic error occurred. Bad practice to use this. To be removed.
-    PIPELINE_NOT_BUILT,   ///< A pipeline was not built before use.
-    INIT_FAILED,          ///< Initialization failed.
-    RESOURCE_NOT_FOUND,   ///< A required resource was not found.
-    ELEMENT_NOT_FOUND,    ///< An expected element was missing.
-    FAILED_TO_OPEN_FILE,  ///< Failed to open a file.
-    INVALID_ARGUMENT,     ///< One or more arguments were invalid.
-    NOT_IMPLEMENTED,      ///< Functionality is not yet implemented.
-    NOT_SUPPORTED,        ///< Feature is not supported.
-    NOT_READY,            ///< Operation cannot proceed yet.
-    NOT_INITIALIZED,      ///< Component has not been initialized.
-    NOT_FOUND,            ///< Generic not-found result.
-    VK_ERROR,             ///< Vulkan-specific error occurred.
+    NOK,               ///< Generic Error. Try to avoid. Bad practice! Adding new fields here is easy!
+    INVALID_ARGUMENT,  ///< Invalid argument provided.
+    NOT_FOUND,         ///< Requested resource not found.
+    FAILED_TO_OPEN,    ///< Failed to open a resource (e.g., file, network).
 };
 
 /// Converts a Result value to a string literal.
@@ -45,24 +33,12 @@ static constexpr const char* toString(Result result) {
     // clang-format on
     switch (result) {
         CASE(OK);
-        CASE(FRAME_SKIP);
-        CASE(IMAGE_COUNT_CHANGED);
-        CASE(TEXTURE_PENDING);
+        CASE(TIMEOUT);
 
-        CASE(UNKNOWN_ERROR);
         CASE(NOK);
-        CASE(PIPELINE_NOT_BUILT);
-        CASE(INIT_FAILED);
-        CASE(RESOURCE_NOT_FOUND);
-        CASE(ELEMENT_NOT_FOUND);
-        CASE(FAILED_TO_OPEN_FILE);
         CASE(INVALID_ARGUMENT);
-        CASE(NOT_IMPLEMENTED);
-        CASE(NOT_SUPPORTED);
-        CASE(NOT_READY);
-        CASE(NOT_INITIALIZED);
         CASE(NOT_FOUND);
-        CASE(VK_ERROR);
+        CASE(FAILED_TO_OPEN);
     }
     std::unreachable();
 #undef CASE
@@ -70,7 +46,7 @@ static constexpr const char* toString(Result result) {
 
 /// Returns true if the result indicates an error.
 static constexpr bool isError(Result result) {
-    return result >= Result::UNKNOWN_ERROR;
+    return result >= Result::NOK;
 }
 
 /// A convenience alias for returning a value or a Result error.

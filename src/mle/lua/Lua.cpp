@@ -4,12 +4,13 @@
 #include "mle/common/Assert.h"
 #include "mle/common/Logger.h"
 #include "mle/common/Utils.h"
+#include "mle/core/Core.h"
 
 namespace mle::lua {
 namespace {
 class Impl {
   public:
-    inline Result init();
+    inline void init();
     inline void shutdown();
     inline sol::object scriptFile(const fs::path& file);
     inline sol::object require(const std::string& module_name, bool engine = false);
@@ -23,9 +24,23 @@ class Impl {
   private:
     sol::state sol_;
 };
+// TODO: I will probably allocate this at a linear allocator along the other core singletons in the future
+std::unique_ptr<Impl> i_;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 
-Result Impl::init() {
+inline void atLuaPanic(sol::optional<std::string> maybe_msg) {
+    MLE_C("Lua panic occurred!");
+    if (maybe_msg && !maybe_msg.value().empty()) {
+        MLE_C("Lua error: {}", maybe_msg.value());
+    } else if (!maybe_msg) {
+        MLE_C("Lua provided no error message.");
+    }
+    core::unrecoverable("Lua panic occurred! aborting application.");
+}
+
+void Impl::init() {
     MLE_I("Initializing Lua Module");
+
+    sol_.set_panic(sol::c_call<decltype(&atLuaPanic), &atLuaPanic>);
 
     sol_.open_libraries(sol::lib::base, sol::lib::package, sol::lib::jit, sol::lib::math, sol::lib::string, sol::lib::table);
 
@@ -33,8 +48,7 @@ Result Impl::init() {
     package_path = package_path.get<std::string>() + ";" + ResPath::LUA + "?.lua";
 
     if (!sol_["jit"].valid()) {
-        MLE_E("Lua JIT is not available!");
-        return Result::INIT_FAILED;
+        core::unrecoverable("Lua JIT is not available!");
     }
 
     MLE_D("{}", sol_["_VERSION"].get<std::string>());
@@ -44,8 +58,6 @@ Result Impl::init() {
     MLE_T("LuaUtils: {}", getTable("LuaUtils"));
 
     MLE_I("Module initialized successfully!");
-
-    return Result::OK;
 }
 
 void Impl::shutdown() {  // NOLINT this can be static for now but should not be static in the future
@@ -108,20 +120,12 @@ sol::table Impl::createTable(const sol::table& table, bool deep) {
 
     return copy;
 }
-
-// TODO: I will probably allocate this at a linear allocator along the other core singletons in the future
-std::unique_ptr<Impl> i_;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 }  // namespace
 
-Result init() {
+void init() {
     MLE_ASSERT(!i_);
     i_ = std::make_unique<Impl>();
-    auto result = i_->init();
-    if (result != Result::OK) {
-        MLE_C("Lua initialization failed with error: {}", result);
-        i_.reset();
-    }
-    return result;
+    i_->init();
 }
 
 void shutdown() {
@@ -163,5 +167,4 @@ sol::state& getSol() {
     return i_->getSol();
 }
 }  // namespace detail
-
 }  // namespace mle::lua

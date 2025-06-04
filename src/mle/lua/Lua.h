@@ -22,7 +22,7 @@
 
 namespace mle::lua {
 /// Initializes the Lua state.
-Result init();
+void init();
 /// Shuts down the Lua state.
 void shutdown();
 

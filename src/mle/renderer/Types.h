@@ -15,6 +15,14 @@
 namespace mle::renderer {
 enum class DataType : u8 { F32, U32, I32, VEC2F, VEC3F, VEC4F, MAT4, SAMPLER2D, COUNT };
 
+enum class CmdType : u8 { GRAPHICS, TRANSFER, COMPUTE, INVALID };
+
+namespace detail {
+class VkContext;
+class FencePool;
+class CommandPoolManager;
+};  // namespace detail
+
 class Buffer;
 using BufferHnd = std::unique_ptr<Buffer>;
 using BufferRef = Buffer*;
@@ -35,9 +43,27 @@ class TextureAtlas;
 using TextureAtlasHnd = std::unique_ptr<TextureAtlas>;
 using TextureAtlasRef = TextureAtlas*;
 
+class Fence;
+using FenceHnd = std::unique_ptr<Fence>;
+using FenceRef = Fence*;
+
+class CommandPool;
+using CommandPoolHnd = std::unique_ptr<CommandPool>;
+using CommandPoolRef = CommandPool*;
+
+class CommandBuffer;
+using CommandBufferHnd = std::unique_ptr<CommandBuffer>;
+using CommandBufferRef = CommandBuffer*;
+
 struct PipelineGetResult {
     PipelineRef pipeline;
     bool is_new;
+};
+
+struct CmdPoolData {
+    vk::CommandPool o;
+    std::vector<vk::CommandBuffer> buffers;
+    std::vector<vk::CommandBuffer> secondary_buffers;
 };
 
 struct Texture {

@@ -18,15 +18,6 @@ Image::Image(const CI& ci) {
     createDefaultImageView();
 }
 
-Image::Image(const CISwapchain& ci) :
-    obj_(ci.image),
-    extent_(getVk().getSwapchainExtent().width, getVk().getSwapchainExtent().height),
-    format_(getVk().getSwapchainFormat()),
-    image_usage_(vk::ImageUsageFlagBits::eTransferDst),
-    swapchain_(true) {
-    MLE_T("Creating image {}, wrapper for swapchain image {}", (void*)this, (void*)ci.image);
-}
-
 Image::~Image() {
     MLE_LOG_THIS_T;
     getVk().getDevice().destroyImageView(default_view_);

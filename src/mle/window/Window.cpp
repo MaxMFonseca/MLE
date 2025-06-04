@@ -2,6 +2,7 @@
 
 #include "GLFW/glfw3.h"
 #include "mle/common/Logger.h"
+#include "mle/core/Core.h"
 #include "mle/lua/Utils.h"
 #include "mle/window/Types.h"
 #include "mle/window/UserInputManager.h"
@@ -10,7 +11,7 @@ namespace mle::window {
 namespace {
 class Impl {
   public:
-    inline Result init(const CI& ci);
+    inline void init(const CI& ci);
     inline void update();
     inline void shutdown();
 
@@ -45,14 +46,14 @@ class Impl {
     UserInputManager uim_;
 };
 
-Result Impl::init(const CI& ci) {
+void Impl::init(const CI& ci) {
     MLE_I("Initializing Window Module");
 
     MLE_T("GLFW");
     if (!glfwInit()) {
-        MLE_E("glfwInit() failed!");
-        return Result::INIT_FAILED;
+        core::unrecoverable("glfwInit() failed!");
     }
+
     MLE_T("GLFW initialized successfully");
 
     glfwSetErrorCallback([]([[maybe_unused]] int code, [[maybe_unused]] const char* desc) {
@@ -69,8 +70,7 @@ Result Impl::init(const CI& ci) {
 
     window_ = glfwCreateWindow(target_config_.size.x, target_config_.size.y, target_config_.title.c_str(), nullptr, nullptr);
     if (!window_) {
-        MLE_E("glfwCreateWindow() failed!");
-        return Result::INIT_FAILED;
+        core::unrecoverable("glfwCreateWindow() failed!");  // NOLINT(bugprone-lambda-function-name)
     }
 
     current_config_.title = target_config_.title;
@@ -80,7 +80,6 @@ Result Impl::init(const CI& ci) {
 
     MLE_I("Window created successfully! name: {}, size: {}x{}", current_config_.title, current_config_.size.x, current_config_.size.y);
     MLE_D("Module initialized successfully!");
-    return Result::OK;
 }
 
 void Impl::applyLuaOverrides(const sol::table& table) {
@@ -175,15 +174,10 @@ void Impl::onChar(GLFWWindowRef glfw_window, unsigned codepoint) {
 std::unique_ptr<Impl> i_;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 }  // namespace
 
-Result init(const CI& ci) {
+void init(const CI& ci) {
     MLE_ASSERT(!i_);
     i_ = std::make_unique<Impl>();
-    auto result = i_->init(ci);
-    if (result != Result::OK) {
-        MLE_C("Window initialization failed with error: {}", result);
-        i_.reset();
-    }
-    return result;
+    i_->init(ci);
 }
 
 void update() {

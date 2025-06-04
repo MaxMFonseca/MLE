@@ -43,7 +43,7 @@ struct CI {
 };
 
 /// Initializes the window subsystem with the given configuration.
-Result init(const CI& ci);
+void init(const CI& ci);
 
 /// Updates window state and polls events. Should be called once per frame.
 void update();
