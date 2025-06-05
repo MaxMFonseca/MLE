@@ -6,7 +6,7 @@
 
 namespace mle::renderer::detail {
 void FencePool::release(vk::Fence fence) {
-    std::lock_guard lock(available_fences_mutex_);
+    std::scoped_lock lock(available_fences_mutex_);
 
     MLE_ASSERT(fence);
 
@@ -16,7 +16,7 @@ void FencePool::release(vk::Fence fence) {
 }
 
 vk::Fence FencePool::get() {
-    std::lock_guard lock(available_fences_mutex_);
+    std::scoped_lock lock(available_fences_mutex_);
 
     if (available_fences_.empty()) {
         vk::FenceCreateInfo fence_ci;
