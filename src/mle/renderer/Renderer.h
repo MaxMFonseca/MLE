@@ -43,11 +43,13 @@ Result beginFrame();
 void endFrame(ImageRef image);
 
 namespace detail {
+ED& getED();                                  ///< Returns the event dispatcher instance for the renderer.
 VkContext& getVk();                           ///< Returns the Vulkan context instance.
 vk::Device getDevice();                       ///< Returns the Vulkan device handle.
 VmaAllocator getVma();                        ///< Returns the Vulkan Memory Allocator instance.
 FencePool& getFencePool();                    ///< Returns the fence pool for managing Vulkan fences.
 CommandPoolManager& getCommandPoolManager();  ///< Returns the command pool manager.
+void waitIdle();                              ///< Waits for the Vulkan device to become idle, ensuring all operations are complete.
 }  // namespace detail
 
 // /**

@@ -8,31 +8,8 @@
 #include "mle/renderer/Renderer.h"
 
 namespace mle::renderer {
-Buffer::Buffer(Buffer&& other) :
-    obj_(other.obj_),
-    allocation_(other.allocation_),
-    allocation_info_(other.allocation_info_),
-    size_(other.size_),
-    mapped_data_(other.mapped_data_),
-    persistent_(other.persistent_),
-    can_be_mapped_(other.can_be_mapped_) {
-    other.obj_ = nullptr;
-    other.allocation_ = nullptr;
-    other.allocation_info_ = {};
-    other.size_ = 0;
-    other.mapped_data_ = nullptr;
-    other.persistent_ = false;
-    other.can_be_mapped_ = false;
-}
-
-Buffer Buffer::create(const CI& ci) {
-    Buffer ret;
-    ret.init(ci);
-    return ret;
-}
-
 BufferHnd Buffer::createHnd(const CI& ci) {
-    BufferHnd ret{new Buffer()};
+    auto ret = std::make_unique<Buffer>();
     ret->init(ci);
     return ret;
 }
@@ -140,7 +117,7 @@ void Buffer::update(vk::CommandBuffer cmd, BufferRef src, u64 data_size, u64 off
     cmd.copyBuffer(src->get(), obj_, copy_region);
 }
 
-Buffer Buffer::updateStaged(vk::CommandBuffer cmd, const void* data, u64 data_size, u64 offset) {
+BufferHnd Buffer::updateStaged(vk::CommandBuffer cmd, const void* data, u64 data_size, u64 offset) {
     if (data_size == max<u64>()) {
         data_size = size_ - offset;
     }
@@ -151,10 +128,10 @@ Buffer Buffer::updateStaged(vk::CommandBuffer cmd, const void* data, u64 data_si
     staging_ci.usage = vk::BufferUsageFlagBits::eTransferSrc;
     staging_ci.allocation_type = CI::AllocationType::STAGING;
 
-    auto staging_buffer = create(staging_ci);
-    staging_buffer.update(data, data_size, 0);
+    auto staging_buffer = createHnd(staging_ci);
+    staging_buffer->update(data, data_size, 0);
 
-    update(cmd, &staging_buffer, data_size, offset);
+    update(cmd, staging_buffer.get(), data_size, offset);
 
     return staging_buffer;
 }

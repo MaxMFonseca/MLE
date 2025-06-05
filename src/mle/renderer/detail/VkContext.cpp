@@ -309,8 +309,6 @@ void VkContext::initDevice() {
     renderer::addOnShutdown([this]() { device_.destroy(); });
 
     logDevice();
-
-    render_queue_ = device_.getQueue(queue_indices_.at(as<usize>(CmdType::GRAPHICS)), 0);
 }
 
 std::array<vk::Queue, 3> VkContext::getDedicatedQueues() {

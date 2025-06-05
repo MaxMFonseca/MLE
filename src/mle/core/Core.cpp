@@ -93,14 +93,15 @@ void Impl::update() {
 void Impl::render() {
     Stopwatch sw;
 
-    // render_call_count_++;
+    render_call_count_++;
     // MLE_D("----- RENDER ({}) -----", render_call_count_);
 
-    // if (renderer::beginFrame() == Result::FRAME_SKIP) {
-    //     MLE_I("Frame skipped!");
-    //     return;
-    // }
-    //
+    if (renderer::beginFrame() == Result::FRAME_SKIP) {
+        MLE_I("Frame skipped!");
+        return;
+    }
+    renderer::endFrame(nullptr);
+
     // ui::render();
 
     current_second_times_.frames++;

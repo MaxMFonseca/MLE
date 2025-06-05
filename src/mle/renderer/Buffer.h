@@ -43,16 +43,13 @@ class Buffer final : public LiveCounter<Buffer> {
     Buffer(const Buffer&) = delete;
     Buffer& operator=(const Buffer&) = delete;
     Buffer& operator=(Buffer&&) = delete;
+    Buffer(Buffer&& other) = delete;
 
-    Buffer(Buffer&& other);
+    /// Constructs an empty Buffer instance. Use init to initialize it.
+    Buffer() = default;
 
-    /**
-     * @brief Creates a Vulkan buffer with the specified configuration.
-     *
-     * @param ci Buffer creation configuration.
-     * @return a Buffer instance
-     */
-    static Buffer create(const CI& ci);
+    /// Destroys the Vulkan buffer and frees its memory.
+    ~Buffer();
 
     /**
      * @brief Creates a Vulkan buffer with the specified configuration and returns a handle.
@@ -65,7 +62,7 @@ class Buffer final : public LiveCounter<Buffer> {
     /**
      * @brief Initializes the buffer with the provided creation info.
      *
-     * @param ci Buffer creation configuration.
+     * @param ci Buffer creation info.
      */
     void init(const CI& ci);
 
@@ -73,9 +70,6 @@ class Buffer final : public LiveCounter<Buffer> {
      * @brief Releases the Vulkan buffer and its associated memory.
      */
     void release();
-
-    /// Destroys the Vulkan buffer and frees its memory.
-    ~Buffer();
 
     /**
      * @brief Maps the buffer memory and returns a pointer to the mapped region.
@@ -113,7 +107,7 @@ class Buffer final : public LiveCounter<Buffer> {
      * @param offset Offset in the destination buffer.
      * @return A temporary staging buffer that must be kept alive until the copy completes or an error.
      */
-    [[nodiscard]] Buffer updateStaged(vk::CommandBuffer cmd, const void* data, u64 size = max<u64>(), u64 offset = 0);
+    [[nodiscard]] BufferHnd updateStaged(vk::CommandBuffer cmd, const void* data, u64 size = max<u64>(), u64 offset = 0);
 
     /**
      * @brief Returns a descriptor buffer info used for descriptor bindings.
@@ -128,13 +122,6 @@ class Buffer final : public LiveCounter<Buffer> {
     [[nodiscard]] vk::BufferUsageFlags getUsage() const { return usage_; }              ///< Returns the buffer usage flags.
     [[nodiscard]] vk::DeviceSize getSize() const { return size_; }                      ///< Returns the total size of the buffer in bytes.
     void* getMappedWithOffset(usize offset) { return as<u8*>(mapped_data_) + offset; }  ///< Returns a pointer to the mapped memory with an offset.
-
-  private:
-    /**
-     * @brief Constructs a Vulkan buffer from the provided creation info.
-     * @param ci Buffer creation configuration.
-     */
-    Buffer() = default;
 
   private:
     vk::Buffer obj_;  ///< Vulkan buffer handle.

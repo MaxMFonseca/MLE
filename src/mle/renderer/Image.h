@@ -18,6 +18,7 @@ class Image final : LiveCounter<Image> {
   public:
     /// Specifies parameters for image creation.
     struct CreateInfo {
+        vk::Image o;                                      ///< Existing Vulkan image handle.
         vec2i extent;                                     ///< Image size in pixels.
         vk::Format format;                                ///< Pixel format.
         vk::ImageUsageFlags usage;                        ///< Vulkan usage flags.
@@ -43,15 +44,30 @@ class Image final : LiveCounter<Image> {
   public:
     Image(const Image&) = default;
     Image& operator=(const Image&) = delete;
+    Image(Image&&) = delete;
     Image& operator=(Image&&) = delete;
 
-    Image(Image&&);
+    /**
+     * @brief Creates a Vulkan image with the specified configuration and returns a handle.
+     * @param ci Image creation info.
+     * @return An Image object initialized with the given parameters.
+     */
+    static ImageHnd createHnd(const CI& ci);
 
-    /// Creates a Vulkan image with the specified configuration.
-    static Image create(const CI& ci);
+    /**
+     * @brief Creates an empty image handle without initializing it.
+     * Use init(ci) to set up the image parameters.
+     */
+    Image() = default;
 
     /// Destroys the image and associated resources.
     ~Image();
+
+    /**
+     * @brief Initializes the image with the given parameters.
+     * @param ci Image creation info.
+     */
+    void init(const CI& ci);
 
     /**
      * @brief Uploads image data from a GPU buffer.
@@ -82,7 +98,7 @@ class Image final : LiveCounter<Image> {
      * @param offset Offset in the destination image. Defaults to (0, 0).
      * @return Temporary staging buffer used for the transfer.
      */
-    [[nodiscard]] Buffer update(vk::CommandBuffer cmd, const void* data, vec2i extent = {0, 0}, vec2i offset = {0, 0});
+    [[nodiscard]] BufferHnd update(vk::CommandBuffer cmd, const void* data, vec2i extent = {0, 0}, vec2i offset = {0, 0});
 
     /// Same as `update(cmd, data, {extent.x, extent.y}, {offset.x, offset.y})` but using a rect.
     /// @see update(vk::CommandBuffer cmd, const void* data, vec2i extent, vec2i offset)
@@ -141,11 +157,8 @@ class Image final : LiveCounter<Image> {
     [[nodiscard]] static RawData readFile(const std::string& path, int target_channel_count = 0);
 
   private:
-    Image() = default;
-
-    void createImage(const CI& ci);
-    void createDefaultImageView();
-    // void destroyImage();
+    void initImage(const CI& ci);
+    void initDefaultImageView();
 
     // This should not be private, but for now it is incomplete and should not be used outside
     [[nodiscard]] vk::ImageView createImageView() const;

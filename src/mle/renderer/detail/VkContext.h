@@ -28,10 +28,16 @@ class VkContext {
 
     void waitIdle();
 
-    auto getInstance() { return vk_instance_; }  ///< Returns the Vulkan instance handle.
-    auto getDevice() { return device_; }         ///< Returns the Vulkan device handle.
-    auto getVma() { return vma_; }               ///< Returns the Vulkan Memory Allocator instance.
-    auto getSurface() { return surface_; }       ///< Returns the Vulkan surface handle.
+    [[nodiscard]] auto getInstance() { return vk_instance_; }                  ///< Returns the Vulkan instance handle.
+    [[nodiscard]] auto getDevice() { return device_; }                         ///< Returns the Vulkan device handle.
+    [[nodiscard]] auto getVma() { return vma_; }                               ///< Returns the Vulkan Memory Allocator instance.
+    [[nodiscard]] auto getSurface() { return surface_; }                       ///< Returns the Vulkan surface handle.
+    [[nodiscard]] auto getPhysicalDevice() const { return p_device_.device; }  ///< Returns the physical device handle.
+    [[nodiscard]] auto getColorFormat() const { return color_format_; }        ///< Returns the color format used by the renderer.
+    [[nodiscard]] auto getDepthFormat() const { return depth_format_; }        ///< Returns the depth format used by the renderer.
+
+    /// Returns the timestamp period of the physical device.
+    [[nodiscard]] auto getTimestampPeriod() const { return p_device_.properties.limits.timestampPeriod; }
 
     /// Returns the dedicated queue index for the specified command type.
     auto getQueueIndex(CmdType type) { return queue_indices_.at(as<usize>(type)); }
@@ -59,14 +65,8 @@ class VkContext {
     PhysicalDeviceInfo p_device_;
     vk::Device device_;
     VmaAllocator vma_ = nullptr;
-    vk::SwapchainKHR swapchain_;
-    vk::Extent2D swapchain_extent_;
-    std::vector<vk::Image> swapchain_images_;
     vk::Format depth_format_ = vk::Format::eUndefined;
     vk::Format color_format_ = vk::Format::eUndefined;
-    vk::Format swapchain_format_ = vk::Format::eUndefined;
-
-    vk::Queue render_queue_;
 
     std::array<usize, 3> queue_indices_ = {max<usize>(), max<usize>(), max<usize>()};
 };

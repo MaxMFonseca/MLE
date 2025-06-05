@@ -1,12 +1,13 @@
 #pragma once
 
+#define VULKAN_HPP_ASSERT(expr) ((void)0)
 #define VULKAN_HPP_DISPATCH_LOADER_DYNAMIC 1
 
 #include <spdlog/fmt/fmt.h>
 #include <vk_mem_alloc.h>
 
 #include <memory>
-#include <vulkan/vulkan.hpp>
+#include <vulkan/vulkan.hpp>  // This must be the only Vulkan header included directly.
 
 #include "mle/common/Types.h"
 #include "mle/common/math/Types.h"

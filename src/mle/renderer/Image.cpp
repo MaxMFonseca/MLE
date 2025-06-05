@@ -12,25 +12,9 @@
 #include "mle/core/Core.h"
 
 namespace mle::renderer {
-Image::Image(Image&& other) :
-    o_(other.o_),
-    extent_(other.extent_),
-    format_(other.format_),
-    image_usage_(other.image_usage_),
-    swapchain_(other.swapchain_),
-    allocation_(other.allocation_),
-    allocation_info_(other.allocation_info_),
-    default_view_(other.default_view_),
-    current_state_(other.current_state_),
-    owning_queue_(other.owning_queue_),
-    current_layout_(other.current_layout_) {
-    other.o_ = nullptr;
-}
-
-Image Image::create(const CI& ci) {
-    Image ret;
-    ret.createImage(ci);
-    ret.createDefaultImageView();
+ImageHnd Image::createHnd(const CI& ci) {
+    auto ret = std::make_unique<Image>();
+    ret->init(ci);
     return ret;
 }
 
@@ -40,45 +24,62 @@ Image::~Image() {
     }
 
     MLE_LOG_THIS_T;
-    detail::getDevice().destroyImageView(default_view_);
-    vmaDestroyImage(detail::getVma(), o_, allocation_);
+
+    if (default_view_) {
+        detail::getDevice().destroyImageView(default_view_);
+    }
+    if (allocation_) {
+        vmaDestroyImage(detail::getVma(), o_, allocation_);
+    }
 }
 
-void Image::createImage(const CI& ci) {
+void Image::init(const CI& ci) {
+    MLE_T("Creating an image. extent: {}, format: {}, usage: {}, hnd: {}", ci.extent, vk::to_string(ci.format), vk::to_string(ci.usage), (void*)ci.o);
+
+    initImage(ci);
+}
+
+void Image::initImage(const CI& ci) {
     MLE_ASSERT(ci.extent.x != 0 && ci.extent.y != 0);
 
-    vk::ImageCreateInfo image_ci = {};
-    image_ci.imageType = vk::ImageType::e2D;
-    image_ci.format = ci.format;
-    image_ci.extent.width = ci.extent.x;
-    image_ci.extent.height = ci.extent.y;
-    image_ci.extent.depth = 1;
-    image_ci.mipLevels = 1;
-    image_ci.arrayLayers = 1;
-    image_ci.samples = vk::SampleCountFlagBits::e1;
-    image_ci.tiling = vk::ImageTiling::eOptimal;
-    image_ci.usage = ci.usage;
-    image_ci.initialLayout = vk::ImageLayout::eUndefined;
-    image_ci.sharingMode = vk::SharingMode::eExclusive;
+    if (!ci.o) {
+        vk::ImageCreateInfo image_ci = {};
+        image_ci.imageType = vk::ImageType::e2D;
+        image_ci.format = ci.format;
+        image_ci.extent.width = ci.extent.x;
+        image_ci.extent.height = ci.extent.y;
+        image_ci.extent.depth = 1;
+        image_ci.mipLevels = 1;
+        image_ci.arrayLayers = 1;
+        image_ci.samples = vk::SampleCountFlagBits::e1;
+        image_ci.tiling = vk::ImageTiling::eOptimal;
+        image_ci.usage = ci.usage;
+        image_ci.initialLayout = vk::ImageLayout::eUndefined;
+        image_ci.sharingMode = vk::SharingMode::eExclusive;
 
-    VmaAllocationCreateInfo alloc_ci = {};
-    alloc_ci.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-    alloc_ci.priority = 1.0F;
-    alloc_ci.requiredFlags = static_cast<VkMemoryPropertyFlags>(ci.required_mem_flags);
+        VmaAllocationCreateInfo alloc_ci = {};
+        alloc_ci.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+        alloc_ci.priority = 1.0F;
+        alloc_ci.requiredFlags = static_cast<VkMemoryPropertyFlags>(ci.required_mem_flags);
 
-    VkImage vk_image = VK_NULL_HANDLE;
-    auto create_result = vmaCreateImage(detail::getVma(), rAs<VkImageCreateInfo*>(&image_ci), &alloc_ci, &vk_image, &allocation_, &allocation_info_);
-    if (create_result != VK_SUCCESS) {
-        core::unrecoverable("Failed to create image: {}", as<vk::Result>(create_result));
+        VkImage vk_image = VK_NULL_HANDLE;
+        auto create_result = vmaCreateImage(detail::getVma(), rAs<VkImageCreateInfo*>(&image_ci), &alloc_ci, &vk_image, &allocation_, &allocation_info_);
+        if (create_result != VK_SUCCESS) {
+            core::unrecoverable("Failed to create image: {}", as<vk::Result>(create_result));
+        }
+        o_ = vk_image;
+        initDefaultImageView();
+    } else {
+        swapchain_ = true;
+        o_ = ci.o;
     }
 
-    o_ = vk_image;
-    extent_ = {image_ci.extent.width, image_ci.extent.height};
-    format_ = image_ci.format;
-    image_usage_ = image_ci.usage;
+    extent_ = {ci.extent.x, ci.extent.y};
+    format_ = ci.format;
+    image_usage_ = ci.usage;
 }
 
-void Image::createDefaultImageView() {
+void Image::initDefaultImageView() {
     default_view_ = createImageView();
 }
 
@@ -112,7 +113,7 @@ vk::ImageView Image::createImageView() const {
     return view_r.value;
 }
 
-Buffer Image::update(vk::CommandBuffer cmd, const void* data, vec2i extent, vec2i offset) {
+BufferHnd Image::update(vk::CommandBuffer cmd, const void* data, vec2i extent, vec2i offset) {
     if (extent.x == 0) {
         extent.x = extent_.x - offset.x;
     }
@@ -128,10 +129,10 @@ Buffer Image::update(vk::CommandBuffer cmd, const void* data, vec2i extent, vec2
     staging_buffer_ci.usage = vk::BufferUsageFlagBits::eTransferSrc;
     staging_buffer_ci.allocation_type = Buffer::CI::AllocationType::STAGING;
 
-    auto staging_buffer = Buffer::create(staging_buffer_ci);
-    staging_buffer.update(data);
+    auto staging_buffer = Buffer::createHnd(staging_buffer_ci);
+    staging_buffer->update(data);
 
-    update(cmd, &staging_buffer, extent, offset);
+    update(cmd, staging_buffer.get(), extent, offset);
 
     return staging_buffer;
 }

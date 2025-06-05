@@ -37,11 +37,10 @@ inline void check(vk::Result result) {
     }
 }
 
-template <typename... Args>
-void check(vk::Result result, Args&&... args) {
-    if (isVkError(result)) {
-        core::unrecoverable("Vulkan error: {}, msg: {}", fmt::format(std::forward<Args>(args)...));
-    }
+template <typename T>
+inline T unwrap(vk::ResultValue<T>&& rv) {  // NOLINT
+    check(vk::Result(rv.result));
+    return std::move(rv.value);
 }
 
 }  // namespace mle::renderer
