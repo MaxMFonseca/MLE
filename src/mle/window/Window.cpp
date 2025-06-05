@@ -116,7 +116,7 @@ void Impl::update() {
 }
 
 auto& windowToSelf(GLFWWindowRef glfw_window) {
-    return asRef<Impl>(glfwGetWindowUserPointer(glfw_window));
+    return rVoidAsRef<Impl>(glfwGetWindowUserPointer(glfw_window));
 }
 
 void Impl::onWindowClose(GLFWWindowRef glfw_window) {

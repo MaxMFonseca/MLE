@@ -7,23 +7,41 @@
 #include <vulkan/vulkan_structs.hpp>
 
 #include "Renderer.h"
-#include "mle/common/Exception.h"
+#include "mle/common/Assert.h"
 #include "mle/common/Utils.h"
+#include "mle/core/Core.h"
 
 namespace mle::renderer {
-Image::Image(const CI& ci) {
-    MLE_T("Creating image {}, extent:{}, format:{}", (void*)this, ci.extent, ci.format);
-    createImage(ci);
-    MLE_T("Created image {}, vk {}", (void*)this, (void*)obj_);
-    createDefaultImageView();
+Image::Image(Image&& other) :
+    o_(other.o_),
+    extent_(other.extent_),
+    format_(other.format_),
+    image_usage_(other.image_usage_),
+    swapchain_(other.swapchain_),
+    allocation_(other.allocation_),
+    allocation_info_(other.allocation_info_),
+    default_view_(other.default_view_),
+    current_state_(other.current_state_),
+    owning_queue_(other.owning_queue_),
+    current_layout_(other.current_layout_) {
+    other.o_ = nullptr;
+}
+
+Image Image::create(const CI& ci) {
+    Image ret;
+    ret.createImage(ci);
+    ret.createDefaultImageView();
+    return ret;
 }
 
 Image::~Image() {
-    MLE_LOG_THIS_T;
-    getVk().getDevice().destroyImageView(default_view_);
-    if (allocation_) {
-        vmaDestroyImage(getVk().getVma(), obj_, allocation_);
+    if (!o_) {
+        return;
     }
+
+    MLE_LOG_THIS_T;
+    detail::getDevice().destroyImageView(default_view_);
+    vmaDestroyImage(detail::getVma(), o_, allocation_);
 }
 
 void Image::createImage(const CI& ci) {
@@ -41,6 +59,7 @@ void Image::createImage(const CI& ci) {
     image_ci.tiling = vk::ImageTiling::eOptimal;
     image_ci.usage = ci.usage;
     image_ci.initialLayout = vk::ImageLayout::eUndefined;
+    image_ci.sharingMode = vk::SharingMode::eExclusive;
 
     VmaAllocationCreateInfo alloc_ci = {};
     alloc_ci.usage = VMA_MEMORY_USAGE_GPU_ONLY;
@@ -48,13 +67,12 @@ void Image::createImage(const CI& ci) {
     alloc_ci.requiredFlags = static_cast<VkMemoryPropertyFlags>(ci.required_mem_flags);
 
     VkImage vk_image = VK_NULL_HANDLE;
-    auto create_result = vmaCreateImage(getVk().getVma(), (VkImageCreateInfo*)&image_ci, &alloc_ci,  // NOLINT
-                                        &vk_image, &allocation_, &allocation_info_);
+    auto create_result = vmaCreateImage(detail::getVma(), rAs<VkImageCreateInfo*>(&image_ci), &alloc_ci, &vk_image, &allocation_, &allocation_info_);
     if (create_result != VK_SUCCESS) {
-        MLE_THROW(VK_ERROR, "Failed to create image, VkResult: {}", vk::to_string(vk::Result(create_result)));
+        core::unrecoverable("Failed to create image: {}", as<vk::Result>(create_result));
     }
 
-    obj_ = vk_image;
+    o_ = vk_image;
     extent_ = {image_ci.extent.width, image_ci.extent.height};
     format_ = image_ci.format;
     image_usage_ = image_ci.usage;
@@ -64,12 +82,12 @@ void Image::createDefaultImageView() {
     default_view_ = createImageView();
 }
 
-vk::ImageView Image::createImageView() const noexcept {
+vk::ImageView Image::createImageView() const {
     MLE_LOG_THIS_T;
 
     vk::ImageViewCreateInfo image_view_ci = {};
 
-    image_view_ci.image = obj_;
+    image_view_ci.image = o_;
     image_view_ci.viewType = vk::ImageViewType::e2D;
     image_view_ci.format = format_;
     image_view_ci.components.r = vk::ComponentSwizzle::eIdentity;
@@ -86,10 +104,15 @@ vk::ImageView Image::createImageView() const noexcept {
     image_view_ci.subresourceRange.baseArrayLayer = 0;
     image_view_ci.subresourceRange.layerCount = 1;
 
-    return getVk().getDevice().createImageView(image_view_ci);
+    auto view_r = detail::getDevice().createImageView(image_view_ci);
+    if (view_r.result != vk::Result::eSuccess) {
+        core::unrecoverable("Failed to create image view: {}", as<vk::Result>(view_r.result));
+    }
+    // TODO: add a map of named image views?
+    return view_r.value;
 }
 
-BufferHnd Image::update(vk::CommandBuffer cmd, const void* data, vec2i extent, vec2i offset) {
+Buffer Image::update(vk::CommandBuffer cmd, const void* data, vec2i extent, vec2i offset) {
     if (extent.x == 0) {
         extent.x = extent_.x - offset.x;
     }
@@ -105,10 +128,10 @@ BufferHnd Image::update(vk::CommandBuffer cmd, const void* data, vec2i extent, v
     staging_buffer_ci.usage = vk::BufferUsageFlagBits::eTransferSrc;
     staging_buffer_ci.allocation_type = Buffer::CI::AllocationType::STAGING;
 
-    BufferHnd staging_buffer = std::make_unique<Buffer>(staging_buffer_ci);
-    staging_buffer->update(data);
+    auto staging_buffer = Buffer::create(staging_buffer_ci);
+    staging_buffer.update(data);
 
-    update(cmd, staging_buffer.get(), extent, offset);
+    update(cmd, &staging_buffer, extent, offset);
 
     return staging_buffer;
 }
@@ -137,7 +160,7 @@ void Image::update(vk::CommandBuffer cmd, BufferRef buffer, vec2i extent, vec2i 
     region.imageOffset = vk::Offset3D{static_cast<i32>(offset.x), static_cast<i32>(offset.y), 0};
     region.imageExtent = vk::Extent3D{static_cast<u32>(extent.x), static_cast<u32>(extent.y), 1};
 
-    cmd.copyBufferToImage(buffer->get(), obj_, vk::ImageLayout::eTransferDstOptimal, region);
+    cmd.copyBufferToImage(buffer->get(), o_, vk::ImageLayout::eTransferDstOptimal, region);
 }
 
 void Image::updateBlit(vk::CommandBuffer cmd, ImageRef src, Recti src_rect, Recti dst_rect) {
@@ -174,7 +197,7 @@ void Image::updateBlit(vk::CommandBuffer cmd, ImageRef src, Recti src_rect, Rect
 
     vk::BlitImageInfo2 blit_info = {};
     blit_info.srcImage = src->get();
-    blit_info.dstImage = obj_;
+    blit_info.dstImage = o_;
     blit_info.srcImageLayout = vk::ImageLayout::eTransferSrcOptimal;
     blit_info.dstImageLayout = vk::ImageLayout::eTransferDstOptimal;
     blit_info.filter = vk::Filter::eLinear;
@@ -186,26 +209,24 @@ void Image::updateBlit(vk::CommandBuffer cmd, ImageRef src, Recti src_rect, Rect
     cmd.blitImage2(blit_info);
 }
 
-Image::FileInfo Image::readFileInfo(const fs::path& filepath) {
+Image::FileInfo Image::readFileInfo(const std::string& path) {
     int width = 0, height = 0, channels = 0;
-    fs::path full_path = ResPath::TEXTURES;
-    full_path /= filepath;
-    int ok = stbi_info(full_path.c_str(), &width, &height, &channels);
+    int ok = stbi_info(path.c_str(), &width, &height, &channels);
     if (!ok) {
-        MLE_THROW(FAILED_TO_OPEN_FILE, "Failed to read image info from file: {}", full_path.generic_string());
+        core::unrecoverable("Failed to read image info from file: {}", path);
     }
     return {.extent = {width, height}, .channels = channels};
 }
 
-Image::RawData Image::readFile(const fs::path& filepath, int target_channel_count) {
+Image::RawData Image::readFile(const std::string& path, int target_channel_count) {
     Image::RawData ret = {};
 
     int width = 0, height = 0, channels_in_file = 0;
 
-    stbi_uc* pixels = stbi_load(filepath.c_str(), &width, &height, &channels_in_file, target_channel_count);
+    stbi_uc* pixels = stbi_load(path.c_str(), &width, &height, &channels_in_file, target_channel_count);
 
     if (!pixels) {
-        MLE_THROW(FAILED_TO_OPEN_FILE, "Failed to read image from file: {}", filepath.generic_string());
+        core::unrecoverable("Failed to read image from file: {}", path);
     }
 
     ret.channels = target_channel_count == 0 ? channels_in_file : target_channel_count;
@@ -227,7 +248,7 @@ Image::RawData Image::readFile(const fs::path& filepath, int target_channel_coun
 
     stbi_image_free(pixels);
 
-    MLE_T("Loaded image {}, size: {}, channel_count:{}", filepath.generic_string(), vec2f{width, height}, ret.channels);
+    MLE_T("Loaded image {}, size: {}, channel_count:{}", path, vec2f{width, height}, ret.channels);
 
     return ret;
 }
@@ -238,7 +259,7 @@ void Image::transitionLayout(vk::CommandBuffer cmd, TransitionLayoutInfo info) {
     }
 
     vk::ImageMemoryBarrier2KHR barrier = {};
-    barrier.image = obj_;
+    barrier.image = o_;
     barrier.oldLayout = current_layout_;
     barrier.newLayout = info.new_layout;
     barrier.subresourceRange.baseMipLevel = 0;
@@ -459,23 +480,4 @@ u64 Image::getSizeInBytes() const {
     return static_cast<u64>(extent_.x) * extent_.y * getFormatChannelCount(format_);
 }
 
-std::string toString(const Image::State& s) {
-    switch (s) {
-        case Image::State::INITIAL:
-            return "INITIAL";
-        case Image::State::TRANSFER_SRC:
-            return "TRANSFER_SRC";
-        case Image::State::TRANSFER_DST:
-            return "TRANSFER_DST";
-        case Image::State::COLOR_ATT:
-            return "COLOR_ATT";
-        case Image::State::PRESENT:
-            return "PRESENT";
-        case Image::State::DEPTH_ATT:
-            return "DEPTH_ATT";
-        case Image::State::SHADER_READ:
-            return "SHADER_READ";
-    }
-    MLE_UNREACHABLE_TODO;
-}
 }  // namespace mle::renderer

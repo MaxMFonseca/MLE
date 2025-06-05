@@ -296,7 +296,7 @@ constexpr T as(U&& value) {
 
 /// Alias for reinterpret_cast.
 template <typename T, typename U>
-constexpr T rcast(U value) {
+constexpr T rAs(U value) {
     return reinterpret_cast<T>(std::forward<U>(value));
 }
 
@@ -308,8 +308,8 @@ constexpr T rcast(U value) {
  * @return A reference to the reinterpreted object.
  */
 template <typename T>
-constexpr T& asRef(void* value) {
-    return *rcast<T*>(value);
+constexpr T& rVoidAsRef(void* value) {
+    return *rAs<T*>(value);
 }
 
 namespace res {

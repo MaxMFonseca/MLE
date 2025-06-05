@@ -1,9 +1,10 @@
 #pragma once
 
+#include "Types.h"
+#include "mle/common/Assert.h"
 #include "mle/common/math/Types2D.h"
 #include "mle/renderer/Buffer.h"
 #include "mle/renderer/Renderer.h"
-#include "mle/renderer/Types.h"
 
 namespace mle::renderer {
 /**
@@ -17,7 +18,6 @@ class Image final : LiveCounter<Image> {
   public:
     /// Specifies parameters for image creation.
     struct CreateInfo {
-        vk::Image image;                                  ///< From existing image.
         vec2i extent;                                     ///< Image size in pixels.
         vk::Format format;                                ///< Pixel format.
         vk::ImageUsageFlags usage;                        ///< Vulkan usage flags.
@@ -42,12 +42,13 @@ class Image final : LiveCounter<Image> {
 
   public:
     Image(const Image&) = default;
-    Image(Image&&) = delete;
     Image& operator=(const Image&) = delete;
     Image& operator=(Image&&) = delete;
 
+    Image(Image&&);
+
     /// Creates a Vulkan image with the specified configuration.
-    static ImageHnd create(const CI& ci);
+    static Image create(const CI& ci);
 
     /// Destroys the image and associated resources.
     ~Image();
@@ -81,7 +82,7 @@ class Image final : LiveCounter<Image> {
      * @param offset Offset in the destination image. Defaults to (0, 0).
      * @return Temporary staging buffer used for the transfer.
      */
-    [[nodiscard]] BufferHnd update(vk::CommandBuffer cmd, const void* data, vec2i extent = {0, 0}, vec2i offset = {0, 0});
+    [[nodiscard]] Buffer update(vk::CommandBuffer cmd, const void* data, vec2i extent = {0, 0}, vec2i offset = {0, 0});
 
     /// Same as `update(cmd, data, {extent.x, extent.y}, {offset.x, offset.y})` but using a rect.
     /// @see update(vk::CommandBuffer cmd, const void* data, vec2i extent, vec2i offset)
@@ -109,10 +110,7 @@ class Image final : LiveCounter<Image> {
      */
     void transitionState(vk::CommandBuffer cmd, State state);
 
-    /// Transitions the image to a new state using the current frame's main command buffer.
-    void transitionStateInFrame(State state) { transitionState(renderer::getFrameMainCommandBuffer(), state); }
-
-    [[nodiscard]] auto getVkHnd() const { return obj_; }      ///< Returns the Vulkan image handle.
+    [[nodiscard]] auto getVkHnd() const { return o_; }        ///< Returns the Vulkan image handle.
     [[nodiscard]] auto get() const { return getVkHnd(); }     /// Alias for getVkHnd().
     [[nodiscard]] auto getExtent() const { return extent_; }  /// Returns the image size in pixels.
     /// Returns the image size in pixels as a Vulkan extent structure (3D).
@@ -133,22 +131,24 @@ class Image final : LiveCounter<Image> {
         vec2i extent;
         int channels;
     };
-    [[nodiscard]] static FileInfo readFileInfo(const fs::path& filepath);
+    [[nodiscard]] static FileInfo readFileInfo(const std::string& path);
 
     struct RawData {
         std::vector<u8> pixels;
         vec2i extent;
         int channels;
     };
-    [[nodiscard]] static RawData readFile(const fs::path& filepath, int target_channel_count = 0);
+    [[nodiscard]] static RawData readFile(const std::string& path, int target_channel_count = 0);
 
   private:
+    Image() = default;
+
     void createImage(const CI& ci);
     void createDefaultImageView();
     // void destroyImage();
 
     // This should not be private, but for now it is incomplete and should not be used outside
-    [[nodiscard]] vk::ImageView createImageView() const noexcept;
+    [[nodiscard]] vk::ImageView createImageView() const;
 
     struct TransitionLayoutInfo {
         vk::ImageLayout new_layout;
@@ -160,7 +160,7 @@ class Image final : LiveCounter<Image> {
     void transitionLayout(vk::CommandBuffer cmd, TransitionLayoutInfo info);
 
   private:
-    vk::Image obj_;
+    vk::Image o_;
     vec2i extent_{};
     vk::Format format_ = {};
     vk::ImageUsageFlags image_usage_;
@@ -172,25 +172,36 @@ class Image final : LiveCounter<Image> {
     vk::ImageView default_view_;
 
     State current_state_ = State::INITIAL;
+    u8 owning_queue_ = max<u8>();
+
     vk::ImageLayout current_layout_ = vk::ImageLayout::eUndefined;
 };
-
-std::string toString(const Image::State& state);
 
 }  // namespace mle::renderer
 
 namespace fmt {
-using namespace mle::renderer;
-
+using namespace mle::renderer;  // NOLINT
 template <>
-struct formatter<Image::State> {
-    template <typename ParseContext>
-    static constexpr auto parse(ParseContext& ctx) {
-        return ctx.begin();
-    }
+struct formatter<Image::State> : formatter<std::string> {
     template <typename FormatContext>
-    auto format(const Image::State& r, FormatContext& ctx) {
-        return format_to(ctx.out(), "{}", toString(r));
+    constexpr auto format(Image::State v, FormatContext& ctx) const {
+        switch (v) {
+            case Image::State::INITIAL:
+                return format_to(ctx.out(), "INITIAL");
+            case Image::State::TRANSFER_SRC:
+                return format_to(ctx.out(), "TRANSFER_SRC");
+            case Image::State::TRANSFER_DST:
+                return format_to(ctx.out(), "TRANSFER_DST");
+            case Image::State::COLOR_ATT:
+                return format_to(ctx.out(), "COLOR_ATT");
+            case Image::State::PRESENT:
+                return format_to(ctx.out(), "PRESENT");
+            case Image::State::DEPTH_ATT:
+                return format_to(ctx.out(), "DEPTH_ATT");
+            case Image::State::SHADER_READ:
+                return format_to(ctx.out(), "SHADER_READ");
+        }
+        MLE_UNREACHABLE_TODO;
     }
 };
 }  // namespace fmt
