@@ -37,6 +37,9 @@ class LiveCounter {  // NOLINT
         getActiveInstances().erase(debuggable_id_);
     }
 
+    /// Logs the unique ID of this instance with a type name.
+    void logID(std::string type_name) { MLE_T("Debuggable id {} of type {}", debuggable_id_, type_name); }
+
     /// Logs all currently active instance IDs of the class.
     static void listActiveInstances(std::string type_name) {
         MLE_D("Count of active instances of {}: {}", type_name, getActiveInstances().size());
@@ -67,6 +70,8 @@ class LiveCounter {  // NOLINT
 
     /// Deregisters the debug instance on destruction (no-op in release builds).
     ~LiveCounter() = default;
+
+    void logID(std::string) {}  ///< Logs the unique ID of this instance (no-op in release builds).
 
     /// Logs active instances (no-op in release builds).
     static void listActiveInstances(std::string) {}
