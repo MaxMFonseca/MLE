@@ -159,6 +159,54 @@ inline bool tryGetKey(const sol::table& table, const std::string& key, T& out) {
 }
 
 /**
+ * @brief Extract a value from a Lua table by index.
+ *
+ * @tparam T Expected value type.
+ * @param table Lua table object.
+ * @param idx Index to look for in the table.
+ * @return The value at the specified index, converted to type T.
+ */
+template <typename T>
+inline T getIdx(const sol::table& table, int idx) {
+    return as<T>(table[idx]);
+}
+
+/**
+ * @brief Try to extract a value from a Lua table by index.
+ *
+ * @tparam T Expected value type.
+ * @param table Lua table object.
+ * @param idx Index to look for in the table.
+ * @param out Output reference to store the extracted value.
+ * @return True if the value was successfully extracted, false otherwise.
+ */
+template <typename T>
+inline bool tryGetIdx(const sol::table& table, int idx, T& out) {
+    return tryAs(table[idx], out);
+}
+
+/**
+ * @brief Try to get a value from a Lua table by key or index.
+ *
+ * @tparam T Expected value type.
+ * @param table Lua table object.
+ * @param key Key to look for in the table.
+ * @param idx Index to look for in the table.
+ * @param ret Output reference to store the extracted value.
+ * @return True if the value was successfully extracted from either key or index, false otherwise.
+ */
+template <typename T>
+inline bool tryGetKeyOrIdx(const sol::table& table, const std::string& key, int idx, T& ret) {
+    if (tryGetKey(table, key, ret)) {
+        return true;
+    }
+    if (tryGetIdx(table, idx, ret)) {
+        return true;
+    }
+    return false;
+}
+
+/**
  * @brief As overload for `vec2f`. Accepts o as num, vec2f, or a table(list) with 2 numeric elements.
  *
  * This is the unsafe version that asserts the type in debug mode.
