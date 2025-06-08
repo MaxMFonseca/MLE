@@ -20,11 +20,10 @@ class Impl {
     void shutdown();
     renderer::ImageRef render();
 
+    auto& getElementManager() { return element_manager_; }
+
   private:
     detail::ElementManager element_manager_;
-
-    renderer::ImageHnd image_;
-    renderer::PipelineHnd pipeline_;
 };
 
 struct Position {
@@ -32,46 +31,17 @@ struct Position {
 };
 
 void Impl::init() {
-    renderer::Image::CI image_ci;
-    image_ci.extent = {800, 600};
-    image_ci.format = renderer::getDefaultColorFormat();
-    image_ci.usage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransferSrc;
-    image_ = renderer::Image::createHnd(image_ci);
+    element_manager_.init();
 
-    renderer::Pipeline::CI pipeline_ci;
-    pipeline_ci.vertex_shader = renderer::getShader("triangle.vert", true);
-    pipeline_ci.fragment_shader = renderer::getShader("triangle.frag", true);
-    pipeline_ci.color_attachment_formats.push_back(renderer::getDefaultColorFormat());
-    pipeline_ci.blend_attachments = renderer::makeDefaultBlendAttachmentStates(1);
-    pipeline_ = renderer::Pipeline::createHnd(pipeline_ci);
-
-    element_manager_.reset(lua::require("testui", true));
+    element_manager_.resetRoot(lua::require("testui", true));
 }
 
 void Impl::shutdown() {
-    element_manager_.reset();
+    element_manager_.shutdown();
 }
 
 renderer::ImageRef Impl::render() {
-    renderer::RenderingThread thread;
-    thread.init(true);
-
-    renderer::AttachmentInfo color_attachment;
-    color_attachment.image = image_.get();
-    color_attachment.load = vk::AttachmentLoadOp::eClear;
-    color_attachment.store = vk::AttachmentStoreOp::eStore;
-    color_attachment.clear_value.color = std::array<float, 4>{0.2F, 0.2F, 0.2F, 1.0F};
-    renderer::RenderingInfo rendering_info;
-    rendering_info.pipeline = pipeline_.get();
-    rendering_info.colors.push_back(color_attachment);
-    thread.beginRendering(rendering_info);
-    thread.setViewport();
-    thread.draw(1, 3);
-    thread.end();
-
-    element_manager_.render();
-
-    return image_.get();
+    return element_manager_.render();
 }
 
 std::unique_ptr<Impl> i_ = nullptr;  // NOLINT
@@ -94,4 +64,10 @@ renderer::ImageRef render() {
     return i_->render();
 }
 
+namespace detail {
+ElementManager& getElementManager() {
+    MLE_ASSERT(i_);
+    return i_->getElementManager();
+}
+}  // namespace detail
 }  // namespace mle::ui

@@ -1,54 +1,26 @@
 #include "Element.h"
 
+#include "mle/lua/Utils.h"
+#include "mle/renderer/Image.h"
+#include "mle/ui/Types.h"
+
 namespace mle::ui::detail::e_components {
-Children::~Children() {
-    if (!isArray()) {
-        children_.vec.~vector();
-    }
+void Name::onLuaKeyName(entt::registry& reg, entt::entity e, const sol::object& obj) {
+    auto& component = reg.get_or_emplace<Name>(e);
+    component.name = lua::as<std::string>(obj);
 }
 
-[[nodiscard]] uint Children::size() const {
-    if (isArray()) {
-        return count_;
-    }
-    return children_.vec.size();
-}
+RootImage::RootImage(const sol::table& table) {
+    auto extent = lua::getKey<vec2i>(table, "extent");
+    renderer::Image::CI image_ci;
+    image_ci.extent = extent;
+    image_ci.format = renderer::getDefaultColorFormat();
+    image_ci.usage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransferSrc;
+    image_ = renderer::Image::createHnd(image_ci);
 
-void Children::add(entt::entity child) {
-    if (isArray()) {
-        if (count_ < 6) {
-            children_.array.at(count_++) = child;
-        } else {
-            MLE_C("Promoted!");
-
-            std::vector<entt::entity> temp(children_.array.begin(), children_.array.end());
-            temp.push_back(child);
-
-            new (&children_.vec) std::vector<entt::entity>(std::move(temp));
-            count_++;
-        }
-    } else {
-        children_.vec.push_back(child);
-    }
-}
-
-void Children::remove(entt::entity child) {
-    if (isArray()) {
-        for (int i = 0; i < count_; ++i) {
-            if (children_.array.at(i) == child) {
-                for (int j = i; j < count_ - 1; ++j) {
-                    children_.array.at(j) = children_.array.at(j + 1);
-                }
-                --count_;
-                return;
-            }
-        }
-    } else {
-        auto& vec = children_.vec;
-        auto it = std::ranges::find(vec, child);
-        if (it != vec.end()) {
-            vec.erase(it);
-        }
+    auto color_o = table["clear_color"];
+    if (color_o.valid()) {
+        clear_color_ = Color::fromLua(color_o);
     }
 }
 }  // namespace mle::ui::detail::e_components

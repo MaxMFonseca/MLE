@@ -257,4 +257,5 @@ Color Color::lighten(f32 factor) const {
     hsv.z *= factor;
     return fromHSV(hsv);
 }
+
 }  // namespace mle
