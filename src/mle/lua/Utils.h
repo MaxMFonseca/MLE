@@ -66,7 +66,6 @@ inline T as(const sol::object& obj) {
  * @param out Output reference to store the converted value.
  * @return True if the object was successfully converted, false otherwise.
  */
-
 template <typename T>
 inline bool tryAs(const sol::object& obj, T& out) {
     if (!valid<T>(obj)) {
@@ -156,6 +155,23 @@ inline T getKey(const sol::table& table, const std::string& key) {
 template <typename T>
 inline bool tryGetKey(const sol::table& table, const std::string& key, T& out) {
     return tryAs(table[key], out);
+}
+
+/**
+ * @brief Try to extract a value from a Lua table by key.
+ *
+ * @tparam T Expected value type.
+ * @param table Lua table object.
+ * @param key Key to look for in the table.
+ * @return An optional containing the extracted value if it exists and is of type T, or an empty optional otherwise.
+ */
+template <typename T>
+inline std::optional<T> tryGetKey(const sol::table& table, const std::string& key) {
+    T ret;
+    if (tryGetKey(table, key, ret)) {
+        return ret;
+    }
+    return {};
 }
 
 /**
