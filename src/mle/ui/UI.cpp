@@ -3,12 +3,14 @@
 #include <memory>
 
 #include "mle/common/Assert.h"
+#include "mle/lua/Lua.h"
 #include "mle/renderer/Image.h"
 #include "mle/renderer/Pipeline.h"
 #include "mle/renderer/Renderer.h"
 #include "mle/renderer/RenderingThread.h"
 #include "mle/renderer/Types.h"
 #include "mle/renderer/Utils.h"
+#include "mle/ui/detail/ElementManager.h"
 
 namespace mle::ui {
 namespace {
@@ -19,8 +21,14 @@ class Impl {
     renderer::ImageRef render();
 
   private:
+    detail::ElementManager element_manager_;
+
     renderer::ImageHnd image_;
     renderer::PipelineHnd pipeline_;
+};
+
+struct Position {
+    vec2f pos;
 };
 
 void Impl::init() {
@@ -36,9 +44,12 @@ void Impl::init() {
     pipeline_ci.color_attachment_formats.push_back(renderer::getDefaultColorFormat());
     pipeline_ci.blend_attachments = renderer::makeDefaultBlendAttachmentStates(1);
     pipeline_ = renderer::Pipeline::createHnd(pipeline_ci);
+
+    element_manager_.reset(lua::require("testui", true));
 }
 
 void Impl::shutdown() {
+    element_manager_.reset();
 }
 
 renderer::ImageRef Impl::render() {
@@ -57,6 +68,8 @@ renderer::ImageRef Impl::render() {
     thread.setViewport();
     thread.draw(1, 3);
     thread.end();
+
+    element_manager_.render();
 
     return image_.get();
 }
