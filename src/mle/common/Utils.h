@@ -18,6 +18,21 @@
 #include "Types.h"
 #include "mle/common/Logger.h"
 
+/// Disable copy constructor and assignment operator for a class.
+#define MLE_NO_COPY(Class)        \
+    Class(const Class&) = delete; \
+    Class& operator=(const Class&) = delete;
+
+/// Disable move constructor and assignment operator for a class.
+#define MLE_NO_MOVE(Class)   \
+    Class(Class&&) = delete; \
+    Class& operator=(Class&&) = delete;
+
+/// Disable both copy and move constructors and assignment operators for a class.
+#define MLE_NO_COPY_MOVE(Class) \
+    MLE_NO_COPY(Class)          \
+    MLE_NO_MOVE(Class)
+
 namespace mle {
 /**
  * @brief Splits a string by a given delimiter.
