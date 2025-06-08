@@ -2,7 +2,6 @@
 
 #include <algorithm>
 
-#include "mle/common/Exception.h"
 #include "mle/common/Utils.h"
 #include "mle/common/math/Types.h"
 #include "mle/renderer/Renderer.h"

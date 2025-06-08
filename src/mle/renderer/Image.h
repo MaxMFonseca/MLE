@@ -13,6 +13,13 @@ namespace mle::renderer {
  * This class wraps a `vk::Image` and manages its lifetime, memory allocation and data uploads using VMA.
  * It supports different image usage types such as color attachment, depth attachment, and transfer operations.
  * There are a bunch of helper functions for updating the image data, transitioning its state, and reading image files.
+ *
+ * All images must be owned by the graphics queue! I will not perform any checks for that.
+ * So just be mindful of that.
+ * If you want to do comput work on an image, use the g queue. Ask for a GRAPHICS cmd pool.
+ *
+ * It is fine to bind images on mt, but state transitions are not thread-safe. I still dont know how to propper handle that.
+ * For now just be really careful with that.
  */
 class Image final : LiveCounter<Image> {
   public:

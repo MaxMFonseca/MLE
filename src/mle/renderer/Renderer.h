@@ -42,6 +42,16 @@ Result beginFrame();
  */
 void endFrame(ImageRef image);
 
+/**
+ * @brief Adds a function to be called at the end of the current frame.
+ * @param func Function to call at the end of the frame.
+ */
+void addToCallOnFrameEnd(std::function<void()>&& fn);
+
+vk::Format getDefaultColorFormat();  ///< Returns the default image format used by the renderer.
+
+ShaderRef getShader(const std::string& name, bool engine = false);  /// Returns a shader reference by name, loading it if necessary.
+
 namespace detail {
 ED& getED();                                  ///< Returns the event dispatcher instance for the renderer.
 VkContext& getVk();                           ///< Returns the Vulkan context instance.
@@ -49,6 +59,7 @@ vk::Device getDevice();                       ///< Returns the Vulkan device han
 VmaAllocator getVma();                        ///< Returns the Vulkan Memory Allocator instance.
 FencePool& getFencePool();                    ///< Returns the fence pool for managing Vulkan fences.
 CommandPoolManager& getCommandPoolManager();  ///< Returns the command pool manager.
+FrameRenderer& getFrameRenderer();            ///< Returns the frame renderer instance.
 void waitIdle();                              ///< Waits for the Vulkan device to become idle, ensuring all operations are complete.
 }  // namespace detail
 

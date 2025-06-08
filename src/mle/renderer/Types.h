@@ -9,19 +9,35 @@
 #include <memory>
 #include <vulkan/vulkan.hpp>  // This must be the only Vulkan header included directly.
 
+#include "mle/common/Assert.h"
 #include "mle/common/Types.h"
 #include "mle/common/math/Types.h"
 #include "mle/common/math/Types2D.h"
 
 namespace mle::renderer {
-enum class DataType : u8 { F32, U32, I32, VEC2F, VEC3F, VEC4F, MAT4, SAMPLER2D, COUNT };
+enum class DataType : u8 { F32, U32, I32, VEC2F, VEC3F, VEC4F, MAT2, MAT4, SAMPLER2D, COUNT, UNKNOWN };
 
 enum class CmdType : u8 { GRAPHICS, TRANSFER, COMPUTE, INVALID };
+
+struct PushConstantField {
+    std::string name;
+    u64 offset;
+    u64 size;
+    DataType type;
+};
+
+struct PipelineVertexInputState {
+    std::vector<vk::VertexInputBindingDescription> binding_descriptions;
+    std::vector<vk::VertexInputAttributeDescription> attribute_descriptions;
+    vk::PipelineVertexInputStateCreateInfo ci;
+};
 
 namespace detail {
 class VkContext;
 class FencePool;
 class CommandPoolManager;
+class FrameRenderer;
+class ShaderCache;
 };  // namespace detail
 
 class Buffer;
@@ -32,13 +48,13 @@ class Image;
 using ImageHnd = std::unique_ptr<Image>;
 using ImageRef = Image*;
 
-class ShaderModule;
-using ShaderModuleHnd = std::unique_ptr<ShaderModule>;
-using ShaderModuleRef = ShaderModule*;
-
 class Pipeline;
 using PipelineHnd = std::unique_ptr<Pipeline>;
 using PipelineRef = Pipeline*;
+
+class Shader;
+using ShaderHnd = std::unique_ptr<Shader>;
+using ShaderRef = Shader*;
 
 class TextureAtlas;
 using TextureAtlasHnd = std::unique_ptr<TextureAtlas>;
@@ -56,10 +72,7 @@ class CommandBuffer;
 using CommandBufferHnd = std::unique_ptr<CommandBuffer>;
 using CommandBufferRef = CommandBuffer*;
 
-struct PipelineGetResult {
-    PipelineRef pipeline;
-    bool is_new;
-};
+class RenderingThread;
 
 struct CmdPoolData {
     vk::CommandPool o;
@@ -88,6 +101,7 @@ struct AttachmentInfo {
     vk::ClearValue clear_value{};
 };
 struct RenderingInfo {
+    PipelineRef pipeline;
     Recti render_area{};
     std::vector<AttachmentInfo> colors;
     AttachmentInfo depth;
@@ -95,6 +109,40 @@ struct RenderingInfo {
 }  // namespace mle::renderer
 
 namespace fmt {
+using namespace mle::renderer;  // NOLINT
+
+template <>
+struct formatter<DataType> : formatter<std::string> {
+    template <typename FormatContext>
+    constexpr auto format(DataType v, FormatContext& ctx) const {
+        switch (v) {
+            case DataType::F32:
+                return format_to(ctx.out(), "F32");
+            case DataType::U32:
+                return format_to(ctx.out(), "U32");
+            case DataType::I32:
+                return format_to(ctx.out(), "I32");
+            case DataType::VEC2F:
+                return format_to(ctx.out(), "VEC2F");
+            case DataType::VEC3F:
+                return format_to(ctx.out(), "VEC3F");
+            case DataType::VEC4F:
+                return format_to(ctx.out(), "VEC4F");
+            case DataType::MAT2:
+                return format_to(ctx.out(), "MAT2");
+            case DataType::MAT4:
+                return format_to(ctx.out(), "MAT4");
+            case DataType::SAMPLER2D:
+                return format_to(ctx.out(), "SAMPLER2D");
+            case DataType::UNKNOWN:
+                return format_to(ctx.out(), "UNKNOWN");
+            case DataType::COUNT:
+                return format_to(ctx.out(), "COUNT");
+        }
+        MLE_UNREACHABLE_TODO;
+    }
+};
+
 template <>
 struct formatter<vk::Result> : formatter<std::string> {
     template <typename FormatContext>

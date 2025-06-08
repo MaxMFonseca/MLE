@@ -7,10 +7,9 @@ vec2 vertices[] = {
         vec2(1.0, 1.0)
     };
 
-#instance 0
-layout(location = 0) in vec2 in_pos;
-layout(location = 1) in vec2 in_size;
-layout(location = 2) in vec4 in_color;
+layout(location = 0) in vec2 ini_pos;
+layout(location = 1) in vec2 ini_size;
+layout(location = 2) in vec4 ini_color;
 
 layout(location = 0) flat out vec4 out_color;
 

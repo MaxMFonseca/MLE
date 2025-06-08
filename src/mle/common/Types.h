@@ -31,7 +31,7 @@ using byte = std::byte;   ///< Byte type for raw data.
 using UserPtr = void*;    ///< Generic user pointer.
 using char32 = char32_t;  ///< 32-bit Unicode character type.
 
-using Bytes = std::vector<byte>;          ///< Dynamic byte array.
+using Bytes = std::vector<u8>;            ///< Dynamic byte array.
 using BytesHnd = std::unique_ptr<Bytes>;  ///< Unique handle to a byte buffer.
 using BytesRef = Bytes*;                  ///< Raw pointer to a byte buffer.
 
@@ -41,8 +41,13 @@ using UnicodeBufferRef = UnicodeBuffer*;  ///< Raw pointer to a UnicodeBuffer in
 using ID = u64;                                            ///< 64-bit engine-wide identifier type.
 constexpr ID INVALID_ID = std::numeric_limits<ID>::max();  ///< Sentinel value for an invalid ID.
 
+// TODO: Why is this not a class?
+/**
+ * @brief A vector of (ID, T) pairs used for indexed collections.
+ * Some functionalities on namespace idvec
+ */
 template <typename T>
-using IDVec = std::vector<std::pair<ID, T>>;  ///< A vector of (ID, T) pairs used for indexed collections.
+using IDVec = std::vector<std::pair<ID, T>>;
 
 namespace fs = std::filesystem;  ///< Alias for the filesystem namespace. Remeber to use nothrow overloads!
 }  // namespace mle

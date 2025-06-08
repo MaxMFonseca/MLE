@@ -68,7 +68,6 @@ void Image::initImage(const CI& ci) {
             core::unrecoverable("Failed to create image: {}", as<vk::Result>(create_result));
         }
         o_ = vk_image;
-        initDefaultImageView();
     } else {
         swapchain_ = true;
         o_ = ci.o;
@@ -77,9 +76,15 @@ void Image::initImage(const CI& ci) {
     extent_ = {ci.extent.x, ci.extent.y};
     format_ = ci.format;
     image_usage_ = ci.usage;
+
+    initDefaultImageView();
 }
 
 void Image::initDefaultImageView() {
+    if (swapchain_) {
+        return;
+    }
+
     default_view_ = createImageView();
 }
 

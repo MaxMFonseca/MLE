@@ -176,6 +176,7 @@ void insertPrefix(std::vector<std::string>& v, const std::string& prefix, const 
  */
 ID genID();
 
+namespace idvec {
 /**
  * @brief Retrieves an element from an ID vector by its ID.
  *
@@ -185,7 +186,7 @@ ID genID();
  * @return A reference to the element if found, or an error.
  */
 template <typename T>
-Expected<std::reference_wrapper<T>> getFromIDVec(IDVec<T>& v, ID id) {
+Expected<std::reference_wrapper<T>> get(IDVec<T>& v, ID id) {
     auto it = std::find_if(v.begin(), v.end(), [id](const auto& p) { return p.first == id; });
     if (it == v.end()) {
         return std::unexpected(Result::NOT_FOUND);
@@ -202,7 +203,7 @@ Expected<std::reference_wrapper<T>> getFromIDVec(IDVec<T>& v, ID id) {
  * @return A const reference to the element if found, or an error.
  */
 template <typename T>
-Expected<std::reference_wrapper<const T>> getFromIDVec(const IDVec<T>& v, ID id) {
+Expected<std::reference_wrapper<const T>> get(const IDVec<T>& v, ID id) {
     auto it = std::find_if(v.begin(), v.end(), [id](const auto& p) { return p.first == id; });
     if (it == v.end()) {
         return std::unexpected(Result::NOT_FOUND);
@@ -219,7 +220,7 @@ Expected<std::reference_wrapper<const T>> getFromIDVec(const IDVec<T>& v, ID id)
  * @return Success or an error if the ID was not found.
  */
 template <typename T>
-Expected<void> removeFromIDVec(IDVec<T>& v, ID id) {
+Expected<void> remove(IDVec<T>& v, ID id) {
     auto it = std::find_if(v.begin(), v.end(), [id](const auto& p) { return p.first == id; });
     if (it == v.end()) {
         return std::unexpected(Result::NOT_FOUND);
@@ -237,11 +238,26 @@ Expected<void> removeFromIDVec(IDVec<T>& v, ID id) {
  * @return The unique ID assigned to the new element.
  */
 template <typename T>
-ID emplaceBackOnIDVec(IDVec<T>& v, T&& t) {
+ID emplaceBack(IDVec<T>& v, T&& t) {
     auto id = genID();
     v.emplace_back(id, std::forward<T>(t));
     return id;
 }
+
+/**
+ * @brief Adds a new element to an ID vector with a specified ID.
+ *
+ * @tparam T The type of the element to add.
+ * @param v The ID vector to modify.
+ * @param id The ID to assign to the new element.
+ * @param t The element to add.
+ */
+template <typename T>
+void emplaceBack(IDVec<T>& v, ID id, T&& t) {
+    v.emplace_back(id, std::forward<T>(t));
+}
+
+}  // namespace idvec
 
 /**
  * @brief Reads the contents of a file into a buffer.

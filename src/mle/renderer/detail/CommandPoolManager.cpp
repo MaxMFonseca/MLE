@@ -30,15 +30,18 @@ void CommandPoolManager::init() {
     gData().queue_index = detail::getVk().getQueueIndex(CmdType::GRAPHICS);
     gData().queue = queues.at(as<usize>(CmdType::GRAPHICS));
 
-    // tData().queue_index = detail::getVk().getQueueIndex(CmdType::TRANSFER);
-    // tData().queue = queues.at(as<usize>(CmdType::TRANSFER));
-    //
+    tData().queue_index = detail::getVk().getQueueIndex(CmdType::TRANSFER);
+    tData().queue = queues.at(as<usize>(CmdType::TRANSFER));
+
     // cData().queue_index = detail::getVk().getQueueIndex(CmdType::COMPUTE);
     // cData().queue = queues.at(as<usize>(CmdType::COMPUTE));
 }
 CommandPoolManager::TypeData& CommandPoolManager::getData(CmdType type) {
-    type = CmdType::GRAPHICS;
-    // For now, we only use graphics command pools. Idk if its worth it to have separate pools for transfer and compute for now.
+    if (type == CmdType::COMPUTE) {
+        MLE_W("No dedicated compute queue, using graphics queue instead.");
+        type = CmdType::GRAPHICS;
+    }
+
     return data_.at(as<usize>(type));
 }
 

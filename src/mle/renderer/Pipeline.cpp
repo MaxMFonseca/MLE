@@ -1,0 +1,230 @@
+#include "Pipeline.h"
+
+#include "Renderer.h"
+#include "mle/common/Logger.h"
+#include "mle/common/Utils.h"
+#include "mle/renderer/Image.h"
+#include "mle/renderer/RenderingThread.h"
+#include "mle/renderer/Shader.h"
+#include "mle/renderer/Types.h"
+#include "mle/renderer/Utils.h"
+#include "mle/renderer/detail/VkContext.h"
+
+namespace mle::renderer {
+PipelineHnd Pipeline::createHnd(const CI& ci) {
+    auto ret = std::make_unique<Pipeline>();
+    ret->init(ci);
+    return ret;
+}
+
+void Pipeline::init(const CI& ci) {
+    MLE_D("Building pipeline");
+
+    MLE_ASSERT_LOG(ci.vertex_shader, "Vertex shader must be set");
+    MLE_ASSERT_LOG(ci.fragment_shader, "Fragment shader must be set");
+    MLE_ASSERT_LOG(ci.color_attachment_formats.size() > 0, "At least one color attachment format must be set");
+    MLE_ASSERT_LOG(ci.blend_attachments.size() == ci.color_attachment_formats.size(),
+                   "Number of blend attachments must match the number of color attachment formats");
+
+    vk::GraphicsPipelineCreateInfo pipeline_ci;
+
+    MLE_T("Shader stages");
+    ci.vertex_shader->logID("VertexShader");
+    ci.fragment_shader->logID("FragmentShader");
+
+    std::array stages = {ci.vertex_shader->getPipelineShaderStageCreateInfo(), ci.fragment_shader->getPipelineShaderStageCreateInfo()};
+    pipeline_ci.setStages(stages);
+
+    MLE_T("Vertex input state");
+
+    auto vertex_input_state = ci.vertex_shader->makePipelineVertexInputStateCreateInfo();
+    pipeline_ci.setPVertexInputState(&vertex_input_state.ci);
+
+    MLE_T("Input assembly state");
+    MLE_T("Topology: {}", vk::to_string(ci.topology));
+    MLE_T("Primitive restart enable: {}", false);
+
+    vk::PipelineInputAssemblyStateCreateInfo input_assembly_state_ci;
+    input_assembly_state_ci.topology = ci.topology;
+    input_assembly_state_ci.primitiveRestartEnable = vk::False;
+    pipeline_ci.setPInputAssemblyState(&input_assembly_state_ci);
+
+    MLE_T("Tessellation state");
+    MLE_T("Not used");
+
+    pipeline_ci.setPTessellationState(nullptr);
+
+    MLE_T("Viewport state");
+    MLE_T("Dynamic");
+
+    vk::PipelineViewportStateCreateInfo viewport_state_ci;
+    viewport_state_ci.viewportCount = 1;
+    viewport_state_ci.scissorCount = 1;
+    pipeline_ci.setPViewportState(&viewport_state_ci);
+
+    MLE_T("Rasterization state");
+    MLE_T("Polygon mode: {}", vk::to_string(ci.polygon_mode));
+    MLE_T("Cull mode: {}", vk::to_string(ci.cull_mode));
+    MLE_T("Front face: {}", vk::to_string(ci.front_face));
+
+    vk::PipelineRasterizationStateCreateInfo rasterization_state_ci;
+    rasterization_state_ci.polygonMode = ci.polygon_mode;
+    rasterization_state_ci.cullMode = ci.cull_mode;
+    rasterization_state_ci.frontFace = ci.front_face;
+    rasterization_state_ci.lineWidth = 1.0F;
+    pipeline_ci.setPRasterizationState(&rasterization_state_ci);
+
+    MLE_T("Multisample state");
+    MLE_T("Samples: {}", 1);
+    MLE_T("Sample shading enable: {}", false);
+
+    vk::PipelineMultisampleStateCreateInfo multisample_state_ci;
+    multisample_state_ci.rasterizationSamples = vk::SampleCountFlagBits::e1;
+    multisample_state_ci.sampleShadingEnable = vk::False;
+    pipeline_ci.setPMultisampleState(&multisample_state_ci);
+
+    MLE_T("Depth stencil state");
+
+    vk::PipelineDepthStencilStateCreateInfo depth_stencil_state_ci;
+    depth_stencil_state_ci.depthTestEnable = ci.depth ? vk::True : vk::False;
+    depth_stencil_state_ci.depthWriteEnable = vk::True;
+    depth_stencil_state_ci.depthCompareOp = vk::CompareOp::eLess;
+    depth_stencil_state_ci.depthBoundsTestEnable = vk::False;
+    depth_stencil_state_ci.stencilTestEnable = vk::False;
+    depth_stencil_state_ci.minDepthBounds = 0.0F;
+    depth_stencil_state_ci.maxDepthBounds = 1.0F;
+
+    MLE_T("Depth test enable: {}", depth_stencil_state_ci.depthTestEnable);
+    MLE_T("Depth write enable: {}", depth_stencil_state_ci.depthWriteEnable);
+    MLE_T("Depth compare op: {}", vk::to_string(depth_stencil_state_ci.depthCompareOp));
+    MLE_T("Depth bounds test enable: {}", depth_stencil_state_ci.depthBoundsTestEnable);
+    MLE_T("Stencil test enable: {}", depth_stencil_state_ci.stencilTestEnable);
+    MLE_T("Min depth bounds: {}", depth_stencil_state_ci.minDepthBounds);
+    MLE_T("Max depth bounds: {}", depth_stencil_state_ci.maxDepthBounds);
+
+    pipeline_ci.setPDepthStencilState(&depth_stencil_state_ci);
+
+    MLE_T("Color blend state");
+    for (int i = 0; const auto& state : ci.blend_attachments) {
+        MLE_T("Color blend attachment state {}", i);
+        MLE_T("Blend enable: {}", state.blendEnable);
+        MLE_T("Src color blend factor: {}", vk::to_string(state.srcColorBlendFactor));
+        MLE_T("Dst color blend factor: {}", vk::to_string(state.dstColorBlendFactor));
+        MLE_T("Color blend op: {}", vk::to_string(state.colorBlendOp));
+        MLE_T("Src alpha blend factor: {}", vk::to_string(state.srcAlphaBlendFactor));
+        MLE_T("Dst alpha blend factor: {}", vk::to_string(state.dstAlphaBlendFactor));
+        MLE_T("Alpha blend op: {}", vk::to_string(state.alphaBlendOp));
+        MLE_T("Color blend write mask: {}", vk::to_string(state.colorWriteMask));
+        i++;
+    }
+
+    vk::PipelineColorBlendStateCreateInfo color_blend_state_ci;
+    color_blend_state_ci.logicOpEnable = vk::False;
+    color_blend_state_ci.setAttachments(ci.blend_attachments);
+    pipeline_ci.setPColorBlendState(&color_blend_state_ci);
+
+    MLE_T("Dynamic state");
+    for (auto state : ci.dynamic_states) {
+        MLE_T("{}", vk::to_string(state));
+    }
+
+    vk::PipelineDynamicStateCreateInfo dynamic_state_ci;
+    dynamic_state_ci.setDynamicStates(ci.dynamic_states);
+    pipeline_ci.setPDynamicState(&dynamic_state_ci);
+
+    MLE_T("Pipeline layout");
+    createPipelineLayout(ci);
+    pipeline_ci.layout = pipeline_layout_;
+
+    pipeline_ci.renderPass = nullptr;
+    pipeline_ci.subpass = 0;
+    pipeline_ci.basePipelineHandle = nullptr;
+    pipeline_ci.basePipelineIndex = 0;
+
+    MLE_T("Rendering");
+    vk::PipelineRenderingCreateInfo pipeline_rendering_ci;
+    MLE_ASSERT(!ci.color_attachment_formats.empty());
+    pipeline_rendering_ci.setColorAttachmentFormats(ci.color_attachment_formats);
+    for (const auto& format : ci.color_attachment_formats) {
+        MLE_T("Color attachment format: {}", vk::to_string(format));
+    }
+    if (ci.depth) {
+        pipeline_rendering_ci.setDepthAttachmentFormat(detail::getVk().getDepthFormat());
+        MLE_T("Depth attachment format: {}", vk::to_string(detail::getVk().getDepthFormat()));
+    }
+    pipeline_ci.pNext = &pipeline_rendering_ci;
+
+    o_ = unwrap(detail::getVk().getDevice().createGraphicsPipeline(nullptr, pipeline_ci));
+}
+
+Pipeline::~Pipeline() {
+    if (descriptor_set_layout_) {
+        detail::getDevice().destroy(descriptor_set_layout_);
+    }
+    if (pipeline_layout_) {
+        detail::getDevice().destroy(pipeline_layout_);
+    }
+    if (o_) {
+        detail::getDevice().destroy(o_);
+    }
+}
+
+void Pipeline::createPipelineLayout(const CI& ci) {
+    MLE_T("Creating pipeline layout");
+
+    vk::PipelineLayoutCreateInfo pipeline_layout_ci;
+
+    auto bindings = Shader::mergeDescriptors(ci.vertex_shader->getDescriptors(), ci.fragment_shader->getDescriptors());
+    if (!bindings.empty()) {
+        MLE_T("  Descriptor set layout");
+
+        for (auto& binding : bindings) {
+            MLE_T("  Binding: {}, Descriptor type: {}, Descriptor count: {}, Stage flags: {}", binding.binding, vk::to_string(binding.descriptorType),
+                  binding.descriptorCount, vk::to_string(binding.stageFlags));
+        }
+
+        vk::DescriptorSetLayoutCreateInfo descriptor_set_layout_ci;
+        descriptor_set_layout_ci.setBindings(bindings);
+        descriptor_set_layout_ci.flags = vk::DescriptorSetLayoutCreateFlagBits::ePushDescriptorKHR;
+
+        descriptor_set_layout_ = unwrap(detail::getDevice().createDescriptorSetLayout(descriptor_set_layout_ci));
+
+        pipeline_layout_ci.setSetLayouts(descriptor_set_layout_);
+    }
+
+    pc_fields_.clear();
+    pc_frag_offset_ = 0;
+    int pc_count = 0;
+    std::array<vk::PushConstantRange, 2> pc_ranges{};
+    if (ci.vertex_shader->getPushConstantRange().size != 0U) {
+        pc_ranges.at(0) = ci.vertex_shader->getPushConstantRange();
+        pc_fields_ = ci.vertex_shader->getPushConstantFields();
+        pc_count++;
+    }
+    if (ci.fragment_shader->getPushConstantRange().size != 0U) {
+        pc_frag_offset_ = static_cast<int>(pc_ranges.at(0).size);
+        pc_ranges.at(pc_count) = ci.fragment_shader->getPushConstantRange();
+        pc_fields_.insert(pc_fields_.end(), ci.fragment_shader->getPushConstantFields().begin(), ci.fragment_shader->getPushConstantFields().end());
+        MLE_ASSERT_LOG(pc_frag_offset_ == (int)pc_ranges.at(pc_count).offset,
+                       "Push constant offset mismatch, add layout(offset = {}) to the first line of your frag shader pc block.", pc_frag_offset_);
+        pc_count++;
+    }
+    pc_size_ = static_cast<int>(pc_ranges.at(0).size + pc_ranges.at(1).size);
+    MLE_ASSERT_LOG(pc_size_ <= 128, "Push constant size too large: {}", pc_size_);
+
+    pipeline_layout_ci.setPushConstantRanges(pc_ranges);
+    pipeline_layout_ci.setPushConstantRangeCount(pc_count);
+
+    pipeline_layout_ = unwrap(detail::getDevice().createPipelineLayout(pipeline_layout_ci));
+}
+
+PushConstantField Pipeline::getPushConstantField(const std::string& name) const {
+    for (const auto& field : pc_fields_) {
+        if (field.name == name) {
+            return field;
+        }
+    }
+
+    MLE_UNREACHABLE_LOG("Push constant field not found: {}", name);
+}
+}  // namespace mle::renderer

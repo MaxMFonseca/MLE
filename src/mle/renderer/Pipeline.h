@@ -1,28 +1,39 @@
+/**
+ * @file
+ * @brief Vulkan graphics pipeline abstraction.
+ */
+
 #pragma once
 
 #include "Types.h"
-#include "mle/common/Types.h"
+#include "mle/common/LiveCounter.h"
 #include "mle/common/math/Types.h"
-#include "mle/common/math/Types2D.h"
-#include "mle/renderer/ShaderModule.h"
 
-// FIXME: set dirty only when needed
 namespace mle::renderer {
-class Pipeline final {
+/**
+ * @brief Represents a Vulkan graphics pipeline.
+ *
+ * This class wraps a `vk::Pipeline` object and its associated layout,
+ * managing dynamic states, push constants, blending, and other pipeline settings.
+ */
+class Pipeline final : public LiveCounter<Pipeline> {
   public:
-    struct ExecInfo {
-        Rectf viewport{};
-        BufferRef vertex_buffer = nullptr;
-        usize vertex_buffer_offset = 0;
-        BufferRef instance_buffer = nullptr;
-        usize instance_buffer_offset = 0;
-        BufferRef index_buffer = nullptr;
-        usize index_buffer_offset = 0;
-        const void* push_constants = nullptr;
-        u32 index_count = 0;
-        u32 instance_count = 0;
-        std::vector<vk::WriteDescriptorSet> descriptor_sets;
+    /// Configuration for creating a graphics pipeline.
+    struct CreateInfo {
+        ShaderRef vertex_shader = nullptr;                                                                         ///< Vertex shader module.
+        ShaderRef fragment_shader = nullptr;                                                                       ///< Fragment shader module.
+        vk::PrimitiveTopology topology = vk::PrimitiveTopology::eTriangleList;                                     ///< Primitive topology.
+        vk::PolygonMode polygon_mode = vk::PolygonMode::eFill;                                                     ///< Polygon rasterization mode.
+        vk::CullModeFlags cull_mode = vk::CullModeFlagBits::eNone;                                                 ///< Face culling mode.
+        vk::FrontFace front_face = vk::FrontFace::eClockwise;                                                      ///< Vertex winding order.
+        bool line_width_dynamic = false;                                                                           ///< Whether line width is dynamic.
+        std::vector<vk::Format> color_attachment_formats;                                                          ///< Color attachment formats.
+        std::vector<vk::PipelineColorBlendAttachmentState> blend_attachments;                                      ///< Blend states per attachment.
+        std::vector<vk::DynamicState> dynamic_states = {vk::DynamicState::eViewport, vk::DynamicState::eScissor};  ///< Enabled dynamic states.
+        bool depth = false;                                                                                        ///< Whether depth testing is enabled.
     };
+
+    using CI = CreateInfo;  ///< Alias for CreateInfo.
 
   public:
     Pipeline(const Pipeline&) = delete;
@@ -30,122 +41,57 @@ class Pipeline final {
     Pipeline& operator=(const Pipeline&) = delete;
     Pipeline& operator=(Pipeline&&) = delete;
 
+    /// Constructs an empty Pipeline instance. Use `init` to initialize it.
+    Pipeline() = default;
+    /// Destroys the pipeline and associated Vulkan objects.
     ~Pipeline();
 
-    void build();
+    /**
+     * @brief Creates and returns a new pipeline handle.
+     *
+     * @param ci Configuration for the pipeline.
+     * @return A owning hnd to the created Pipeline instance.
+     */
+    static PipelineHnd createHnd(const CI& ci);
 
-    void exec(const ExecInfo& exec_info);
+    /**
+     * @brief Initializes the pipeline with the given configuration.
+     *
+     * @param ci Configuration for the pipeline.
+     */
+    void init(const CI& ci);
 
-    void setDirty() { dirty_ = true; }
-    [[nodiscard]] bool isDirty() const { return dirty_; }
+    /// Returns the Vulkan pipeline object.
+    [[nodiscard]] auto get() const { return o_; }
+    /// Returns the Vulkan pipeline object.
+    [[nodiscard]] auto getVkHnd() const { return get(); }
 
-    Pipeline& setVertexShader(ShaderModuleRef shader) {
-        layout_changed_ = true;
-        vertex_shader_ = shader;
-        dirty_ = true;
-        return *this;
-    }
+    /// Returns true if the pipeline uses push constants.
+    [[nodiscard]] bool hasPushConstants() const { return pc_size_ > 0; }
+    /// Returns the size of push constants in bytes.
+    [[nodiscard]] auto getPushConstantSize() const { return pc_size_; }
+    /// Returns the offset to fragment-stage push constants, or `max<u8>()` if not applicable.
+    [[nodiscard]] auto getPushConstantFragOffset() const { return pc_frag_offset_; }
+    /// Returns the pipeline layout used by this pipeline.
+    [[nodiscard]] auto getPipelineLayout() const { return pipeline_layout_; }
 
-    Pipeline& setVertexShader(const fs::path& path) { return setVertexShader(ShaderModule::get(path)); }
-
-    Pipeline& setFragmentShader(ShaderModuleRef shader) {
-        layout_changed_ = true;
-        fragment_shader_ = shader;
-        dirty_ = true;
-        return *this;
-    }
-
-    Pipeline& setFragmentShader(const fs::path& path) { return setFragmentShader(ShaderModule::get(path)); }
-
-    Pipeline& setTopology(vk::PrimitiveTopology topology) {
-        topology_ = topology;
-        dirty_ = true;
-        return *this;
-    }
-    Pipeline& setPolygonMode(vk::PolygonMode mode) {
-        polygon_mode_ = mode;
-        dirty_ = true;
-        return *this;
-    }
-    Pipeline& setColorAttachmentFormats(std::vector<vk::Format> formats) {
-        color_attachment_formats_ = std::move(formats);
-        dirty_ = true;
-        return *this;
-    }
-    Pipeline& addColorAttachmentFormat(vk::Format format) {
-        color_attachment_formats_.push_back(format);
-        dirty_ = true;
-        return *this;
-    }
-    Pipeline& setDepth(bool depth) {
-        depth_ = depth;
-        dirty_ = true;
-        return *this;
-    }
-    Pipeline& setBlendAttachments(std::vector<vk::PipelineColorBlendAttachmentState>&& attachments) {
-        blend_attachments_ = std::move(attachments);
-        dirty_ = true;
-        return *this;
-    }
-    Pipeline& addDynamicState(vk::DynamicState state) {
-        dynamic_states_.push_back(state);
-        dirty_ = true;
-        return *this;
-    }
-    Pipeline& setOverrideDescriptorSetLayoutCount(usize set, usize count) {
-        layout_changed_ = true;
-        if (override_descriptor_binding_count_.size() <= set) {
-            override_descriptor_binding_count_.resize(set + 1, 0);
-        }
-        override_descriptor_binding_count_[set] = count;
-        dirty_ = true;
-        return *this;
-    }
-
-    [[nodiscard]] auto getPipeline() const { return pipeline_; }
-    [[nodiscard]] auto get() const { return pipeline_; }
-
-    [[nodiscard]] ShaderModule::PushConstantField getPushConstantField(const std::string& name) const;
-
-    [[nodiscard]] auto getDebugName() const { return debug_name_; }
-
-    [[nodiscard]] static PipelineGetResult get(const std::string& name);
+    /**
+     * @brief Finds a push constant field by name.
+     * @param name The name of the field.
+     * @return The push constant field or an empty/default-initialized one if not found.
+     */
+    [[nodiscard]] PushConstantField getPushConstantField(const std::string& name) const;
 
   private:
-    explicit Pipeline(std::string&& debug_name);
-
-    void createPipelineLayout();
+    /// Creates the internal pipeline layout based on the configuration.
+    void createPipelineLayout(const CI& ci);
 
   private:
-    std::string debug_name_;
-
-    ShaderModuleRef vertex_shader_{};
-    ShaderModuleRef fragment_shader_{};
-
-    vk::PrimitiveTopology topology_ = vk::PrimitiveTopology::eTriangleList;
-
-    vk::PolygonMode polygon_mode_ = vk::PolygonMode::eFill;
-    vk::CullModeFlags cull_mode_ = vk::CullModeFlagBits::eNone;
-    vk::FrontFace front_face_ = vk::FrontFace::eClockwise;
-    bool line_width_dynamic_ = false;
-
-    std::vector<vk::Format> color_attachment_formats_;
-    std::vector<vk::PipelineColorBlendAttachmentState> blend_attachments_;
-    std::vector<vk::DynamicState> dynamic_states_ = {vk::DynamicState::eViewport, vk::DynamicState::eScissor};
-
-    bool depth_ = false;
-
-    std::vector<usize> override_descriptor_binding_count_;
-
-    int pc_size_ = 0;
-    int pc_f_offset_ = -1;
-    std::vector<ShaderModule::PushConstantField> pc_fields_;
-
-    bool dirty_ = true;
-    bool layout_changed_ = true;
-
-    vk::PipelineLayout pipeline_layout_;
-    vk::Pipeline pipeline_;
-    vk::DescriptorSetLayout descriptor_set_layout_;
+    vk::Pipeline o_;                                 ///< Vulkan pipeline object.
+    vk::DescriptorSetLayout descriptor_set_layout_;  ///< Internal descriptor set layout.
+    vk::PipelineLayout pipeline_layout_;             ///< Pipeline layout object.
+    std::vector<PushConstantField> pc_fields_;       ///< Push constant fields.
+    u8 pc_size_ = 0;                                 ///< Total size of push constants in bytes.
+    u8 pc_frag_offset_ = max<u8>();                  ///< Offset to fragment-stage constants (if any).
 };
 }  // namespace mle::renderer

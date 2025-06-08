@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <fstream>
+#include <mutex>
 #include <sstream>
 #include <vector>
 
@@ -12,7 +13,7 @@
 
 namespace mle {
 ID genID() {
-    static ID id = 0;
+    static std::atomic<ID> id = 0;
     return id++;
 }
 

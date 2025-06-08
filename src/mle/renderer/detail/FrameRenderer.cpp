@@ -2,6 +2,7 @@
 
 #include <ranges>
 #include <vulkan/vulkan_enums.hpp>
+#include <vulkan/vulkan_handles.hpp>
 #include <vulkan/vulkan_structs.hpp>
 
 #include "VkContext.h"
@@ -125,7 +126,7 @@ vk::SurfaceFormatKHR chooseSwapchainSurfaceFormat(const std::vector<vk::SurfaceF
 }  // namespace
 
 Result FrameRenderer::createSwapchain() {
-    MLE_C("Swapchain creation initialized...");
+    MLE_I("Swapchain creation initialized...");
 
     waitIdle();
 
@@ -278,14 +279,29 @@ Result FrameRenderer::beginFrame() {
     auto fence_wait_result = device.waitForFences(next_frame.render_finished_fence, vk::True, DEFAULT_TIMEOUT_NS);
     check(fence_wait_result);
 
+    MLE_T("Cleaning up next frame resources...");
     device.resetFences(next_frame.render_finished_fence);
 
     next_frame.delete_buffers.clear();
     next_frame.delete_images.clear();
+
     for (auto& it : std::ranges::reverse_view(next_frame.delete_stack)) {
         it();
     }
     next_frame.delete_stack.clear();
+
+    std::array<u64, 2> timestamps{};
+    auto query_result =
+        device.getQueryPoolResults(next_frame.query_pool, 0, 2, timestamps.size() * sizeof(u64), timestamps.data(), sizeof(u64), vk::QueryResultFlagBits::e64);
+    if (query_result == vk::Result::eSuccess || query_result == vk::Result::eNotReady) {
+        auto elapsed = std::chrono::nanoseconds(static_cast<u64>(static_cast<f32>(timestamps.at(1) - timestamps.at(0)) * getVk().getTimestampPeriod()));
+        core::accumulateKPI(core::SecondKPIType::RENDERING, elapsed);
+    } else {
+        MLE_E("Failed to get query pool result: {}", vk::to_string(query_result));
+    }
+
+    device.resetCommandPool(next_frame.command_pool, {});
+    next_frame.secondary_cmds_idx = 0;
 
     if (swapchain_dirty_) {
         auto create_result = createSwapchain();
@@ -311,19 +327,6 @@ Result FrameRenderer::beginFrame() {
     MLE_T("Frame setup successful. Frame index: {}, Swapchain image index: {}", current_frame_, current_swapchain_image_idx_);
 
     auto& f = getCurrentFrame();
-
-    std::array<u64, 2> timestamps{};
-    auto query_result =
-        device.getQueryPoolResults(f.query_pool, 0, 2, timestamps.size() * sizeof(u64), timestamps.data(), sizeof(u64), vk::QueryResultFlagBits::e64);
-
-    if (query_result == vk::Result::eSuccess || query_result == vk::Result::eNotReady) {
-        auto elapsed = std::chrono::nanoseconds(static_cast<u64>(static_cast<f32>(timestamps.at(1) - timestamps.at(0)) * getVk().getTimestampPeriod()));
-        core::accumulateKPI(core::SecondKPIType::RENDERING, elapsed);
-    } else {
-        MLE_E("Failed to get query pool result: {}", vk::to_string(query_result));
-    }
-
-    device.resetCommandPool(f.command_pool, {});
 
     vk::CommandBufferBeginInfo cmd_begin_info{};
     cmd_begin_info.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit;
@@ -385,5 +388,24 @@ void FrameRenderer::endFrame(ImageRef frame_image) {
     current_frame_ = NO_FRAME;
     current_swapchain_image_ = nullptr;
     current_swapchain_image_idx_ = max<usize>();
+}
+
+vk::CommandBuffer FrameRenderer::getCmd() {
+    return getCurrentFrame().cmd;
+}
+
+vk::CommandBuffer FrameRenderer::getCmdSecondary() {
+    auto& f = getCurrentFrame();
+    if (f.secondary_cmds_idx < f.secondary_cmds.size()) {
+        return f.secondary_cmds.at(f.secondary_cmds_idx++);
+    }
+    vk::CommandBufferAllocateInfo alloc_info{};
+    alloc_info.commandPool = f.command_pool;
+    alloc_info.level = vk::CommandBufferLevel::eSecondary;
+    alloc_info.commandBufferCount = 1;
+    auto cmd = unwrap(getDevice().allocateCommandBuffers(alloc_info)).at(0);
+    f.secondary_cmds.push_back(cmd);
+    f.secondary_cmds_idx++;
+    return cmd;
 }
 }  // namespace mle::renderer::detail

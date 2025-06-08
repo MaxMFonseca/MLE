@@ -2,10 +2,13 @@
 
 #include <vulkan/vulkan_core.h>
 
+#include <vulkan/vulkan_structs.hpp>
+
 #include "GLFW/glfw3.h"
 #include "mle/common/Logger.h"
 #include "mle/core/Core.h"
 #include "mle/renderer/Renderer.h"
+#include "mle/renderer/Types.h"
 #include "mle/window/Window.h"
 
 VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE;
@@ -273,19 +276,20 @@ void VkContext::initDevice() {
     g_queue_ci.queueCount = graphics_queue_count;
     queue_cis.push_back(g_queue_ci);
 
-    vk::PhysicalDeviceHostQueryResetFeatures host_query_reset_feature{};
-    host_query_reset_feature.hostQueryReset = vk::True;
-
-    vk::PhysicalDeviceDescriptorIndexingFeatures descriptor_indexing_feature{};
-    descriptor_indexing_feature.pNext = &host_query_reset_feature;
-    descriptor_indexing_feature.runtimeDescriptorArray = vk::True;
-
     vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT extended_dynamic_state_features{};
-    extended_dynamic_state_features.pNext = &descriptor_indexing_feature;
+    extended_dynamic_state_features.pNext = nullptr;
     extended_dynamic_state_features.extendedDynamicState = vk::True;
 
+    vk::PhysicalDeviceVulkan12Features vulkan12_features{};
+    vulkan12_features.pNext = &extended_dynamic_state_features;
+    vulkan12_features.bufferDeviceAddress = vk::True;
+    vulkan12_features.descriptorIndexing = vk::True;
+    vulkan12_features.runtimeDescriptorArray = vk::True;
+    vulkan12_features.descriptorBindingVariableDescriptorCount = vk::True;
+    vulkan12_features.hostQueryReset = vk::True;
+
     vk::PhysicalDeviceVulkan13Features vulkan13_features{};
-    vulkan13_features.pNext = &extended_dynamic_state_features;
+    vulkan13_features.pNext = &vulkan12_features;
     vulkan13_features.synchronization2 = vk::True;
     vulkan13_features.dynamicRendering = vk::True;
 
@@ -451,6 +455,7 @@ void VkContext::initVMA() {
     vma_ci.device = device_;
     vma_ci.instance = vk_instance_;
     vma_ci.vulkanApiVersion = vk::ApiVersion13;
+    vma_ci.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
 
     auto vma_r = vmaCreateAllocator(&vma_ci, &vma_);
     if (vma_r != VK_SUCCESS) {

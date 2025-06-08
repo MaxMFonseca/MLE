@@ -1,10 +1,6 @@
 /*
  * @file
  * @brief CommandPoolManager class declaration
- *
- * For now we only use graphics command pools, so we have a single TypeData for now.
- * Maybe work on this in the future. But for now, this is fine and I think that trying to proper do
- * queue ownership and stuff is not worth it.
  */
 #pragma once
 
@@ -42,10 +38,10 @@ class CommandPoolManager {
     TypeData& getData(CmdType type);
 
     auto& gData() { return getData(CmdType::GRAPHICS); }
-    // auto& tData() { return getData(CmdType::TRANSFER); }
+    auto& tData() { return getData(CmdType::TRANSFER); }
     // auto& cData() { return getData(CmdType::COMPUTE); }
 
   private:
-    std::array<TypeData, 1> data_;  // Currently only using graphics command pools, so we have a single TypeData for now.
+    std::array<TypeData, 2> data_;  // Not using a dedicated compute queue
 };
 }  // namespace mle::renderer::detail

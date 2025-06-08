@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Types.h"
+#include "mle/common/Assert.h"
 #include "mle/common/Color.h"
 #include "mle/common/Types.h"
 #include "mle/common/Utils.h"
@@ -41,6 +42,32 @@ template <typename T>
 inline T unwrap(vk::ResultValue<T>&& rv) {  // NOLINT
     check(vk::Result(rv.result));
     return std::move(rv.value);
+}
+
+constexpr u64 sizeOf(DataType t) {
+    switch (t) {
+        case DataType::I32:
+            return sizeof(i32);
+        case DataType::U32:
+            return sizeof(u32);
+        case DataType::F32:
+            return sizeof(f32);
+        case DataType::VEC2F:
+            return sizeof(vec2f);
+        case DataType::VEC3F:
+            return sizeof(vec3f);
+        case DataType::VEC4F:
+            return sizeof(vec4f);
+        case DataType::MAT2:
+            return sizeof(mat2f);
+        case DataType::MAT4:
+            return sizeof(mat4f);
+        case DataType::SAMPLER2D:
+        case DataType::UNKNOWN:
+        case DataType::COUNT:
+            void(0);
+    }
+    MLE_UNREACHABLE_LOG("Unsuported sizeof data type {}", t);
 }
 
 }  // namespace mle::renderer

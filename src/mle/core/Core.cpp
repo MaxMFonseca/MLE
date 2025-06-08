@@ -11,6 +11,7 @@
 // #include "mle/ui/Controller.h"
 // #include "mle/ui/UI.h"
 #include "mle/renderer/Renderer.h"
+#include "mle/ui/UI.h"
 #include "mle/window/Events.h"
 #include "mle/window/Window.h"
 
@@ -100,9 +101,8 @@ void Impl::render() {
         MLE_I("Frame skipped!");
         return;
     }
-    renderer::endFrame(nullptr);
 
-    // ui::render();
+    renderer::endFrame(ui::render());
 
     current_second_times_.frames++;
     current_second_times_.time_rendering += sw.elapsed<std::chrono::nanoseconds>();
@@ -134,11 +134,11 @@ void Impl::registerLuaTypes(const CI& ci) {
 }
 
 void Impl::shutdown() {
-    MLE_I("Shutting down MLE Core");
-    // renderer::waitIdle();
     MLE_I("MLE Core shutting down after {}s", seconds_running_.count());
 
-    // ui::shutdown();
+    renderer::detail::waitIdle();
+
+    ui::shutdown();
     renderer::shutdown();
     window::shutdown();
     mle_table_.reset();
@@ -193,7 +193,7 @@ void Impl::init(CI ci) {  // NOLINT
     renderer::init({});
 
     MLE_T("UI");
-    // ui::init({.table = init_config, .init_controller = std::move(ci.init_controller)});
+    ui::init();
 
     state_ = State::INITIALIZED;
     MLE_I("Core initialized successfully!");

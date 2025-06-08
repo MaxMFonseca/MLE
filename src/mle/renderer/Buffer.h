@@ -117,14 +117,16 @@ class Buffer final : public LiveCounter<Buffer> {
      */
     [[nodiscard]] vk::DescriptorBufferInfo makeDescriptorInfo(u64 size = max<u64>(), u64 offset = 0) const;
 
-    [[nodiscard]] const vk::Buffer& getVkHnd() { return obj_; }                         ///< Returns the Vulkan buffer handle.
+    [[nodiscard]] const vk::Buffer& getVkHnd() { return o_; }                           ///< Returns the Vulkan buffer handle.
     [[nodiscard]] const vk::Buffer& get() { return getVkHnd(); }                        ///< Alias for getVkHnd().
     [[nodiscard]] vk::BufferUsageFlags getUsage() const { return usage_; }              ///< Returns the buffer usage flags.
     [[nodiscard]] vk::DeviceSize getSize() const { return size_; }                      ///< Returns the total size of the buffer in bytes.
     void* getMappedWithOffset(usize offset) { return as<u8*>(mapped_data_) + offset; }  ///< Returns a pointer to the mapped memory with an offset.
 
+    vk::DeviceAddress getDeviceAddress();
+
   private:
-    vk::Buffer obj_;  ///< Vulkan buffer handle.
+    vk::Buffer o_;  ///< Vulkan buffer handle.
 
     vk::BufferUsageFlags usage_;           ///< Usage flags for the Vulkan buffer.
     VmaAllocation allocation_{};           ///< VMA allocation handle.

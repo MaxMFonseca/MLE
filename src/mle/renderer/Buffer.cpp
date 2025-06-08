@@ -1,11 +1,15 @@
 #include "Buffer.h"
 
+#include <vulkan/vulkan_core.h>
+
 #include <expected>
+#include <vulkan/vulkan.hpp>
 
 #include "mle/common/Assert.h"
 #include "mle/common/Utils.h"
 #include "mle/core/Core.h"
 #include "mle/renderer/Renderer.h"
+#include "mle/renderer/Utils.h"
 
 namespace mle::renderer {
 BufferHnd Buffer::createHnd(const CI& ci) {
@@ -58,22 +62,22 @@ void Buffer::init(const CI& ci) {
         core::unrecoverable("Failed to create buffer. VkResult: {}", vk::Result(create_result));
     }
 
-    obj_ = temp_buffer;
+    o_ = temp_buffer;
     size_ = ci.size;
     usage_ = ci.usage;
     mapped_data_ = allocation_info_.pMappedData;
     persistent_ = mapped_data_ != nullptr;
 
-    MLE_T("Buffer created. VkHnd:{}, size: {}, usage: {}", (void*)obj_, size_, vk::to_string(usage_));
+    MLE_T("Buffer created. VkHnd:{}, size: {}, usage: {}", (void*)o_, size_, vk::to_string(usage_));
 }
 
 Buffer::~Buffer() {
-    if (!obj_) {
+    if (!o_) {
         return;
     }
 
     unmap();
-    vmaDestroyBuffer(detail::getVma(), obj_, allocation_);
+    vmaDestroyBuffer(detail::getVma(), o_, allocation_);
 }
 
 void* Buffer::map() {
@@ -114,7 +118,7 @@ void Buffer::update(vk::CommandBuffer cmd, BufferRef src, u64 data_size, u64 off
 
     vk::BufferCopy copy_region{};
     copy_region.size = data_size;
-    cmd.copyBuffer(src->get(), obj_, copy_region);
+    cmd.copyBuffer(src->get(), o_, copy_region);
 }
 
 BufferHnd Buffer::updateStaged(vk::CommandBuffer cmd, const void* data, u64 data_size, u64 offset) {
@@ -143,9 +147,13 @@ vk::DescriptorBufferInfo Buffer::makeDescriptorInfo(u64 size, u64 offset) const 
     MLE_ASSERT_LOG(size + offset <= size_, "Invalid buffer update. offset_({}) + size_({}) > m_size({})", offset, size, size_);
 
     vk::DescriptorBufferInfo buffer_info{};
-    buffer_info.buffer = obj_;
+    buffer_info.buffer = o_;
     buffer_info.offset = offset;
     buffer_info.range = size;
     return buffer_info;
+}
+
+vk::DeviceAddress Buffer::getDeviceAddress() {
+    return detail::getDevice().getBufferAddress({o_});
 }
 }  // namespace mle::renderer

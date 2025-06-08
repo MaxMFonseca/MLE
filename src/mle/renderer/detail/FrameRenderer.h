@@ -13,7 +13,11 @@ struct FrameData {
     vk::Fence render_finished_fence;
     vk::CommandPool command_pool;
     vk::CommandBuffer cmd;
+    std::vector<vk::CommandBuffer> secondary_cmds;
+    usize secondary_cmds_idx = 0;
     vk::QueryPool query_pool;
+
+    std::vector<vk::DescriptorPool> descriptor_pools;  ///< Descriptor pools for this frame, used to allocate descriptor sets.
 
     std::vector<std::function<void(void)>> delete_stack;  ///< Functions to call at the end of the frame to clean up resources.
     std::vector<BufferHnd> delete_buffers{};              ///< Buffers to delete at the end of the frame.
@@ -36,6 +40,13 @@ class FrameRenderer final {
     Result beginFrame();
     void endFrame(ImageRef frame_image);
 
+    vk::CommandBuffer getCmd();
+    vk::CommandBuffer getCmdSecondary();
+
+    void addToCallOnFrameEnd(std::function<void(void)>&& func) { getCurrentFrame().delete_stack.emplace_back(std::move(func)); }
+    void deleteAfterFrame(BufferHnd&& buffer) { getCurrentFrame().delete_buffers.emplace_back(std::move(buffer)); }
+    void deleteAfterFrame(ImageHnd&& image) { getCurrentFrame().delete_images.emplace_back(std::move(image)); }
+
   private:
     void initFramesData();
     Expected<usize> acquireNextImage();
@@ -45,10 +56,6 @@ class FrameRenderer final {
 
     FrameData& getCurrentFrame();
     FrameData& getNextFrame();
-
-    void deleteAfterFrame(std::function<void(void)>&& func) { getCurrentFrame().delete_stack.emplace_back(std::move(func)); }
-    void deleteAfterFrame(BufferHnd&& buffer) { getCurrentFrame().delete_buffers.emplace_back(std::move(buffer)); }
-    void deleteAfterFrame(ImageHnd&& image) { getCurrentFrame().delete_images.emplace_back(std::move(image)); }
 
     void iconifyCb(bool iconified) { iconified_ = iconified; }
 
