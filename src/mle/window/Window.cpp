@@ -193,7 +193,7 @@ void shutdown() {
     }
 }
 
-ED& getED() {
+ED& detail::getED() {
     MLE_ASSERT(i_);
     return i_->getED();
 }

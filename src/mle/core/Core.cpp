@@ -46,7 +46,7 @@ class Impl {
     i32 update_call_count_ = 0;
     [[maybe_unused]] i32 render_call_count_ = 0;
 
-    window::ED::ListenerHnd<window::events::WindowClose> window_close_listener_;
+    window::WindowCloseListener window_close_listener_;
 
     struct {
         i32 updates = 0;
@@ -187,7 +187,7 @@ void Impl::init(CI ci) {  // NOLINT
 
     MLE_T("Window");
     window::init({.table = init_config["window"]});
-    window_close_listener_ = window::getED().makeEventListener<window::events::WindowClose>([this](const auto&) { stop(); });
+    window_close_listener_ = window::listen<window::events::WindowClose>([this](const auto&) { stop(); });
 
     MLE_T("Renderer");
     renderer::init({});

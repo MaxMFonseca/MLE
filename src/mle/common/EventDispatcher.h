@@ -58,14 +58,14 @@ class EventDispatcher {
      * The listener automatically unregisters itself on destruction.
      */
     template <typename EventType>
-    class EventListener final {
+    class Listener final {
       public:
-        EventListener(const EventListener&) = delete;
-        EventListener& operator=(const EventListener&) = delete;
-        EventListener(EventListener&&) = delete;
-        EventListener& operator=(EventListener&&) = delete;
+        Listener(const Listener&) = delete;
+        Listener& operator=(const Listener&) = delete;
+        Listener(Listener&&) = delete;
+        Listener& operator=(Listener&&) = delete;
 
-        ~EventListener() { unsign(); }
+        ~Listener() { unsign(); }
 
       private:
         friend ED;
@@ -83,7 +83,7 @@ class EventDispatcher {
          *
          * @see EventDispatcher::makeEventListener
          */
-        EventListener(ED& dispatcher, CallbackFunction<EventType> callback) :
+        Listener(ED& dispatcher, CallbackFunction<EventType> callback) :
             dispatcher_(dispatcher),
             callback_(callback) {}
 
@@ -99,11 +99,11 @@ class EventDispatcher {
 
     /// Owning handle to a listener.
     template <typename EventType>
-    using ListenerHnd = std::unique_ptr<EventListener<EventType>>;
+    using ListenerHnd = std::unique_ptr<Listener<EventType>>;
 
     /// Non-owning reference to a listener.
     template <typename EventType>
-    using ListenerRef = EventListener<EventType>*;
+    using ListenerRef = Listener<EventType>*;
 
     /**
      * @brief Storage for all listeners and mutex per event type.
@@ -128,7 +128,7 @@ class EventDispatcher {
         auto& listeners = etd.listeners;
         // std::lock_guard<std::mutex> lock(etd.mutex);
 
-        ListenerHnd<EventType> hnd{new EventListener<EventType>(*this, callback)};  // NOLINT new because of private constructor
+        ListenerHnd<EventType> hnd{new Listener<EventType>(*this, callback)};  // NOLINT new because of private constructor
         listeners.push_back(hnd.get());
         return hnd;
     }

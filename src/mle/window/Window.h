@@ -51,9 +51,6 @@ void update();
 /// Shuts down the window and releases resources.
 void shutdown();
 
-/// Returns a reference to the window event dispatcher.
-ED& getED();
-
 /// Returns a non-owning reference to the internal GLFW window.
 GLFWWindowRef getGlfwWindowRef();
 
@@ -70,4 +67,19 @@ inline f32 getAspectRatio() {
 
 /// Returns a reference to the user input manager.
 UserInputManager& getUIM();
+
+namespace detail {
+/// Returns a reference to the window event dispatcher.
+ED& getED();
+}  // namespace detail
+
+template <typename Event>
+ED::ListenerHnd<Event> listen(std::function<void(const Event&)>&& callback) {
+    return detail::getED().makeEventListener(std::move(callback));
+}
+
+template <typename Event>
+void dispatch(const Event& event) {
+    detail::getED().dispatch(event);
+}
 }  // namespace mle::window

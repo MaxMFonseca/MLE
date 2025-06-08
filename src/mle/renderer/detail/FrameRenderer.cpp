@@ -20,7 +20,7 @@ void FrameRenderer::init() {
     render_queue_ = getDevice().getQueue(getVk().getQueueIndex(CmdType::GRAPHICS), 0);
 
     window_iconify_listener_ =
-        window::getED().makeEventListener<window::events::WindowIconify>([this](const window::events::WindowIconify& event) { iconifyCb(event.iconified); });
+        window::listen<window::events::WindowIconify>([this](const window::events::WindowIconify& event) { iconifyCb(event.iconified); });
 
     MLE_D("FrameRenderer initialized successfully!");
 }

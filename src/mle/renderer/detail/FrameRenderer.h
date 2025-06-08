@@ -78,6 +78,6 @@ class FrameRenderer final {
     bool swapchain_visible_ = false;
     bool iconified_ = false;
 
-    window::ED::ListenerHnd<window::events::WindowIconify> window_iconify_listener_;
+    window::WindowIconifyListener window_iconify_listener_;
 };
 }  // namespace mle::renderer::detail
