@@ -30,18 +30,19 @@ class RenderingThread {
      * @brief Initializes the rendering thread state.
      * @param primary Whether this is the primary rendering thread.
      */
-    void init(bool primary = false);
+    void init();
 
     /// Ends the current command buffer recording
-    void end();
+    void submit();
 
     /// Returns the internal Vulkan command buffer used for issuing commands.
     auto cmd() { return cmd_; }
 
-    /// Returns the currently active Vulkan rendering area.
-    [[nodiscard]] auto getCurrentRenderArea() const { return rendering_data_.vk_rendering.renderArea; }
-
-    void beginRendering(const RenderingInfo& info);
+    void setColorAttachments(std::vector<AttachmentInfo>&& attachments);
+    void setDepthAttachment(const AttachmentInfo& attachment);
+    void setPipeline(PipelineRef p);
+    void beginRendering(Recti render_area);
+    void endRendering();
     void setViewport(const Rectf& viewport = {}) const;
     void bindVertexBuffer(BufferRef buffer, usize offset = 0) const;
     void bindInstanceBuffer(BufferRef buffer, usize offset = 0) const;
@@ -55,12 +56,13 @@ class RenderingThread {
 
   private:
     vk::CommandBuffer cmd_;  ///< Thread-local Vulkan command buffer for recording rendering commands.
-    bool primary_ = false;   ///< Indicates if this is the primary rendering thread.
 
-    struct {
-        PipelineRef pipeline{nullptr};           ///< Currently bound pipeline.
-        PipelineRef previous_pipeline{nullptr};  ///< Previously bound pipeline, for state tracking.
-        vk::RenderingInfo vk_rendering{};        ///< Vulkan rendering state.
-    } rendering_data_;                           ///< State
+    bool in_rendering_ = false;  ///< Flag indicating if currently in a rendering pass.
+
+    std::vector<AttachmentInfo> color_attachments_{};  ///< Framebuffer attachments.
+    AttachmentInfo depth_attachment_{};                ///< Depth attachment info.
+
+    PipelineRef pipeline_{nullptr};  ///< Currently bound pipeline.
+    Recti render_area_{};            ///< Current rendering area.
 };
 }  // namespace mle::renderer

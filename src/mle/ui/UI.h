@@ -1,14 +1,13 @@
 #pragma once
 
+#include "Types.h"
 #include "mle/renderer/Types.h"
-#include "mle/ui/detail/ElementManager.h"
 
 namespace mle::ui {
 void init();
 void shutdown();
+void update();
 renderer::ImageRef render();
+entt::registry& getRegistry();
 
-namespace detail {
-ElementManager& getElementManager();
-}  // namespace detail
 }  // namespace mle::ui

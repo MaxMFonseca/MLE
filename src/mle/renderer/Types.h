@@ -100,12 +100,6 @@ struct AttachmentInfo {
     vk::AttachmentStoreOp store = vk::AttachmentStoreOp::eStore;
     vk::ClearValue clear_value{};
 };
-struct RenderingInfo {
-    PipelineRef pipeline;
-    Recti render_area{};
-    std::vector<AttachmentInfo> colors;
-    AttachmentInfo depth;
-};
 }  // namespace mle::renderer
 
 namespace fmt {

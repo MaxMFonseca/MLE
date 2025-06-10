@@ -390,6 +390,10 @@ void FrameRenderer::endFrame(ImageRef frame_image) {
     current_swapchain_image_idx_ = max<usize>();
 }
 
+void FrameRenderer::submitJob(vk::CommandBuffer cmd) {
+    getCurrentFrame().cmd.executeCommands(cmd);
+}
+
 vk::CommandBuffer FrameRenderer::getCmd() {
     return getCurrentFrame().cmd;
 }

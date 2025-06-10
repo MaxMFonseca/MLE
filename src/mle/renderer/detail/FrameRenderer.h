@@ -39,6 +39,7 @@ class FrameRenderer final {
 
     Result beginFrame();
     void endFrame(ImageRef frame_image);
+    void submitJob(vk::CommandBuffer cmd);
 
     vk::CommandBuffer getCmd();
     vk::CommandBuffer getCmdSecondary();

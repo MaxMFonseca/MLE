@@ -10,7 +10,6 @@
 #include "mle/renderer/RenderingThread.h"
 #include "mle/renderer/Types.h"
 #include "mle/renderer/Utils.h"
-#include "mle/ui/detail/ElementManager.h"
 
 namespace mle::ui {
 namespace {
@@ -18,12 +17,15 @@ class Impl {
   public:
     void init();
     void shutdown();
+
+    void update();
     renderer::ImageRef render();
 
-    auto& getElementManager() { return element_manager_; }
+    auto& getRegistry() { return registry_; }
 
   private:
-    detail::ElementManager element_manager_;
+    entt::registry registry_;
+    entt::entity root_ = entt::null;
 };
 
 struct Position {
@@ -31,17 +33,16 @@ struct Position {
 };
 
 void Impl::init() {
-    element_manager_.init();
-
-    element_manager_.resetRoot(lua::require("testui", true));
 }
 
 void Impl::shutdown() {
-    element_manager_.shutdown();
+}
+
+void Impl::update() {
 }
 
 renderer::ImageRef Impl::render() {
-    return element_manager_.render();
+    return nullptr;
 }
 
 std::unique_ptr<Impl> i_ = nullptr;  // NOLINT
@@ -59,15 +60,18 @@ void shutdown() {
     i_.reset();
 }
 
+void update() {
+    MLE_ASSERT(i_);
+    i_->update();
+}
+
 renderer::ImageRef render() {
     MLE_ASSERT(i_);
     return i_->render();
 }
 
-namespace detail {
-ElementManager& getElementManager() {
+entt::registry& getRegistry() {
     MLE_ASSERT(i_);
-    return i_->getElementManager();
+    return i_->getRegistry();
 }
-}  // namespace detail
 }  // namespace mle::ui

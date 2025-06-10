@@ -1,5 +1,6 @@
 #include "RenderingThread.h"
 
+#include <vulkan/vulkan_handles.hpp>
 #include <vulkan/vulkan_structs.hpp>
 
 #include "Pipeline.h"
@@ -7,39 +8,60 @@
 #include "mle/renderer/Types.h"
 #include "mle/renderer/Utils.h"
 #include "mle/renderer/detail/FrameRenderer.h"
+#include "mle/ui/UI.h"
 namespace mle::renderer {
-void RenderingThread::init(bool primary) {
-    if (primary) {
-        MLE_I("Initializing primary rendering thread...");
-        cmd_ = detail::getFrameRenderer().getCmd();
-        primary_ = true;
-    } else {
-        MLE_I("Initializing secondary rendering thread...");
-        cmd_ = detail::getFrameRenderer().getCmdSecondary();
-        vk::CommandBufferBeginInfo cmd_begin_info{};
-        cmd_begin_info.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit;
-        check(cmd_.begin(cmd_begin_info));
-    }
+void RenderingThread::init() {
+    MLE_I("Initializing secondary rendering thread...");
+    cmd_ = detail::getFrameRenderer().getCmdSecondary();
+
+    vk::CommandBufferInheritanceInfo inheritance_info{};
+
+    vk::CommandBufferBeginInfo cmd_begin_info{};
+    cmd_begin_info.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit;
+    cmd_begin_info.pInheritanceInfo = &inheritance_info;
+
+    check(cmd_.begin(cmd_begin_info));
 }
 
-void RenderingThread::end() {
-    if (rendering_data_.pipeline) {
-        cmd_.endRendering();
-    }
-
-    if (!primary_) {
-        check(cmd_.end());
-    }
+void RenderingThread::submit() {
+    endRendering();
+    check(cmd_.end());
+    detail::getFrameRenderer().submitJob(cmd_);
 }
 
-void RenderingThread::beginRendering(const RenderingInfo& info) {
-    auto render_area = info.render_area;
+void RenderingThread::setColorAttachments(std::vector<AttachmentInfo>&& attachments) {
+    endRendering();
+    color_attachments_ = std::move(attachments);
+}
 
-    if (info.render_area.size.x == 0) {
-        render_area.size.x = info.colors.at(0).image->getExtent().x - info.render_area.pos.x;
+void RenderingThread::setDepthAttachment(const AttachmentInfo& attachment) {
+    endRendering();
+    depth_attachment_ = attachment;
+}
+
+void RenderingThread::setPipeline(PipelineRef p) {
+    MLE_ASSERT(in_rendering_);
+    if (p == pipeline_) {
+        return;
     }
-    if (info.render_area.size.y == 0) {
-        render_area.size.y = info.colors.at(0).image->getExtent().y - info.render_area.pos.y;
+    pipeline_ = p;
+    cmd_.bindPipeline(vk::PipelineBindPoint::eGraphics, p->get());
+}
+
+void RenderingThread::beginRendering(Recti render_area) {
+    if (render_area.size.x == 0) {
+        render_area.size.x = color_attachments_.at(0).image->getExtent().x - render_area.pos.x;
+    }
+    if (render_area.size.y == 0) {
+        render_area.size.y = color_attachments_.at(0).image->getExtent().y - render_area.pos.y;
+    }
+
+    if (in_rendering_) {
+        if (render_area_ == render_area) {
+            return;
+        }
+        render_area_ = render_area;
+        endRendering();
     }
 
     vk::RenderingInfo render_info;
@@ -50,9 +72,9 @@ void RenderingThread::beginRendering(const RenderingInfo& info) {
     render_info.setViewMask(0);
     render_info.setLayerCount(1);
 
-    std::vector<vk::RenderingAttachmentInfo> attachment_descriptions{info.colors.size()};
-    for (usize i = 0; i < info.colors.size(); i++) {
-        const auto& attachment = info.colors.at(i);
+    std::vector<vk::RenderingAttachmentInfo> attachment_descriptions{color_attachments_.size()};
+    for (usize i = 0; i < color_attachments_.size(); i++) {
+        const auto& attachment = color_attachments_.at(i);
         auto& rattachment = attachment_descriptions.at(i);
 
         attachment.image->transitionState(cmd_, Image::State::COLOR_ATT);
@@ -70,30 +92,31 @@ void RenderingThread::beginRendering(const RenderingInfo& info) {
     render_info.setColorAttachments(attachment_descriptions);
 
     vk::RenderingAttachmentInfo depth_attachment;
-    if (info.depth.image || info.depth.view) {
-        info.depth.image->transitionState(cmd_, Image::State::DEPTH_ATT);
+    if (depth_attachment_.image || depth_attachment_.view) {
+        depth_attachment_.image->transitionState(cmd_, Image::State::DEPTH_ATT);
 
-        depth_attachment.imageView = !info.depth.view ? info.depth.image->getDefaultView() : info.depth.view;
-        depth_attachment.loadOp = info.depth.load;
-        depth_attachment.clearValue = info.depth.clear_value;
-        depth_attachment.storeOp = info.depth.store;
+        depth_attachment.imageView = !depth_attachment_.view ? depth_attachment_.image->getDefaultView() : depth_attachment_.view;
+        depth_attachment.loadOp = depth_attachment_.load;
+        depth_attachment.clearValue = depth_attachment_.clear_value;
+        depth_attachment.storeOp = depth_attachment_.store;
         depth_attachment.imageLayout = vk::ImageLayout::eAttachmentOptimal;
 
         render_info.setPDepthAttachment(&depth_attachment);
     }
 
-    if (rendering_data_.pipeline) {
-        cmd_.endRendering();
-    }
-
     cmd_.beginRendering(render_info);
+    in_rendering_ = true;
+}
 
-    rendering_data_.previous_pipeline = rendering_data_.pipeline;
-    rendering_data_.pipeline = info.pipeline;
-    rendering_data_.vk_rendering = render_info;
+void RenderingThread::endRendering() {
+    if (in_rendering_) {
+        cmd_.endRendering();
+        in_rendering_ = false;
+    }
 }
 
 void RenderingThread::setViewport(const Rectf& viewport) const {
+    MLE_ASSERT(in_rendering_);
     MLE_ASSERT_LOG(viewport.size.x >= 0.0F && viewport.size.y >= 0.0F, "Viewport size must be non-negative");
     MLE_ASSERT_LOG(viewport.pos.x >= 0.0F && viewport.pos.y >= 0.0F, "Viewport position must be non-negative");
     MLE_T("Setting viewport: pos = {}, size = {}", viewport.pos, viewport.size);
@@ -105,13 +128,13 @@ void RenderingThread::setViewport(const Rectf& viewport) const {
     vv.maxDepth = 1.0F;
 
     if (viewport.size.x == 0.0F) {
-        vv.width = static_cast<f32>(getCurrentRenderArea().extent.width) - viewport.pos.x;
+        vv.width = static_cast<f32>(render_area_.size.x) - viewport.pos.x;
     } else {
         vv.width = viewport.size.x;
     }
 
     if (viewport.size.y == 0.0F) {
-        vv.height = static_cast<f32>(getCurrentRenderArea().extent.height) - viewport.pos.y;
+        vv.height = static_cast<f32>(render_area_.size.x) - viewport.pos.y;
     } else {
         vv.height = viewport.size.y;
     }
@@ -127,22 +150,27 @@ void RenderingThread::setViewport(const Rectf& viewport) const {
 }
 
 void RenderingThread::bindVertexBuffer(BufferRef buffer, usize offset) const {
+    MLE_ASSERT(in_rendering_);
     cmd_.bindVertexBuffers(0, buffer->get(), offset);
 }
 
 void RenderingThread::bindInstanceBuffer(BufferRef buffer, usize offset) const {
+    MLE_ASSERT(in_rendering_);
     cmd_.bindVertexBuffers(1, buffer->get(), offset);
 }
 
 void RenderingThread::bindIndexBuffer(BufferRef buffer, usize offset) const {
+    MLE_ASSERT(in_rendering_);
     cmd_.bindIndexBuffer(buffer->get(), offset, vk::IndexType::eUint32);
 }
 
 void RenderingThread::pushConstants(const void* push_constants) {
-    MLE_ASSERT(rendering_data_.pipeline->hasPushConstants());
-    auto pc_size = rendering_data_.pipeline->getPushConstantSize();
-    auto pc_frag_offset = rendering_data_.pipeline->getPushConstantFragOffset();
-    auto pipeline_layout = rendering_data_.pipeline->getPipelineLayout();
+    MLE_ASSERT(in_rendering_);
+    MLE_ASSERT(pipeline_);
+    MLE_ASSERT(pipeline_->hasPushConstants());
+    auto pc_size = pipeline_->getPushConstantSize();
+    auto pc_frag_offset = pipeline_->getPushConstantFragOffset();
+    auto pipeline_layout = pipeline_->getPipelineLayout();
 
     if (pc_frag_offset == max<u8>()) {
         cmd_.pushConstants(pipeline_layout, vk::ShaderStageFlagBits::eVertex, 0, pc_size, push_constants);
@@ -156,10 +184,8 @@ void RenderingThread::pushConstants(const void* push_constants) {
 }
 
 void RenderingThread::draw(int instance_count, int index_count) const {
-    if (rendering_data_.pipeline != rendering_data_.previous_pipeline) {
-        cmd_.bindPipeline(vk::PipelineBindPoint::eGraphics, rendering_data_.pipeline->get());
-    }
-
+    MLE_ASSERT(in_rendering_);
+    MLE_ASSERT(pipeline_);
     cmd_.draw(index_count, instance_count, 0, 0);
 }
 }  // namespace mle::renderer

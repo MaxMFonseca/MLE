@@ -85,7 +85,7 @@ void Impl::update() {
     mle_table_["time"] = running_time_float_ = running_stopwatch_.elapsedSecFloat();
 
     window::update();
-    // ui::update();
+    ui::update();
 
     current_second_times_.updates++;
     current_second_times_.time_updating += sw.elapsed<std::chrono::nanoseconds>();
