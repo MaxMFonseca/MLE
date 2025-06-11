@@ -158,6 +158,23 @@ inline bool tryGetKey(const sol::table& table, const std::string& key, T& out) {
 }
 
 /**
+ * @brief Extract a value from a Lua table by key, or return a default value if the key does not exist.
+ *
+ * @tparam T Expected value type.
+ * @param table Lua table object.
+ * @param key Key to look for in the table.
+ * @param default_value Default value to return if the key does not exist.
+ * @return The value at the specified key, converted to type T, or the default value if the key does not exist.
+ */
+template <typename T>
+inline T getKeyOr(const sol::table& table, const std::string& key, T default_value) {
+    if (table[key].valid()) {
+        return as<T>(table[key]);
+    }
+    return default_value;
+}
+
+/**
  * @brief Try to extract a value from a Lua table by key.
  *
  * @tparam T Expected value type.
