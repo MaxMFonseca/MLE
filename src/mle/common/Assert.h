@@ -48,9 +48,8 @@
 /**
  * @def MLE_UNREACHABLE_TODO
  * @brief Marks a code section as a TODO and indicates it is currently unreachable.
- * BE CAREFUL! Use this only for UNREACHABLE code.
  */
-#define MLE_UNREACHABLE_TODO MLE_UNREACHABLE_LOG("TODO")
+#define MLE_TODO MLE_UNREACHABLE_LOG("TODO")
 
 /**
  * @def MLE_UNREACHABLE

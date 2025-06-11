@@ -4,6 +4,8 @@
 #include "mle/common/Utils.h"
 #include "mle/lua/Types.h"
 #include "mle/renderer/RenderingThread.h"
+#include "mle/ui/Utils.h"
+#include "mle/ui/element/Base.h"
 
 namespace mle::ui::element {
 struct Layout {
@@ -12,47 +14,58 @@ struct Layout {
     Layout() = default;
     virtual ~Layout() = default;
 
-    virtual void updateChildrenBounds(entt::entity self);
+    virtual void updateChildrenBounds(entt::entity self, Recti context, bool force_update) const = 0;
 };
 
+using LayoutHnd = std::unique_ptr<Layout>;
+using LayoutRef = std::shared_ptr<Layout>;
+
+namespace comp {
 class Container {
+  public:
+    struct ChildBuildInfo {
+        explicit ChildBuildInfo(entt::registry& r, entt::entity e) :
+            bounds(r.get<comp::Bounds>(e)),
+            target_size(r.try_get<comp::TargetSize>(e)),
+            target_position(r.try_get<comp::TargetPosition>(e)),
+            target_margin(r.try_get<comp::TargetMargin>(e)),
+            target_padding(r.try_get<comp::TargetPadding>(e)),
+            origin(r.try_get<comp::Origin>(e)) {};
+
+        comp::Bounds& bounds;
+        const comp::TargetSize* target_size;
+        const comp::TargetPosition* target_position;
+        const comp::TargetMargin* target_margin;
+        const comp::TargetPadding* target_padding;
+        const comp::Origin* origin;
+    };
+
   public:
     MLE_NO_COPY_MOVE(Container)
 
-    Container();
-    ~Container();
+    explicit Container(LayoutHnd&& layout);
+    ~Container() = default;
 
+    void updateChildrenBounds(entt::entity self, Recti context = {}, bool verify_all = false, bool force_update = false) const;
+
+    void update();
     void render(renderer::RenderingThread& thread) const;
 
-    void setLayout(Layout* layout) { layout_ = layout; }
-
-    [[nodiscard]] bool isArray() const { return count_ <= 6; }
-    void addChild(const sol::table& table);
-    void addChildren(const sol::table& table);
+    void addChild(entt::entity self, const sol::table& table, usize pos = max<usize>());
+    void addChildren(entt::entity self, const sol::table& table);
+    auto getChildren() { return children_.get(); }
     [[nodiscard]] entt::entity getChild(usize idx) const;
     [[nodiscard]] entt::entity getChild(std::string name) const;
-    void getChildIdx(entt::entity) const;
-    [[nodiscard]] std::span<const entt::entity> getChildren() const;
-    [[nodiscard]] usize size() const;
-    void remove(entt::entity e);
 
-    void notifyChildChangedBounds(entt::entity self) const;
-
-    void updateChildrenBounds(entt::entity self) const;
+    static void notifyChildChangedBounds(entt::entity self, entt::entity child);
 
   private:
-    Layout* layout_ = nullptr;
-
-    union Storage {
-        std::array<entt::entity, 6> array{};
-        std::vector<entt::entity> vec;
-
-        MLE_NO_COPY_MOVE(Storage)
-
-        Storage() {};
-        ~Storage() {};
-    } children_;
-    // This is used to track if array or vector, since we do not demote this can become invalid after promotion
-    usize count_ = 0;
+    LayoutHnd layout_ = nullptr;
+    EntityStorage children_;
+    std::set<entt::entity> changed_bounds_children_;
 };
+
+struct ChildChangedBounds {};
+
+};  // namespace comp
 }  // namespace mle::ui::element

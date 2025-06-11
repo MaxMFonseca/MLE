@@ -133,7 +133,7 @@ struct formatter<DataType> : formatter<std::string> {
             case DataType::COUNT:
                 return format_to(ctx.out(), "COUNT");
         }
-        MLE_UNREACHABLE_TODO;
+        MLE_TODO;
     }
 };
 

@@ -1,28 +1,30 @@
 #include "LuaKeyHandlers.h"
 
 #include "mle/lua/Types.h"
+#include "mle/lua/Utils.h"
 #include "mle/ui/Types.h"
 #include "mle/ui/UI.h"
 #include "mle/ui/element/Base.h"
+#include "mle/ui/element/ListLayout.h"
 
 namespace mle::ui::element {
 namespace {
-void name(entt::entity e, const sol::object& obj) {
+void name(entt::entity self, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
     auto& reg = getRegistry();
 
     if (obj.is<std::string>()) {
-        reg.emplace_or_replace<comp::Name>(e, obj.as<std::string>());
+        reg.emplace_or_replace<comp::Name>(self, obj.as<std::string>());
     }
 
     MLE_UNREACHABLE_LOG("Unexpected obj type for Name: {}", obj.get_type());
 }
 
-void solidBackground(entt::entity e, const sol::object& obj) {
+void solidBackground(entt::entity self, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
     auto& reg = getRegistry();
 
-    reg.emplace_or_replace<comp::SolidBackground>(e, Color::fromLua(obj));
+    reg.emplace_or_replace<comp::SolidBackground>(self, Color::fromLua(obj));
 }
 
 auto& getMap() {
@@ -48,5 +50,6 @@ std::optional<LuaKeyHandlerFn> getLuaKeyHandlerFn(const std::string& key) {
 void addEngineLuaKeyHandlers() {
     addLuaKeyHandler("name", name);
     addLuaKeyHandler("solid_background", solidBackground);
+    addLuaKeyHandler("list", ListLayout::lkhList);
 }
 }  // namespace mle::ui::element

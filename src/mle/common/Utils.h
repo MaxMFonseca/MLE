@@ -53,6 +53,10 @@ namespace mle {
  */
 template <typename T>
 [[maybe_unused]] Expected<std::pair<T, std::string>> splitNumberAndSuffix(const std::string& s) {
+    if (!std::isdigit(s[0])) {
+        return std::make_pair(0, s);
+    }
+
     T result{};
     auto [ptr, ec] = std::from_chars(s.data(), s.data() + s.size(), result);  // NOLINT
 

@@ -11,6 +11,7 @@
 #include "mle/renderer/Types.h"
 #include "mle/renderer/Utils.h"
 #include "mle/ui/element/Base.h"
+#include "mle/ui/element/Container.h"
 #include "mle/ui/element/LuaKeyHandlers.h"
 
 namespace mle::ui {
@@ -24,6 +25,9 @@ class Impl {
     inline renderer::ImageRef render();
 
     auto& getRegistry() { return registry_; }
+
+  private:
+    void checkElementsBoundChanged();
 
   private:
     entt::registry registry_;
@@ -45,6 +49,26 @@ void Impl::shutdown() {
 }
 
 void Impl::update() {
+    // solveUserInput();  // !! Compute colision on render data
+
+    // updateElements();
+
+    checkElementsBoundChanged();
+}
+
+void Impl::checkElementsBoundChanged() {
+    auto view = registry_.view<element::comp::ChildChangedBounds>();
+    if (view->empty()) {
+        return;
+    }
+
+    if (view->size() == 1) {
+        auto e = *view.begin();
+        registry_.get<element::comp::Container>(e).updateChildrenBounds(e);
+        return;
+    }
+
+    registry_.get<element::comp::Container>(root_).updateChildrenBounds(root_, {}, true);
 }
 
 renderer::ImageRef Impl::render() {

@@ -221,7 +221,7 @@ struct formatter<Image::State> : formatter<std::string> {
             case Image::State::SHADER_READ:
                 return format_to(ctx.out(), "SHADER_READ");
         }
-        MLE_UNREACHABLE_TODO;
+        MLE_TODO;
     }
 };
 }  // namespace fmt

@@ -15,6 +15,8 @@
 #include "mle/common/Assert.h"
 #include "mle/common/Logger.h"
 #include "mle/common/math/Types.h"
+#include "mle/common/math/Types2D.h"
+#include "sol/forward.hpp"
 
 namespace mle::lua {
 /**
@@ -357,6 +359,22 @@ inline bool tryAs(const sol::object& o, vec2i& out) {
     }
 
     return false;
+}
+
+template <>
+inline Recti as(const sol::object& o) {
+    MLE_ASSERT(o.valid());
+
+    if (o.is<Recti>()) {
+        return o.as<Recti>();
+    }
+    if (o.is<sol::table>()) {
+        Recti ret;
+        getList<i32>(o, ret.pos.x, ret.pos.y, ret.size.x, ret.size.y);
+        return ret;
+    }
+
+    MLE_UNREACHABLE_LOG("Cannot convert to Recti from {}", o.get_type());
 }
 
 /**
