@@ -158,6 +158,17 @@ template <typename T>
 {
     return (T(0) < value) - (value < T(0));
 }
+
+/// Enumeration for axis indices.
+enum class Axis : u8 {
+    X = 0,       ///< X-axis
+    Y = 1,       ///< Y-axis
+    Z = 2,       ///< Z-axis
+    W = 3,       ///< W-axis
+    WIDTH = 0,   ///< X-axis
+    HEIGHT = 1,  ///< Y-axis
+    DEPTH = 2    ///< Z-axis
+};
 }  // namespace mle
 
 namespace fmt {
@@ -206,6 +217,23 @@ struct formatter<mle::mat4<T>> : formatter<std::string> {
     template <typename FormatContext>
     constexpr auto format(const mle::mat4<T>& v, FormatContext& ctx) const {
         return format_to(ctx.out(), "[{}, {}, {}, {}]", v[0], v[1], v[2], v[3]);
+    }
+};
+
+template <>
+struct formatter<mle::Axis> : formatter<std::string> {
+    template <typename FormatContext>
+    constexpr auto format(mle::Axis v, FormatContext& ctx) const {
+        switch (v) {
+            case mle::Axis::X:
+                return format_to(ctx.out(), "X");
+            case mle::Axis::Y:
+                return format_to(ctx.out(), "Y");
+            case mle::Axis::Z:
+                return format_to(ctx.out(), "Z");
+            case mle::Axis::W:
+                return format_to(ctx.out(), "W");
+        }
     }
 };
 }  // namespace fmt
