@@ -10,16 +10,18 @@
 #include "mle/renderer/RenderingThread.h"
 #include "mle/renderer/Types.h"
 #include "mle/renderer/Utils.h"
+#include "mle/ui/element/Base.h"
+#include "mle/ui/element/LuaKeyHandlers.h"
 
 namespace mle::ui {
 namespace {
 class Impl {
   public:
-    void init();
-    void shutdown();
+    inline void init();
+    inline void shutdown();
 
-    void update();
-    renderer::ImageRef render();
+    inline void update();
+    inline renderer::ImageRef render();
 
     auto& getRegistry() { return registry_; }
 
@@ -33,6 +35,10 @@ struct Position {
 };
 
 void Impl::init() {
+    element::addEngineLuaKeyHandlers();
+
+    root_ = registry_.create();
+    element::applyTable(root_, lua::require("testui", true));
 }
 
 void Impl::shutdown() {
@@ -74,4 +80,5 @@ entt::registry& getRegistry() {
     MLE_ASSERT(i_);
     return i_->getRegistry();
 }
+
 }  // namespace mle::ui
