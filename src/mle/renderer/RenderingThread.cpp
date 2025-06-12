@@ -148,9 +148,6 @@ void RenderingThread::setViewport(const Rectf& viewport) const {
 
     cmd_.setViewport(0, {vv});
     cmd_.setScissor(0, scissor);
-
-    MLE_C(MLE_4V(vv.x, vv.y, vv.width, vv.height));
-    MLE_C(MLE_4V(scissor.offset.x, scissor.offset.y, scissor.extent.width, scissor.extent.height));
 }
 
 void RenderingThread::bindVertexBuffer(BufferRef buffer, usize offset) const {

@@ -99,8 +99,6 @@ void Container::renderComp(entt::entity self, renderer::RenderingThreadRef threa
             // also we need to find a way to do clipping
             pc.pos = fcbounds.pos / fbounds.size;
             pc.size = fcbounds.size / fbounds.size;
-            MLE_VC(pc.size);
-            MLE_VC(pc.pos);
             pc.color = bg->color;
             thread->pushConstants(&pc);
             thread->setViewport();

@@ -22,6 +22,73 @@ void name(entt::entity self, const sol::object& obj) {
     }
 }
 
+void sizeX(comp::TargetSize& ts, const sol::object& obj) {
+    ts.x.fromLua(obj);
+}
+
+void sizeY(comp::TargetSize& ts, const sol::object& obj) {
+    ts.y.fromLua(obj);
+}
+
+void size(entt::entity self, const sol::object& obj) {
+    MLE_ASSERT(obj.valid());
+    auto& reg = getRegistry();
+
+    auto* comp = reg.try_get<comp::TargetSize>(self);
+    if (!comp) {
+        comp = &reg.emplace<comp::TargetSize>(self);
+    }
+
+    if (obj.is<f32>()) {
+        comp->x.val = comp->y.val = obj.as<f32>();
+    } else {
+        MLE_ASSERT(obj.is<sol::table>());
+        auto table = obj.as<sol::table>();
+        auto x_r = table[1];
+        if (x_r.valid()) {
+            sizeX(*comp, x_r);
+        } else {
+            x_r = table["x"];
+            if (x_r.valid()) {
+                sizeX(*comp, x_r);
+            }
+        }
+        auto y_r = table[2];
+        if (x_r.valid()) {
+            sizeY(*comp, y_r);
+        } else {
+            y_r = table["y"];
+            if (y_r.valid()) {
+                sizeY(*comp, y_r);
+            }
+        }
+    }
+}
+
+void sizeX(entt::entity self, const sol::object& obj) {
+    MLE_ASSERT(obj.valid());
+    auto& reg = getRegistry();
+
+    auto* comp = reg.try_get<comp::TargetSize>(self);
+    if (!comp) {
+        comp = &reg.emplace<comp::TargetSize>(self);
+    }
+
+    sizeX(*comp, obj);
+}
+
+void sizeY(entt::entity self, const sol::object& obj) {
+    MLE_ASSERT(obj.valid());
+    auto& reg = getRegistry();
+
+    auto* comp = reg.try_get<comp::TargetSize>(self);
+    if (!comp) {
+        comp = &reg.emplace<comp::TargetSize>(self);
+    }
+
+    sizeY(*comp, obj);
+}
+
 void background(entt::entity self, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
     auto& reg = getRegistry();
@@ -51,6 +118,9 @@ std::optional<LuaKeyHandlerFn> getLuaKeyHandlerFn(const std::string& key) {
 
 void addEngineLuaKeyHandlers() {
     addLuaKeyHandler("name", name);
+    addLuaKeyHandler("size", size);
+    addLuaKeyHandler("size_x", sizeX);
+    addLuaKeyHandler("size_y", sizeY);
     addLuaKeyHandler("background", background);
     addLuaKeyHandler("list", ListLayout::lkhList);
     addLuaKeyHandler("root_image", comp::RootImage::lkh);

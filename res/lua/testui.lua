@@ -10,6 +10,10 @@ return {
 			bounds = { 1920 / 2, 1080 / 2, 1920 / 2 - 10, 1080 / 2 - 10 },
 			background = "RED",
 		},
+		{
+			size = { 10, 10 },
+			background = "GREEN",
+		},
 		-- { "A." },
 		-- { "A" },
 		-- { "A" },

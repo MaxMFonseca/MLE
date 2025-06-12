@@ -110,6 +110,49 @@ bool isFit(entt::entity e) {
 //
 
 namespace comp {
+namespace {
+TargetBound::Type stringToType(const std::string& str) {
+    using Type = TargetBound::Type;
+    if (str == "px") {
+        return Type::PX;
+    }
+    if (str == "fit") {
+        return Type::FIT;
+    }
+    if (str == "%") {
+        return Type::PARENT;
+    }
+    if (str == "s") {
+        return Type::SELF;
+    }
+    if (str == "sw") {
+        return Type::SELF_W;
+    }
+    if (str == "sh") {
+        return Type::SELF_H;
+    }
+    if (str == "ppx") {
+        return Type::PARENT_PX;
+    }
+    if (str == "r%") {
+        return Type::ROOT;
+    }
+    if (str == "rpx") {
+        return Type::ROOT_PX;
+    }
+    if (str == "flex") {
+        return Type::FLEX_SHARE;
+    }
+    if (str == "pw") {
+        return Type::PARENT_W;
+    }
+    if (str == "ph") {
+        return Type::PARENT_H;
+    }
+    return Type::DEFAULT;
+}
+}  // namespace
+
 void TargetBound::fromLua(const sol::object& obj) {
     MLE_ASSERT(obj.valid());
 
@@ -122,35 +165,21 @@ void TargetBound::fromLua(const sol::object& obj) {
         MLE_ASSERT_LOG(split.has_value(), "Invalid target bound format: {}", obj.as<std::string>());
         val = split.value().first;
         const auto& suffix = split.value().second;
-        if (suffix == "px") {
-            type = Type::PX;
-        } else if (suffix == "%") {
-            type = Type::PARENT;
-        } else if (suffix == "fit") {
-            type = Type::FIT;
-        } else if (suffix == "s") {
-            type = Type::SELF;
-        } else if (suffix == "sw") {
-            type = Type::SELF_W;
-        } else if (suffix == "sh") {
-            type = Type::SELF_H;
-        } else if (suffix == "ppx") {
-            type = Type::PARENT_PX;
-        } else if (suffix == "r%") {
-            type = Type::ROOT;
-        } else if (suffix == "rpx") {
-            type = Type::ROOT_PX;
-        } else if (suffix == "flex") {
-            type = Type::FLEX_SHARE;
-        } else if (suffix == "pw") {
-            type = Type::PARENT_W;
-        } else if (suffix == "ph") {
-            type = Type::PARENT_H;
-        } else {
-            type = Type::DEFAULT;
+        type = stringToType(suffix);
+        return;
+    }
+    if (obj.is<sol::table>()) {
+        auto table = obj.as<sol::table>();
+        auto val_r = table[1];
+        MLE_ASSERT(lua::valid<f32>(val_r));
+        val = val_r.get<f32>();
+        auto type_r = table[2];
+        if (type_r.valid() && type_r.is<std::string>()) {
+            type = stringToType(type_r.get<std::string>());
         }
         return;
     }
+    MLE_UNREACHABLE_LOG("Unexpected obj type for TargetBound: {}", obj.get_type());
 }
 
 renderer::PipelineRef Background::getPipeline() {
