@@ -11,6 +11,7 @@
 #include "mle/common/Color.h"
 #include "mle/common/math/Types.h"
 #include "mle/common/math/Types2D.h"
+#include "mle/renderer/RenderingThread.h"
 #include "mle/renderer/Types.h"
 #include "mle/ui/Types.h"
 #include "mle/ui/UI.h"
@@ -43,7 +44,7 @@ struct Parent {
 struct Name {
     std::string name;
 };
-struct SolidBackground {
+struct Background {
     Color color{};
 
     static renderer::PipelineRef getPipeline();

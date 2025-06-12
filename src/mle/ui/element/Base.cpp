@@ -9,6 +9,7 @@
 #include "mle/renderer/Image.h"
 #include "mle/renderer/Pipeline.h"
 #include "mle/renderer/Renderer.h"
+#include "mle/renderer/RenderingThread.h"
 #include "mle/renderer/Utils.h"
 #include "mle/ui/Types.h"
 #include "mle/ui/UI.h"
@@ -152,14 +153,15 @@ void TargetBound::fromLua(const sol::object& obj) {
     }
 }
 
-renderer::PipelineRef SolidBackground::getPipeline() {
+renderer::PipelineRef Background::getPipeline() {
     static renderer::PipelineHnd pipeline;
     if (!pipeline) {
         renderer::Pipeline::CI ci;
-        ci.vertex_shader = renderer::getShader("rect.vert", true);
-        ci.fragment_shader = renderer::getShader("rect.frag", true);
+        ci.vertex_shader = renderer::getShader("ui/rect.vert", true);
+        ci.fragment_shader = renderer::getShader("ui/rect.frag", true);
         ci.color_attachment_formats = {renderer::getDefaultColorFormat()};
         ci.blend_attachments = renderer::makeDefaultBlendAttachmentStates(1);
+        ci.topology = vk::PrimitiveTopology::eTriangleStrip;
         pipeline = renderer::Pipeline::createHnd(ci);
         renderer::addOnShutdown([&]() { pipeline.reset(); });
     }

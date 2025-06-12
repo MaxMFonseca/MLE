@@ -22,11 +22,11 @@ void name(entt::entity self, const sol::object& obj) {
     }
 }
 
-void solidBackground(entt::entity self, const sol::object& obj) {
+void background(entt::entity self, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
     auto& reg = getRegistry();
 
-    reg.emplace_or_replace<comp::SolidBackground>(self, Color::fromLua(obj));
+    reg.emplace_or_replace<comp::Background>(self, Color::fromLua(obj));
 }
 
 auto& getMap() {
@@ -51,7 +51,7 @@ std::optional<LuaKeyHandlerFn> getLuaKeyHandlerFn(const std::string& key) {
 
 void addEngineLuaKeyHandlers() {
     addLuaKeyHandler("name", name);
-    addLuaKeyHandler("solid_background", solidBackground);
+    addLuaKeyHandler("background", background);
     addLuaKeyHandler("list", ListLayout::lkhList);
     addLuaKeyHandler("root_image", comp::RootImage::lkh);
 }

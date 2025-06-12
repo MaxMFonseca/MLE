@@ -155,6 +155,7 @@ void Pipeline::init(const CI& ci) {
     pipeline_ci.pNext = &pipeline_rendering_ci;
 
     o_ = unwrap(detail::getVk().getDevice().createGraphicsPipeline(nullptr, pipeline_ci));
+    MLE_T("Pipeline created successfully");
 }
 
 Pipeline::~Pipeline() {
@@ -193,7 +194,7 @@ void Pipeline::createPipelineLayout(const CI& ci) {
     }
 
     pc_fields_.clear();
-    pc_frag_offset_ = 0;
+    pc_frag_offset_ = max<u8>();
     int pc_count = 0;
     std::array<vk::PushConstantRange, 2> pc_ranges{};
     if (ci.vertex_shader->getPushConstantRange().size != 0U) {

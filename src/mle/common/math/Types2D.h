@@ -131,6 +131,9 @@ struct Rect {
         ret.size.y = to.size.y / size.y;
         return ret;
     }
+
+    /// Returns a rectangle with the same position and size, but with floating-point precision.
+    [[nodiscard]] constexpr Rect<f32> asF32() const { return {as<f32>(pos.x), as<f32>(pos.y), as<f32>(size.x), as<f32>(size.y)}; }
 };
 
 /**

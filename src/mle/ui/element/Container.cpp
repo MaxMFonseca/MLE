@@ -74,6 +74,40 @@ void Container::notifyChildChangedBounds(entt::entity self, entt::entity child) 
     }
 }
 
-void Container::renderComp([[maybe_unused]] entt::entity self, [[maybe_unused]] renderer::RenderingThreadRef thread) const {
+void Container::renderComp(entt::entity self, renderer::RenderingThreadRef thread) const {
+    auto& reg = getRegistry();
+    auto children = children_.get();
+
+    // I need to pass in the context of the current root image!@#
+    // for rotation
+
+    auto fbounds = reg.get<comp::Bounds>(self).bounds.asF32();
+
+    for (auto child : children) {
+        auto fcbounds = reg.get<comp::Bounds>(child).bounds.asF32();
+
+        // render child bg
+        if (const auto* bg = reg.try_get<Background>(child); bg) {
+            thread->setPipeline(Background::getPipeline());
+            struct {
+                vec2f pos{};
+                vec2f size{};
+                vec4f color{};
+            } pc;
+            // FIXME: the context is wrong here, this should be renderd on the current root
+            // the thread does have the context for size, but not pos/rotation
+            // also we need to find a way to do clipping
+            pc.pos = fcbounds.pos / fbounds.size;
+            pc.size = fcbounds.size / fbounds.size;
+            MLE_VC(pc.size);
+            MLE_VC(pc.pos);
+            pc.color = bg->color;
+            thread->pushConstants(&pc);
+            thread->setViewport();
+            thread->draw(1, 4);
+        }
+
+        // TODO: render child Renderable
+    }
 }
 }  // namespace mle::ui::element::comp

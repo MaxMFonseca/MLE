@@ -60,9 +60,10 @@ void RenderingThread::beginRendering(Recti render_area) {
         if (render_area_ == render_area) {
             return;
         }
-        render_area_ = render_area;
         endRendering();
     }
+
+    render_area_ = render_area;
 
     vk::RenderingInfo render_info;
     render_info.setRenderArea({
@@ -134,7 +135,7 @@ void RenderingThread::setViewport(const Rectf& viewport) const {
     }
 
     if (viewport.size.y == 0.0F) {
-        vv.height = static_cast<f32>(render_area_.size.x) - viewport.pos.y;
+        vv.height = static_cast<f32>(render_area_.size.y) - viewport.pos.y;
     } else {
         vv.height = viewport.size.y;
     }
@@ -147,6 +148,9 @@ void RenderingThread::setViewport(const Rectf& viewport) const {
 
     cmd_.setViewport(0, {vv});
     cmd_.setScissor(0, scissor);
+
+    MLE_C(MLE_4V(vv.x, vv.y, vv.width, vv.height));
+    MLE_C(MLE_4V(scissor.offset.x, scissor.offset.y, scissor.extent.width, scissor.extent.height));
 }
 
 void RenderingThread::bindVertexBuffer(BufferRef buffer, usize offset) const {
