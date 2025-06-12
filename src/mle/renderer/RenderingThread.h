@@ -41,7 +41,7 @@ class RenderingThread {
     void setColorAttachments(std::vector<AttachmentInfo>&& attachments);
     void setDepthAttachment(const AttachmentInfo& attachment);
     void setPipeline(PipelineRef p);
-    void beginRendering(Recti render_area);
+    void beginRendering(Recti render_area = {});
     void endRendering();
     void setViewport(const Rectf& viewport = {}) const;
     void bindVertexBuffer(BufferRef buffer, usize offset = 0) const;

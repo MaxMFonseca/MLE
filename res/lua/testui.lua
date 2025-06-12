@@ -1,9 +1,9 @@
 return {
-	image = {
+	root_image = {
 		extent = { 1920, 1080 },
-		clear_color = "CYAN",
+		clear_color = "NQB",
 	},
-	flex = {
+	list = {
 		{ name = "1" },
 		{ "A." },
 		{ "A" },

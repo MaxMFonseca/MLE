@@ -1,10 +1,15 @@
 #include "Base.h"
 
 #include <algorithm>
+#include <vulkan/vulkan_enums.hpp>
 
 #include "mle/common/Assert.h"
 #include "mle/common/Utils.h"
 #include "mle/lua/Utils.h"
+#include "mle/renderer/Image.h"
+#include "mle/renderer/Pipeline.h"
+#include "mle/renderer/Renderer.h"
+#include "mle/renderer/Utils.h"
 #include "mle/ui/Types.h"
 #include "mle/ui/UI.h"
 #include "mle/ui/element/LuaKeyHandlers.h"
@@ -145,6 +150,20 @@ void TargetBound::fromLua(const sol::object& obj) {
         }
         return;
     }
+}
+
+renderer::PipelineRef SolidBackground::getPipeline() {
+    static renderer::PipelineHnd pipeline;
+    if (!pipeline) {
+        renderer::Pipeline::CI ci;
+        ci.vertex_shader = renderer::getShader("rect.vert", true);
+        ci.fragment_shader = renderer::getShader("rect.frag", true);
+        ci.color_attachment_formats = {renderer::getDefaultColorFormat()};
+        ci.blend_attachments = renderer::makeDefaultBlendAttachmentStates(1);
+        pipeline = renderer::Pipeline::createHnd(ci);
+        renderer::addOnShutdown([&]() { pipeline.reset(); });
+    }
+    return pipeline.get();
 }
 }  // namespace comp
 }  // namespace mle::ui::element

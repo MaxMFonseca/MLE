@@ -2,10 +2,12 @@
 
 #include "mle/lua/Types.h"
 #include "mle/lua/Utils.h"
+#include "mle/renderer/Image.h"
 #include "mle/ui/Types.h"
 #include "mle/ui/UI.h"
 #include "mle/ui/element/Base.h"
 #include "mle/ui/element/ListLayout.h"
+#include "sol/forward.hpp"
 
 namespace mle::ui::element {
 namespace {
@@ -15,9 +17,9 @@ void name(entt::entity self, const sol::object& obj) {
 
     if (obj.is<std::string>()) {
         reg.emplace_or_replace<comp::Name>(self, obj.as<std::string>());
+    } else {
+        MLE_UNREACHABLE_LOG("Unexpected obj type for Name: {}", obj.get_type());
     }
-
-    MLE_UNREACHABLE_LOG("Unexpected obj type for Name: {}", obj.get_type());
 }
 
 void solidBackground(entt::entity self, const sol::object& obj) {
@@ -51,5 +53,6 @@ void addEngineLuaKeyHandlers() {
     addLuaKeyHandler("name", name);
     addLuaKeyHandler("solid_background", solidBackground);
     addLuaKeyHandler("list", ListLayout::lkhList);
+    addLuaKeyHandler("root_image", comp::RootImage::lkh);
 }
 }  // namespace mle::ui::element

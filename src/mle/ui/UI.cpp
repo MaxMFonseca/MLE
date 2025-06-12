@@ -43,6 +43,8 @@ void Impl::init() {
 
     root_ = registry_.create();
     element::applyTable(root_, lua::require("testui", true));
+
+    MLE_ASSERT_LOG(registry_.try_get<element::comp::RootImage>(root_), "The root element must have the root_image field set.");
 }
 
 void Impl::shutdown() {
@@ -72,7 +74,9 @@ void Impl::checkElementsBoundChanged() {
 }
 
 renderer::ImageRef Impl::render() {
-    return nullptr;
+    registry_.get<element::comp::Renderable>(root_).render(root_, nullptr);
+
+    return registry_.get<element::comp::RootImage>(root_).image_handle.get();
 }
 
 std::unique_ptr<Impl> i_ = nullptr;  // NOLINT

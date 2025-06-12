@@ -7,6 +7,7 @@ struct ListLayout : Layout {
     static void lkhList(entt::entity self, const sol::object& obj);
 
     Axis axis = Axis::Y;
+    f32 child_gap = 0.0F;  // FIXME: this should be TargetBound
 
     void updateChildrenBounds(entt::entity self, Recti context, bool force_update) const override;
     void updateChildrenBoundsY(entt::entity self, Recti context, bool force_update) const;

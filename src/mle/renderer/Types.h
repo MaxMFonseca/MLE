@@ -73,6 +73,8 @@ using CommandBufferHnd = std::unique_ptr<CommandBuffer>;
 using CommandBufferRef = CommandBuffer*;
 
 class RenderingThread;
+using RenderingThreadHnd = std::unique_ptr<RenderingThread>;
+using RenderingThreadRef = RenderingThread*;
 
 struct CmdPoolData {
     vk::CommandPool o;

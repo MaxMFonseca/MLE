@@ -34,13 +34,14 @@ void EntityStorage::add(entt::entity e, usize pos) {
                 }
                 children_.array.at(pos) = e;
             }
+            count_++;
         } else {
             // promote to vector
             new (&children_.vec) std::vector<entt::entity>(children_.array.begin(), children_.array.end());
 
+            count_++;
             insertInVec(e, pos);
         }
-        count_++;
     } else {
         insertInVec(e, pos);
     }

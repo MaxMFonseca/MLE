@@ -42,17 +42,12 @@ struct Parent {
 };
 struct Name {
     std::string name;
-
-    static void lkhName(entt::entity e, const sol::object& obj);
 };
 struct SolidBackground {
     Color color{};
-};
-struct RootImage {
-    renderer::ImageHnd image_handle{};
-    Color clear_color{};
-};
 
+    static renderer::PipelineRef getPipeline();
+};
 /**
  * @brief Represents a bound or constraint for UI element positioning or sizing.
  *

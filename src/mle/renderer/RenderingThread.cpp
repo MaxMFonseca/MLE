@@ -11,7 +11,7 @@
 #include "mle/ui/UI.h"
 namespace mle::renderer {
 void RenderingThread::init() {
-    MLE_I("Initializing secondary rendering thread...");
+    MLE_T("Initializing secondary rendering thread...");
     cmd_ = detail::getFrameRenderer().getCmdSecondary();
 
     vk::CommandBufferInheritanceInfo inheritance_info{};

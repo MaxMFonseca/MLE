@@ -8,6 +8,7 @@
 
 namespace mle::ui::element {
 void ListLayout::lkhList(entt::entity self, const sol::object& obj) {
+    MLE_T("list");
     MLE_ASSERT(lua::valid<sol::table>(obj));
     auto& reg = getRegistry();
     MLE_ASSERT_LOG(!reg.try_get<comp::Container>(self), "ListLayout should not be applied to an entity that already has a Container component");
@@ -29,8 +30,13 @@ void ListLayout::lkhList(entt::entity self, const sol::object& obj) {
         }
     }
 
-    auto& container = reg.emplace<comp::Container>(self, std::move(list_layout));
-    container.addChildren(self, table);
+    if (const auto child_gap_r = table["child_gap"]; child_gap_r.valid()) {
+        if (child_gap_r.is<f32>()) {
+            list_layout->child_gap = child_gap_r.get<f32>();
+        }
+    }
+
+    comp::Container::add(self, std::move(list_layout), table);
 }
 
 void ListLayout::updateChildrenBounds(entt::entity self, Recti context, bool force_update) const {
@@ -105,6 +111,7 @@ void ListLayout::updateChildrenBoundsY(entt::entity self, Recti context, [[maybe
         cinfo.bounds.bounds.size.y = content;
         cinfo.bounds.bounds.pos.y += m_t;
         height += content + m_t + m_b;
+        height += as<int>(child_gap);
     }
 
     f32 share_height = 0.0F;

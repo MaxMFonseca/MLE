@@ -1,10 +1,19 @@
 #include "Container.h"
 
 #include "mle/lua/Utils.h"
+#include "mle/renderer/RenderingThread.h"
 #include "mle/ui/Types.h"
 #include "mle/ui/UI.h"
+#include "mle/ui/element/Renderable.h"
 
 namespace mle::ui::element::comp {
+void Container::add(entt::entity self, LayoutHnd&& layout, const sol::table& table) {
+    auto& reg = getRegistry();
+    auto& container = reg.emplace<comp::Container>(self, std::move(layout));
+    container.addChildren(self, table);
+    comp::Renderable::add(self, container);
+}
+
 Container::Container(LayoutHnd&& layout) :
     layout_(std::move(layout)) {
 }
@@ -65,4 +74,6 @@ void Container::notifyChildChangedBounds(entt::entity self, entt::entity child) 
     }
 }
 
+void Container::renderComp([[maybe_unused]] entt::entity self, [[maybe_unused]] renderer::RenderingThreadRef thread) const {
+}
 }  // namespace mle::ui::element::comp

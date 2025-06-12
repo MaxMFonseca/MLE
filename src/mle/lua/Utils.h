@@ -16,6 +16,7 @@
 #include "mle/common/Logger.h"
 #include "mle/common/math/Types.h"
 #include "mle/common/math/Types2D.h"
+#include "mle/core/Core.h"
 #include "sol/forward.hpp"
 
 namespace mle::lua {
@@ -29,6 +30,13 @@ namespace mle::lua {
 template <typename T>
 inline bool valid(const sol::object& obj) {
     return obj.valid() && obj.is<T>();
+}
+
+template <typename T>
+inline void assertIs(const sol::object& obj) {
+    if (!valid<T>(obj)) {
+        core::unrecoverable("Object is not valid or not of type {}", obj.get_type());
+    }
 }
 
 /**

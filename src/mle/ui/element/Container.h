@@ -6,6 +6,7 @@
 #include "mle/renderer/RenderingThread.h"
 #include "mle/ui/Utils.h"
 #include "mle/ui/element/Base.h"
+#include "mle/ui/element/Renderable.h"
 
 namespace mle::ui::element {
 struct Layout {
@@ -21,7 +22,7 @@ using LayoutHnd = std::unique_ptr<Layout>;
 using LayoutRef = std::shared_ptr<Layout>;
 
 namespace comp {
-class Container {
+class Container : public RenderableInterface {
   public:
     struct ChildBuildInfo {
         explicit ChildBuildInfo(entt::registry& r, entt::entity e) :
@@ -44,12 +45,12 @@ class Container {
     MLE_NO_COPY_MOVE(Container)
 
     explicit Container(LayoutHnd&& layout);
-    ~Container() = default;
+    ~Container() override = default;
 
     void updateChildrenBounds(entt::entity self, Recti context = {}, bool verify_all = false, bool force_update = false) const;
 
     void update();
-    void render(renderer::RenderingThread& thread) const;
+    void renderComp(entt::entity self, renderer::RenderingThreadRef thread) const override;
 
     void addChild(entt::entity self, const sol::table& table, usize pos = max<usize>());
     void addChildren(entt::entity self, const sol::table& table);
@@ -58,6 +59,8 @@ class Container {
     [[nodiscard]] entt::entity getChild(std::string name) const;
 
     static void notifyChildChangedBounds(entt::entity self, entt::entity child);
+
+    static void add(entt::entity self, LayoutHnd&& layout, const sol::table& table);
 
   private:
     LayoutHnd layout_ = nullptr;

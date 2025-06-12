@@ -19,7 +19,7 @@ const Color Color::YELLOW = Color{MAX_U8, MAX_U8, 0U};
 const Color Color::CYAN = Color{0U, MAX_U8, MAX_U8};
 const Color Color::GRAY = Color(0.5F, 0.5F, 0.5F);
 const Color Color::NQB = Color(0.05F, 0.05F, 0.05F);
-const Color Color::NQW = Color(0.95F, 0.95F, 0.95F);
+const Color Color::NQW = Color(0.85F, 0.85F, 0.85F);
 
 Color Color::fromString(const std::string& str) {
     if (str.size() > 2) {
