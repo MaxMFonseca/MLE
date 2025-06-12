@@ -126,6 +126,9 @@ struct Color : vec4f {
     static const Color MAGENTA;  ///< Opaque magenta.
     static const Color YELLOW;   ///< Opaque yellow.
     static const Color CYAN;     ///< Opaque cyan.
+    static const Color GRAY;     ///< Opaque gray.
+    static const Color NQB;      ///< Not quite black
+    static const Color NQW;      ///< Not quite white
 
     static constexpr u32 MAX_U8 = 255U;     ///< Maximum 8-bit unsigned value.
     static constexpr f32 MAX_U8_F = 255.F;  ///< Maximum 8-bit value as float.

@@ -17,6 +17,9 @@ const Color Color::BLUE = Color{0U, 0U, MAX_U8};
 const Color Color::MAGENTA = Color{MAX_U8, 0U, MAX_U8};
 const Color Color::YELLOW = Color{MAX_U8, MAX_U8, 0U};
 const Color Color::CYAN = Color{0U, MAX_U8, MAX_U8};
+const Color Color::GRAY = Color(0.5F, 0.5F, 0.5F);
+const Color Color::NQB = Color(0.05F, 0.05F, 0.05F);
+const Color Color::NQW = Color(0.95F, 0.95F, 0.95F);
 
 Color Color::fromString(const std::string& str) {
     if (str.size() > 2) {
@@ -95,10 +98,9 @@ std::unordered_map<std::string, Color>& Color::colors() {
 }
 
 void Color::addEngineDefaultColors() {
-    std::vector<std::pair<std::string, Color>> default_colors = {
-        {"ZERO", ZERO}, {"BLACK", BLACK},     {"WHITE", WHITE},   {"RED", RED},   {"GREEN", GREEN},
-        {"BLUE", BLUE}, {"MAGENTA", MAGENTA}, {"YELLOW", YELLOW}, {"CYAN", CYAN},
-    };
+    std::vector<std::pair<std::string, Color>> default_colors = {{"ZERO", ZERO},   {"BLACK", BLACK}, {"WHITE", WHITE},     {"RED", RED},
+                                                                 {"GREEN", GREEN}, {"BLUE", BLUE},   {"MAGENTA", MAGENTA}, {"YELLOW", YELLOW},
+                                                                 {"CYAN", CYAN},   {"GRAY", GRAY},   {"NQB", NQB},         {"NQW", NQW}};
 
     MLE_D("Adding engine default colors");
     for (const auto& [name, color] : default_colors) {
