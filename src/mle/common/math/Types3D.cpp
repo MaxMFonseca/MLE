@@ -27,24 +27,24 @@ std::optional<NearFar> Ray3f::intersect(const Boxf& box) const {
     return NearFar{.near = near < 0 ? 0 : near, .far = far};
 }
 
-Boxf::Face pointFace(const Boxf& box, vec3f point, f32 epsilon) {
+BoxFace pointFace(const Boxf& box, vec3f point, f32 epsilon) {
     if (feq(point.x, box.left(), epsilon)) {
-        return Boxf::Face::LEFT;
+        return BoxFace::LEFT;
     }
     if (feq(point.x, box.right(), epsilon)) {
-        return Boxf::Face::RIGHT;
+        return BoxFace::RIGHT;
     }
     if (feq(point.y, box.bottom(), epsilon)) {
-        return Boxf::Face::BOTTOM;
+        return BoxFace::BOTTOM;
     }
     if (feq(point.y, box.top(), epsilon)) {
-        return Boxf::Face::TOP;
+        return BoxFace::TOP;
     }
     if (feq(point.z, box.front(), epsilon)) {
-        return Boxf::Face::FRONT;
+        return BoxFace::FRONT;
     }
     if (feq(point.z, box.back(), epsilon)) {
-        return Boxf::Face::BACK;
+        return BoxFace::BACK;
     }
     MLE_UNREACHABLE_LOG("Point is not on any face of the box");
 }

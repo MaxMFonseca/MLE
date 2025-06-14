@@ -49,17 +49,6 @@ struct Box {
     vec3<T> pos;      ///< Minimum corner of the box (lower-left-front).
     Extent3<T> size;  ///< Extent of the box along each axis.
 
-    /// Represents faces of the box for classification purposes.
-    enum class Face : i8 {
-        NONE,    ///< No face.
-        TOP,     ///< Top face (positive y).
-        BOTTOM,  ///< Bottom face (negative y).
-        LEFT,    ///< Left face (negative x).
-        RIGHT,   ///< Right face (positive x).
-        FRONT,   ///< Front face (negative z).
-        BACK     ///< Back face (positive z).
-    };
-
     Box() = default;
 
     /// Constructs a box from raw components.
@@ -134,7 +123,7 @@ using Boxd = Box<f64>;  ///< 3D double-precision box.
  * @param epsilon Tolerance for floating-point comparisons.
  * @return The specific face of the box the point lies on.
  */
-Boxf::Face pointFace(const Boxf& box, vec3f point, f32 epsilon);
+BoxFace pointFace(const Boxf& box, vec3f point, f32 epsilon);
 
 /**
  * @brief A 3D ray with origin and normalized direction.
@@ -286,29 +275,6 @@ class Plane {
 }  // namespace mle
 
 namespace fmt {
-template <>
-struct formatter<mle::Boxf::Face> : formatter<std::string> {
-    template <typename FormatContext>
-    constexpr auto format(mle::Boxf::Face f, FormatContext& ctx) const {
-        switch (f) {
-            case mle::Boxf::Face::TOP:
-                return format_to(ctx.out(), "TOP");
-            case mle::Boxf::Face::BOTTOM:
-                return format_to(ctx.out(), "BOTTOM");
-            case mle::Boxf::Face::LEFT:
-                return format_to(ctx.out(), "LEFT");
-            case mle::Boxf::Face::RIGHT:
-                return format_to(ctx.out(), "RIGHT");
-            case mle::Boxf::Face::FRONT:
-                return format_to(ctx.out(), "FRONT");
-            case mle::Boxf::Face::BACK:
-                return format_to(ctx.out(), "BACK");
-            default:
-                return format_to(ctx.out(), "NONE");
-        }
-    }
-};
-
 template <typename T>
 struct formatter<mle::Box<T>> : formatter<std::string> {
     template <typename FormatContext>

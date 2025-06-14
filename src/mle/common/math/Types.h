@@ -169,6 +169,34 @@ enum class Axis : u8 {
     HEIGHT = 1,  ///< Y-axis
     DEPTH = 2    ///< Z-axis
 };
+
+/**
+ * @brief Enum representing the faces of a box in 3D space.
+ *
+ * The faces are named according to their orientation in the standard
+ * right-handed coordinate system.
+ */
+enum class BoxFace : u8 {
+    TOP = 0,     ///< Top face (+Y)
+    BOTTOM = 1,  ///< Bottom face (-Y)
+    LEFT = 2,    ///< Left face (-X)
+    RIGHT = 3,   ///< Right face (+X)
+    FRONT = 4,   ///< Front face (+Z)
+    BACK = 5,    ///< Back face (-Z)
+
+    T = TOP,
+    B = BOTTOM,
+    L = LEFT,
+    R = RIGHT,
+
+    POSITIVE_Y = TOP,
+    NEGATIVE_Y = BOTTOM,
+    NEGATIVE_X = LEFT,
+    POSITIVE_X = RIGHT,
+    POSITIVE_Z = FRONT,
+    NEGATIVE_Z = BACK
+};
+
 }  // namespace mle
 
 namespace fmt {
@@ -233,6 +261,27 @@ struct formatter<mle::Axis> : formatter<std::string> {
                 return format_to(ctx.out(), "Z");
             case mle::Axis::W:
                 return format_to(ctx.out(), "W");
+        }
+    }
+};
+
+template <>
+struct formatter<mle::BoxFace> : formatter<std::string> {
+    template <typename FormatContext>
+    constexpr auto format(mle::BoxFace v, FormatContext& ctx) const {
+        switch (v) {
+            case mle::BoxFace::TOP:
+                return format_to(ctx.out(), "TOP");
+            case mle::BoxFace::BOTTOM:
+                return format_to(ctx.out(), "BOTTOM");
+            case mle::BoxFace::LEFT:
+                return format_to(ctx.out(), "LEFT");
+            case mle::BoxFace::RIGHT:
+                return format_to(ctx.out(), "RIGHT");
+            case mle::BoxFace::FRONT:
+                return format_to(ctx.out(), "FRONT");
+            case mle::BoxFace::BACK:
+                return format_to(ctx.out(), "BACK");
         }
     }
 };
