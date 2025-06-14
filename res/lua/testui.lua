@@ -14,10 +14,12 @@ return {
 		},
 		{
 			size = { 100, 100 },
+			margin = { b = 100 },
 			background = "GREEN",
 		},
 		{
 			size = { 100, 50 },
+			margin = { t = 100 },
 			background = "MAGENTA",
 		},
 		-- { "A." },

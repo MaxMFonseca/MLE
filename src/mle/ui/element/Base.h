@@ -100,10 +100,10 @@ struct TargetPosition {
     TargetBound y;
 };
 struct TargetMargin {
-    TargetBound l, t, r, b;
+    TargetBound t, b, l, r;
 };
 struct TargetPadding {
-    TargetBound l, t, r, b;
+    TargetBound t, b, l, r;
 };
 struct Origin {
     vec2f origin = {0.0F, 0.0F};

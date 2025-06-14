@@ -30,9 +30,10 @@ void ListLayout::lkhList(entt::entity self, const sol::object& obj) {
         }
     }
 
+    // FIXME: this should be TargetBound
     if (const auto child_gap_r = table["child_gap"]; child_gap_r.valid()) {
-        if (child_gap_r.is<f32>()) {
-            list_layout->child_gap = child_gap_r.get<f32>();
+        if (child_gap_r.is<int>()) {
+            list_layout->child_gap = child_gap_r.get<int>();
         }
     }
 
@@ -116,8 +117,8 @@ void ListLayout::updateChildrenBoundsY(entt::entity self, Recti context, [[maybe
         }
 
         cinfo.bounds.bounds.size.y = content;
-        MLE_VC(cinfo.bounds.bounds.size.y);
-        cinfo.bounds.bounds.pos.y += m_t;
+        cinfo.margin[as<int>(BoxFace::T)] = m_t;
+        cinfo.margin[as<int>(BoxFace::B)] = m_b;
         height += content + m_t + m_b;
         height += as<int>(child_gap);
     }
@@ -159,21 +160,22 @@ void ListLayout::updateChildrenBoundsY(entt::entity self, Recti context, [[maybe
             continue;
         }
 
-        int m_t = 0, m_b = 0, content = 0;
+        int flex_m_t = 0, flex_m_b = 0, flex_content = 0;
 
         if (cinfo.target_margin) {
-            m_t = cinfo.target_margin->t.type == comp::TargetBound::Type::FLEX_SHARE ? as<int>(cinfo.target_margin->t.val * share_height) : 0;
-            m_b = cinfo.target_margin->b.type == comp::TargetBound::Type::FLEX_SHARE ? as<int>(cinfo.target_margin->b.val * share_height) : 0;
+            flex_m_t = cinfo.target_margin->t.type == comp::TargetBound::Type::FLEX_SHARE ? as<int>(cinfo.target_margin->t.val * share_height) : 0;
+            flex_m_b = cinfo.target_margin->b.type == comp::TargetBound::Type::FLEX_SHARE ? as<int>(cinfo.target_margin->b.val * share_height) : 0;
         }
         if (cinfo.target_size) {
-            content = cinfo.target_size->y.type == comp::TargetBound::Type::FLEX_SHARE ? as<int>(cinfo.target_size->y.val * share_height) : 0;
+            flex_content = cinfo.target_size->y.type == comp::TargetBound::Type::FLEX_SHARE ? as<int>(cinfo.target_size->y.val * share_height) : 0;
         }
 
-        top += m_t;
-        cinfo.bounds.bounds.pos.y += top;
-        cinfo.bounds.bounds.size.y += content;
-        top = cinfo.bounds.bounds.pos.y + cinfo.bounds.bounds.size.y + m_b;
-        top += as<int>(child_gap);
+        top += flex_m_t + cinfo.margin[as<int>(BoxFace::T)];
+        cinfo.bounds.bounds.pos.y = top;
+        cinfo.bounds.bounds.size.y += flex_content;
+        top += cinfo.bounds.bounds.size.y;
+        top += flex_m_b + cinfo.margin[as<int>(BoxFace::B)];
+        top += child_gap;
 
         // TODO: this
         cinfo.bounds.bounds.size.x = as<int>(cinfo.target_size->x.val);

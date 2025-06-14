@@ -39,6 +39,7 @@ class Container : public RenderableInterface {
         const comp::TargetMargin* target_margin;
         const comp::TargetPadding* target_padding;
         const comp::Origin* origin;
+        vec4i margin{0};
     };
 
   public:

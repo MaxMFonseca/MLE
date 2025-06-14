@@ -119,6 +119,42 @@ void padding(entt::entity self, const sol::object& obj) {
     }
 }
 
+void margin(entt::entity self, const sol::object& obj) {
+    MLE_ASSERT(obj.valid());
+    auto& reg = getRegistry();
+    auto* target_margin_comp = reg.try_get<comp::TargetMargin>(self);
+
+    if (!target_margin_comp) {
+        target_margin_comp = &reg.emplace<comp::TargetMargin>(self);
+    }
+
+    if (obj.is<f32>()) {
+        f32 val = obj.as<f32>();
+        target_margin_comp->t.val = target_margin_comp->b.val = target_margin_comp->l.val = target_margin_comp->r.val = val;
+    } else {
+        MLE_ASSERT(obj.is<sol::table>());
+        auto table = obj.as<sol::table>();
+
+        auto t_r = lua::getKeyOrIdx(table, "t", 1);
+        auto b_r = lua::getKeyOrIdx(table, "b", 2);
+        auto l_r = lua::getKeyOrIdx(table, "l", 3);
+        auto r_r = lua::getKeyOrIdx(table, "r", 4);
+
+        if (t_r) {
+            target_margin_comp->t.fromLua(*t_r);
+        }
+        if (b_r) {
+            target_margin_comp->b.fromLua(*b_r);
+        }
+        if (l_r) {
+            target_margin_comp->l.fromLua(*l_r);
+        }
+        if (r_r) {
+            target_margin_comp->r.fromLua(*r_r);
+        }
+    }
+}
+
 void background(entt::entity self, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
     auto& reg = getRegistry();
@@ -152,6 +188,7 @@ void addEngineLuaKeyHandlers() {
     addLuaKeyHandler("size_x", sizeX);
     addLuaKeyHandler("size_y", sizeY);
     addLuaKeyHandler("padding", padding);
+    addLuaKeyHandler("margin", margin);
     addLuaKeyHandler("background", background);
     addLuaKeyHandler("list", ListLayout::lkhList);
     addLuaKeyHandler("root_image", comp::RootImage::lkh);
