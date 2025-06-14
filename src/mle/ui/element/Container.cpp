@@ -62,15 +62,19 @@ void Container::updateChildrenBounds(entt::entity self, Recti context, bool veri
     }
 }
 
+void Container::notifyChildChangedBounds(entt::entity child) {  // NOLINT
+    notifyChildChangedBounds(getRegistry().get<Parent>(child).parent, child);
+}
+
 void Container::notifyChildChangedBounds(entt::entity self, entt::entity child) {  // NOLINT
     auto& reg = getRegistry();
     auto& self_container = reg.get<Container>(self);
     self_container.changed_bounds_children_.emplace(child);
 
     if (isFit(self)) {
-        notifyChildChangedBounds(reg.get<comp::Parent>(self).parent, self);
+        notifyChildChangedBounds(self);
     } else {
-        reg.emplace<ChildChangedBounds>(self);  // Only mark non fit containers with this so tree traversal may not be needed
+        reg.emplace_or_replace<ChildChangedBounds>(self);  // Only mark non fit containers with this so tree traversal may not be needed
     }
 }
 

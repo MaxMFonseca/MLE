@@ -4,15 +4,21 @@ return {
 		clear_color = "NQB",
 	},
 	bounds = { 0, 0, 1920, 1080 },
+	padding = { t = 10, l = 10 },
 	list = {
+		child_gap = 10,
 		{
 			"1",
 			bounds = { 1920 / 2, 1080 / 2, 1920 / 2 - 10, 1080 / 2 - 10 },
 			background = "RED",
 		},
 		{
-			size = { 10, 10 },
+			size = { 100, 100 },
 			background = "GREEN",
+		},
+		{
+			size = { 100, 50 },
+			background = "MAGENTA",
 		},
 		-- { "A." },
 		-- { "A" },

@@ -6,6 +6,7 @@
 #include "mle/ui/Types.h"
 #include "mle/ui/UI.h"
 #include "mle/ui/element/Base.h"
+#include "mle/ui/element/Container.h"
 #include "mle/ui/element/ListLayout.h"
 #include "sol/forward.hpp"
 
@@ -20,14 +21,6 @@ void name(entt::entity self, const sol::object& obj) {
     } else {
         MLE_UNREACHABLE_LOG("Unexpected obj type for Name: {}", obj.get_type());
     }
-}
-
-void sizeX(comp::TargetSize& ts, const sol::object& obj) {
-    ts.x.fromLua(obj);
-}
-
-void sizeY(comp::TargetSize& ts, const sol::object& obj) {
-    ts.y.fromLua(obj);
 }
 
 void size(entt::entity self, const sol::object& obj) {
@@ -46,23 +39,25 @@ void size(entt::entity self, const sol::object& obj) {
         auto table = obj.as<sol::table>();
         auto x_r = table[1];
         if (x_r.valid()) {
-            sizeX(*comp, x_r);
+            comp->x.fromLua(x_r);
         } else {
             x_r = table["x"];
             if (x_r.valid()) {
-                sizeX(*comp, x_r);
+                comp->x.fromLua(x_r);
             }
         }
         auto y_r = table[2];
         if (x_r.valid()) {
-            sizeY(*comp, y_r);
+            comp->y.fromLua(y_r);
         } else {
             y_r = table["y"];
             if (y_r.valid()) {
-                sizeY(*comp, y_r);
+                comp->y.fromLua(y_r);
             }
         }
     }
+
+    comp::Container::notifyChildChangedBounds(self);
 }
 
 void sizeX(entt::entity self, const sol::object& obj) {
@@ -74,7 +69,7 @@ void sizeX(entt::entity self, const sol::object& obj) {
         comp = &reg.emplace<comp::TargetSize>(self);
     }
 
-    sizeX(*comp, obj);
+    comp::Container::notifyChildChangedBounds(self);
 }
 
 void sizeY(entt::entity self, const sol::object& obj) {
@@ -86,7 +81,7 @@ void sizeY(entt::entity self, const sol::object& obj) {
         comp = &reg.emplace<comp::TargetSize>(self);
     }
 
-    sizeY(*comp, obj);
+    comp::Container::notifyChildChangedBounds(self);
 }
 
 void background(entt::entity self, const sol::object& obj) {

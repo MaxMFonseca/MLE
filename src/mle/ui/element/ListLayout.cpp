@@ -87,28 +87,36 @@ void ListLayout::updateChildrenBoundsY(entt::entity self, Recti context, [[maybe
     f32 flex_shares = 0.0F;
     for (auto c : children) {
         auto& cinfo = cinfos.emplace_back(reg, c);
+        if (cinfo.bounds.immutable) {
+            continue;
+        }
+        cinfo.bounds.bounds = {};
 
         int m_t = 0, m_b = 0, content = 0;
 
-        calcMainAxis({
-            .tb = cinfo.target_margin->t,
-            .flex_shares = flex_shares,
-            .out_accumulate = m_t,
-        });
+        if (cinfo.target_margin) {
+            calcMainAxis({
+                .tb = cinfo.target_margin->t,
+                .flex_shares = flex_shares,
+                .out_accumulate = m_t,
+            });
+            calcMainAxis({
+                .tb = cinfo.target_margin->b,
+                .flex_shares = flex_shares,
+                .out_accumulate = m_b,
+            });
+        };
 
-        calcMainAxis({
-            .tb = cinfo.target_margin->b,
-            .flex_shares = flex_shares,
-            .out_accumulate = m_b,
-        });
-
-        calcMainAxis({
-            .tb = cinfo.target_size->y,
-            .flex_shares = flex_shares,
-            .out_accumulate = content,
-        });
+        if (cinfo.target_size) {
+            calcMainAxis({
+                .tb = cinfo.target_size->y,
+                .flex_shares = flex_shares,
+                .out_accumulate = content,
+            });
+        }
 
         cinfo.bounds.bounds.size.y = content;
+        MLE_VC(cinfo.bounds.bounds.size.y);
         cinfo.bounds.bounds.pos.y += m_t;
         height += content + m_t + m_b;
         height += as<int>(child_gap);
@@ -136,14 +144,30 @@ void ListLayout::updateChildrenBoundsY(entt::entity self, Recti context, [[maybe
     }
     for (usize i = 0; i < children.size(); i++) {  // NOLINT
         auto& cinfo = cinfos[i];
+        if (cinfo.bounds.immutable) {
+            continue;
+        }
 
-        int m_t = cinfo.target_margin->t.type == comp::TargetBound::Type::FLEX_SHARE ? as<int>(cinfo.target_margin->t.val * share_height) : 0;
-        int content = cinfo.target_size->y.type == comp::TargetBound::Type::FLEX_SHARE ? as<int>(cinfo.target_size->y.val * share_height) : 0;
-        int m_b = cinfo.target_margin->b.type == comp::TargetBound::Type::FLEX_SHARE ? as<int>(cinfo.target_margin->b.val * share_height) : 0;
+        int m_t = 0, m_b = 0, content = 0;
 
+        if (cinfo.target_margin) {
+            m_t = cinfo.target_margin->t.type == comp::TargetBound::Type::FLEX_SHARE ? as<int>(cinfo.target_margin->t.val * share_height) : 0;
+            m_b = cinfo.target_margin->b.type == comp::TargetBound::Type::FLEX_SHARE ? as<int>(cinfo.target_margin->b.val * share_height) : 0;
+        }
+        if (cinfo.target_size) {
+            content = cinfo.target_size->y.type == comp::TargetBound::Type::FLEX_SHARE ? as<int>(cinfo.target_size->y.val * share_height) : 0;
+        }
+
+        top += m_t;
         cinfo.bounds.bounds.pos.y += top;
-        top += m_t + content + m_b;
         cinfo.bounds.bounds.size.y += content;
+        top = cinfo.bounds.bounds.pos.y + cinfo.bounds.bounds.size.y + m_b;
+        top += as<int>(child_gap);
+
+        // TODO: this
+        cinfo.bounds.bounds.size.x = as<int>(cinfo.target_size->x.val);
+
+        MLE_VC(cinfo.bounds.bounds);
     }
 }
 }  // namespace mle::ui::element

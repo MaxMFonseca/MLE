@@ -67,10 +67,11 @@ void Impl::checkElementsBoundChanged() {
     if (view->size() == 1) {
         auto e = *view.begin();
         registry_.get<element::comp::Container>(e).updateChildrenBounds(e);
-        return;
+    } else {
+        registry_.get<element::comp::Container>(root_).updateChildrenBounds(root_, {}, true);
     }
 
-    registry_.get<element::comp::Container>(root_).updateChildrenBounds(root_, {}, true);
+    registry_.clear<element::comp::ChildChangedBounds>();
 }
 
 renderer::ImageRef Impl::render() {

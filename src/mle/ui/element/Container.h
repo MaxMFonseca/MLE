@@ -58,6 +58,7 @@ class Container : public RenderableInterface {
     [[nodiscard]] entt::entity getChild(usize idx) const;
     [[nodiscard]] entt::entity getChild(std::string name) const;
 
+    static void notifyChildChangedBounds(entt::entity child);
     static void notifyChildChangedBounds(entt::entity self, entt::entity child);
 
     static void add(entt::entity self, LayoutHnd&& layout, const sol::table& table);
