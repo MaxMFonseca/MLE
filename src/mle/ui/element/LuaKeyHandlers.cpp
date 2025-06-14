@@ -84,6 +84,41 @@ void sizeY(entt::entity self, const sol::object& obj) {
     comp::Container::notifyChildChangedBounds(self);
 }
 
+void padding(entt::entity self, const sol::object& obj) {
+    MLE_ASSERT(obj.valid());
+    auto& reg = getRegistry();
+    auto* target_padding_comp = reg.try_get<comp::TargetPadding>(self);
+    if (!target_padding_comp) {
+        target_padding_comp = &reg.emplace<comp::TargetPadding>(self);
+    }
+
+    if (obj.is<f32>()) {
+        f32 val = obj.as<f32>();
+        target_padding_comp->t.val = target_padding_comp->b.val = target_padding_comp->l.val = target_padding_comp->r.val = val;
+    } else {
+        MLE_ASSERT(obj.is<sol::table>());
+        auto table = obj.as<sol::table>();
+
+        auto t_r = lua::getKeyOrIdx(table, "t", 1);
+        auto b_r = lua::getKeyOrIdx(table, "b", 2);
+        auto l_r = lua::getKeyOrIdx(table, "l", 3);
+        auto r_r = lua::getKeyOrIdx(table, "r", 4);
+
+        if (t_r) {
+            target_padding_comp->t.fromLua(*t_r);
+        }
+        if (b_r) {
+            target_padding_comp->b.fromLua(*b_r);
+        }
+        if (l_r) {
+            target_padding_comp->l.fromLua(*l_r);
+        }
+        if (r_r) {
+            target_padding_comp->r.fromLua(*r_r);
+        }
+    }
+}
+
 void background(entt::entity self, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
     auto& reg = getRegistry();
@@ -116,6 +151,7 @@ void addEngineLuaKeyHandlers() {
     addLuaKeyHandler("size", size);
     addLuaKeyHandler("size_x", sizeX);
     addLuaKeyHandler("size_y", sizeY);
+    addLuaKeyHandler("padding", padding);
     addLuaKeyHandler("background", background);
     addLuaKeyHandler("list", ListLayout::lkhList);
     addLuaKeyHandler("root_image", comp::RootImage::lkh);

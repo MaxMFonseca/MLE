@@ -132,16 +132,27 @@ void ListLayout::updateChildrenBoundsY(entt::entity self, Recti context, [[maybe
     }
 
     int top = context.top();
+    int left = context.left();
     if (target_padding) {
         switch (target_padding->t.type) {
             case comp::TargetBound::Type::DEFAULT:
             case comp::TargetBound::Type::PX: {
-                height += as<int>(target_padding->t.val);
+                top += as<int>(target_padding->t.val);
             } break;
             default:
                 MLE_UNREACHABLE_LOG("Unexpected target padding type: {}", target_padding->t.type);
         }
+
+        switch (target_padding->l.type) {
+            case comp::TargetBound::Type::DEFAULT:
+            case comp::TargetBound::Type::PX: {
+                left += as<int>(target_padding->l.val);
+            } break;
+            default:
+                MLE_UNREACHABLE_LOG("Unexpected target padding type: {}", target_padding->l.type);
+        }
     }
+    MLE_VC(top);
     for (usize i = 0; i < children.size(); i++) {  // NOLINT
         auto& cinfo = cinfos[i];
         if (cinfo.bounds.immutable) {
@@ -166,6 +177,7 @@ void ListLayout::updateChildrenBoundsY(entt::entity self, Recti context, [[maybe
 
         // TODO: this
         cinfo.bounds.bounds.size.x = as<int>(cinfo.target_size->x.val);
+        cinfo.bounds.bounds.pos.x = left;
 
         MLE_VC(cinfo.bounds.bounds);
     }

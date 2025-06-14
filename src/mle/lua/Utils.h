@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <cstddef>
 #include <sol/sol.hpp>
 
 #include "Types.h"
@@ -248,6 +249,8 @@ inline bool tryGetKeyOrIdx(const sol::table& table, const std::string& key, int 
     }
     return false;
 }
+
+std::optional<sol::object> getKeyOrIdx(const sol::table& table, const std::string& key, int idx);
 
 /**
  * @brief As overload for `vec2f`. Accepts o as num, vec2f, or a table(list) with 2 numeric elements.
