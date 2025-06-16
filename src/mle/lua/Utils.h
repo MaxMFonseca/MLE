@@ -250,6 +250,14 @@ inline bool tryGetKeyOrIdx(const sol::table& table, const std::string& key, int 
     return false;
 }
 
+/**
+ * @brief Try to get a value from a Lua table by key or index.
+ *
+ * @parem table Lua table object.
+ * @param key Key to look for in the table.
+ * @param idx Index to look for in the table.
+ * @return An optional containing the extracted value if it exists, or an empty optional otherwise.
+ */
 std::optional<sol::object> getKeyOrIdx(const sol::table& table, const std::string& key, int idx);
 
 /**
