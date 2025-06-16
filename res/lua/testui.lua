@@ -4,9 +4,10 @@ return {
 		clear_color = "NQB",
 	},
 	bounds = { 0, 0, 1920, 1080 },
-	padding = { t = 10, l = 10 },
+	padding = 10,
 	list = {
 		child_gap = 10,
+		layout = "y",
 		{
 			"1",
 			bounds = { 1920 / 2, 1080 / 2, 1920 / 2 - 10, 1080 / 2 - 10 },
@@ -18,8 +19,8 @@ return {
 			background = "GREEN",
 		},
 		{
-			size = { 100, 50 },
-			margin = { t = 100 },
+			size = { 100, 100 },
+			margin = { t = 100, l = 200 },
 			background = "MAGENTA",
 		},
 		-- { "A." },

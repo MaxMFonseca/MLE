@@ -62,14 +62,14 @@ struct TargetBound {
      */
     enum class Type : u8 {
         PX,          ///< Absolute value in pixels. Suffix: "px"
-        FIT,         ///< Fit to available space or content. Suffix: "fit"
+        FIT,         ///< Fit to available space or content. Suffix: "w"
         PARENT,      ///< Relative to parent element (percentage). Suffix: "%"
         PARENT_W,    ///< Width relative to parent. Suffix: "pw"
         PARENT_H,    ///< Height relative to parent. Suffix: "ph"
         PARENT_PX,   ///< Parent-relative with absolute pixel offset. Suffix: "ppx"
         ROOT,        ///< Relative to root element (percentage). Suffix: "r%"
         ROOT_PX,     ///< Root-relative with absolute pixel offset. Suffix: "rpx"
-        FLEX_SHARE,  ///< Share available space flexibly. Suffix: "flex"
+        FLEX_SHARE,  ///< Share available space flexibly. Suffix: "f"
         SELF,        ///< Size based on self/content. Suffix: "s"
         SELF_W,      ///< Width based on self/content. Suffix: "sw"
         SELF_H,      ///< Height based on self/content. Suffix: "sh"
@@ -84,11 +84,16 @@ struct TargetBound {
      */
     TargetBound() = default;
 
+    void fromString(const std::string& str);
     /**
      * @brief Initializes the TargetBound from a Lua object.
      * @param obj The Lua object to parse.
      */
     void fromLua(const sol::object& obj);
+
+    static constexpr bool typeIsPercentage(Type v) {
+        return v == Type::PARENT || v == Type::PARENT_W || v == Type::PARENT_H || v == Type::ROOT || v == Type::SELF_W || v == Type::SELF_H;
+    }
 };
 
 struct TargetSize {
@@ -104,6 +109,8 @@ struct TargetMargin {
 };
 struct TargetPadding {
     TargetBound t, b, l, r;
+
+    static void addToRect(entt::entity self, Recti& rect);
 };
 struct Origin {
     vec2f origin = {0.0F, 0.0F};
@@ -121,7 +128,7 @@ struct formatter<mle::ui::element::comp::TargetBound::Type> : formatter<std::str
             case Type::PX:
                 return formatter<std::string>::format("px", ctx);
             case Type::FIT:
-                return formatter<std::string>::format("fit", ctx);
+                return formatter<std::string>::format("w(fit)", ctx);
             case Type::PARENT:
                 return formatter<std::string>::format("%", ctx);
             case Type::PARENT_W:
@@ -135,7 +142,7 @@ struct formatter<mle::ui::element::comp::TargetBound::Type> : formatter<std::str
             case Type::ROOT_PX:
                 return formatter<std::string>::format("rpx", ctx);
             case Type::FLEX_SHARE:
-                return formatter<std::string>::format("flex", ctx);
+                return formatter<std::string>::format("f(flex)", ctx);
             case Type::SELF:
                 return formatter<std::string>::format("s", ctx);
             case Type::SELF_W:

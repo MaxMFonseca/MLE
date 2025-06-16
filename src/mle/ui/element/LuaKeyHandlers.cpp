@@ -1,5 +1,7 @@
 #include "LuaKeyHandlers.h"
 
+#include <sol/forward.hpp>
+
 #include "mle/lua/Types.h"
 #include "mle/lua/Utils.h"
 #include "mle/renderer/Image.h"
@@ -8,7 +10,6 @@
 #include "mle/ui/element/Base.h"
 #include "mle/ui/element/Container.h"
 #include "mle/ui/element/ListLayout.h"
-#include "sol/forward.hpp"
 
 namespace mle::ui::element {
 namespace {
@@ -131,6 +132,9 @@ void margin(entt::entity self, const sol::object& obj) {
     if (obj.is<f32>()) {
         f32 val = obj.as<f32>();
         target_margin_comp->t.val = target_margin_comp->b.val = target_margin_comp->l.val = target_margin_comp->r.val = val;
+    } else if (obj.is<std::string>()) {
+        target_margin_comp->r.fromString(obj.as<std::string>());
+        target_margin_comp->t = target_margin_comp->b = target_margin_comp->l = target_margin_comp->r;
     } else {
         MLE_ASSERT(obj.is<sol::table>());
         auto table = obj.as<sol::table>();

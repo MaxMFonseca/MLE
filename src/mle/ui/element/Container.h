@@ -24,25 +24,6 @@ using LayoutRef = std::shared_ptr<Layout>;
 namespace comp {
 class Container : public RenderableInterface {
   public:
-    struct ChildBuildInfo {
-        explicit ChildBuildInfo(entt::registry& r, entt::entity e) :
-            bounds(r.get<comp::Bounds>(e)),
-            target_size(r.try_get<comp::TargetSize>(e)),
-            target_position(r.try_get<comp::TargetPosition>(e)),
-            target_margin(r.try_get<comp::TargetMargin>(e)),
-            target_padding(r.try_get<comp::TargetPadding>(e)),
-            origin(r.try_get<comp::Origin>(e)) {};
-
-        comp::Bounds& bounds;
-        const comp::TargetSize* target_size;
-        const comp::TargetPosition* target_position;
-        const comp::TargetMargin* target_margin;
-        const comp::TargetPadding* target_padding;
-        const comp::Origin* origin;
-        vec4i margin{0};
-    };
-
-  public:
     MLE_NO_COPY_MOVE(Container)
 
     explicit Container(LayoutHnd&& layout);

@@ -116,7 +116,7 @@ TargetBound::Type stringToType(const std::string& str) {
     if (str == "px") {
         return Type::PX;
     }
-    if (str == "fit") {
+    if (str == "w" || str == "fit") {
         return Type::FIT;
     }
     if (str == "%") {
@@ -140,7 +140,7 @@ TargetBound::Type stringToType(const std::string& str) {
     if (str == "rpx") {
         return Type::ROOT_PX;
     }
-    if (str == "flex") {
+    if (str == "f" || str == "flex") {
         return Type::FLEX_SHARE;
     }
     if (str == "pw") {
@@ -153,6 +153,17 @@ TargetBound::Type stringToType(const std::string& str) {
 }
 }  // namespace
 
+void TargetBound::fromString(const std::string& str) {
+    auto split = splitNumberAndSuffix<f32>(str);
+    MLE_ASSERT_LOG(split.has_value(), "Invalid target bound format: {}", str);
+    val = split.value().first;
+    const auto& suffix = split.value().second;
+    type = stringToType(suffix);
+    if (typeIsPercentage(type)) {
+        val /= 100.0F;
+    }
+}
+
 void TargetBound::fromLua(const sol::object& obj) {
     MLE_ASSERT(obj.valid());
 
@@ -161,11 +172,7 @@ void TargetBound::fromLua(const sol::object& obj) {
         return;
     }
     if (obj.is<std::string>()) {
-        auto split = splitNumberAndSuffix<f32>(obj.as<std::string>());
-        MLE_ASSERT_LOG(split.has_value(), "Invalid target bound format: {}", obj.as<std::string>());
-        val = split.value().first;
-        const auto& suffix = split.value().second;
-        type = stringToType(suffix);
+        fromString(obj.as<std::string>());
         return;
     }
     if (obj.is<sol::table>()) {
@@ -176,6 +183,9 @@ void TargetBound::fromLua(const sol::object& obj) {
         auto type_r = table[2];
         if (type_r.valid() && type_r.is<std::string>()) {
             type = stringToType(type_r.get<std::string>());
+        }
+        if (typeIsPercentage(type)) {
+            val /= 100.0F;
         }
         return;
     }
@@ -195,6 +205,80 @@ renderer::PipelineRef Background::getPipeline() {
         renderer::addOnShutdown([&]() { pipeline.reset(); });
     }
     return pipeline.get();
+}
+
+void TargetPadding::addToRect(entt::entity self, Recti& rect) {
+    auto& reg = getRegistry();
+    auto* padding = reg.try_get<TargetPadding>(self);
+    if (!padding) {
+        return;
+    }
+
+    auto width = as<f32>(rect.size.x);
+    auto height = as<f32>(rect.size.y);
+
+    if (padding->l.val != 0.0F) {
+        int val = 0;
+        switch (padding->l.type) {
+            case TargetBound::Type::DEFAULT:
+            case TargetBound::Type::PX: {
+                val = as<int>(padding->l.val);
+            } break;
+            case TargetBound::Type::SELF: {
+                val = as<int>(padding->l.val * width);
+            } break;
+            default:
+                MLE_UNREACHABLE_LOG("Unexpected target padding type: {}", padding->l.type);
+        }
+        rect.pos.x += val;
+        rect.size.x -= val;
+    }
+    if (padding->r.val != 0.0F) {
+        int val = 0;
+        switch (padding->r.type) {
+            case TargetBound::Type::DEFAULT:
+            case TargetBound::Type::PX: {
+                val = as<int>(padding->r.val);
+            } break;
+            case TargetBound::Type::SELF: {
+                val = as<int>(padding->r.val * width);
+            } break;
+            default:
+                MLE_UNREACHABLE_LOG("Unexpected target padding type: {}", padding->r.type);
+        }
+        rect.size.x -= val;
+    }
+    if (padding->t.val != 0.0F) {
+        int val = 0;
+        switch (padding->t.type) {
+            case TargetBound::Type::DEFAULT:
+            case TargetBound::Type::PX: {
+                val = as<int>(padding->t.val);
+            } break;
+            case TargetBound::Type::SELF: {
+                val = as<int>(padding->t.val * height);
+            } break;
+            default:
+                MLE_UNREACHABLE_LOG("Unexpected target padding type: {}", padding->t.type);
+        }
+        rect.pos.y += val;
+        rect.size.y -= val;
+    }
+    if (padding->b.val != 0.0F) {
+        int val = 0;
+        switch (padding->b.type) {
+            case TargetBound::Type::DEFAULT:
+            case TargetBound::Type::PX: {
+                val = as<int>(padding->b.val);
+            } break;
+            case TargetBound::Type::SELF: {
+                val = as<int>(padding->b.val * height);
+            } break;
+            default:
+                MLE_UNREACHABLE_LOG("Unexpected target padding type: {}", padding->b.type);
+        }
+        rect.size.y -= val;
+    }
 }
 }  // namespace comp
 }  // namespace mle::ui::element

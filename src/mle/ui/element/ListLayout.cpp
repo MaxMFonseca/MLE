@@ -19,11 +19,13 @@ void ListLayout::lkhList(entt::entity self, const sol::object& obj) {
 
     if (const auto layout_r = table["layout"]; layout_r.valid()) {
         if (layout_r.is<std::string>()) {
-            auto layout = layout_r.get<std::string>();
-            if (layout == "rows" || layout == "vert" || layout == "vertical" || layout == "v" || layout == "V" || layout == "r" || layout == "R") {
+            auto layout = toLower(layout_r.get<std::string>());
+            if (layout == "rows" || layout == "vert" || layout == "vertical" || layout == "v" || layout == "r" || layout == "y") {
                 list_layout->axis = Axis::Y;
-            } else if (layout == "cols" || layout == "horizontal" || layout == "h" || layout == "H" || layout == "c" || layout == "C") {
+            } else if (layout == "cols" || layout == "horizontal" || layout == "h" || layout == "c" || layout == "x") {
                 list_layout->axis = Axis::X;
+            } else {
+                MLE_UNREACHABLE_LOG("Unexpected layout string: {}", layout);
             }
         } else {
             MLE_UNREACHABLE_LOG("Unexpected layout type: {}", layout_r.get_type());
@@ -40,148 +42,183 @@ void ListLayout::lkhList(entt::entity self, const sol::object& obj) {
     comp::Container::add(self, std::move(list_layout), table);
 }
 
-void ListLayout::updateChildrenBounds(entt::entity self, Recti context, bool force_update) const {
+void ListLayout::updateChildrenBounds(entt::entity self, Recti content_rect, bool force_update) const {
     if (axis == Axis::X) {
-        updateChildrenBoundsX(self, context, force_update);
+        updateChildrenBoundsX(self, content_rect, force_update);
     } else {
-        updateChildrenBoundsY(self, context, force_update);
+        updateChildrenBoundsY(self, content_rect, force_update);
     }
 }
 
-void ListLayout::updateChildrenBoundsX([[maybe_unused]] entt::entity self, [[maybe_unused]] Recti context, [[maybe_unused]] bool force_update) const {
+void ListLayout::updateChildrenBoundsX(entt::entity /*self*/, Recti /*content_rect*/, bool /*force_update*/) const {
     MLE_TODO;
 }
 
-namespace {
-struct CalcMainAxisData {
-    const comp::TargetBound& tb;
-    f32& flex_shares;
-    int& out_accumulate;
-};
-void calcMainAxis(const CalcMainAxisData& v) {
-    switch (v.tb.type) {
-        case comp::TargetBound::Type::DEFAULT:
-        case comp::TargetBound::Type::PX: {
-            v.out_accumulate += as<int>(v.tb.val);
-        } break;
-        case comp::TargetBound::Type::FLEX_SHARE: {
-            v.flex_shares += v.tb.val;
-        } break;
-        default:
-            MLE_UNREACHABLE_LOG("Unexpected type: {}", v.tb.type);
-    }
-}
-}  // namespace
-
-void ListLayout::updateChildrenBoundsY(entt::entity self, Recti context, [[maybe_unused]] bool force_update) const {
+void ListLayout::updateChildrenBoundsY(entt::entity self, Recti content_rect, [[maybe_unused]] bool force_update) const {
     auto& reg = getRegistry();
     auto& container = reg.get<comp::Container>(self);
     auto children = container.getChildren();
 
-    std::vector<comp::Container::ChildBuildInfo> cinfos;
+    std::vector<ChildBuildInfo> cinfos;
     cinfos.reserve(children.size());
 
-    auto* target_padding = reg.try_get<comp::TargetPadding>(self);
+    comp::TargetPadding::addToRect(self, content_rect);
 
-    int height = 0;
+    int main_axis_size = 0;
+    f32 main_axis_flex_shares = 0.0F;
 
-    f32 flex_shares = 0.0F;
     for (auto c : children) {
-        auto& cinfo = cinfos.emplace_back(reg, c);
+        auto& cinfo = cinfos.emplace_back(reg, c, content_rect);
         if (cinfo.bounds.immutable) {
             continue;
         }
-        cinfo.bounds.bounds = {};
 
-        int m_t = 0, m_b = 0, content = 0;
-
-        if (cinfo.target_margin) {
-            calcMainAxis({
-                .tb = cinfo.target_margin->t,
-                .flex_shares = flex_shares,
-                .out_accumulate = m_t,
-            });
-            calcMainAxis({
-                .tb = cinfo.target_margin->b,
-                .flex_shares = flex_shares,
-                .out_accumulate = m_b,
-            });
-        };
-
-        if (cinfo.target_size) {
-            calcMainAxis({
-                .tb = cinfo.target_size->y,
-                .flex_shares = flex_shares,
-                .out_accumulate = content,
-            });
-        }
-
-        cinfo.bounds.bounds.size.y = content;
-        cinfo.margin[as<int>(BoxFace::T)] = m_t;
-        cinfo.margin[as<int>(BoxFace::B)] = m_b;
-        height += content + m_t + m_b;
-        height += as<int>(child_gap);
+        main_axis_size += cinfo.content_px.y + cinfo.margin_px.t + cinfo.margin_px.b;
+        main_axis_flex_shares += cinfo.content_flex.y + cinfo.margin_flex.t + cinfo.margin_flex.b;
     }
 
-    f32 share_height = 0.0F;
-    int remaining_space = context.height() - height;
-    if (remaining_space < 0) {
+    f32 main_axis_remaining_px = as<f32>(content_rect.height() - main_axis_size);
+    f32 main_axis_share_value_px = 0.0F;
+    if (main_axis_remaining_px < 0) {
         MLE_TODO;
-        // TODO: make scrollable and clip
-    } else if (remaining_space != 0) {
-        share_height = as<f32>(remaining_space) / flex_shares;
+    } else if (main_axis_remaining_px != 0 && main_axis_flex_shares != 0.0F) {
+        main_axis_share_value_px = as<f32>(main_axis_remaining_px) / std::max(1.0F, main_axis_flex_shares);
     }
 
-    int top = context.top();
-    int left = context.left();
-    if (target_padding) {
-        switch (target_padding->t.type) {
-            case comp::TargetBound::Type::DEFAULT:
-            case comp::TargetBound::Type::PX: {
-                top += as<int>(target_padding->t.val);
-            } break;
-            default:
-                MLE_UNREACHABLE_LOG("Unexpected target padding type: {}", target_padding->t.type);
-        }
-
-        switch (target_padding->l.type) {
-            case comp::TargetBound::Type::DEFAULT:
-            case comp::TargetBound::Type::PX: {
-                left += as<int>(target_padding->l.val);
-            } break;
-            default:
-                MLE_UNREACHABLE_LOG("Unexpected target padding type: {}", target_padding->l.type);
-        }
-    }
-    MLE_VC(top);
-    for (usize i = 0; i < children.size(); i++) {  // NOLINT
-        auto& cinfo = cinfos[i];
+    int main_axis_pos = content_rect.top();
+    for (auto& cinfo : cinfos) {
         if (cinfo.bounds.immutable) {
             continue;
         }
 
-        int flex_m_t = 0, flex_m_b = 0, flex_content = 0;
+        cinfo.margin_px.t += as<int>(cinfo.margin_flex.t * main_axis_share_value_px);
+        cinfo.margin_px.b += as<int>(cinfo.margin_flex.b * main_axis_share_value_px);
+        cinfo.content_px.y += as<int>(cinfo.content_flex.y * main_axis_share_value_px);
 
-        if (cinfo.target_margin) {
-            flex_m_t = cinfo.target_margin->t.type == comp::TargetBound::Type::FLEX_SHARE ? as<int>(cinfo.target_margin->t.val * share_height) : 0;
-            flex_m_b = cinfo.target_margin->b.type == comp::TargetBound::Type::FLEX_SHARE ? as<int>(cinfo.target_margin->b.val * share_height) : 0;
+        cinfo.bounds.bounds.pos.y = main_axis_pos + cinfo.margin_px.t;
+        cinfo.bounds.bounds.size.y = cinfo.content_px.y;
+
+        main_axis_pos = cinfo.bounds.bounds.pos.y + cinfo.bounds.bounds.size.y + cinfo.margin_px.b + child_gap;
+
+        f32 off_flex_shares = cinfo.content_flex.x + cinfo.margin_flex.r + cinfo.margin_flex.l;
+        f32 off_remaining = as<f32>(content_rect.width() - cinfo.margin_px.r - cinfo.margin_px.l - cinfo.content_px.x);
+        f32 off_flex_value_px = off_flex_shares != 0.0F && off_remaining != 0.0F ? off_remaining / std::max(1.0F, off_flex_shares) : 0.0F;
+
+        cinfo.bounds.bounds.pos.x = content_rect.left() + cinfo.margin_px.l;
+        cinfo.bounds.bounds.pos.x += as<int>(cinfo.margin_flex.l * off_flex_value_px);
+
+        cinfo.bounds.bounds.size.x = cinfo.content_px.x + as<int>(cinfo.content_flex.x * off_flex_value_px);
+    }
+}
+
+ListLayout::ChildBuildInfo::ChildBuildInfo(entt::registry& r, entt::entity e, Recti parent_rect) :
+    bounds(r.get<comp::Bounds>(e)),
+    target_size(r.try_get<comp::TargetSize>(e)),
+    target_position(r.try_get<comp::TargetPosition>(e)),
+    target_margin(r.try_get<comp::TargetMargin>(e)),
+    target_padding(r.try_get<comp::TargetPadding>(e)),
+    origin(r.try_get<comp::Origin>(e)) {
+    using BType = comp::TargetBound::Type;
+
+    if (bounds.immutable) {
+        return;
+    }
+
+    bounds.bounds = {};
+
+    if (target_size) {
+        switch (target_size->x.type) {
+            case BType::DEFAULT:
+            case BType::PX: {
+                content_px.x = as<int>(target_size->x.val);
+            } break;
+            case BType::PARENT: {
+                content_px.x = as<int>(target_size->x.val * as<f32>(parent_rect.size.x));
+            } break;
+            case BType::FLEX_SHARE: {
+                content_flex.x = target_size->x.val;
+            } break;
+            default: {
+                MLE_UNREACHABLE_LOG("Unexpected target size type: {}", target_size->x.type);
+            }
         }
-        if (cinfo.target_size) {
-            flex_content = cinfo.target_size->y.type == comp::TargetBound::Type::FLEX_SHARE ? as<int>(cinfo.target_size->y.val * share_height) : 0;
+        switch (target_size->y.type) {
+            case BType::DEFAULT:
+            case BType::PX: {
+                content_px.y = as<int>(target_size->y.val);
+            } break;
+            case BType::PARENT: {
+                content_px.y = as<int>(target_size->y.val * as<f32>(parent_rect.size.y));
+            } break;
+            case BType::FLEX_SHARE: {
+                content_flex.y = target_size->y.val;
+            } break;
+            default: {
+                MLE_UNREACHABLE_LOG("Unexpected target size type: {}", target_size->y.type);
+            }
         }
-
-        top += flex_m_t + cinfo.margin[as<int>(BoxFace::T)];
-        cinfo.bounds.bounds.pos.y = top;
-        cinfo.bounds.bounds.size.y += flex_content;
-        top += cinfo.bounds.bounds.size.y;
-        top += flex_m_b + cinfo.margin[as<int>(BoxFace::B)];
-        top += child_gap;
-
-        // TODO: this
-        cinfo.bounds.bounds.size.x = as<int>(cinfo.target_size->x.val);
-        cinfo.bounds.bounds.pos.x = left;
-
-        MLE_VC(cinfo.bounds.bounds);
+    }
+    if (target_margin) {
+        switch (target_margin->t.type) {
+            case BType::DEFAULT:
+            case BType::PX: {
+                margin_px.t = as<int>(target_margin->t.val);
+            } break;
+            case BType::PARENT: {
+                margin_px.t = as<int>(target_margin->t.val * as<f32>(parent_rect.size.y));
+            } break;
+            case BType::FLEX_SHARE: {
+                margin_flex.t = target_margin->t.val;
+            } break;
+            default: {
+                MLE_UNREACHABLE_LOG("Unexpected target margin type: {}", target_margin->t.type);
+            }
+        }
+        switch (target_margin->b.type) {
+            case BType::DEFAULT:
+            case BType::PX: {
+                margin_px.b = as<int>(target_margin->b.val);
+            } break;
+            case BType::PARENT: {
+                margin_px.b = as<int>(target_margin->b.val * as<f32>(parent_rect.size.y));
+            } break;
+            case BType::FLEX_SHARE: {
+                margin_flex.b = target_margin->b.val;
+            } break;
+            default: {
+                MLE_UNREACHABLE_LOG("Unexpected target margin type: {}", target_margin->b.type);
+            }
+        }
+        switch (target_margin->l.type) {
+            case BType::DEFAULT:
+            case BType::PX: {
+                margin_px.l = as<int>(target_margin->l.val);
+            } break;
+            case BType::PARENT: {
+                margin_px.l = as<int>(target_margin->l.val * as<f32>(parent_rect.size.x));
+            } break;
+            case BType::FLEX_SHARE: {
+                margin_flex.l = target_margin->l.val;
+            } break;
+            default: {
+                MLE_UNREACHABLE_LOG("Unexpected target margin type: {}", target_margin->l.type);
+            }
+        }
+        switch (target_margin->r.type) {
+            case BType::DEFAULT:
+            case BType::PX: {
+                margin_px.r = as<int>(target_margin->r.val);
+            } break;
+            case BType::PARENT: {
+                margin_px.r = as<int>(target_margin->r.val * as<f32>(parent_rect.size.x));
+            } break;
+            case BType::FLEX_SHARE: {
+                margin_flex.r = target_margin->r.val;
+            } break;
+            default: {
+                MLE_UNREACHABLE_LOG("Unexpected target margin type: {}", target_margin->r.type);
+            }
+        }
     }
 }
 }  // namespace mle::ui::element
