@@ -53,7 +53,7 @@ namespace mle {
  */
 template <typename T>
 [[maybe_unused]] Expected<std::pair<T, std::string>> splitNumberAndSuffix(const std::string& s) {
-    if (!std::isdigit(s[0])) {
+    if (!std::isdigit(s[0]) && s[0] != '.') {
         return std::make_pair(0, s);
     }
 
