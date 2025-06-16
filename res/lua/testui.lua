@@ -14,7 +14,7 @@ return {
 			background = "RED",
 		},
 		{
-			size = { 100, 100 },
+			size = { 100, "1f" },
 			margin = { b = 100 },
 			background = "GREEN",
 		},

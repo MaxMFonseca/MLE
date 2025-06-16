@@ -63,9 +63,11 @@ void ListLayout::updateChildrenBoundsY(entt::entity self, Recti content_rect, [[
     cinfos.reserve(children.size());
 
     comp::TargetPadding::addToRect(self, content_rect);
+    MLE_VC(content_rect);
 
     int main_axis_size = 0;
     f32 main_axis_flex_shares = 0.0F;
+    int non_immutable_children_cound = 0;
 
     for (auto c : children) {
         auto& cinfo = cinfos.emplace_back(reg, c, content_rect);
@@ -75,7 +77,10 @@ void ListLayout::updateChildrenBoundsY(entt::entity self, Recti content_rect, [[
 
         main_axis_size += cinfo.content_px.y + cinfo.margin_px.t + cinfo.margin_px.b;
         main_axis_flex_shares += cinfo.content_flex.y + cinfo.margin_flex.t + cinfo.margin_flex.b;
+        non_immutable_children_cound++;
     }
+
+    main_axis_size += (non_immutable_children_cound - 1) * child_gap;
 
     f32 main_axis_remaining_px = as<f32>(content_rect.height() - main_axis_size);
     f32 main_axis_share_value_px = 0.0F;
