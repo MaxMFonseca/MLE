@@ -88,19 +88,20 @@ void ListLayout::updateChildrenBoundsY(entt::entity self, Recti content_rect, [[
             continue;
         }
 
-        bool main_is_ar = cinfo.content_flex.y == 0.0F && cinfo.content_px.y == 0;
-        bool off_is_ar = cinfo.content_flex.x == 0.0F && cinfo.content_px.x == 0;
-        MLE_ASSERT_LOG(!(main_is_ar && off_is_ar), "Element cannot have both w and h as aspect_ratio defined.");
+        bool main_is_default = cinfo.content_flex.y == 0.0F && cinfo.content_px.y == 0;
+        bool off_is_default = cinfo.content_flex.x == 0.0F && cinfo.content_px.x == 0;
 
-        if (!off_is_ar) {
+        if (!off_is_default) {
             updateChildrenBoundsYcalcOffSide(cinfo, content_rect);
         }
 
-        if (main_is_ar) {
-            MLE_ASSERT_LOG(cinfo.aspect_ratio > 0.0F, "Child with no content size and no aspect ratio defined.");
-            MLE_ASSERT_LOG(cinfo.bounds.bounds.size.x > 0, "Child bounds cannot be defined by aspect ratio if its width is not defined.");
-
-            cinfo.content_px.y = as<int>(as<f32>(cinfo.bounds.bounds.size.x) / cinfo.aspect_ratio);
+        if (main_is_default) {
+            if (off_is_default || cinfo.aspect_ratio == 0.0F) {
+                cinfo.content_flex.y = 1.0F;
+                main_is_default = false;
+            } else {
+                cinfo.content_px.y = as<int>(as<f32>(cinfo.bounds.bounds.size.x) / cinfo.aspect_ratio);
+            }
         }
 
         main_axis_size += cinfo.content_px.y + cinfo.margin_px.t + cinfo.margin_px.b;
@@ -137,7 +138,7 @@ void ListLayout::updateChildrenBoundsY(entt::entity self, Recti content_rect, [[
             if (cinfo.aspect_ratio != 0) {
                 cinfo.content_px.x = as<int>(as<f32>(cinfo.bounds.bounds.size.y) * cinfo.aspect_ratio);
             } else {
-                MLE_UNREACHABLE_LOG("Unnable to define width of child with no content size and no aspect ratio defined.");
+                cinfo.content_flex.x = 1.0F;
             }
 
             updateChildrenBoundsYcalcOffSide(cinfo, content_rect);

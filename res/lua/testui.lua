@@ -14,10 +14,8 @@ return {
 			background = "RED",
 		},
 		{
-			-- size = { "1s", "1f" },
-
-			size_x = 200,
-			size_y = "0.5s",
+			-- size = { "1f", "1f" }, {0,DEFAULT} BEHAVIOR FOR LIST CONTAINER
+			aspect_ratio = 1,
 
 			-- margin = { b = 100 },
 			background = "GREEN",
