@@ -115,6 +115,9 @@ struct TargetPadding {
 struct Origin {
     vec2f origin = {0.0F, 0.0F};
 };
+struct TargetAspectRatio {
+    f32 target = 0.0F;
+};
 }  // namespace comp
 }  // namespace mle::ui::element
 

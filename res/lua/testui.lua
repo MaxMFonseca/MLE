@@ -14,13 +14,24 @@ return {
 			background = "RED",
 		},
 		{
+			size_x = 100,
+			aspect_ratio = 1,
+			-- margin = { b = 100 },
+			background = "GREEN",
+		},
+		{
 			size = { 100, "1f" },
-			margin = { b = 100 },
+			-- margin = { b = 100 },
+			background = "GREEN",
+		},
+		{
+			size = { 100, ".1f" },
+			-- margin = { b = 100 },
 			background = "GREEN",
 		},
 		{
 			size = { 100, 100 },
-			margin = { t = 100, l = 200 },
+			-- margin = { t = 100, l = 200 },
 			background = "MAGENTA",
 		},
 		-- { "A." },

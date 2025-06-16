@@ -159,6 +159,88 @@ void margin(entt::entity self, const sol::object& obj) {
     }
 }
 
+namespace {
+f32 charToOrigin(char c) {
+    switch (c) {
+        case 'l':
+        case 't':
+            return 0.0F;
+        case 'r':
+        case 'b':
+            return 1.0F;
+        case 'x':
+        case 'c':
+            return 0.5F;
+        default:
+            MLE_W("Unexpected char in origin string: '{}'", c);
+            return 0.0F;
+    }
+}
+
+vec2f stringToOrigin(const std::string& s) {
+    vec2f ret{};
+    ret.x = charToOrigin(s[0]);
+    if (s.size() > 1) {
+        ret.y = charToOrigin(s[1]);
+    } else {
+        ret.y = ret.x;
+    }
+    return ret;
+}
+}  // namespace
+
+void origin(entt::entity self, const sol::object& obj) {
+    MLE_ASSERT(obj.valid());
+    auto& reg = getRegistry();
+
+    auto* comp = reg.try_get<comp::Origin>(self);
+    if (!comp) {
+        comp = &reg.emplace<comp::Origin>(self);
+    }
+
+    if (obj.is<std::string>()) {
+        comp->origin = stringToOrigin(obj.as<std::string>());
+    } else {
+        MLE_ASSERT(obj.is<sol::table>());
+
+        if (const auto x_r = lua::getKeyOrIdx(obj.as<sol::table>(), "x", 1); x_r) {
+            if (x_r->is<std::string>()) {
+                comp->origin.x = charToOrigin(x_r->as<std::string>()[0]);
+            } else if (x_r->is<f32>()) {
+                comp->origin.x = x_r->as<f32>();
+            } else {
+                MLE_UNREACHABLE_LOG("Unexpected x type for Origin: {}", x_r->get_type());
+            }
+        }
+
+        if (const auto y_r = lua::getKeyOrIdx(obj.as<sol::table>(), "y", 2); y_r) {
+            if (y_r->is<std::string>()) {
+                comp->origin.y = charToOrigin(y_r->as<std::string>()[0]);
+            } else if (y_r->is<f32>()) {
+                comp->origin.y = y_r->as<f32>();
+            } else {
+                MLE_UNREACHABLE_LOG("Unexpected y type for Origin: {}", y_r->get_type());
+            }
+        }
+    }
+}
+
+void aspectRatio(entt::entity self, const sol::object& obj) {
+    MLE_ASSERT(obj.valid());
+    auto& reg = getRegistry();
+
+    auto* comp = reg.try_get<comp::TargetAspectRatio>(self);
+    if (!comp) {
+        comp = &reg.emplace<comp::TargetAspectRatio>(self);
+    }
+
+    if (obj.is<f32>()) {
+        comp->target = obj.as<f32>();
+    } else {
+        MLE_UNREACHABLE_LOG("Unexpected obj type for TargetAspectRatio: {}", obj.get_type());
+    }
+}
+
 void background(entt::entity self, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
     auto& reg = getRegistry();
@@ -193,6 +275,8 @@ void addEngineLuaKeyHandlers() {
     addLuaKeyHandler("size_y", sizeY);
     addLuaKeyHandler("padding", padding);
     addLuaKeyHandler("margin", margin);
+    addLuaKeyHandler("origin", origin);
+    addLuaKeyHandler("aspect_ratio", aspectRatio);
     addLuaKeyHandler("background", background);
     addLuaKeyHandler("list", ListLayout::lkhList);
     addLuaKeyHandler("root_image", comp::RootImage::lkh);
