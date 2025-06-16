@@ -162,6 +162,10 @@ ListLayout::ChildBuildInfo::ChildBuildInfo(entt::registry& r, entt::entity e, Re
 
     bounds.bounds = {};
 
+    if (const auto* target_aspect_ratio = r.try_get<comp::TargetAspectRatio>(e); target_aspect_ratio) {
+        aspect_ratio = target_aspect_ratio->v;
+    }
+
     if (target_size) {
         switch (target_size->x.type) {
             case BType::DEFAULT:
@@ -263,10 +267,6 @@ ListLayout::ChildBuildInfo::ChildBuildInfo(entt::registry& r, entt::entity e, Re
                 MLE_UNREACHABLE_LOG("Unexpected target margin type: {}", target_margin->r.type);
             }
         }
-    }
-
-    if (const auto* target_aspect_ratio = r.try_get<comp::TargetAspectRatio>(e); target_aspect_ratio) {
-        aspect_ratio = target_aspect_ratio->v;
     }
 }
 }  // namespace mle::ui::element

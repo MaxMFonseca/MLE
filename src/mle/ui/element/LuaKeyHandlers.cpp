@@ -122,6 +122,8 @@ void padding(entt::entity self, const sol::object& obj) {
             target_padding_comp->r.fromLua(*r_r);
         }
     }
+
+    // FIXME: Must notify somehow that padding has changed
 }
 
 void margin(entt::entity self, const sol::object& obj) {
@@ -161,6 +163,8 @@ void margin(entt::entity self, const sol::object& obj) {
             target_margin_comp->r.fromLua(*r_r);
         }
     }
+
+    comp::Container::notifyChildChangedBounds(self);
 }
 
 namespace {
@@ -243,6 +247,8 @@ void aspectRatio(entt::entity self, const sol::object& obj) {
     } else {
         MLE_UNREACHABLE_LOG("Unexpected obj type for TargetAspectRatio: {}", obj.get_type());
     }
+
+    comp::Container::notifyChildChangedBounds(self);
 }
 
 void background(entt::entity self, const sol::object& obj) {

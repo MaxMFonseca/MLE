@@ -17,6 +17,11 @@ return {
 			-- size = { "1f", "1f" }, {0,DEFAULT} BEHAVIOR FOR LIST CONTAINER
 			aspect_ratio = 1,
 
+			sprite = {
+				"star",
+				color = "NQB",
+			},
+
 			-- margin = { b = 100 },
 			background = "GREEN",
 		},

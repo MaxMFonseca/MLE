@@ -7,6 +7,7 @@
 #pragma once
 
 #include <entt/entt.hpp>
+#include <variant>
 
 #include "mle/common/Color.h"
 #include "mle/common/math/Types.h"
@@ -117,6 +118,9 @@ struct Origin {
 };
 struct TargetAspectRatio {
     f32 v = 0.0F;
+};
+struct Wrappapble {
+    // TODO:
 };
 }  // namespace comp
 }  // namespace mle::ui::element
