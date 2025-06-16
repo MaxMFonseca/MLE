@@ -70,6 +70,8 @@ void sizeX(entt::entity self, const sol::object& obj) {
         comp = &reg.emplace<comp::TargetSize>(self);
     }
 
+    comp->x.fromLua(obj);
+
     comp::Container::notifyChildChangedBounds(self);
 }
 
@@ -81,6 +83,8 @@ void sizeY(entt::entity self, const sol::object& obj) {
     if (!comp) {
         comp = &reg.emplace<comp::TargetSize>(self);
     }
+
+    comp->y.fromLua(obj);
 
     comp::Container::notifyChildChangedBounds(self);
 }
@@ -235,7 +239,7 @@ void aspectRatio(entt::entity self, const sol::object& obj) {
     }
 
     if (obj.is<f32>()) {
-        comp->target = obj.as<f32>();
+        comp->v = obj.as<f32>();
     } else {
         MLE_UNREACHABLE_LOG("Unexpected obj type for TargetAspectRatio: {}", obj.get_type());
     }

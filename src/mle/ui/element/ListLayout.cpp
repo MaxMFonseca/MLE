@@ -54,6 +54,19 @@ void ListLayout::updateChildrenBoundsX(entt::entity /*self*/, Recti /*content_re
     MLE_TODO;
 }
 
+namespace {
+void updateChildrenBoundsYcalcOffSide(ListLayout::ChildBuildInfo& cinfo, Recti content_rect) {
+    f32 off_flex_shares = cinfo.content_flex.x + cinfo.margin_flex.r + cinfo.margin_flex.l;
+    f32 off_remaining = as<f32>(content_rect.width() - cinfo.margin_px.r - cinfo.margin_px.l - cinfo.content_px.x);
+    f32 off_flex_value_px = off_flex_shares != 0.0F && off_remaining != 0.0F ? off_remaining / std::max(1.0F, off_flex_shares) : 0.0F;
+
+    cinfo.bounds.bounds.pos.x = content_rect.left() + cinfo.margin_px.l;
+    cinfo.bounds.bounds.pos.x += as<int>(cinfo.margin_flex.l * off_flex_value_px);
+
+    cinfo.bounds.bounds.size.x = cinfo.content_px.x + as<int>(cinfo.content_flex.x * off_flex_value_px);
+}
+}  // namespace
+
 void ListLayout::updateChildrenBoundsY(entt::entity self, Recti content_rect, [[maybe_unused]] bool force_update) const {
     auto& reg = getRegistry();
     auto& container = reg.get<comp::Container>(self);
@@ -73,6 +86,21 @@ void ListLayout::updateChildrenBoundsY(entt::entity self, Recti content_rect, [[
         auto& cinfo = cinfos.emplace_back(reg, c, content_rect);
         if (cinfo.bounds.immutable) {
             continue;
+        }
+
+        bool main_is_ar = cinfo.content_flex.y == 0.0F && cinfo.content_px.y == 0;
+        bool off_is_ar = cinfo.content_flex.x == 0.0F && cinfo.content_px.x == 0;
+        MLE_ASSERT_LOG(!(main_is_ar && off_is_ar), "Element cannot have both w and h as aspect_ratio defined.");
+
+        if (!off_is_ar) {
+            updateChildrenBoundsYcalcOffSide(cinfo, content_rect);
+        }
+
+        if (main_is_ar) {
+            MLE_ASSERT_LOG(cinfo.aspect_ratio > 0.0F, "Child with no content size and no aspect ratio defined.");
+            MLE_ASSERT_LOG(cinfo.bounds.bounds.size.x > 0, "Child bounds cannot be defined by aspect ratio if its width is not defined.");
+
+            cinfo.content_px.y = as<int>(as<f32>(cinfo.bounds.bounds.size.x) / cinfo.aspect_ratio);
         }
 
         main_axis_size += cinfo.content_px.y + cinfo.margin_px.t + cinfo.margin_px.b;
@@ -105,14 +133,15 @@ void ListLayout::updateChildrenBoundsY(entt::entity self, Recti content_rect, [[
 
         main_axis_pos = cinfo.bounds.bounds.pos.y + cinfo.bounds.bounds.size.y + cinfo.margin_px.b + child_gap;
 
-        f32 off_flex_shares = cinfo.content_flex.x + cinfo.margin_flex.r + cinfo.margin_flex.l;
-        f32 off_remaining = as<f32>(content_rect.width() - cinfo.margin_px.r - cinfo.margin_px.l - cinfo.content_px.x);
-        f32 off_flex_value_px = off_flex_shares != 0.0F && off_remaining != 0.0F ? off_remaining / std::max(1.0F, off_flex_shares) : 0.0F;
+        if (cinfo.bounds.bounds.size.x == 0) {
+            if (cinfo.aspect_ratio != 0) {
+                cinfo.content_px.x = as<int>(as<f32>(cinfo.bounds.bounds.size.y) * cinfo.aspect_ratio);
+            } else {
+                MLE_UNREACHABLE_LOG("Unnable to define width of child with no content size and no aspect ratio defined.");
+            }
 
-        cinfo.bounds.bounds.pos.x = content_rect.left() + cinfo.margin_px.l;
-        cinfo.bounds.bounds.pos.x += as<int>(cinfo.margin_flex.l * off_flex_value_px);
-
-        cinfo.bounds.bounds.size.x = cinfo.content_px.x + as<int>(cinfo.content_flex.x * off_flex_value_px);
+            updateChildrenBoundsYcalcOffSide(cinfo, content_rect);
+        }
     }
 }
 
@@ -120,9 +149,10 @@ ListLayout::ChildBuildInfo::ChildBuildInfo(entt::registry& r, entt::entity e, Re
     bounds(r.get<comp::Bounds>(e)),
     target_size(r.try_get<comp::TargetSize>(e)),
     target_position(r.try_get<comp::TargetPosition>(e)),
-    target_margin(r.try_get<comp::TargetMargin>(e)),
-    target_padding(r.try_get<comp::TargetPadding>(e)),
-    origin(r.try_get<comp::Origin>(e)) {
+    target_margin(r.try_get<comp::TargetMargin>(e))
+// target_padding(r.try_get<comp::TargetPadding>(e)),
+// origin(r.try_get<comp::Origin>(e)),
+{
     using BType = comp::TargetBound::Type;
 
     if (bounds.immutable) {
@@ -143,6 +173,10 @@ ListLayout::ChildBuildInfo::ChildBuildInfo(entt::registry& r, entt::entity e, Re
             case BType::FLEX_SHARE: {
                 content_flex.x = target_size->x.val;
             } break;
+            case BType::SELF_H:
+            case BType::SELF: {
+                aspect_ratio = target_size->x.val;
+            } break;
             default: {
                 MLE_UNREACHABLE_LOG("Unexpected target size type: {}", target_size->x.type);
             }
@@ -157,6 +191,10 @@ ListLayout::ChildBuildInfo::ChildBuildInfo(entt::registry& r, entt::entity e, Re
             } break;
             case BType::FLEX_SHARE: {
                 content_flex.y = target_size->y.val;
+            } break;
+            case BType::SELF_W:
+            case BType::SELF: {
+                aspect_ratio = 1.0F / target_size->y.val;
             } break;
             default: {
                 MLE_UNREACHABLE_LOG("Unexpected target size type: {}", target_size->y.type);
@@ -224,6 +262,10 @@ ListLayout::ChildBuildInfo::ChildBuildInfo(entt::registry& r, entt::entity e, Re
                 MLE_UNREACHABLE_LOG("Unexpected target margin type: {}", target_margin->r.type);
             }
         }
+    }
+
+    if (const auto* target_aspect_ratio = r.try_get<comp::TargetAspectRatio>(e); target_aspect_ratio) {
+        aspect_ratio = target_aspect_ratio->v;
     }
 }
 }  // namespace mle::ui::element

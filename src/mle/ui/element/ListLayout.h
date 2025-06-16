@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Container.h"
+#include "mle/ui/element/Base.h"
 
 namespace mle::ui::element {
 struct ListLayout : Layout {
@@ -11,8 +12,8 @@ struct ListLayout : Layout {
         const comp::TargetSize* target_size;
         const comp::TargetPosition* target_position;
         const comp::TargetMargin* target_margin;
-        const comp::TargetPadding* target_padding;
-        const comp::Origin* origin;
+        // const comp::TargetPadding* target_padding;
+        // const comp::Origin* origin;
 
         struct {
             int t{}, b{}, l{}, r{};
@@ -22,6 +23,7 @@ struct ListLayout : Layout {
         } margin_flex;
         vec2i content_px{0};
         vec2f content_flex{0};
+        f32 aspect_ratio = 0.0F;
     };
 
     static void lkhList(entt::entity self, const sol::object& obj);

@@ -70,9 +70,9 @@ struct TargetBound {
         ROOT,        ///< Relative to root element (percentage). Suffix: "r%"
         ROOT_PX,     ///< Root-relative with absolute pixel offset. Suffix: "rpx"
         FLEX_SHARE,  ///< Share available space flexibly. Suffix: "f"
-        SELF,        ///< Size based on self/content. Suffix: "s"
-        SELF_W,      ///< Width based on self/content. Suffix: "sw"
-        SELF_H,      ///< Height based on self/content. Suffix: "sh"
+        SELF,        ///< Size based on self content. Suffix: "s"
+        SELF_W,      ///< Width based on self content. Suffix: "sw"
+        SELF_H,      ///< Height based on self content. Suffix: "sh"
         DEFAULT      ///< Default behavior. No suffix or unrecognized.
     };
 
@@ -116,7 +116,7 @@ struct Origin {
     vec2f origin = {0.0F, 0.0F};
 };
 struct TargetAspectRatio {
-    f32 target = 0.0F;
+    f32 v = 0.0F;
 };
 }  // namespace comp
 }  // namespace mle::ui::element

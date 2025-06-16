@@ -14,8 +14,11 @@ return {
 			background = "RED",
 		},
 		{
-			size_x = 100,
-			aspect_ratio = 1,
+			-- size = { "1s", "1f" },
+
+			size_x = 200,
+			size_y = "0.5s",
+
 			-- margin = { b = 100 },
 			background = "GREEN",
 		},
