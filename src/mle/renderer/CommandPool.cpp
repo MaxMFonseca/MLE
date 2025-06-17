@@ -1,5 +1,6 @@
 #include "CommandPool.h"
 
+#include <vulkan/vulkan_handles.hpp>
 #include <vulkan/vulkan_structs.hpp>
 
 #include "Fence.h"
@@ -44,6 +45,8 @@ void CommandPool::releaseCmdBuffer(vk::CommandBuffer cmd) {
 }
 
 void CommandPool::submitWait(vk::CommandBuffer cmd) {
+    check(cmd.end());
+
     vk::CommandBufferSubmitInfo cmd_info;
     cmd_info.setCommandBuffer(cmd);
 
@@ -57,9 +60,11 @@ void CommandPool::submitWait(vk::CommandBuffer cmd) {
 }
 
 void CommandPool::submitAsync(vk::SubmitInfo2 submit_info, std::function<void(void)>&& callback) {
-    auto fence = detail::getCommandPoolManager().submit(type_, submit_info);
-
     auto cmd = submit_info.pCommandBufferInfos[0].commandBuffer;  // NOLINT
+
+    check(cmd.end());
+
+    auto fence = detail::getCommandPoolManager().submit(type_, submit_info);
 
     fence.waitAsync([callback = std::move(callback), this, cmd]() {
         releaseCmdBuffer(cmd);
@@ -82,17 +87,23 @@ void CommandPool::submitAsync(vk::CommandBuffer cmd, std::function<void(void)>&&
 vk::CommandBuffer CommandPool::getCmd() {
     std::scoped_lock lock(mutex_);
 
+    vk::CommandBuffer cmd;
+
     if (!o_.available_buffers.empty()) {
-        auto cmd = o_.available_buffers.back();
+        cmd = o_.available_buffers.back();
         o_.available_buffers.pop_back();
-        return cmd;
+    } else {
+        vk::CommandBufferAllocateInfo alloc_info;
+        alloc_info.setCommandPool(o_.o).setLevel(vk::CommandBufferLevel::ePrimary).setCommandBufferCount(1);
+        auto alloc_r = detail::getDevice().allocateCommandBuffers(alloc_info);
+        check(alloc_r.result);
+        cmd_buffer_count_++;
+        cmd = alloc_r.value[0];
     }
 
-    vk::CommandBufferAllocateInfo alloc_info;
-    alloc_info.setCommandPool(o_.o).setLevel(vk::CommandBufferLevel::ePrimary).setCommandBufferCount(1);
-    auto alloc_r = detail::getDevice().allocateCommandBuffers(alloc_info);
-    check(alloc_r.result);
-    cmd_buffer_count_++;
-    return alloc_r.value[0];
+    vk::CommandBufferBeginInfo bi{};
+    bi.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit;
+    check(cmd.begin(bi));
+    return cmd;
 }
 }  // namespace mle::renderer

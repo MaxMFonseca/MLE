@@ -65,15 +65,9 @@ Texture TextureCache::add(const fs::path& path, std::string name) {
 
     auto tcmd = renderer::getOTSCmd(CmdType::TRANSFER);
     auto gcmd = renderer::getOTSCmd(CmdType::GRAPHICS);
-    vk::CommandBufferBeginInfo begin_info = {};
-    check(tcmd.begin(begin_info));
-    check(gcmd.begin(begin_info));
 
     td.image->update(tcmd, buf.get());
     td.image->changeOwnerQueue(CmdType::TRANSFER, tcmd, CmdType::GRAPHICS, gcmd);
-
-    check(tcmd.end());
-    check(gcmd.end());
 
     auto semaphore = unwrap(renderer::detail::getDevice().createSemaphore({}));
 
