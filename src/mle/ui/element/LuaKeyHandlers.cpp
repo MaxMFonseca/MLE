@@ -2,6 +2,7 @@
 
 #include <sol/forward.hpp>
 
+#include "Sprite.h"
 #include "mle/lua/Types.h"
 #include "mle/lua/Utils.h"
 #include "mle/renderer/Image.h"
@@ -290,5 +291,6 @@ void addEngineLuaKeyHandlers() {
     addLuaKeyHandler("background", background);
     addLuaKeyHandler("list", ListLayout::lkhList);
     addLuaKeyHandler("root_image", comp::RootImage::lkh);
+    addLuaKeyHandler("sprite", comp::Sprite::lkh);
 }
 }  // namespace mle::ui::element

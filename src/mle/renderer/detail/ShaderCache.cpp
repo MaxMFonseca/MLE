@@ -25,10 +25,9 @@ vk::ShaderStageFlagBits getFileStage(const fs::path& filepath) {
     }
     MLE_UNREACHABLE_LOG("Unsupported shader stage on file: {}, filename should be <name>.<stage>.spv", filepath.c_str());
 }
-
 }  // namespace
 
-void ShaderCache::init() {  // NOLINT TODO: create engine shaders
+void ShaderCache::init() {  // NOLINT TODO: create engine shaders?
     MLE_I("Initializing shader cache");
 }
 

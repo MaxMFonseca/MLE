@@ -14,6 +14,7 @@
 #include "mle/renderer/detail/CommandPoolManager.h"
 #include "mle/renderer/detail/FrameRenderer.h"
 #include "mle/renderer/detail/ShaderCache.h"
+#include "mle/renderer/detail/TextureCache.h"
 #include "mle/window/Window.h"
 
 namespace mle::renderer {
@@ -38,6 +39,7 @@ class Impl {
     auto& getCommandPoolManager() { return command_pool_manager_; }  ///< Returns the command pool manager.
     auto& getFrameRenderer() { return frame_renderer_; }             ///< Returns the frame renderer for managing frame-specific operations.
     auto& getShaderCache() { return shader_cache_; }                 ///< Returns the shader cache for managing shaders.
+    auto& getTextureCache() { return texture_cache_; }               ///< Returns the texture cache for managing textures.
 
   private:
   private:
@@ -48,6 +50,7 @@ class Impl {
     detail::FencePool fence_pool_;
     detail::FrameRenderer frame_renderer_;
     detail::ShaderCache shader_cache_;
+    detail::TextureCache texture_cache_;
 
     std::vector<std::function<void(void)>> shutdown_delete_stack_;
 };
@@ -66,6 +69,9 @@ void Impl::init() {
 
     shader_cache_.init();
     shutdown_delete_stack_.emplace_back([this]() { shader_cache_.reset(); });
+
+    texture_cache_.init();
+    shutdown_delete_stack_.emplace_back([this]() { texture_cache_.reset(); });
 
     MLE_I("Renderer initialized successfully!");
 }
@@ -141,6 +147,11 @@ vk::Format getDefaultColorFormat() {
 ShaderRef getShader(const std::string& name, bool engine) {
     MLE_ASSERT(i_);
     return i_->getShaderCache().get(name, engine);
+}
+
+Texture getTexture(const std::string& name, bool engine) {
+    MLE_ASSERT(i_);
+    return i_->getTextureCache().get(name, engine);
 }
 
 namespace detail {

@@ -52,6 +52,8 @@ vk::Format getDefaultColorFormat();  ///< Returns the default image format used 
 
 ShaderRef getShader(const std::string& name, bool engine = false);  /// Returns a shader reference by name, loading it if necessary.
 
+Texture getTexture(const std::string& name, bool engine = false);  ///< Returns a texture reference by name, loading it if necessary.
+
 namespace detail {
 ED& getED();                                  ///< Returns the event dispatcher instance for the renderer.
 VkContext& getVk();                           ///< Returns the Vulkan context instance.

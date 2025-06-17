@@ -56,10 +56,6 @@ class Shader;
 using ShaderHnd = std::unique_ptr<Shader>;
 using ShaderRef = Shader*;
 
-class TextureAtlas;
-using TextureAtlasHnd = std::unique_ptr<TextureAtlas>;
-using TextureAtlasRef = TextureAtlas*;
-
 class Fence;
 using FenceHnd = std::unique_ptr<Fence>;
 using FenceRef = Fence*;
@@ -76,18 +72,15 @@ class RenderingThread;
 using RenderingThreadHnd = std::unique_ptr<RenderingThread>;
 using RenderingThreadRef = RenderingThread*;
 
+struct Texture {
+    ImageRef image{};
+    u32 idx = 0;
+};
+
 struct CmdPoolData {
     vk::CommandPool o;
     std::vector<vk::CommandBuffer> buffers;
     std::vector<vk::CommandBuffer> secondary_buffers;
-};
-
-struct Texture {
-    usize idx = max<usize>();
-    Rectf rect = {0.0F, 0.0F, 0.0F, 0.0F};
-    float aspect_ratio = 0.0F;
-
-    // bool operator==(const Texture& other) const { return idx == other.idx && rect == other.rect && aspect_ratio == other.aspect_ratio; }
 };
 
 struct WriteDescriptorSet {
@@ -163,11 +156,11 @@ struct formatter<vk::Format> : formatter<std::string> {
     }
 };
 
-template <>
-struct formatter<mle::renderer::Texture> : formatter<std::string> {
-    template <typename FormatContext>
-    constexpr auto format(const mle::renderer::Texture& texture, FormatContext& ctx) const {
-        return format_to(ctx.out(), "[idx: {}, rect: {}, ar: {}]", texture.idx, texture.rect, texture.aspect_ratio);
-    }
-};
+// template <>
+// struct formatter<mle::renderer::Texture> : formatter<std::string> {
+//     template <typename FormatContext>
+//     constexpr auto format(const mle::renderer::Texture& texture, FormatContext& ctx) const {
+//         return format_to(ctx.out(), "[idx: {}, rect: {}, ar: {}]", texture.idx, texture.rect, texture.aspect_ratio);
+//     }
+// };
 }  // namespace fmt

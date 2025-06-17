@@ -6,10 +6,7 @@
 namespace mle::renderer::detail {
 class ShaderCache {
   public:
-    ShaderCache(const ShaderCache&) = delete;
-    ShaderCache(ShaderCache&&) = delete;
-    ShaderCache& operator=(const ShaderCache&) = delete;
-    ShaderCache& operator=(ShaderCache&&) = delete;
+    MLE_NO_COPY_MOVE(ShaderCache)
 
     ShaderCache() = default;
     ~ShaderCache() = default;

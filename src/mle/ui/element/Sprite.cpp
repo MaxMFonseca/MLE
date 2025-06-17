@@ -2,12 +2,18 @@
 
 #include "mle/lua/Types.h"
 #include "mle/lua/Utils.h"
+#include "mle/renderer/Renderer.h"
 #include "mle/ui/Types.h"
 #include "mle/ui/UI.h"
+#include "sol/forward.hpp"
 
 namespace mle::ui::element::comp {
-
 void Sprite::setTexture(const std::string& texture_name) {
+    texture_ = renderer::getTexture(texture_name);
+}
+
+void Sprite::setColor(const sol::object& o) {
+    setColor(Color::fromLua(o));
 }
 
 void Sprite::setColor(Color color) {
@@ -33,7 +39,7 @@ void Sprite::lkh(entt::entity self, const sol::object& o) {
         MLE_ASSERT(lua_get_result);
         comp->setTexture(texture_name);
 
-        if (const auto color_r = table["color"]; color_r.valid()) {
+        if (const sol::object color_r = table["color"]; color_r.valid()) {
             comp->setColor(color_r);
         }
     } else {
