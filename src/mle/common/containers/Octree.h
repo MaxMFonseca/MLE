@@ -18,8 +18,8 @@
 #include <list>
 #include <vector>
 
-#include "math/Types.h"
-#include "math/Types3D.h"
+#include "mle/common/Types.h"
+#include "mle/common/math/Types3D.h"
 
 // TODO: this could use some love
 namespace mle {
