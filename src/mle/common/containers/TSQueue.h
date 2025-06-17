@@ -1,0 +1,63 @@
+#pragma once
+
+#include <queue>
+
+#include "mle/common/Utils.h"
+
+namespace mle {
+template <typename T>
+class TSQueue {
+  public:
+    MLE_NO_COPY_MOVE(TSQueue)
+
+    TSQueue() = default;
+    ~TSQueue() = default;
+
+    void push(const T& element) {
+        std::scoped_lock lock(mutex_);
+        queue_.push(element);
+        cv_.notify_one();
+    }
+
+    void push(T&& element) {
+        std::scoped_lock lock(mutex_);
+        queue_.push(std::move(element));
+        cv_.notify_one();
+    }
+
+    std::optional<T> pop(bool wait = true) {
+        std::unique_lock lock(mutex_);
+
+        if (queue_.empty() && wait) {
+            cv_.wait(lock, [this] { return !queue_.empty(); });
+        }
+        if (queue_.empty()) {
+            return std::nullopt;
+        }
+
+        auto ret = queue_.front();
+        queue_.pop();
+        return ret;
+    }
+
+    std::optional<T> popMove(bool wait = true) {
+        std::unique_lock lock(mutex_);
+
+        if (queue_.empty() && wait) {
+            cv_.wait(lock, [this] { return !queue_.empty(); });
+        }
+        if (queue_.empty()) {
+            return std::nullopt;
+        }
+
+        auto ret = std::move(queue_.front());
+        queue_.pop();
+        return ret;
+    }
+
+  private:
+    std::mutex mutex_;
+    std::condition_variable cv_;
+    std::queue<T> queue_;
+};
+}  // namespace mle
