@@ -72,6 +72,9 @@ void run();
 /// Signals the core to stop after the current frame.
 void stop();
 
+/// Enqueue a job for asynchronous execution using a thread pool.
+void execAsync(std::function<void(void)>&& func);
+
 /**
  * @brief Unrecoverable error handler. Shuts down the engine immediately.
  *

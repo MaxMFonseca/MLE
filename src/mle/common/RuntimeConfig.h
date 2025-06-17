@@ -5,6 +5,8 @@
  * This header exposes a set of runtime configuration utilities used for modifying
  * engine behavior via command-line arguments and runtime switches.
  *
+ * TODO: move this to core/
+ *
  * @ingroup config
  */
 

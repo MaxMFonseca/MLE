@@ -1,5 +1,7 @@
 #include "mle/core/Core.h"
 
+#include <thread>
+
 #include "mle/common/Assert.h"
 #include "mle/common/Color.h"
 #include "mle/common/Consts.h"
@@ -10,6 +12,7 @@
 // #include "mle/renderer/Renderer.h"
 // #include "mle/ui/Controller.h"
 // #include "mle/ui/UI.h"
+#include "detail/ThreadPool.h"
 #include "mle/renderer/Renderer.h"
 #include "mle/ui/UI.h"
 #include "mle/window/Events.h"
@@ -27,6 +30,7 @@ class Impl {
     void accumulateKPI(SecondKPIType kpi, std::chrono::nanoseconds value);
     [[nodiscard]] std::chrono::milliseconds getRunningTimeMS() const;
     [[nodiscard]] f32 getRunningTimeFloat() const;
+    void execAsync(std::function<void()>&& func);
 
   private:
     void update();
@@ -57,6 +61,8 @@ class Impl {
 
         std::array<std::chrono::nanoseconds, static_cast<usize>(SecondKPIType::COUNT)> other_kpi = {};
     } current_second_times_;
+
+    detail::ThreadPool thread_pool_;
 };
 
 void Impl::updateSecondTimes(std::chrono::seconds current) {
@@ -136,6 +142,8 @@ void Impl::registerLuaTypes(const CI& ci) {
 void Impl::shutdown() {
     MLE_I("MLE Core shutting down after {}s", seconds_running_.count());
 
+    thread_pool_.shutdown();
+
     renderer::detail::waitIdle();
 
     ui::shutdown();
@@ -170,6 +178,14 @@ void Impl::init(CI ci) {  // NOLINT
     logger::init();
     MLE_I("Initializing MLE Core");
     state_ = State::INITIALIZING;
+
+    thread_pool_.init();
+
+    thread_pool_.enqueue([]() { MLE_I("MT test A: tid: {}", std::hash<std::thread::id>{}(std::this_thread::get_id())); });  // NOLINT
+    thread_pool_.enqueue([]() { MLE_I("MT test B: tid: {}", std::hash<std::thread::id>{}(std::this_thread::get_id())); });  // NOLINT
+    thread_pool_.enqueue([]() { MLE_I("MT test C: tid: {}", std::hash<std::thread::id>{}(std::this_thread::get_id())); });  // NOLINT
+    thread_pool_.enqueue([]() { MLE_I("MT test D: tid: {}", std::hash<std::thread::id>{}(std::this_thread::get_id())); });  // NOLINT
+    thread_pool_.enqueue([]() { MLE_I("MT test E: tid: {}", std::hash<std::thread::id>{}(std::this_thread::get_id())); });  // NOLINT
 
     logInitParams(ci);
     MLE_T("Lua");
@@ -244,6 +260,10 @@ f32 Impl::getRunningTimeFloat() const {
     return running_time_float_;
 }
 
+void Impl::execAsync(std::function<void()>&& func) {
+    thread_pool_.enqueue(std::move(func));
+}
+
 // TODO: I will probably allocate this at a linear allocator along the other core singletons in the future
 std::unique_ptr<Impl> i_;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 }  // namespace
@@ -284,4 +304,8 @@ void unrecoverable(const std::string& msg) {
     i_->shutdownImediate(msg);
 }
 
+void execAsync(std::function<void()>&& func) {
+    MLE_ASSERT(i_);
+    i_->execAsync(std::move(func));
+}
 }  // namespace mle::core
