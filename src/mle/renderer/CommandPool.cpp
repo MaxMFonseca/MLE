@@ -1,6 +1,5 @@
 #include "CommandPool.h"
 
-#include <vulkan/vulkan_handles.hpp>
 #include <vulkan/vulkan_structs.hpp>
 
 #include "Fence.h"
@@ -10,6 +9,19 @@
 #include "mle/renderer/Utils.h"
 
 namespace mle::renderer {
+void CommandPool::reset() {
+    if (type_ == CmdType::INVALID) {
+        return;
+    }
+
+    MLE_ASSERT_LOG(cmd_buffer_count_ == o_.available_buffers.size(),
+                   "A cmd buffer wasnt submited or is pending before pool deletion. Dangling cmd buffers! Count: {}, Available: {}", cmd_buffer_count_,
+                   o_.available_buffers.size());
+
+    detail::getCommandPoolManager().release(type_, std::move(o_));
+    type_ = CmdType::INVALID;
+}
+
 CommandPool::CommandPool(CommandPool&& other) :
     type_(other.type_),
     o_(std::move(other.o_)) {
@@ -17,72 +29,70 @@ CommandPool::CommandPool(CommandPool&& other) :
 }
 
 CommandPool::~CommandPool() {
-    if (type_ == CmdType::INVALID) {
-        return;
-    }
-
-    detail::getCommandPoolManager().release(type_, std::move(o_));
-}
-
-CommandPool CommandPool::create(CmdType type) {
-    CommandPool ret;
-    ret.init(type);
-    return ret;
+    reset();
 }
 
 void CommandPool::init(CmdType type) {
     type_ = type;
-    o_ = detail::getCommandPoolManager().acquire(type);
+    o_ = detail::getCommandPoolManager().acquirePool(type);
+    cmd_buffer_count_ = o_.available_buffers.size();
 }
 
-Fence CommandPool::submit(vk::CommandBuffer cmd) {
-    MLE_ASSERT_LOG(isPrimary(cmd), "Command buffer is not primary");
+void CommandPool::releaseCmdBuffer(vk::CommandBuffer cmd) {
+    std::scoped_lock lock(mutex_);
+    o_.available_buffers.emplace_back(cmd);
+}
 
+void CommandPool::submitWait(vk::CommandBuffer cmd) {
     vk::CommandBufferSubmitInfo cmd_info;
     cmd_info.setCommandBuffer(cmd);
 
     vk::SubmitInfo2 info;
     info.setCommandBufferInfos(cmd_info);
 
-    return detail::getCommandPoolManager().submit(type_, info);
+    auto fence = detail::getCommandPoolManager().submit(type_, info);
+    fence.wait();
+
+    releaseCmdBuffer(cmd);
 }
 
-bool CommandPool::isPrimary(vk::CommandBuffer cmd) {
-    auto it = std::ranges::find_if(o_.buffers, [&](const auto& buffer) { return buffer == cmd; });
-    return it != o_.buffers.end();
+void CommandPool::submitAsync(vk::SubmitInfo2 submit_info, std::function<void(void)>&& callback) {
+    auto fence = detail::getCommandPoolManager().submit(type_, submit_info);
+
+    auto cmd = submit_info.pCommandBufferInfos[0].commandBuffer;  // NOLINT
+
+    fence.waitAsync([callback = std::move(callback), this, cmd]() {
+        releaseCmdBuffer(cmd);
+        if (callback) {
+            callback();
+        }
+    });
 }
 
-bool CommandPool::isSecondary(vk::CommandBuffer cmd) {
-    auto it = std::ranges::find_if(o_.secondary_buffers, [&](const auto& buffer) { return buffer == cmd; });
-    return it != o_.secondary_buffers.end();
+void CommandPool::submitAsync(vk::CommandBuffer cmd, std::function<void(void)>&& callback) {
+    vk::CommandBufferSubmitInfo cmd_info;
+    cmd_info.setCommandBuffer(cmd);
+
+    vk::SubmitInfo2 info;
+    info.setCommandBufferInfos(cmd_info);
+
+    submitAsync(info, std::move(callback));
 }
 
-bool CommandPool::isValid(vk::CommandBuffer cmd) {
-    return isPrimary(cmd) || isSecondary(cmd);
-}
+vk::CommandBuffer CommandPool::getCmd() {
+    std::scoped_lock lock(mutex_);
 
-vk::CommandBuffer CommandPool::getCmdBuffer() {
-    if (p_counter_ < o_.buffers.size()) {
-        return o_.buffers[p_counter_++];
+    if (!o_.available_buffers.empty()) {
+        auto cmd = o_.available_buffers.back();
+        o_.available_buffers.pop_back();
+        return cmd;
     }
 
     vk::CommandBufferAllocateInfo alloc_info;
     alloc_info.setCommandPool(o_.o).setLevel(vk::CommandBufferLevel::ePrimary).setCommandBufferCount(1);
     auto alloc_r = detail::getDevice().allocateCommandBuffers(alloc_info);
     check(alloc_r.result);
-    o_.buffers.push_back(alloc_r.value[0]);
-    return o_.buffers[p_counter_++];
-}
-
-vk::CommandBuffer CommandPool::getCmdBufferSecondary() {
-    if (s_counter_ < o_.secondary_buffers.size()) {
-        return o_.secondary_buffers[s_counter_++];
-    }
-
-    vk::CommandBufferAllocateInfo alloc_info;
-    alloc_info.setCommandPool(o_.o).setLevel(vk::CommandBufferLevel::eSecondary).setCommandBufferCount(1);
-    auto alloc_r = detail::getDevice().allocateCommandBuffers(alloc_info);
-    o_.secondary_buffers.push_back(alloc_r.value[0]);
-    return o_.secondary_buffers[s_counter_++];
+    cmd_buffer_count_++;
+    return alloc_r.value[0];
 }
 }  // namespace mle::renderer

@@ -1,5 +1,10 @@
 #include "TextureCache.h"
 
+#include <vulkan/vulkan_structs.hpp>
+
+#include "mle/renderer/Renderer.h"
+#include "mle/renderer/Utils.h"
+
 namespace mle::renderer::detail {
 void TextureCache::init() {  // NOLINT
     MLE_I("Initializing texture cache");
@@ -8,6 +13,9 @@ void TextureCache::init() {  // NOLINT
 void TextureCache::reset() {
     MLE_I("Shutting down texture cache");
     textures_.clear();
+}
+
+void TextureCache::update() {
 }
 
 Texture TextureCache::add(const std::string& name, bool engine) {
@@ -23,7 +31,7 @@ Texture TextureCache::add(const std::string& name, bool engine) {
 Texture TextureCache::add(const fs::path& path, std::string name) {
     MLE_D("Adding texture from file: {}", path.generic_string());
 
-    MLE_ASSERT(!textures_.contains(name));
+    MLE_ASSERT(!texture_names_.contains(name));
 
     if (name.empty()) {
         name = res::removeBasePath(path.string());
@@ -34,22 +42,83 @@ Texture TextureCache::add(const fs::path& path, std::string name) {
 
     auto file_data = Image::readFile(path);
 
-    TextureData td = {.idx = index_++};
+    u32 idx = 0;
+    if (!free_indices_.empty()) {
+        idx = free_indices_.front();
+        free_indices_.pop_front();
+    } else {
+        idx = static_cast<u32>(textures_.size());
+        textures_.emplace_back();
+    }
+
+    texture_names_[name] = idx;
+    auto& td = textures_[idx];
+
     Image::CI ci;
     ci.extent = file_data.extent;
     ci.format = Image::getDefaultFormatForChannelCount(file_data.channels);
     ci.usage = vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eTransferDst;
-    td.image = Image::createHnd(ci);
 
-    auto& ret = textures_[name] = std::move(td);
+    td = {.image = Image::createHnd(ci), .ready = false};
 
-    return {.image = ret.image.get(), .idx = ret.idx};
+    auto buf = Image::createStagingBuffer(file_data);
+
+    auto tcmd = renderer::getOTSCmd(CmdType::TRANSFER);
+    auto gcmd = renderer::getOTSCmd(CmdType::GRAPHICS);
+    vk::CommandBufferBeginInfo begin_info = {};
+    check(tcmd.begin(begin_info));
+    check(gcmd.begin(begin_info));
+
+    td.image->update(tcmd, buf.get());
+    td.image->changeOwnerQueue(CmdType::TRANSFER, tcmd, CmdType::GRAPHICS, gcmd);
+
+    check(tcmd.end());
+    check(gcmd.end());
+
+    auto semaphore = unwrap(renderer::detail::getDevice().createSemaphore({}));
+
+    vk::SemaphoreSubmitInfo semaphore_info = {};
+    semaphore_info.setSemaphore(semaphore);
+    semaphore_info.setStageMask(vk::PipelineStageFlagBits2::eTransfer);
+    vk::CommandBufferSubmitInfo cmd_info = {};
+    cmd_info.setCommandBuffer(tcmd);
+    vk::SubmitInfo2 submit_info = {};
+    submit_info.setCommandBufferInfos(cmd_info);
+    submit_info.setSignalSemaphoreInfos(semaphore_info);
+
+    renderer::submitOTSAsync(CmdType::TRANSFER, submit_info);
+
+    cmd_info.setCommandBuffer(gcmd);
+    submit_info.setSignalSemaphoreInfos({});
+    submit_info.setWaitSemaphoreInfos(semaphore_info);
+
+    updating_textures_.emplace_back(UpdatingData{
+        .staging_buffer = std::move(buf),
+        .semaphore = semaphore,
+        .idx = idx,
+    });
+
+    renderer::submitOTSAsync(CmdType::GRAPHICS, submit_info, [idx, this]() { finishedUpload(idx); });  // NOLINT
+
+    return {.image = td.image.get(), .idx = idx, .ready = false};
+}
+
+void TextureCache::finishedUpload(u32 idx) {
+    MLE_D("Finished uploading texture with index: {}", idx);
+
+    auto it = std::ranges::find_if(updating_textures_, [idx](const UpdatingData& data) { return data.idx == idx; });
+    MLE_ASSERT_LOG(it != updating_textures_.end(), "Texture with index {} not found in updating textures", idx);
+
+    textures_.at(it->idx).ready = true;
+
+    getDevice().destroy(it->semaphore);  // TODO: semaphore pool?
+    updating_textures_.erase(it);
 }
 
 Texture TextureCache::get(const std::string& name, bool engine) {
-    auto it = textures_.find(name);
-    if (it != textures_.end()) {
-        return {.image = it->second.image.get(), .idx = it->second.idx};
+    auto it = texture_names_.find(name);
+    if (it != texture_names_.end()) {
+        return {.image = textures_[it->second].image.get(), .idx = it->second, .ready = textures_[it->second].ready};
     }
 
     return add(name, engine);  // If not found, try to add it

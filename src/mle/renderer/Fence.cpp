@@ -41,4 +41,9 @@ void Fence::wait(u64 timeout_ns) const {
         core::unrecoverable("Vulkan fence wait timed out after {} ns", timeout_ns);
     }
 }
+
+void Fence::waitAsync(std::function<void(void)>&& callback) {
+    detail::getFencePool().waitAsync(o_, std::move(callback));
+    o_ = nullptr;
+}
 }  // namespace mle::renderer

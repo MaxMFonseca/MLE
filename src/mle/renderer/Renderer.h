@@ -23,6 +23,9 @@ void init(const CI& ci);
 /// Shuts down the renderer and releases all resources.
 void shutdown();
 
+/// Updates the renderer state, processing events and performing necessary updates.
+void update();
+
 /**
  * @brief Adds a function to be called on renderer shutdown.
  *
@@ -53,6 +56,11 @@ vk::Format getDefaultColorFormat();  ///< Returns the default image format used 
 ShaderRef getShader(const std::string& name, bool engine = false);  /// Returns a shader reference by name, loading it if necessary.
 
 Texture getTexture(const std::string& name, bool engine = false);  ///< Returns a texture reference by name, loading it if necessary.
+
+vk::CommandBuffer getOTSCmd(CmdType cmd_type);
+void submitOTSWait(CmdType cmd_type, vk::CommandBuffer cmd);
+void submitOTSAsync(CmdType cmd_type, vk::CommandBuffer cmd, std::function<void(void)>&& callback = {});
+void submitOTSAsync(CmdType cmd_type, vk::SubmitInfo2 submit_info, std::function<void(void)>&& callback = {});
 
 namespace detail {
 ED& getED();                                  ///< Returns the event dispatcher instance for the renderer.

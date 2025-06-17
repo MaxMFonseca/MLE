@@ -94,24 +94,6 @@ class Image final : LiveCounter<Image> {
     void update(vk::CommandBuffer cmd, BufferRef buffer, Recti rect) { update(cmd, buffer, {rect.size.x, rect.size.y}, {rect.pos.x, rect.pos.y}); }
 
     /**
-     * @brief Uploads image data directly from CPU memory.
-     *
-     * Stages the provided data into a temporary buffer and issues a copy to this image.
-     * Returns the staging buffer that should be destroyed after the copy is complete.
-     *
-     * @param cmd Command buffer used for the copy.
-     * @param data Pointer to raw pixel data.
-     * @param extent Size of the region to copy. Defaults to full image.
-     * @param offset Offset in the destination image. Defaults to (0, 0).
-     * @return Temporary staging buffer used for the transfer.
-     */
-    [[nodiscard]] BufferHnd update(vk::CommandBuffer cmd, const void* data, vec2i extent = {0, 0}, vec2i offset = {0, 0});
-
-    /// Same as `update(cmd, data, {extent.x, extent.y}, {offset.x, offset.y})` but using a rect.
-    /// @see update(vk::CommandBuffer cmd, const void* data, vec2i extent, vec2i offset)
-    auto update(vk::CommandBuffer cmd, const void* data, Recti rect) { return update(cmd, data, {rect.size.x, rect.size.y}, {rect.pos.x, rect.pos.y}); }
-
-    /**
      * @brief Performs a blit operation from another image.
      *
      * Copies a region of one image into this image.
@@ -132,6 +114,14 @@ class Image final : LiveCounter<Image> {
      * @param state New logical image state.
      */
     void transitionState(vk::CommandBuffer cmd, State state);
+
+    /**
+     * @brief Changes the ownership of the image to a different queue family.
+     *
+     * @param curr Current queue family index.
+     * @param next Next queue family index to transfer ownership to.
+     */
+    void changeOwnerQueue(CmdType curr, vk::CommandBuffer curr_cmd, CmdType next, vk::CommandBuffer next_cmd);
 
     [[nodiscard]] auto getVkHnd() const { return o_; }        ///< Returns the Vulkan image handle.
     [[nodiscard]] auto get() const { return getVkHnd(); }     /// Alias for getVkHnd().
@@ -163,6 +153,11 @@ class Image final : LiveCounter<Image> {
     };
     [[nodiscard]] static RawData readFile(const std::string& path, int target_channel_count = 0);
 
+    [[nodiscard]] static BufferHnd createStagingBuffer(const void* data, vec2i extent, int channels);
+    [[nodiscard]] static BufferHnd createStagingBuffer(const RawData& data) {
+        return createStagingBuffer(rAs<const void*>(data.pixels.data()), data.extent, data.channels);
+    }
+
   private:
     void initImage(const CI& ci);
     void initDefaultImageView();
@@ -192,7 +187,6 @@ class Image final : LiveCounter<Image> {
     vk::ImageView default_view_;
 
     State current_state_ = State::INITIAL;
-    u8 owning_queue_ = max<u8>();
 
     vk::ImageLayout current_layout_ = vk::ImageLayout::eUndefined;
 };

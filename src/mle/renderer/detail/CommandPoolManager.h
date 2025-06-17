@@ -23,10 +23,10 @@ class CommandPoolManager {
     void init();
     void reset();
 
-    CmdPoolData acquire(CmdType type);
+    CmdPoolData acquirePool(CmdType type);
     void release(CmdType type, CmdPoolData&& pool);
 
-    Fence submit(CmdType type, const vk::SubmitInfo2& info);
+    [[nodiscard]] Fence submit(CmdType type, const vk::SubmitInfo2& info);
 
   private:
     struct TypeData {
@@ -42,6 +42,6 @@ class CommandPoolManager {
     // auto& cData() { return getData(CmdType::COMPUTE); }
 
   private:
-    std::array<TypeData, 2> data_;  // Not using a dedicated compute queue
+    std::array<TypeData, 2> data_;
 };
 }  // namespace mle::renderer::detail

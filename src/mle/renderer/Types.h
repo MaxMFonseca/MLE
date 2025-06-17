@@ -75,12 +75,12 @@ using RenderingThreadRef = RenderingThread*;
 struct Texture {
     ImageRef image{};
     u32 idx = 0;
+    bool ready = false;
 };
 
 struct CmdPoolData {
     vk::CommandPool o;
-    std::vector<vk::CommandBuffer> buffers;
-    std::vector<vk::CommandBuffer> secondary_buffers;
+    std::vector<vk::CommandBuffer> available_buffers;
 };
 
 struct WriteDescriptorSet {
@@ -153,6 +153,24 @@ struct formatter<vk::Format> : formatter<std::string> {
     template <typename FormatContext>
     constexpr auto format(vk::Format format, FormatContext& ctx) const {
         return format_to(ctx.out(), "{}", vk::to_string(format));
+    }
+};
+
+template <>
+struct formatter<mle::renderer::CmdType> : formatter<std::string> {
+    template <typename FormatContext>
+    constexpr auto format(mle::renderer::CmdType cmd_type, FormatContext& ctx) const {
+        switch (cmd_type) {
+            case mle::renderer::CmdType::GRAPHICS:
+                return format_to(ctx.out(), "GRAPHICS");
+            case mle::renderer::CmdType::TRANSFER:
+                return format_to(ctx.out(), "TRANSFER");
+            case mle::renderer::CmdType::COMPUTE:
+                return format_to(ctx.out(), "COMPUTE");
+            case mle::renderer::CmdType::INVALID:
+                return format_to(ctx.out(), "INVALID");
+        }
+        MLE_TODO;
     }
 };
 

@@ -39,23 +39,25 @@ void CommandPoolManager::init() {
 CommandPoolManager::TypeData& CommandPoolManager::getData(CmdType type) {
     if (type == CmdType::COMPUTE) {
         MLE_W("No dedicated compute queue, using graphics queue instead.");
+        // TODO: this? maybe?
         type = CmdType::GRAPHICS;
     }
 
     return data_.at(as<usize>(type));
 }
 
-CmdPoolData CommandPoolManager::acquire(CmdType type) {
+CmdPoolData CommandPoolManager::acquirePool(CmdType type) {
     auto& data = getData(type);
 
     if (data.available_pools.empty()) {
+        MLE_D("Creating new command pool for type: {}", type);
         vk::CommandPoolCreateInfo pool_ci{};
         pool_ci.queueFamilyIndex = data.queue_index;
-        pool_ci.flags = vk::CommandPoolCreateFlagBits::eTransient;
+        pool_ci.flags = vk::CommandPoolCreateFlagBits::eTransient | vk::CommandPoolCreateFlagBits::eResetCommandBuffer;
 
         auto c_r = getDevice().createCommandPool(pool_ci);
         check(c_r.result);
-        return {.o = c_r.value, .buffers = {}, .secondary_buffers = {}};
+        return {.o = c_r.value, .available_buffers = {}};
     }
 
     auto ret = std::move(data.available_pools.back());
@@ -74,13 +76,10 @@ void CommandPoolManager::release(CmdType type, CmdPoolData&& pool) {
 
 Fence CommandPoolManager::submit(CmdType type, const vk::SubmitInfo2& info) {
     auto& data = getData(type);
-
     auto fence = Fence::create();
     data.queue_mutex.lock();
-    auto r = data.queue.submit2(info, fence.get());
+    check(data.queue.submit2(info, fence.get()));
     data.queue_mutex.unlock();
-    check(r);
-
     return fence;
 }
 }  // namespace mle::renderer::detail

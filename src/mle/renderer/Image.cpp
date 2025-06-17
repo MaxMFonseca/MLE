@@ -7,6 +7,7 @@
 #include <vulkan/vulkan_structs.hpp>
 
 #include "Renderer.h"
+#include "detail/VkContext.h"
 #include "mle/common/Assert.h"
 #include "mle/common/Utils.h"
 #include "mle/core/Core.h"
@@ -116,30 +117,6 @@ vk::ImageView Image::createImageView() const {
     }
     // TODO: add a map of named image views?
     return view_r.value;
-}
-
-BufferHnd Image::update(vk::CommandBuffer cmd, const void* data, vec2i extent, vec2i offset) {
-    if (extent.x == 0) {
-        extent.x = extent_.x - offset.x;
-    }
-    if (extent.y == 0) {
-        extent.y = extent_.y - offset.y;
-    }
-
-    MLE_ASSERT(extent.x > 0 && extent.y > 0);
-    MLE_ASSERT(offset.x + extent.x <= extent_.x && offset.y + extent.y <= extent_.y);
-
-    Buffer::CI staging_buffer_ci = {};
-    staging_buffer_ci.size = static_cast<u64>(extent.x) * extent.y * getFormatChannelCount(format_);
-    staging_buffer_ci.usage = vk::BufferUsageFlagBits::eTransferSrc;
-    staging_buffer_ci.allocation_type = Buffer::CI::AllocationType::STAGING;
-
-    auto staging_buffer = Buffer::createHnd(staging_buffer_ci);
-    staging_buffer->update(data);
-
-    update(cmd, staging_buffer.get(), extent, offset);
-
-    return staging_buffer;
 }
 
 void Image::update(vk::CommandBuffer cmd, BufferRef buffer, vec2i extent, vec2i offset) {
@@ -259,6 +236,18 @@ Image::RawData Image::readFile(const std::string& path, int target_channel_count
     return ret;
 }
 
+BufferHnd Image::createStagingBuffer(const void* data, vec2i extent, int channels) {
+    Buffer::CI staging_buffer_ci = {};
+    staging_buffer_ci.size = as<u64>(extent.x) * extent.y * channels;
+    staging_buffer_ci.usage = vk::BufferUsageFlagBits::eTransferSrc;
+    staging_buffer_ci.allocation_type = Buffer::CI::AllocationType::STAGING;
+
+    auto staging_buffer = Buffer::createHnd(staging_buffer_ci);
+    staging_buffer->update(data);
+
+    return staging_buffer;
+}
+
 void Image::transitionLayout(vk::CommandBuffer cmd, TransitionLayoutInfo info) {
     if (current_layout_ == info.new_layout) {
         return;
@@ -289,6 +278,40 @@ void Image::transitionLayout(vk::CommandBuffer cmd, TransitionLayoutInfo info) {
     cmd.pipelineBarrier2(dependency_info);
 
     current_layout_ = barrier.newLayout;
+}
+
+void Image::changeOwnerQueue(CmdType curr, vk::CommandBuffer curr_cmd, CmdType next, vk::CommandBuffer next_cmd) {
+    if (curr == next) {
+        MLE_ASSERT_LOG(false, "Cannot change owner queue to the same queue");
+        return;
+    }
+
+    auto src_family = detail::getVk().getQueueIndex(curr);
+    auto dst_family = detail::getVk().getQueueIndex(next);
+
+    vk::ImageMemoryBarrier2KHR barrier = {};
+    barrier.image = o_;
+    barrier.oldLayout = current_layout_;
+    barrier.newLayout = current_layout_;
+    barrier.srcQueueFamilyIndex = static_cast<u32>(src_family);
+    barrier.dstQueueFamilyIndex = static_cast<u32>(dst_family);
+    barrier.subresourceRange.aspectMask = (image_usage_ & vk::ImageUsageFlagBits::eDepthStencilAttachment)
+                                              ? (vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil)
+                                              : vk::ImageAspectFlagBits::eColor;
+    barrier.subresourceRange.baseMipLevel = 0;
+    barrier.subresourceRange.levelCount = 1;
+    barrier.subresourceRange.baseArrayLayer = 0;
+    barrier.subresourceRange.layerCount = 1;
+    barrier.srcStageMask = vk::PipelineStageFlagBits2::eAllCommands;
+    barrier.srcAccessMask = vk::AccessFlagBits2::eMemoryWrite;
+    barrier.dstStageMask = vk::PipelineStageFlagBits2::eAllCommands;
+    barrier.dstAccessMask = vk::AccessFlagBits2::eMemoryRead;
+
+    vk::DependencyInfo dep_info = {};
+    dep_info.setImageMemoryBarriers(barrier);
+
+    curr_cmd.pipelineBarrier2(dep_info);
+    next_cmd.pipelineBarrier2(dep_info);
 }
 
 void Image::transitionState(vk::CommandBuffer cmd, State state) {

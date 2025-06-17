@@ -32,6 +32,12 @@ class Fence final {
      */
     void wait(u64 timeout_ns = 1'000'000'000) const;
 
+    /**
+     * @brief Asynchronously waits for the fence to become signaled.
+     * @param callback The function to call when the fence is signaled.
+     */
+    void waitAsync(std::function<void(void)>&& callback = {});
+
     // void waitAsync(std::function<void(void)>&& callback, u64 timeout_ns = 1'000'000'000) const;
 
     auto get() { return o_; }    ///< Returns the underlying Vulkan fence handle.

@@ -3,14 +3,17 @@
 #include <vulkan/vk_enum_string_helper.h>
 
 #include <ranges>
+#include <vulkan/vulkan_handles.hpp>
 
 #include "Buffer.h"
 #include "detail/FencePool.h"
 #include "detail/VkContext.h"
 #include "mle/common/Assert.h"
 #include "mle/core/Core.h"
+#include "mle/renderer/CommandPool.h"
 #include "mle/renderer/Shader.h"
 #include "mle/renderer/Types.h"
+#include "mle/renderer/Utils.h"
 #include "mle/renderer/detail/CommandPoolManager.h"
 #include "mle/renderer/detail/FrameRenderer.h"
 #include "mle/renderer/detail/ShaderCache.h"
@@ -21,12 +24,11 @@ namespace mle::renderer {
 namespace {
 class Impl {
   public:
-    // TODO: State
-
-  public:
     inline void init();
-    void shutdown();
+    inline void shutdown();
     void addOnShutdown(std::function<void(void)>&& func);
+
+    inline void update();
 
     Result beginFrame();            ///< Begins a new rendering frame.
     void endFrame(ImageRef image);  ///< Ends the current rendering frame and presents the given image.
@@ -41,9 +43,17 @@ class Impl {
     auto& getShaderCache() { return shader_cache_; }                 ///< Returns the shader cache for managing shaders.
     auto& getTextureCache() { return texture_cache_; }               ///< Returns the texture cache for managing textures.
 
+    CommandPool& getOTSPool(CmdType type);
+    vk::CommandBuffer getOTSCmd(CmdType type);
+    void submitOTSWait(CmdType cmd_type, vk::CommandBuffer cmd);
+    void submitOTSAsync(CmdType cmd_type, vk::CommandBuffer cmd, std::function<void(void)>&& callback);
+    void submitOTSAsync(CmdType cmd_type, vk::SubmitInfo2 submit_info, std::function<void(void)>&& callback = nullptr);
+
   private:
   private:
     ED ed_;
+
+    CommandPool g_pool_, t_pool_;
 
     detail::VkContext vk_;
     detail::CommandPoolManager command_pool_manager_;
@@ -62,7 +72,14 @@ void Impl::init() {
     vk_.init();
 
     command_pool_manager_.init();
-    shutdown_delete_stack_.emplace_back([this]() { command_pool_manager_.reset(); });
+    g_pool_.init(CmdType::GRAPHICS);
+    t_pool_.init(CmdType::TRANSFER);
+
+    shutdown_delete_stack_.emplace_back([this]() {
+        g_pool_.reset();
+        t_pool_.reset();
+        command_pool_manager_.reset();
+    });
 
     frame_renderer_.init();
     shutdown_delete_stack_.emplace_back([this]() { frame_renderer_.reset(); });
@@ -72,6 +89,8 @@ void Impl::init() {
 
     texture_cache_.init();
     shutdown_delete_stack_.emplace_back([this]() { texture_cache_.reset(); });
+
+    shutdown_delete_stack_.emplace_back([this]() { fence_pool_.reset(); });
 
     MLE_I("Renderer initialized successfully!");
 }
@@ -96,12 +115,44 @@ void Impl::addOnShutdown(std::function<void(void)>&& func) {
     shutdown_delete_stack_.emplace_back(std::move(func));
 }
 
+void Impl::update() {
+    fence_pool_.update();
+}
+
 Result Impl::beginFrame() {
     return frame_renderer_.beginFrame();
 }
 
 void Impl::endFrame(ImageRef image) {
     frame_renderer_.endFrame(image);
+}
+
+CommandPool& Impl::getOTSPool(CmdType type) {
+    switch (type) {
+        case CmdType::GRAPHICS:
+            return g_pool_;
+        case CmdType::TRANSFER:
+            return t_pool_;
+        default:
+            MLE_UNREACHABLE_LOG("Invalid command pool type: {}", type);
+            return g_pool_;  // This will never be reached, but avoids compiler warnings.
+    }
+}
+
+vk::CommandBuffer Impl::getOTSCmd(CmdType type) {
+    return getOTSPool(type).getCmd();
+}
+
+void Impl::submitOTSWait(CmdType cmd_type, vk::CommandBuffer cmd) {
+    getOTSPool(cmd_type).submitWait(cmd);
+}
+
+void Impl::submitOTSAsync(CmdType cmd_type, vk::CommandBuffer cmd, std::function<void(void)>&& callback) {
+    getOTSPool(cmd_type).submitAsync(cmd, std::move(callback));
+}
+
+void Impl::submitOTSAsync(CmdType cmd_type, vk::SubmitInfo2 submit_info, std::function<void(void)>&& callback) {
+    getOTSPool(cmd_type).submitAsync(submit_info, std::move(callback));
 }
 }  // namespace
 
@@ -117,6 +168,11 @@ void shutdown() {
         i_->shutdown();
         i_.reset();
     }
+}
+
+void update() {
+    MLE_ASSERT(i_);
+    i_->update();
 }
 
 void addOnShutdown(std::function<void(void)>&& func) {
@@ -152,6 +208,26 @@ ShaderRef getShader(const std::string& name, bool engine) {
 Texture getTexture(const std::string& name, bool engine) {
     MLE_ASSERT(i_);
     return i_->getTextureCache().get(name, engine);
+}
+
+vk::CommandBuffer getOTSCmd(CmdType type) {
+    MLE_ASSERT(i_);
+    return i_->getOTSCmd(type);
+}
+
+void submitOTSWait(CmdType cmd_type, vk::CommandBuffer cmd) {
+    MLE_ASSERT(i_);
+    i_->submitOTSWait(cmd_type, cmd);
+}
+
+void submitOTSAsync(CmdType cmd_type, vk::CommandBuffer cmd, std::function<void(void)>&& callback) {
+    MLE_ASSERT(i_);
+    i_->submitOTSAsync(cmd_type, cmd, std::move(callback));
+}
+
+void submitOTSAsync(CmdType cmd_type, vk::SubmitInfo2 submit_info, std::function<void(void)>&& callback) {
+    MLE_ASSERT(i_);
+    i_->submitOTSAsync(cmd_type, submit_info, std::move(callback));
 }
 
 namespace detail {

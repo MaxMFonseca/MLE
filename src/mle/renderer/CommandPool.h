@@ -5,6 +5,7 @@
 #include "Types.h"
 #include "mle/common/Consts.h"
 #include "mle/common/Result.h"
+#include "mle/renderer/Fence.h"
 
 namespace mle::renderer {
 class CommandPool final {
@@ -15,28 +16,25 @@ class CommandPool final {
 
     CommandPool(CommandPool&&);
 
+    CommandPool() = default;
     ~CommandPool();
 
-    static CommandPool create(CmdType type);
-    static CommandPoolHnd createHnd(CmdType type);
+    void init(CmdType type);
+    void reset();
 
-    vk::CommandBuffer getCmdBuffer();
-    vk::CommandBuffer getCmdBufferSecondary();
+    vk::CommandBuffer getCmd();
 
-    Fence submit(vk::CommandBuffer cmd);
+    void submitWait(vk::CommandBuffer cmd);
+    void submitAsync(vk::CommandBuffer cmd, std::function<void(void)>&& callback);
+    void submitAsync(vk::SubmitInfo2 submit_info, std::function<void(void)>&& callback = {});
 
   private:
-    CommandPool() = default;
-
-    void init(CmdType type);
-
-    bool isPrimary(vk::CommandBuffer cmd);
-    bool isSecondary(vk::CommandBuffer cmd);
-    inline bool isValid(vk::CommandBuffer cmd);
+    void releaseCmdBuffer(vk::CommandBuffer cmd);
 
   private:
     CmdType type_ = CmdType::INVALID;
     CmdPoolData o_;
-    usize p_counter_ = 0, s_counter_ = 0;
+    std::mutex mutex_;
+    usize cmd_buffer_count_ = 0;
 };
 }  // namespace mle::renderer
