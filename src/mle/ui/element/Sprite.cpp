@@ -73,6 +73,12 @@ void initTempStuff() {
     write_sampler.pImageInfo = &sampler_info;
 
     renderer::detail::getDevice().updateDescriptorSets(write_sampler, nullptr);
+
+    renderer::addOnShutdown([]() {
+        renderer::detail::getDevice().destroy(sampler_);
+        renderer::detail::getDevice().destroy(dpool_sampler_);
+        renderer::detail::getDevice().destroy(dsl_sampler_);
+    });
 }
 }  // namespace
 
