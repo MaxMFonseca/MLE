@@ -184,6 +184,12 @@ void RenderingThread::pushConstants(const void* push_constants) {
     }
 }
 
+void RenderingThread::bindDescriptorSet(vk::DescriptorSet set, u32 binding) const {
+    MLE_ASSERT(in_rendering_);
+    MLE_ASSERT(pipeline_);
+    cmd_.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipeline_->getPipelineLayout(), binding, {set}, {});
+}
+
 void RenderingThread::draw(int instance_count, int index_count) const {
     MLE_ASSERT(in_rendering_);
     MLE_ASSERT(pipeline_);

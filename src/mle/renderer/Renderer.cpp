@@ -117,6 +117,7 @@ void Impl::addOnShutdown(std::function<void(void)>&& func) {
 
 void Impl::update() {
     fence_pool_.update();
+    texture_cache_.update();
 }
 
 Result Impl::beginFrame() {
@@ -228,6 +229,21 @@ void submitOTSAsync(CmdType cmd_type, vk::CommandBuffer cmd, std::function<void(
 void submitOTSAsync(CmdType cmd_type, vk::SubmitInfo2 submit_info, std::function<void(void)>&& callback) {
     MLE_ASSERT(i_);
     i_->submitOTSAsync(cmd_type, submit_info, std::move(callback));
+}
+
+u32 useTexture(RenderingThread& thread, u32 idx) {
+    MLE_ASSERT(i_);
+    return i_->getTextureCache().use(thread, idx);
+}
+
+vk::DescriptorSetLayout getTexturesDescriptorSetLayout() {
+    MLE_ASSERT(i_);
+    return i_->getTextureCache().getDescriptorSetLayout();
+}
+
+void bindTexturesDSet(RenderingThread& thread) {
+    MLE_ASSERT(i_);
+    i_->getTextureCache().bindTexturesDSet(thread);
 }
 
 namespace detail {

@@ -57,6 +57,12 @@ ShaderRef getShader(const std::string& name, bool engine = false);  /// Returns 
 
 Texture getTexture(const std::string& name, bool engine = false);  ///< Returns a texture reference by name, loading it if necessary.
 
+u32 useTexture(RenderingThread& thread, u32 idx);  ///< Write texture and returns the index of the texture in the current frame.
+
+vk::DescriptorSetLayout getTexturesDescriptorSetLayout();  ///< Returns the descriptor set layout used for textures.
+
+void bindTexturesDSet(RenderingThread& thread);
+
 vk::CommandBuffer getOTSCmd(CmdType cmd_type);
 void submitOTSWait(CmdType cmd_type, vk::CommandBuffer cmd);
 void submitOTSAsync(CmdType cmd_type, vk::CommandBuffer cmd, std::function<void(void)>&& callback = {});

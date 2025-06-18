@@ -48,6 +48,7 @@ class RenderingThread {
     void bindInstanceBuffer(BufferRef buffer, usize offset = 0) const;
     void bindIndexBuffer(BufferRef buffer, usize offset = 0) const;
     void pushConstants(const void* push_constants);
+    void bindDescriptorSet(vk::DescriptorSet set, u32 binding) const;
     void draw(int instance_count, int index_count) const;
 
   private:

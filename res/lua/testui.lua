@@ -18,7 +18,7 @@ return {
 			aspect_ratio = 1,
 
 			sprite = {
-				"star.jpg",
+				"star.png",
 				color = "NQB",
 			},
 

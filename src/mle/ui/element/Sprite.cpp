@@ -3,6 +3,7 @@
 #include <vulkan/vulkan_enums.hpp>
 #include <vulkan/vulkan_structs.hpp>
 
+#include "glm/gtc/constants.hpp"
 #include "mle/lua/Types.h"
 #include "mle/lua/Utils.h"
 #include "mle/renderer/Pipeline.h"
@@ -14,88 +15,99 @@
 
 namespace mle::ui::element::comp {
 namespace {
-vk::DescriptorSetLayout dsl_, dsl_sampler_;  // NOLINT
-vk::DescriptorPool dpool_;                   // NOLINT
-vk::DescriptorSet dset_;                     // NOLINT
+vk::DescriptorSetLayout dsl_sampler_;  // NOLINT
+vk::DescriptorPool dpool_sampler_;     // NOLINT
+vk::DescriptorSet dset_sampler_;       // NOLINT
+vk::Sampler sampler_;                  // NOLINT
 
 void initTempStuff() {
-    {
-        vk::DescriptorSetLayoutBinding binding{};
-        binding.binding = 0;
-        binding.descriptorType = vk::DescriptorType::eSampledImage;
-        binding.stageFlags = vk::ShaderStageFlagBits::eFragment;
-        binding.descriptorCount = 500000;
-        vk::DescriptorSetLayoutCreateInfo dsl_ci;
-        dsl_ci.bindingCount = 1;
-        dsl_ci.setBindings(binding);
-        dsl_ci.flags = vk::DescriptorSetLayoutCreateFlagBits::eUpdateAfterBindPool;
+    vk::DescriptorSetLayoutBinding binding{};
+    binding.binding = 0;
+    binding.descriptorType = vk::DescriptorType::eSampler;
+    binding.stageFlags = vk::ShaderStageFlagBits::eFragment;
+    binding.descriptorCount = 1;
+    vk::DescriptorSetLayoutCreateInfo dsl_ci;
+    dsl_ci.bindingCount = 1;
+    dsl_ci.setBindings(binding);
+    dsl_sampler_ = renderer::unwrap(renderer::detail::getDevice().createDescriptorSetLayout(dsl_ci));
 
-        vk::DescriptorBindingFlags flags = vk::DescriptorBindingFlagBits::eVariableDescriptorCount | vk::DescriptorBindingFlagBits::eUpdateAfterBind |
-                                           vk::DescriptorBindingFlagBits::ePartiallyBound | vk::DescriptorBindingFlagBits::eUpdateUnusedWhilePending;
-        vk::DescriptorSetLayoutBindingFlagsCreateInfo binding_flags_ci;
-        binding_flags_ci.bindingCount = 1;
-        binding_flags_ci.pBindingFlags = &flags;
-        dsl_ci.pNext = &binding_flags_ci;
+    vk::SamplerCreateInfo sampler_ci;
+    sampler_ci.magFilter = vk::Filter::eLinear;
+    sampler_ci.minFilter = vk::Filter::eLinear;
+    sampler_ci.mipmapMode = vk::SamplerMipmapMode::eLinear;
+    sampler_ci.addressModeU = vk::SamplerAddressMode::eClampToEdge;
+    sampler_ci.addressModeV = vk::SamplerAddressMode::eClampToEdge;
+    sampler_ci.addressModeW = vk::SamplerAddressMode::eClampToEdge;
+    sampler_ci.anisotropyEnable = VK_FALSE;
+    sampler_ci.maxAnisotropy = 1.0F;
+    sampler_ci.borderColor = vk::BorderColor::eIntOpaqueBlack;
+    sampler_ci.unnormalizedCoordinates = VK_FALSE;
+    sampler_ = renderer::unwrap(renderer::detail::getDevice().createSampler(sampler_ci));
 
-        dsl_ = renderer::unwrap(renderer::detail::getDevice().createDescriptorSetLayout(dsl_ci));
-    }
+    vk::DescriptorPoolSize sampler_pool_size;
+    sampler_pool_size.type = vk::DescriptorType::eSampler;
+    sampler_pool_size.descriptorCount = 1;
 
-    {
-        vk::DescriptorSetLayoutBinding binding{};
-        binding.binding = 0;
-        binding.descriptorType = vk::DescriptorType::eSampler;
-        binding.stageFlags = vk::ShaderStageFlagBits::eFragment;
-        binding.descriptorCount = 1;
-        vk::DescriptorSetLayoutCreateInfo dsl_ci;
-        dsl_ci.bindingCount = 1;
-        dsl_ci.setBindings(binding);
-        dsl_sampler_ = renderer::unwrap(renderer::detail::getDevice().createDescriptorSetLayout(dsl_ci));
-    }
+    vk::DescriptorPoolCreateInfo sampler_pool_ci;
+    sampler_pool_ci.setPoolSizes(sampler_pool_size);
+    sampler_pool_ci.maxSets = 1;
+    dpool_sampler_ = renderer::unwrap(renderer::detail::getDevice().createDescriptorPool(sampler_pool_ci));
 
-    vk::DescriptorPoolSize pool_size;
-    pool_size.type = vk::DescriptorType::eSampledImage;
-    pool_size.descriptorCount = 1024;
+    vk::DescriptorSetAllocateInfo sampler_alloc_info;
+    sampler_alloc_info.descriptorPool = dpool_sampler_;
+    sampler_alloc_info.descriptorSetCount = 1;
+    sampler_alloc_info.setSetLayouts(dsl_sampler_);
+    dset_sampler_ = renderer::unwrap(renderer::detail::getDevice().allocateDescriptorSets(sampler_alloc_info)).at(0);
 
-    vk::DescriptorPoolCreateInfo pool_ci;
-    pool_ci.setPoolSizes(pool_size);
-    pool_ci.maxSets = 2;
-    pool_ci.flags = vk::DescriptorPoolCreateFlagBits::eUpdateAfterBind;
+    vk::DescriptorImageInfo sampler_info;
+    sampler_info.sampler = sampler_;
+    sampler_info.imageView = nullptr;                        // Not needed for pure sampler
+    sampler_info.imageLayout = vk::ImageLayout::eUndefined;  // Not needed for pure sampler
 
-    dpool_ = renderer::unwrap(renderer::detail::getDevice().createDescriptorPool(pool_ci));
+    vk::WriteDescriptorSet write_sampler;
+    write_sampler.dstSet = dset_sampler_;
+    write_sampler.dstBinding = 0;
+    write_sampler.dstArrayElement = 0;
+    write_sampler.descriptorType = vk::DescriptorType::eSampler;
+    write_sampler.descriptorCount = 1;
+    write_sampler.pImageInfo = &sampler_info;
 
-    vk::DescriptorSetVariableDescriptorCountAllocateInfo variable_info;
-    variable_info.descriptorSetCount = 1;
-    variable_info.pDescriptorCounts = &pool_size.descriptorCount;
-
-    vk::DescriptorSetAllocateInfo alloc_info;
-    alloc_info.pNext = &variable_info;
-    alloc_info.descriptorPool = dpool_;
-    alloc_info.descriptorSetCount = 1;
-    alloc_info.setSetLayouts(dsl_);
-
-    dset_ = renderer::unwrap(renderer::detail::getDevice().allocateDescriptorSets(alloc_info)).at(0);
+    renderer::detail::getDevice().updateDescriptorSets(write_sampler, nullptr);
 }
 }  // namespace
 
-void Sprite::renderComp(entt::entity /*self*/, renderer::RenderingThreadRef /*thread*/) const {
-    MLE_VC(1);
-    // auto& reg = getRegistry();
-    //
-    // thread->setPipeline(getPipeline());
-    // struct {
-    //     vec2f pos{};
-    //     vec2f size{};
-    //     vec4f color{};
-    // } pc;
-    // // FIXME: the context is wrong here, this should be renderd on the current root
-    // // the thread does have the context for size, but not pos/rotation
-    // // also we need to find a way to do clipping
-    // pc.pos = fcbounds.pos / fbounds.size;
-    // pc.size = fcbounds.size / fbounds.size;
-    // pc.color = bg->color;
-    // thread->pushConstants(&pc);
-    // thread->setViewport();
-    // thread->draw(1, 4);
+void Sprite::renderComp(entt::entity self, renderer::RenderingThreadRef thread) const {
+    thread->setPipeline(getPipeline());
+
+    // FIXME: the context is wrong here, this should be renderd on the current root
+    // the thread does have the context for size, but not pos/rotation
+    // also we need to find a way to do clipping
+    // I will not render things this way..
+    // I will pack all renderables and try to not rebind the pipelines
+
+    auto& reg = getRegistry();
+    auto parent = reg.get<comp::Parent>(self).parent;
+    auto fbounds = reg.get<comp::Bounds>(parent).bounds.asF32();
+    auto fcbounds = reg.get<comp::Bounds>(self).bounds.asF32();
+
+    auto idx = renderer::useTexture(*thread, texture_.idx);
+
+    struct {
+        vec2f pos{};
+        vec2f size{};
+        vec4f color{0};
+        u32 tex_idx{};
+    } pc;
+    pc.pos = fcbounds.pos / fbounds.size;
+    pc.size = fcbounds.size / fbounds.size;
+    pc.tex_idx = idx;
+
+    thread->setPipeline(getPipeline());
+    renderer::bindTexturesDSet(*thread);
+    thread->bindDescriptorSet(dset_sampler_, 1);
+    thread->pushConstants(&pc);
+    thread->setViewport();
+    thread->draw(1, 4);
 }
 
 void Sprite::setTexture(const std::string& texture_name) {
@@ -151,7 +163,7 @@ renderer::PipelineRef Sprite::getPipeline() {
         ci.color_attachment_formats = {renderer::getDefaultColorFormat()};
         ci.blend_attachments = renderer::makeDefaultBlendAttachmentStates(1);
         ci.topology = vk::PrimitiveTopology::eTriangleStrip;
-        ci.descriptor_set_layouts.emplace_back(dsl_);
+        ci.descriptor_set_layouts.emplace_back(renderer::getTexturesDescriptorSetLayout());
         ci.descriptor_set_layouts.emplace_back(dsl_sampler_);
         pipeline = renderer::Pipeline::createHnd(ci);
         renderer::addOnShutdown([&]() { pipeline.reset(); });

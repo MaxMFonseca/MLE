@@ -3,19 +3,68 @@
 #include <vulkan/vulkan_structs.hpp>
 
 #include "mle/renderer/Renderer.h"
+#include "mle/renderer/RenderingThread.h"
 #include "mle/renderer/Utils.h"
 
 namespace mle::renderer::detail {
 void TextureCache::init() {  // NOLINT
     MLE_I("Initializing texture cache");
+
+    vk::DescriptorSetLayoutBinding binding{};
+    binding.binding = 0;
+    binding.descriptorType = vk::DescriptorType::eSampledImage;
+    binding.stageFlags = vk::ShaderStageFlagBits::eFragment;
+    binding.descriptorCount = 500000;
+    vk::DescriptorSetLayoutCreateInfo dsl_ci;
+    dsl_ci.bindingCount = 1;
+    dsl_ci.setBindings(binding);
+    dsl_ci.flags = vk::DescriptorSetLayoutCreateFlagBits::eUpdateAfterBindPool;
+
+    vk::DescriptorBindingFlags flags = vk::DescriptorBindingFlagBits::eVariableDescriptorCount | vk::DescriptorBindingFlagBits::eUpdateAfterBind |
+                                       vk::DescriptorBindingFlagBits::ePartiallyBound | vk::DescriptorBindingFlagBits::eUpdateUnusedWhilePending;
+    vk::DescriptorSetLayoutBindingFlagsCreateInfo binding_flags_ci;
+    binding_flags_ci.bindingCount = 1;
+    binding_flags_ci.pBindingFlags = &flags;
+    dsl_ci.pNext = &binding_flags_ci;
+
+    descriptor_set_layout_ = renderer::unwrap(renderer::detail::getDevice().createDescriptorSetLayout(dsl_ci));
+
+    vk::DescriptorPoolSize pool_size;
+    pool_size.type = vk::DescriptorType::eSampledImage;
+    pool_size.descriptorCount = 1024;
+
+    vk::DescriptorPoolCreateInfo pool_ci;
+    pool_ci.setPoolSizes(pool_size);
+    pool_ci.maxSets = 2;
+    pool_ci.flags = vk::DescriptorPoolCreateFlagBits::eUpdateAfterBind;
+
+    descriptor_pool_ = renderer::unwrap(renderer::detail::getDevice().createDescriptorPool(pool_ci));
+
+    vk::DescriptorSetVariableDescriptorCountAllocateInfo variable_info;
+    variable_info.descriptorSetCount = 1;
+    variable_info.pDescriptorCounts = &pool_size.descriptorCount;
+
+    vk::DescriptorSetAllocateInfo alloc_info;
+    alloc_info.pNext = &variable_info;
+    alloc_info.descriptorPool = descriptor_pool_;
+    alloc_info.descriptorSetCount = 1;
+    alloc_info.setSetLayouts(descriptor_set_layout_);
+
+    dset_ = renderer::unwrap(renderer::detail::getDevice().allocateDescriptorSets(alloc_info)).at(0);
 }
 
 void TextureCache::reset() {
     MLE_I("Shutting down texture cache");
     textures_.clear();
+    getDevice().destroy(descriptor_pool_);
+    getDevice().destroy(descriptor_set_layout_);
+    dset_ = nullptr;
+    descriptor_pool_ = nullptr;
+    descriptor_set_layout_ = nullptr;
 }
 
 void TextureCache::update() {
+    current_bind_ = 0;
 }
 
 Texture TextureCache::add(const std::string& name, bool engine) {
@@ -68,6 +117,7 @@ Texture TextureCache::add(const fs::path& path, std::string name) {
 
     td.image->update(tcmd, buf.get());
     td.image->changeOwnerQueue(CmdType::TRANSFER, tcmd, CmdType::GRAPHICS, gcmd);
+    td.image->transitionState(gcmd, Image::State::SHADER_READ);
 
     auto semaphore = unwrap(renderer::detail::getDevice().createSemaphore({}));
 
@@ -118,4 +168,26 @@ Texture TextureCache::get(const std::string& name, bool engine) {
     return add(name, engine);  // If not found, try to add it
 }
 
+u32 TextureCache::use(RenderingThread& /*thread*/, u32 idx) {
+    auto& texture = textures_.at(idx);
+
+    vk::DescriptorImageInfo image_info;
+    image_info.imageView = texture.image->getDefaultView();
+    image_info.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+
+    vk::WriteDescriptorSet write;
+    write.setDstSet(dset_);
+    write.setDstArrayElement(current_bind_);
+    write.setDescriptorType(vk::DescriptorType::eSampledImage);
+    write.setDstBinding(0);
+    write.setImageInfo(image_info);
+
+    getDevice().updateDescriptorSets(write, nullptr);
+
+    return current_bind_++;
+}
+
+void TextureCache::bindTexturesDSet(RenderingThread& thread) {
+    thread.bindDescriptorSet(dset_, 0);
+}
 }  // namespace mle::renderer::detail
