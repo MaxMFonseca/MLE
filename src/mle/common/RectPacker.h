@@ -21,8 +21,9 @@ struct RectPacker {
     };
     std::vector<Rect> rects_;
 
-    bool pack();  // This will pack from packed_positions_.size() up to rects_.size();
-    bool packOptimal();
+    bool pack(vec2u ov_extent = {});  // This will pack from packed_positions_.size() up to rects_.size();
+
+    bool tryPackOptimal(f32 scale = 1.05);  // This will clear and try pack with different max_extent until a valid packing is found.
 
     void sort();  // This calls clear
 

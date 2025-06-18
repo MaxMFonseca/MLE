@@ -1,9 +1,11 @@
 #include "RectPacker.h"
 
 #include <algorithm>
+#include <numeric>
 
 #include "mle/common/Assert.h"
 #include "mle/common/Utils.h"
+#include "mle/common/math/Utils.h"
 
 namespace mle {
 void RectPacker::sort() {
@@ -21,11 +23,19 @@ namespace {
 inline bool aFitsIn(vec2u a, vec2u in) {
     return a.x <= in.x && a.y <= in.y;
 }
+
+inline u32 calcArea(const std::vector<RectPacker::Rect>& rects) {
+    return std::accumulate(rects.begin(), rects.end(), 0U, [](u32 acc, const RectPacker::Rect& r) { return acc + (r.size.x * r.size.y); });  // NOLINT
+}
 }  // namespace
 
-bool RectPacker::pack() {
+bool RectPacker::pack(vec2u ov_extent) {
+    if (ov_extent.x == 0 || ov_extent.y == 0) {
+        ov_extent = max_extent;
+    }
+
     if (bins_.empty()) {
-        bins_.emplace_back(Rectu{{0, 0}, max_extent});
+        bins_.emplace_back(Rectu{{0, 0}, ov_extent});
     }
 
     bins_.reserve(rects_.size() + 3);
@@ -61,8 +71,8 @@ bool RectPacker::pack() {
                     small_remainder.size = {bin.size.x - rect_size.x, rect_size.y};
                 }
 
-                MLE_ASSERT(big_remainder.size.x + big_remainder.pos.x <= max_extent.x);
-                MLE_ASSERT(big_remainder.size.y + big_remainder.pos.y <= max_extent.y);
+                MLE_ASSERT(big_remainder.size.x + big_remainder.pos.x <= ov_extent.x);
+                MLE_ASSERT(big_remainder.size.y + big_remainder.pos.y <= ov_extent.y);
 
                 bins_.erase(bins_.begin() + as<i64>(i_bin));
 
@@ -91,8 +101,32 @@ bool RectPacker::pack() {
         }
     }
 
-    MLE_C(bins_.size());
-    MLE_C(rects_.size());
+    return all_fit;
+}
+
+bool RectPacker::tryPackOptimal(f32 scale) {
+    bool all_fit = false;
+
+    vec2u try_extent{as<u32>(roughSqrt(as<f32>(calcArea(rects_))))};
+
+    u32 max_iter = 10;
+    while (!all_fit && (try_extent.x <= max_extent.x && try_extent.y <= max_extent.y)) {
+        if (max_iter == 0) {
+            MLE_W("Unable to pack optimal for scale {}. max iter", scale);
+            return false;
+        }
+        max_iter--;
+
+        try_extent.x = as<u32>(std::min(as<f32>(try_extent.x) * scale, as<f32>(max_extent.x)));
+        try_extent.y = as<u32>(std::min(as<f32>(try_extent.y) * scale, as<f32>(max_extent.y)));
+
+        MLE_C("================================================");
+        MLE_VC(try_extent);
+
+        clear();
+
+        all_fit = pack(try_extent);
+    }
 
     return all_fit;
 }
