@@ -86,6 +86,7 @@ struct TargetBound {
     TargetBound() = default;
 
     void fromString(const std::string& str);
+
     /**
      * @brief Initializes the TargetBound from a Lua object.
      * @param obj The Lua object to parse.

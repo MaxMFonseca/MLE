@@ -5,7 +5,7 @@
 namespace mle::ui::element::comp {
 class Sprite : public RenderableInterface {
   public:
-    void renderComp(entt::entity /*self*/, renderer::RenderingThreadRef /*thread*/) const override{};
+    void renderComp(entt::entity self, renderer::RenderingThreadRef thread) const override;
 
     void setTexture(const std::string& texture_name);
 
@@ -13,6 +13,8 @@ class Sprite : public RenderableInterface {
     void setColor(Color color);
 
     static void lkh(entt::entity self, const sol::object& o);
+
+    static renderer::PipelineRef getPipeline();
 
   private:
     Color color_;

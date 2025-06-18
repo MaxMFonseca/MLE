@@ -159,9 +159,6 @@ void Pipeline::init(const CI& ci) {
 }
 
 Pipeline::~Pipeline() {
-    if (descriptor_set_layout_) {
-        detail::getDevice().destroy(descriptor_set_layout_);
-    }
     if (pipeline_layout_) {
         detail::getDevice().destroy(pipeline_layout_);
     }
@@ -175,24 +172,9 @@ void Pipeline::createPipelineLayout(const CI& ci) {
 
     vk::PipelineLayoutCreateInfo pipeline_layout_ci;
 
-    auto bindings = Shader::mergeDescriptors(ci.vertex_shader->getDescriptors(), ci.fragment_shader->getDescriptors());
-    if (!bindings.empty()) {
-        MLE_T("  Descriptor set layout");
+    pipeline_layout_ci.setSetLayouts(ci.descriptor_set_layouts);
 
-        for (auto& binding : bindings) {
-            MLE_T("  Binding: {}, Descriptor type: {}, Descriptor count: {}, Stage flags: {}", binding.binding, vk::to_string(binding.descriptorType),
-                  binding.descriptorCount, vk::to_string(binding.stageFlags));
-        }
-
-        vk::DescriptorSetLayoutCreateInfo descriptor_set_layout_ci;
-        descriptor_set_layout_ci.setBindings(bindings);
-        descriptor_set_layout_ci.flags = vk::DescriptorSetLayoutCreateFlagBits::ePushDescriptorKHR;
-
-        descriptor_set_layout_ = unwrap(detail::getDevice().createDescriptorSetLayout(descriptor_set_layout_ci));
-
-        pipeline_layout_ci.setSetLayouts(descriptor_set_layout_);
-    }
-
+    // TODO: shared data?
     pc_fields_.clear();
     pc_frag_offset_ = max<u8>();
     int pc_count = 0;

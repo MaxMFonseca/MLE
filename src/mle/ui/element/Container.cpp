@@ -11,7 +11,7 @@ void Container::add(entt::entity self, LayoutHnd&& layout, const sol::table& tab
     auto& reg = getRegistry();
     auto& container = reg.emplace<comp::Container>(self, std::move(layout));
     container.addChildren(self, table);
-    comp::Renderable::add(self, container);
+    comp::Renderable::add(self, [](entt::entity self) -> RenderableInterface& { return getRegistry().get<Container>(self); });
 }
 
 Container::Container(LayoutHnd&& layout) :
@@ -109,6 +109,9 @@ void Container::renderComp(entt::entity self, renderer::RenderingThreadRef threa
             thread->draw(1, 4);
         }
 
+        if (const auto* renderable = reg.try_get<Renderable>(child); renderable) {
+            renderable->render(child, thread);
+        }
         // TODO: render child Renderable
     }
 }

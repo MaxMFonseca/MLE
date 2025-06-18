@@ -17,14 +17,15 @@ using RenderableInterfaceRef = RenderableInterface*;
 
 namespace comp {
 struct Renderable {
-    explicit Renderable(RenderableInterface& ri) :
-        ri(ri) {}
-
-    RenderableInterface& ri;
+    using RIGetterFn = RenderableInterface& (*)(entt::entity);
+    // We store have a getter for the interface instead of storing the object cuz Container is a component
+    // We cannot have a pointer to a component in a component (invalidation), so we use a reg getter function.
+    // Maybe if I change Container?
+    RIGetterFn ri_getter_fn;
 
     void render(entt::entity self, renderer::RenderingThreadRef thread) const;
 
-    static void add(entt::entity e, RenderableInterface& ri);
+    static void add(entt::entity e, RIGetterFn getter_fn);
 };
 
 struct RootImage {

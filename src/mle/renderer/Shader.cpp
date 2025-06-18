@@ -8,10 +8,10 @@
 namespace mle::renderer {
 namespace {
 DataType spvTypeToType(SpvReflectTypeDescription& td) {
-    bool is_float = static_cast<bool>(td.type_flags & SPV_REFLECT_TYPE_FLAG_FLOAT);
     bool is_vector = static_cast<bool>(td.type_flags & SPV_REFLECT_TYPE_FLAG_VECTOR);
     bool is_matrix = static_cast<bool>(td.type_flags & SPV_REFLECT_TYPE_FLAG_MATRIX);
 
+    bool is_float = static_cast<bool>(td.type_flags & SPV_REFLECT_TYPE_FLAG_FLOAT);
     if (is_float) {
         if (is_vector) {
             auto vec_size = td.traits.numeric.vector.component_count;
@@ -34,6 +34,13 @@ DataType spvTypeToType(SpvReflectTypeDescription& td) {
                 return DataType::MAT4;
             }
         }
+        MLE_ASSERT_LOG(td.type_flags == SPV_REFLECT_TYPE_FLAG_FLOAT, "Unsupported float type: {}", td.type_flags);
+        return DataType::F32;
+    }
+
+    bool is_int = static_cast<bool>(td.type_flags & SPV_REFLECT_TYPE_FLAG_INT);
+    if (is_int) {
+        MLE_ASSERT_LOG(td.type_flags == SPV_REFLECT_TYPE_FLAG_INT, "Unsupported integer type: {}", td.type_flags);
         return DataType::F32;
     }
 
@@ -106,34 +113,35 @@ void Shader::reflect(const Bytes& spv_data) {
         }
     }
 
-    std::vector<SpvReflectDescriptorSet*> sets;
-    count = 0;
-    if (reflection.EnumerateDescriptorSets(&count, nullptr) != SPV_REFLECT_RESULT_SUCCESS) {
-        core::unrecoverable("Failed to enumerate descriptor sets");
-    }
-    sets.resize(count);
-    if (reflection.EnumerateDescriptorSets(&count, sets.data()) != SPV_REFLECT_RESULT_SUCCESS) {
-        core::unrecoverable("Failed to enumerate descriptor sets");
-    }
-
-    for (auto& set : sets) {
-        MLE_T("Descriptor set: {}, binding_count: {}", set->set, set->binding_count);
-        MLE_ASSERT_LOG(set->set == 0, "Only one descriptor set is supported (push descriptors)");
-        for (u32 i = 0; i < set->binding_count; ++i) {
-            auto& binding = *set->bindings[i];  // NOLINT
-            auto& descriptor = descriptors_.emplace_back();
-            descriptor.binding = binding.binding;
-            descriptor.descriptorType = static_cast<vk::DescriptorType>(binding.descriptor_type);
-            descriptor.descriptorCount = binding.count;
-            descriptor.stageFlags = stage_;
-            descriptor.pImmutableSamplers = nullptr;
-        }
-    }
-    std::ranges::sort(descriptors_, [](const vk::DescriptorSetLayoutBinding& a, const vk::DescriptorSetLayoutBinding& b) { return a.binding < b.binding; });
-    for (const auto& descriptor : descriptors_) {
-        MLE_T("  Binding: {}, Descriptor type: {}, Descriptor count: {}, Stage flags: {}", descriptor.binding, vk::to_string(descriptor.descriptorType),
-              descriptor.descriptorCount, vk::to_string(descriptor.stageFlags));
-    }
+    // TODO: make this work
+    // std::vector<SpvReflectDescriptorSet*> sets;
+    // count = 0;
+    // if (reflection.EnumerateDescriptorSets(&count, nullptr) != SPV_REFLECT_RESULT_SUCCESS) {
+    //     core::unrecoverable("Failed to enumerate descriptor sets");
+    // }
+    // sets.resize(count);
+    // if (reflection.EnumerateDescriptorSets(&count, sets.data()) != SPV_REFLECT_RESULT_SUCCESS) {
+    //     core::unrecoverable("Failed to enumerate descriptor sets");
+    // }
+    //
+    // for (auto& set : sets) {
+    //     MLE_T("Descriptor set: {}, binding_count: {}", set->set, set->binding_count);
+    //     MLE_ASSERT_LOG(set->set == 0, "Only one descriptor set is supported (push descriptors)");
+    //     for (u32 i = 0; i < set->binding_count; ++i) {
+    //         auto& binding = *set->bindings[i];  // NOLINT
+    //         auto& descriptor = descriptors_.emplace_back();
+    //         descriptor.binding = binding.binding;
+    //         descriptor.descriptorType = static_cast<vk::DescriptorType>(binding.descriptor_type);
+    //         descriptor.descriptorCount = binding.count;
+    //         descriptor.stageFlags = stage_;
+    //         descriptor.pImmutableSamplers = nullptr;
+    //     }
+    // }
+    // std::ranges::sort(descriptors_, [](const vk::DescriptorSetLayoutBinding& a, const vk::DescriptorSetLayoutBinding& b) { return a.binding < b.binding; });
+    // for (const auto& descriptor : descriptors_) {
+    //     MLE_T("  Binding: {}, Descriptor type: {}, Descriptor count: {}, Stage flags: {}", descriptor.binding, vk::to_string(descriptor.descriptorType),
+    //           descriptor.descriptorCount, vk::to_string(descriptor.stageFlags));
+    // }
 
     std::vector<SpvReflectBlockVariable*> push_constants;
     count = 0;

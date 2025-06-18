@@ -285,7 +285,10 @@ void VkContext::initDevice() {
     vulkan12_features.bufferDeviceAddress = vk::True;
     vulkan12_features.descriptorIndexing = vk::True;
     vulkan12_features.runtimeDescriptorArray = vk::True;
+    vulkan12_features.descriptorBindingSampledImageUpdateAfterBind = vk::True;
     vulkan12_features.descriptorBindingVariableDescriptorCount = vk::True;
+    vulkan12_features.descriptorBindingUpdateUnusedWhilePending = vk::True;
+    vulkan12_features.descriptorBindingPartiallyBound = vk::True;
     vulkan12_features.hostQueryReset = vk::True;
 
     vk::PhysicalDeviceVulkan13Features vulkan13_features{};

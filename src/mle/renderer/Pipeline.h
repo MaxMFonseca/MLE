@@ -19,6 +19,7 @@ namespace mle::renderer {
 class Pipeline final : public LiveCounter<Pipeline> {
   public:
     /// Configuration for creating a graphics pipeline.
+    /// TODO: I hate the fact that I use vectors here...
     struct CreateInfo {
         ShaderRef vertex_shader = nullptr;                                                                         ///< Vertex shader module.
         ShaderRef fragment_shader = nullptr;                                                                       ///< Fragment shader module.
@@ -30,7 +31,8 @@ class Pipeline final : public LiveCounter<Pipeline> {
         std::vector<vk::Format> color_attachment_formats;                                                          ///< Color attachment formats.
         std::vector<vk::PipelineColorBlendAttachmentState> blend_attachments;                                      ///< Blend states per attachment.
         std::vector<vk::DynamicState> dynamic_states = {vk::DynamicState::eViewport, vk::DynamicState::eScissor};  ///< Enabled dynamic states.
-        bool depth = false;                                                                                        ///< Whether depth testing is enabled.
+        std::vector<vk::DescriptorSetLayout> descriptor_set_layouts;  ///< Descriptor set layouts used by the pipeline.
+        bool depth = false;                                           ///< Whether depth testing is enabled.
     };
 
     using CI = CreateInfo;  ///< Alias for CreateInfo.
@@ -87,11 +89,10 @@ class Pipeline final : public LiveCounter<Pipeline> {
     void createPipelineLayout(const CI& ci);
 
   private:
-    vk::Pipeline o_;                                 ///< Vulkan pipeline object.
-    vk::DescriptorSetLayout descriptor_set_layout_;  ///< Internal descriptor set layout.
-    vk::PipelineLayout pipeline_layout_;             ///< Pipeline layout object.
-    std::vector<PushConstantField> pc_fields_;       ///< Push constant fields.
-    u8 pc_size_ = 0;                                 ///< Total size of push constants in bytes.
-    u8 pc_frag_offset_ = max<u8>();                  ///< Offset to fragment-stage constants (if any).
+    vk::Pipeline o_;                            ///< Vulkan pipeline object.
+    vk::PipelineLayout pipeline_layout_;        ///< Pipeline layout object.
+    std::vector<PushConstantField> pc_fields_;  ///< Push constant fields.
+    u8 pc_size_ = 0;                            ///< Total size of push constants in bytes.
+    u8 pc_frag_offset_ = max<u8>();             ///< Offset to fragment-stage constants (if any).
 };
 }  // namespace mle::renderer

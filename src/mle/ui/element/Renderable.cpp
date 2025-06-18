@@ -29,17 +29,22 @@ void Renderable::render(entt::entity self, renderer::RenderingThreadRef thread) 
         thread = this_thread.get();
     }
 
-    ri.renderComp(self, thread);
+    if (ri_getter_fn) {
+        ri_getter_fn(self).renderComp(self, thread);
+    }
 
     if (this_thread) {
         this_thread->submit();
     }
 }
 
-void Renderable::add(entt::entity e, RenderableInterface& ri) {
+void Renderable::add(entt::entity e, RIGetterFn getter_fn) {
     auto& reg = getRegistry();
-    MLE_ASSERT(!reg.any_of<comp::Renderable>(e));
-    reg.emplace<comp::Renderable>(e, ri);
+    auto* comp = reg.try_get<comp::Renderable>(e);
+    if (!comp) {
+        comp = &reg.emplace<comp::Renderable>(e);
+    }
+    comp->ri_getter_fn = getter_fn;
 }
 
 void RootImage::lkh(entt::entity self, const sol::object& o) {
