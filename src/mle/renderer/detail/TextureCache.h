@@ -23,9 +23,10 @@ class TextureCache final {
 
     void update();
 
+    Texture get(const std::string& name, bool engine = false);
     Texture add(const std::string& name, bool engine = false);
     Texture add(const fs::path& path, std::string name);
-    Texture get(const std::string& name, bool engine = false);
+    Texture add(ImageHnd&& image, const std::string& name);
     u32 use(RenderingThread& thread, u32 idx);
 
     void bindTexturesDSet(RenderingThread& thread);

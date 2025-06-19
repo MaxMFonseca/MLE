@@ -147,6 +147,29 @@ Texture TextureCache::add(const fs::path& path, std::string name) {
     return {.image = td.image.get(), .idx = idx, .ready = false};
 }
 
+Texture TextureCache::add(ImageHnd&& image, const std::string& name) {
+    MLE_D("Adding texture from ImageHnd: {}", name);
+
+    MLE_ASSERT(!texture_names_.contains(name));
+
+    u32 idx = 0;
+    if (!free_indices_.empty()) {
+        idx = free_indices_.front();
+        free_indices_.pop_front();
+    } else {
+        idx = static_cast<u32>(textures_.size());
+        textures_.emplace_back();
+    }
+
+    texture_names_[name] = idx;
+    auto& td = textures_[idx];
+
+    td.image = std::move(image);
+    td.ready = true;
+
+    return {.image = td.image.get(), .idx = idx, .ready = true};
+}
+
 void TextureCache::finishedUpload(u32 idx) {
     MLE_D("Finished uploading texture with index: {}", idx);
 
