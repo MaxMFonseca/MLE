@@ -35,7 +35,6 @@
 #include "mle/common/Result.h"
 // #include "mle/ui/Types.h"
 #include "mle/common/Utils.h"
-#include "mle/window/Events.h"
 
 namespace mle::core {
 /// Configuration info for initializing the core engine.
