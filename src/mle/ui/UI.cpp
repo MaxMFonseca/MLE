@@ -3,6 +3,7 @@
 #include <memory>
 
 #include "mle/common/Assert.h"
+#include "mle/common/RectPacker.h"
 #include "mle/lua/Lua.h"
 #include "mle/renderer/Image.h"
 #include "mle/renderer/Pipeline.h"
@@ -32,6 +33,7 @@ class Impl {
   private:
     entt::registry registry_;
     entt::entity root_ = entt::null;
+    detail::FontCache font_cache_;
 };
 
 struct Position {
@@ -39,7 +41,17 @@ struct Position {
 };
 
 void Impl::init() {
+    MLE_I("Initializing UI");
+
     element::addEngineLuaKeyHandlers();
+
+    font_cache_.init();
+
+    Font::CI default_font_ci;
+    default_font_ci.name = "DigitalDisco";
+    default_font_ci.engine = true;
+    auto& font = *font_cache_.add(std::move(default_font_ci));
+    MLE_VD(font);
 
     root_ = registry_.create();
     element::applyTable(root_, lua::require("testui", true));
@@ -48,6 +60,9 @@ void Impl::init() {
 }
 
 void Impl::shutdown() {
+    MLE_I("Shutting down UI");
+
+    font_cache_.reset();
 }
 
 void Impl::update() {

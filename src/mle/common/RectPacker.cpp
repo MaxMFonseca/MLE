@@ -45,13 +45,10 @@ bool RectPacker::pack(vec2u ov_extent) {
     for (usize i_rect = packed_positions_.size(); i_rect < rects_.size(); i_rect++) {
         auto rect_size = rects_.at(i_rect).size + padding;
 
-        MLE_VC(bins_.size());
-
         for (int i_bin = as<int>(bins_.size() - 1); i_bin >= 0; i_bin--) {
             auto bin = bins_.at(i_bin);
             if (aFitsIn(rect_size, bin.size)) {
                 packed_positions_.emplace_back(bin.pos);
-                MLE_C("Packed rect {} at pos {}", rects_.at(i_rect).id, bin.pos);
 
                 current_extent_.x = std::max(current_extent_.x, bin.pos.x + rect_size.x - padding.x);
                 current_extent_.y = std::max(current_extent_.y, bin.pos.y + rect_size.y - padding.y);
@@ -119,9 +116,6 @@ bool RectPacker::tryPackOptimal(f32 scale) {
 
         try_extent.x = as<u32>(std::min(as<f32>(try_extent.x) * scale, as<f32>(max_extent.x)));
         try_extent.y = as<u32>(std::min(as<f32>(try_extent.y) * scale, as<f32>(max_extent.y)));
-
-        MLE_C("================================================");
-        MLE_VC(try_extent);
 
         clear();
 

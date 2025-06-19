@@ -39,9 +39,9 @@ inline void check(vk::Result result) {
 }
 
 template <typename T>
-inline T unwrap(vk::ResultValue<T>&& rv) {  // NOLINT
+[[nodiscard]] T unwrap(vk::ResultValue<T>&& rv) {
     check(vk::Result(rv.result));
-    return std::move(rv.value);
+    return std::move(rv).value;
 }
 
 constexpr u64 sizeOf(DataType t) {

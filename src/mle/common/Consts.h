@@ -60,6 +60,9 @@ constexpr auto ENGINE_VERSION_PATCH = 1;
 /// Engine tick rate.
 constexpr auto TICK_RATE = 1'000'000'000ns / 60;
 
+/// Default font height.
+constexpr int DEFAULT_FONT_HEIGHT = 64;
+
 /// Default window size.
 constexpr vec2i DEFAULT_WINDOW_SIZE{1280, 720};
 
