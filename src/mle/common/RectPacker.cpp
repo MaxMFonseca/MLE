@@ -74,15 +74,11 @@ bool RectPacker::pack(vec2u ov_extent) {
                 bins_.erase(bins_.begin() + as<i64>(i_bin));
 
                 auto insert_sorted = [this](const Rectu& rem) {
-                    if (rem.size.x == 0 || rem.size.y == 0) {
+                    if (rem.size.x < padding.x || rem.size.y < padding.y) {
                         return;
                     }
-
                     const u32 area = rem.size.x * rem.size.y;
-
-                    auto it = std::ranges::lower_bound(bins_, area, {},  // No projection
-                                                       [](const Rectu& bin) { return bin.size.x * bin.size.y; });
-
+                    auto it = std::ranges::lower_bound(bins_, area, std::greater{}, [](const Rectu& bin) { return bin.size.x * bin.size.y; });
                     bins_.insert(it, rem);
                 };
 
