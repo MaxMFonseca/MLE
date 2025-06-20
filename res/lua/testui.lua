@@ -7,7 +7,7 @@ return {
 	padding = 10,
 	c = {
 		direction = "col",
-		child_gap = 10,
+		gap = 10,
 		{
 			"1",
 			bounds = { 1920 / 2, 1080 / 2, 1920 / 2 - 10, 1080 / 2 - 10 },
@@ -22,6 +22,9 @@ return {
 		{
 			-- size = { "1f", "1f" }, {0,DEFAULT} BEHAVIOR FOR LIST CONTAINER
 			-- aspect_ratio = 1,
+
+			pos = { 100, 100 },
+			size = { "10%", "s" },
 
 			sprite = {
 				"star.png",

@@ -101,7 +101,7 @@ void Sprite::setTexture(entt::entity self, const std::string& texture_name) {
     texture_ = renderer::getTexture(texture_name);
 
     auto& renderable = getRegistry().get<comp::Renderable>(self);
-    renderable.aspect_ratio = texture_.image->getAspectRatio();
+    renderable.size_ = texture_.image->getExtent();
 }
 
 void Sprite::setColor(const sol::object& o) {

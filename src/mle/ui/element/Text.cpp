@@ -167,7 +167,7 @@ void Text::setText(std::string text) {
 void Text::updateText(entt::entity self) {
     render_text_ = font_->makeText(text_);
     auto& renderable = getRegistry().get<comp::Renderable>(self);
-    renderable.aspect_ratio = render_text_.width;
+    renderable.size_ = {render_text_.width * font_->getHeight(), font_->getHeight()};
 }
 
 void Text::lkh(entt::entity self, const sol::object& o) {

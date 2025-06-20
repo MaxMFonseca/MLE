@@ -50,9 +50,11 @@ ChildBuildInfo::ChildBuildInfo(entt::registry& r, entt::entity e, Recti parent_r
 
     if (const auto* target_aspect_ratio = r.try_get<comp::TargetAspectRatio>(e); target_aspect_ratio) {
         aspect_ratio = target_aspect_ratio->v;
-    } else if (const comp::Renderable* renderable = r.try_get<comp::Renderable>(e); renderable && renderable->aspect_ratio != 0.0F) {
-        aspect_ratio = renderable->aspect_ratio;
+    } else if (const comp::Renderable* renderable = r.try_get<comp::Renderable>(e); renderable) {
+        aspect_ratio = renderable->getAspectRatio();
     }
+
+    MLE_VC(aspect_ratio);
 
     if (target_size) {
         switch (target_size->x.type) {
@@ -87,6 +89,7 @@ ChildBuildInfo::ChildBuildInfo(entt::registry& r, entt::entity e, Recti parent_r
             } break;
             case BType::SELF_W:
             case BType::SELF: {
+                MLE_ASSERT(target_size->y.val != 0.0F);
                 aspect_ratio = 1.0F / target_size->y.val;
             } break;
             default: {
@@ -220,11 +223,11 @@ void Container::addChildren(entt::entity self, const sol::table& table) {
             continue;
         }
 
-        addChild(self, val, lua::getKeyOr(val, "pos", max<usize>()));
+        addChild(self, val);
     }
 }
 
-void Container::addChild(entt::entity self, const sol::table& table, usize pos) {
+void Container::addChild(entt::entity self, const sol::table& table, [[maybe_unused]] usize pos) {
     auto& reg = getRegistry();
     auto child_entt = reg.create();
     applyTable(child_entt, table, self);
@@ -448,7 +451,71 @@ void Container::updateChildrenBoundsCol(entt::entity self, Recti content_rect) {
             continue;
         }
 
-        // TODO: this
+        if (cinfo.target_size) {
+            switch (cinfo.target_size->x.type) {
+                using Type = TargetBound::Type;
+                case Type::DEFAULT:
+                case Type::PX: {
+                    cinfo.bounds.bounds.size.x = as<int>(cinfo.target_size->x.val);
+                } break;
+                case Type::PARENT: {
+                    cinfo.bounds.bounds.size.x = as<int>(cinfo.target_size->x.val * as<f32>(content_rect.width()));
+                } break;
+                case Type::FIT: {
+                    MLE_ASSERT(cinfo.target_position->x.type == Type::DEFAULT || cinfo.target_position->x.type == Type::PX);
+                    cinfo.bounds.bounds.size.x = content_rect.width() - as<int>(cinfo.target_position->x.val);
+                } break;
+                case Type::SELF_H:
+                case Type::SELF:
+                    break;
+                default: {
+                    MLE_UNREACHABLE_LOG("Unexpected target size type: {}", cinfo.target_size->x.type);
+                }
+            }
+            switch (cinfo.target_size->y.type) {
+                using Type = TargetBound::Type;
+                case Type::DEFAULT:
+                case Type::PX: {
+                    cinfo.bounds.bounds.size.y = as<int>(cinfo.target_size->y.val);
+                } break;
+                case Type::PARENT: {
+                    cinfo.bounds.bounds.size.y = as<int>(cinfo.target_size->y.val * as<f32>(content_rect.height()));
+                } break;
+                case Type::FIT: {
+                    MLE_ASSERT(cinfo.target_position->y.type == Type::DEFAULT || cinfo.target_position->y.type == Type::PX);
+                    cinfo.bounds.bounds.size.y = content_rect.height() - as<int>(cinfo.target_position->y.val);
+                    MLE_C("HITHIWjnk");
+                } break;
+                case Type::SELF_W:
+                case Type::SELF:
+                    break;
+                default: {
+                    MLE_UNREACHABLE_LOG("Unexpected target size type: {}", cinfo.target_size->y.type);
+                }
+            }
+
+            MLE_VC(cinfo.aspect_ratio);
+            if (cinfo.bounds.bounds.size.x == 0 && cinfo.aspect_ratio != 0) {
+                cinfo.bounds.bounds.size.x = as<int>(as<f32>(cinfo.bounds.bounds.size.y) * cinfo.aspect_ratio);
+                MLE_C("aHITHIWjnk");
+            } else if (cinfo.bounds.bounds.size.y == 0 && cinfo.aspect_ratio != 0) {
+                cinfo.bounds.bounds.size.y = as<int>(as<f32>(cinfo.bounds.bounds.size.x) / cinfo.aspect_ratio);
+                MLE_C("bHITHIWjnk");
+            }
+
+            MLE_ASSERT(cinfo.bounds.bounds.size.x >= 0 && cinfo.bounds.bounds.size.y >= 0);
+        } else {
+            auto* renderable = reg.try_get<comp::Renderable>(children[i]);
+            if (!renderable) {
+                MLE_TODO;
+            }
+            cinfo.bounds.bounds.size = renderable->getSize();
+        }
+
+        cinfo.bounds.bounds.pos.x = as<int>(cinfo.target_position->x.val);
+        cinfo.bounds.bounds.pos.y = as<int>(cinfo.target_position->y.val);
+
+        changed_entities.emplace(children[i]);
     }
 
     changed_bounds_children_.clear();

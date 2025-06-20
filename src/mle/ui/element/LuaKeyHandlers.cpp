@@ -25,6 +25,71 @@ void name(entt::entity self, const sol::object& obj) {
     }
 }
 
+void pos(entt::entity self, const sol::object& obj) {
+    MLE_ASSERT(obj.valid());
+    auto& reg = getRegistry();
+
+    auto* comp = reg.try_get<comp::TargetPosition>(self);
+    if (!comp) {
+        comp = &reg.emplace<comp::TargetPosition>(self);
+    }
+
+    if (obj.is<f32>()) {
+        comp->x.val = comp->y.val = obj.as<f32>();
+    } else {
+        MLE_ASSERT(obj.is<sol::table>());
+        auto table = obj.as<sol::table>();
+        auto x_r = table[1];
+        if (x_r.valid()) {
+            comp->x.fromLua(x_r);
+        } else {
+            x_r = table["x"];
+            if (x_r.valid()) {
+                comp->x.fromLua(x_r);
+            }
+        }
+        auto y_r = table[2];
+        if (x_r.valid()) {
+            comp->y.fromLua(y_r);
+        } else {
+            y_r = table["y"];
+            if (y_r.valid()) {
+                comp->y.fromLua(y_r);
+            }
+        }
+    }
+
+    comp::Container::notifyChildChangedBounds(self);
+}
+
+void posX(entt::entity self, const sol::object& obj) {
+    MLE_ASSERT(obj.valid());
+    auto& reg = getRegistry();
+
+    auto* comp = reg.try_get<comp::TargetPosition>(self);
+    if (!comp) {
+        comp = &reg.emplace<comp::TargetPosition>(self);
+    }
+
+    comp->x.fromLua(obj);
+
+    comp::Container::notifyChildChangedBounds(self);
+}
+
+void posY(entt::entity self, const sol::object& obj) {
+    MLE_ASSERT(obj.valid());
+    auto& reg = getRegistry();
+
+    auto* comp = reg.try_get<comp::TargetPosition>(self);
+    if (!comp) {
+        comp = &reg.emplace<comp::TargetPosition>(self);
+    }
+
+    comp->y.fromLua(obj);
+
+    comp::Container::notifyChildChangedBounds(self);
+}
+
 void size(entt::entity self, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
     auto& reg = getRegistry();
@@ -284,6 +349,9 @@ void addEngineLuaKeyHandlers() {
     addLuaKeyHandler("size", size);
     addLuaKeyHandler("size_x", sizeX);
     addLuaKeyHandler("size_y", sizeY);
+    addLuaKeyHandler("pos", pos);
+    addLuaKeyHandler("pos_x", posX);
+    addLuaKeyHandler("pos_y", posY);
     addLuaKeyHandler("padding", padding);
     addLuaKeyHandler("margin", margin);
     addLuaKeyHandler("origin", origin);

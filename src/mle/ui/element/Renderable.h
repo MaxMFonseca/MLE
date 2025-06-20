@@ -34,7 +34,9 @@ struct Renderable {
 
     static Renderable* add(entt::entity e, RIGetterFn getter_fn);
 
-    f32 aspect_ratio = 0.0F;
+    vec2i size_{0, 0};
+    [[nodiscard]] auto getSize() const { return size_; }
+    [[nodiscard]] f32 getAspectRatio() const { return size_.y == 0 ? 0.0F : as<f32>(size_.x) / as<f32>(size_.y); }
 };
 
 struct RootImage {
