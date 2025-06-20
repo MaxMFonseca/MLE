@@ -2,6 +2,7 @@
 
 #include <vulkan/vulkan_structs.hpp>
 
+#include "mle/common/Assert.h"
 #include "mle/renderer/Renderer.h"
 #include "mle/renderer/RenderingThread.h"
 #include "mle/renderer/Utils.h"
@@ -65,6 +66,48 @@ void TextureCache::reset() {
 
 void TextureCache::update() {
     current_bind_ = 0;
+}
+
+void TextureCache::updateImagesOnFrame() {
+    if (update_images_on_frame_.empty()) {
+        return;
+    }
+
+    auto cmd = renderer::detail::getFramePrimaryCmd();
+
+    std::ranges::sort(update_images_on_frame_, [](const auto& a, const auto& b) { return a.idx < b.idx; });
+
+    u32 idx = max<u32>();
+    ImageRef img = nullptr;
+    for (auto& i : update_images_on_frame_) {
+        if (idx != i.idx) {
+            if (img) {
+                img->transitionState(cmd, Image::State::SHADER_READ);
+            }
+            img = getImage(i.idx);
+            idx = i.idx;
+        }
+
+        MLE_T("Updating image on frame: idx={}, area={}", i.idx, i.area);
+
+        img->update(cmd, i.buffer.get(), i.area);
+
+        renderer::deleteAfterFrame(std::move(i.buffer));
+    }
+    if (img) {
+        img->transitionState(cmd, Image::State::SHADER_READ);
+    }
+
+    update_images_on_frame_.clear();
+}
+
+void TextureCache::frameBegin() {
+    updateImagesOnFrame();
+}
+
+ImageRef TextureCache::getImage(u32 idx) {
+    MLE_ASSERT_LOG(idx < textures_.size(), "Texture index out of bounds: {}", idx);
+    return textures_.at(idx).image.get();
 }
 
 Texture TextureCache::add(const std::string& name, bool engine) {
@@ -147,7 +190,7 @@ Texture TextureCache::add(const fs::path& path, std::string name) {
     return {.image = td.image.get(), .idx = idx, .ready = false};
 }
 
-Texture TextureCache::add(ImageHnd&& image, const std::string& name) {
+Texture TextureCache::add(const std::string& name, ImageHnd&& img) {
     MLE_D("Adding texture from ImageHnd: {}", name);
 
     MLE_ASSERT(!texture_names_.contains(name));
@@ -164,7 +207,7 @@ Texture TextureCache::add(ImageHnd&& image, const std::string& name) {
     texture_names_[name] = idx;
     auto& td = textures_[idx];
 
-    td.image = std::move(image);
+    td.image = std::move(img);
     td.ready = true;
 
     return {.image = td.image.get(), .idx = idx, .ready = true};

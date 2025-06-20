@@ -120,4 +120,20 @@ bool RectPacker::tryPackOptimal(f32 scale) {
 
     return all_fit;
 }
+
+Rectu RectPacker::getIdx(usize i) const {
+    if (packed_positions_.at(i).x == max<u32>()) {
+        return {0, 0, 0, 0};
+    }
+    return {packed_positions_.at(i), rects_.at(i).size};
+}
+
+Rectu RectPacker::getID(u32 id) const {
+    auto it = std::ranges::find_if(rects_, [id](const Rect& r) { return r.id == id; });
+    if (it == rects_.end()) {
+        return {0, 0, 0, 0};
+    }
+    usize idx = std::distance(rects_.begin(), it);
+    return getIdx(idx);
+}
 }  // namespace mle

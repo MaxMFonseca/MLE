@@ -30,12 +30,9 @@ struct RectPacker {
     void clear();
 
     [[nodiscard]] auto currentExtent() const { return current_extent_; }
-    [[nodiscard]] std::optional<vec2u> get(usize i) const {
-        if (packed_positions_.at(i).x == max<u32>()) {
-            return std::nullopt;
-        }
-        return packed_positions_.at(i);
-    }
+    [[nodiscard]] Rectu getIdx(usize i) const;
+    [[nodiscard]] Rectu get() const { return getIdx(packed_positions_.size() - 1); }
+    [[nodiscard]] Rectu getID(u32 id) const;
     [[nodiscard]] auto packedCound() const { return packed_positions_.size(); }
 
   private:
@@ -53,13 +50,7 @@ struct formatter<mle::RectPacker> : formatter<std::string> {
         auto out = ctx.out();
         out = format_to(out, "RectPacker(\n  padding={},\n  max_extent={},\n  rects_=[", p.padding, p.max_extent);
         for (size_t i = 0; i < p.packedCound(); ++i) {
-            auto ii = p.get(i);
-            if (!ii) {
-                out = format_to(out, "{}: <not packed>", p.rects_[i].id);
-            } else {
-                mle::Rectu r{ii.value(), p.rects_[i].size};
-                out = format_to(out, "{}: {}", p.rects_[i].id, r);
-            }
+            out = format_to(out, "{}: {}", p.rects_[i].id, p.getIdx(i));
             if (i + 1 < p.rects_.size()) {
                 out = format_to(out, ", ");
             }

@@ -8,6 +8,7 @@
 #include "Events.h"
 #include "Types.h"
 #include "mle/common/Result.h"
+#include "mle/renderer/detail/TextureCache.h"
 
 namespace mle::renderer {
 /// Renderer initialization parameters.
@@ -51,11 +52,19 @@ void endFrame(ImageRef image);
  */
 void addToCallOnFrameEnd(std::function<void()>&& fn);
 
+void deleteAfterFrame(ImageHnd&& image);  ///< Schedules an image for destruction at the end of the frame.
+
+void deleteAfterFrame(BufferHnd&& buffer);  ///< Schedules a buffer for destruction at the end of the frame.
+
 vk::Format getDefaultColorFormat();  ///< Returns the default image format used by the renderer.
 
-ShaderRef getShader(const std::string& name, bool engine = false);  /// Returns a shader reference by name, loading it if necessary.
+ShaderRef getShader(const std::string& name, bool engine = false);  ///< Returns a shader reference by name, loading it if necessary.
+
+Texture addTexture(const std::string& name, ImageHnd&& img);  ///< Gives an image to the texture cache, allowing it to be used by name.
 
 Texture getTexture(const std::string& name, bool engine = false);  ///< Returns a texture reference by name, loading it if necessary.
+
+void enqueueTextureUpdateJob(TextureUpdateJobData&& data);
 
 u32 useTexture(RenderingThread& thread, u32 idx);  ///< Write texture and returns the index of the texture in the current frame.
 
@@ -77,87 +86,6 @@ FencePool& getFencePool();                    ///< Returns the fence pool for ma
 CommandPoolManager& getCommandPoolManager();  ///< Returns the command pool manager.
 FrameRenderer& getFrameRenderer();            ///< Returns the frame renderer instance.
 void waitIdle();                              ///< Waits for the Vulkan device to become idle, ensuring all operations are complete.
+vk::CommandBuffer getFramePrimaryCmd();
 }  // namespace detail
-
-// /**
-//  * @brief Creates a persistent image resource.
-//  * @param ci Image creation info.
-//  * @return Owning handle to the created image.
-//  */
-// // ImageHnd createImage(const Image::CI& ci);
-//
-// /**
-//  * @brief Creates a persistent buffer resource.
-//  * @param ci Buffer creation info.
-//  * @return Owning handle to the created buffer.
-//  */
-// // ImageHnd createBuffer(const Buffer::CI& ci);
-//
-// /**
-//  * @brief Allocates a transient buffer valid only for the current frame.
-//  * @param ci Buffer creation info.
-//  * @return Reference to the allocated frame-local buffer.
-//  */
-// // BufferRef createBufferOnFrame(const Buffer::CI& ci);
-//
-// /**
-//  * @brief Allocates a transient image valid only for the current frame.
-//  * @param ci Image creation info.
-//  * @return Reference to the allocated frame-local image.
-//  */
-// // ImageRef createImageOnFrame(const Image::CI& ci);
-//
-// /**
-//  * @brief Schedules a callback to be called at the end of the current frame.
-//  * @param func Function to call after the frame ends.
-//  */
-// void addToCallOnFrameEnd(std::function<void(void)>&& func);
-//
-// /**
-//  * @brief Schedules destruction of an image at the end of the frame.
-//  * @param image Owning handle to the image.
-//  */
-// void destroyOnFrameEnd(ImageHnd&& image);
-//
-// /**
-//  * @brief Schedules destruction of a buffer at the end of the frame.
-//  * @param buffer Owning handle to the buffer.
-//  */
-// void destroyOnFrameEnd(BufferHnd&& buffer);
-//
-// VmaAllocator getVma();   ///< Returns the Vulkan Memory Allocator instance.
-// vk::Device getDevice();  ///< Returns the Vulkan device handle.
-//
-// /**
-//  * @brief Acquires a command buffer of the specified type.
-//  *
-//  * @param type The type of command buffer to acquire.
-//  * @return A command buffer handle.
-//  */
-// vk::CommandBuffer acquireCmdBufferRaw(CmdType type);
-//
-// /**
-//  * @brief Submits a command buffer and waits for it to finish.
-//  *
-//  * @param cmd The command buffer to submit.
-//  * @param type The type of command buffer.
-//  */
-// void submitWait(vk::CommandBuffer cmd, CmdType type);
-//
-// /**
-//  * @brief Submits a command buffer asynchronously.
-//  *
-//  * @param cmd The command buffer to submit.
-//  * @param type The type of command buffer.
-//  * @param callback A callback to be called after the command buffer is processed.
-//  */
-// void submitAsync(vk::CommandBuffer cmd, CmdType type, std::function<void(void)>&& callback);
-//
-// /**
-//  * @brief Releases a command buffer back to the pool.
-//  *
-//  * @param cmd The command buffer to release.
-//  * @param type The type of command buffer.
-//  */
-// void release(vk::CommandBuffer cmd, CmdType type);
 }  // namespace mle::renderer

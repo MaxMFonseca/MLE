@@ -78,6 +78,12 @@ struct Texture {
     bool ready = false;
 };
 
+struct TextureUpdateJobData {
+    BufferHnd buffer;
+    Rectu area;
+    u32 idx;
+};
+
 struct CmdPoolData {
     vk::CommandPool o;
     std::vector<vk::CommandBuffer> available_buffers;

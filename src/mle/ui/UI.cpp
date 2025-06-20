@@ -50,6 +50,7 @@ void Impl::init() {
     Font::CI default_font_ci;
     default_font_ci.name = "DigitalDisco";
     default_font_ci.engine = true;
+    default_font_ci.pre_load_string = U"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+-=[]{}|;':\",.<>?/~`";
     auto& font = *font_cache_.add(std::move(default_font_ci));
     MLE_VD(font);
 

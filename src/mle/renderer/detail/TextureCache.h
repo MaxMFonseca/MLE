@@ -22,19 +22,25 @@ class TextureCache final {
     void reset();
 
     void update();
+    void frameBegin();
 
     Texture get(const std::string& name, bool engine = false);
     Texture add(const std::string& name, bool engine = false);
     Texture add(const fs::path& path, std::string name);
-    Texture add(ImageHnd&& image, const std::string& name);
+    Texture add(const std::string& name, ImageHnd&& img);
     u32 use(RenderingThread& thread, u32 idx);
+
+    ImageRef getImage(u32 idx);
 
     void bindTexturesDSet(RenderingThread& thread);
 
     auto getDescriptorSetLayout() const { return descriptor_set_layout_; }
 
+    void enqueueTextureUpdateJob(TextureUpdateJobData&& data) { update_images_on_frame_.emplace_back(std::move(data)); }
+
   private:
     void finishedUpload(u32 idx);
+    void updateImagesOnFrame();
 
   private:
     struct TextureData {
@@ -56,5 +62,7 @@ class TextureCache final {
     vk::DescriptorPool descriptor_pool_;
     vk::DescriptorSet dset_;
     u32 current_bind_ = 0;
+
+    std::vector<TextureUpdateJobData> update_images_on_frame_;
 };
 }  // namespace mle::renderer::detail

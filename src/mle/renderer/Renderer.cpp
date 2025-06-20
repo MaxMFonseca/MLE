@@ -121,7 +121,12 @@ void Impl::update() {
 }
 
 Result Impl::beginFrame() {
-    return frame_renderer_.beginFrame();
+    auto fr_begin_result = frame_renderer_.beginFrame();
+    if (fr_begin_result != Result::OK) {
+        return fr_begin_result;
+    }
+    texture_cache_.frameBegin();
+    return Result::OK;
 }
 
 void Impl::endFrame(ImageRef image) {
@@ -196,6 +201,16 @@ void addToCallOnFrameEnd(std::function<void()>&& fn) {
     i_->getFrameRenderer().addToCallOnFrameEnd(std::move(fn));
 }
 
+void deleteAfterFrame(ImageHnd&& image) {
+    MLE_ASSERT(i_);
+    i_->getFrameRenderer().deleteAfterFrame(std::move(image));
+}
+
+void deleteAfterFrame(BufferHnd&& buffer) {
+    MLE_ASSERT(i_);
+    i_->getFrameRenderer().deleteAfterFrame(std::move(buffer));
+}
+
 vk::Format getDefaultColorFormat() {
     MLE_ASSERT(i_);
     return i_->getVk().getColorFormat();
@@ -204,6 +219,10 @@ vk::Format getDefaultColorFormat() {
 ShaderRef getShader(const std::string& name, bool engine) {
     MLE_ASSERT(i_);
     return i_->getShaderCache().get(name, engine);
+}
+
+Texture addTexture(const std::string& name, ImageHnd&& img) {
+    return i_->getTextureCache().add(name, std::move(img));
 }
 
 Texture getTexture(const std::string& name, bool engine) {
@@ -246,6 +265,11 @@ void bindTexturesDSet(RenderingThread& thread) {
     i_->getTextureCache().bindTexturesDSet(thread);
 }
 
+void enqueueTextureUpdateJob(TextureUpdateJobData&& data) {
+    MLE_ASSERT(i_);
+    i_->getTextureCache().enqueueTextureUpdateJob(std::move(data));
+}
+
 namespace detail {
 ED& getED() {
     MLE_ASSERT(i_);
@@ -285,6 +309,11 @@ CommandPoolManager& getCommandPoolManager() {
 FrameRenderer& getFrameRenderer() {
     MLE_ASSERT(i_);
     return i_->getFrameRenderer();
+}
+
+vk::CommandBuffer getFramePrimaryCmd() {
+    MLE_ASSERT(i_);
+    return i_->getFrameRenderer().getCmd();
 }
 }  // namespace detail
 }  // namespace mle::renderer
