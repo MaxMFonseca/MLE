@@ -93,6 +93,8 @@ class Image final : LiveCounter<Image> {
     /// @see update(vk::CommandBuffer cmd, BufferRef buffer, vec2i extent, vec2i offset)
     void update(vk::CommandBuffer cmd, BufferRef buffer, Recti rect) { update(cmd, buffer, {rect.size.x, rect.size.y}, {rect.pos.x, rect.pos.y}); }
 
+    void update(vk::CommandBuffer cmd, BufferRef buffer, Rectu rect) { update(cmd, buffer, {rect.size.x, rect.size.y}, {rect.pos.x, rect.pos.y}); }
+
     /**
      * @brief Performs a blit operation from another image.
      *
