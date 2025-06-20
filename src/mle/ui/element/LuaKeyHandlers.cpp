@@ -10,7 +10,6 @@
 #include "mle/ui/UI.h"
 #include "mle/ui/element/Base.h"
 #include "mle/ui/element/Container.h"
-#include "mle/ui/element/ListLayout.h"
 #include "mle/ui/element/Text.h"
 
 namespace mle::ui::element {
@@ -290,7 +289,9 @@ void addEngineLuaKeyHandlers() {
     addLuaKeyHandler("origin", origin);
     addLuaKeyHandler("aspect_ratio", aspectRatio);
     addLuaKeyHandler("background", background);
-    addLuaKeyHandler("list", ListLayout::lkhList);
+    addLuaKeyHandler("children", comp::Container::lkh);
+    addLuaKeyHandler("container", comp::Container::lkh);
+    addLuaKeyHandler("c", comp::Container::lkh);
     addLuaKeyHandler("root_image", comp::RootImage::lkh);
     addLuaKeyHandler("sprite", comp::Sprite::lkh);
     addLuaKeyHandler("text", comp::Text::lkh);

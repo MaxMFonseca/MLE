@@ -9,11 +9,11 @@ layout(location = 0) in vec2 in_uv;
 layout(push_constant) uniform PushConstants {
     vec4 color;
     uint tex_idx;
-} in_pc;
+} pc;
 
 layout(location = 0) out vec4 out_color;
 
 void main()
 {
-    out_color = texture(sampler2D(in_texs[in_pc.tex_idx], in_sampler), in_uv);
+    out_color = texture(sampler2D(in_texs[pc.tex_idx], in_sampler), in_uv) * pc.color;
 }

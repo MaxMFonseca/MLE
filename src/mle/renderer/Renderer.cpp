@@ -225,6 +225,10 @@ Texture addTexture(const std::string& name, ImageHnd&& img) {
     return i_->getTextureCache().add(name, std::move(img));
 }
 
+Texture addTexture(const std::string& name, const fs::path& path) {
+    return i_->getTextureCache().add(name, path);
+}
+
 Texture getTexture(const std::string& name, bool engine) {
     MLE_ASSERT(i_);
     return i_->getTextureCache().get(name, engine);
@@ -248,11 +252,6 @@ void submitOTSAsync(CmdType cmd_type, vk::CommandBuffer cmd, std::function<void(
 void submitOTSAsync(CmdType cmd_type, vk::SubmitInfo2 submit_info, std::function<void(void)>&& callback) {
     MLE_ASSERT(i_);
     i_->submitOTSAsync(cmd_type, submit_info, std::move(callback));
-}
-
-u32 useTexture(RenderingThread& thread, u32 idx) {
-    MLE_ASSERT(i_);
-    return i_->getTextureCache().use(thread, idx);
 }
 
 vk::DescriptorSetLayout getTexturesDescriptorSetLayout() {

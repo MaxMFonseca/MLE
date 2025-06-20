@@ -5,20 +5,26 @@ return {
 	},
 	bounds = { 0, 0, 1920, 1080 },
 	padding = 10,
-	list = {
+	c = {
+		direction = "col",
 		child_gap = 10,
-		layout = "y",
 		{
 			"1",
 			bounds = { 1920 / 2, 1080 / 2, 1920 / 2 - 10, 1080 / 2 - 10 },
 			background = "RED",
 		},
 		{
+			sprite = {
+				"mle",
+				color = "MAGENTA",
+			},
+		},
+		{
 			-- size = { "1f", "1f" }, {0,DEFAULT} BEHAVIOR FOR LIST CONTAINER
-			aspect_ratio = 1,
+			-- aspect_ratio = 1,
 
 			sprite = {
-				"DigitalDisco.0",
+				"star.png",
 				color = "NQB",
 			},
 
@@ -46,35 +52,6 @@ return {
 			-- margin = { t = 100, l = 200 },
 			background = "MAGENTA",
 		},
-		-- { "A." },
-		-- { "A" },
-		-- { "A" },
-		-- {},
-		-- { "A" },
-		-- { "6" },
-		-- {},
-		-- { "D" },
-		-- {
-		-- 	"KKl",
-		-- 	flex = {
-		-- 		{ "kA" },
-		-- 		{ "kB" },
-		-- 		{ "kC" },
-		-- 		{ "kD" },
-		-- 	},
-		-- 	list = {
-		-- 		layout = "rows",
-		-- 		{ "kA" },
-		-- 		{ "kB" },
-		-- 		{ "kC" },
-		-- 		{ "kD" },
-		-- 	},
-		-- },
-
-		-- { "k" },
-		-- { "k" },
-		-- { "1" },
-		-- { "D" },
 		-- {
 		-- 	"background",
 		-- 	renderable = "shader",

@@ -99,16 +99,16 @@ void Text::renderComp(const RenderContext& ctx) const {
         }
 
         Char ch{};
-        ch.size.x = (as<f32>(c.rect.size.x) / as<f32>(render_text_.width));
-        ch.size.y = (as<f32>(c.rect.size.y) / as<f32>(font_->getHeight()));
+        ch.size.x = c.rect.size.x / render_text_.width;
+        ch.size.y = c.rect.size.y;
 
-        ch.pos.x = (as<f32>(c.rect.pos.x) / as<f32>(render_text_.width));
-        ch.pos.y = (as<f32>(c.rect.pos.y) / as<f32>(font_->getHeight()));
+        ch.pos.x = c.rect.pos.x / render_text_.width;
+        ch.pos.y = c.rect.pos.y;
 
         ch.color = color_;
         ch.texture_offset = c.texture_rect.pos;
         ch.texture_size = c.texture_rect.size;
-        ch.texture_idx = 0;
+        ch.texture_idx = c.texture_idx;
 
         // ch.outline_color = color_;
         // ch.outline_thickness = 0.0F;  // No outline for now
@@ -167,7 +167,7 @@ void Text::setText(std::string text) {
 void Text::updateText(entt::entity self) {
     render_text_ = font_->makeText(text_);
     auto& renderable = getRegistry().get<comp::Renderable>(self);
-    renderable.aspect_ratio = static_cast<f32>(render_text_.width) / static_cast<f32>(font_->getHeight());
+    renderable.aspect_ratio = render_text_.width;
 }
 
 void Text::lkh(entt::entity self, const sol::object& o) {

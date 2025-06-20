@@ -64,8 +64,7 @@ void TextureCache::reset() {
     descriptor_set_layout_ = nullptr;
 }
 
-void TextureCache::update() {
-    current_bind_ = 0;
+void TextureCache::update() {  // NOLINT
 }
 
 void TextureCache::updateImagesOnFrame() {
@@ -117,10 +116,10 @@ Texture TextureCache::add(const std::string& name, bool engine) {
     } else {
         path = res::addUserTexturePath(name);
     }
-    return add(path, name);
+    return add(name, path);
 }
 
-Texture TextureCache::add(const fs::path& path, std::string name) {
+Texture TextureCache::add(std::string name, const fs::path& path) {
     MLE_D("Adding texture from file: {}", path.generic_string());
 
     MLE_ASSERT(!texture_names_.contains(name));
@@ -187,6 +186,8 @@ Texture TextureCache::add(const fs::path& path, std::string name) {
 
     renderer::submitOTSAsync(CmdType::GRAPHICS, submit_info, [idx, this]() { finishedUpload(idx); });  // NOLINT
 
+    MLE_D("Texture: {} is: {}", name, idx);
+
     return {.image = td.image.get(), .idx = idx, .ready = false};
 }
 
@@ -210,6 +211,10 @@ Texture TextureCache::add(const std::string& name, ImageHnd&& img) {
     td.image = std::move(img);
     td.ready = true;
 
+    MLE_D("Texture: {} is: {}", name, idx);
+
+    write(idx);
+
     return {.image = td.image.get(), .idx = idx, .ready = true};
 }
 
@@ -221,8 +226,10 @@ void TextureCache::finishedUpload(u32 idx) {
 
     textures_.at(it->idx).ready = true;
 
-    getDevice().destroy(it->semaphore);  // TODO: semaphore pool?
+    getDevice().destroy(it->semaphore);
     updating_textures_.erase(it);
+
+    write(it->idx);
 }
 
 Texture TextureCache::get(const std::string& name, bool engine) {
@@ -234,7 +241,7 @@ Texture TextureCache::get(const std::string& name, bool engine) {
     return add(name, engine);  // If not found, try to add it
 }
 
-u32 TextureCache::use(RenderingThread& /*thread*/, u32 idx) {
+void TextureCache::write(u32 idx) {
     auto& texture = textures_.at(idx);
 
     vk::DescriptorImageInfo image_info;
@@ -243,14 +250,12 @@ u32 TextureCache::use(RenderingThread& /*thread*/, u32 idx) {
 
     vk::WriteDescriptorSet write;
     write.setDstSet(dset_);
-    write.setDstArrayElement(current_bind_);
+    write.setDstArrayElement(idx);
     write.setDescriptorType(vk::DescriptorType::eSampledImage);
     write.setDstBinding(0);
     write.setImageInfo(image_info);
 
     getDevice().updateDescriptorSets(write, nullptr);
-
-    return current_bind_++;
 }
 
 void TextureCache::bindTexturesDSet(RenderingThread& thread) {

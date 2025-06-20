@@ -7,29 +7,25 @@
 #include "mle/ui/Utils.h"
 #include "mle/ui/element/Base.h"
 #include "mle/ui/element/Renderable.h"
+#include "mle/ui/element/Utils.h"
 
 namespace mle::ui::element {
-struct Layout {
-    MLE_NO_COPY_MOVE(Layout)
-
-    Layout() = default;
-    virtual ~Layout() = default;
-
-    virtual void updateChildrenBounds(entt::entity self, Recti context, bool force_update) const = 0;
-};
-
-using LayoutHnd = std::unique_ptr<Layout>;
-using LayoutRef = std::shared_ptr<Layout>;
-
 namespace comp {
 class Container : public RenderableInterface {
   public:
     MLE_NO_COPY_MOVE(Container)
 
-    explicit Container(LayoutHnd&& layout);
+    Container() = default;
     ~Container() override = default;
 
-    void updateChildrenBounds(entt::entity self, Recti context = {}, bool verify_all = false, bool force_update = false) const;
+    void update(entt::entity self, const sol::object& obj);
+
+    // Verify all forces full tree traversal in layer order
+    void updateChildrenBounds(entt::entity self, Recti context = {}, bool verify_all = false, bool force_update = false);
+    void updateChildrenBoundsCol(entt::entity self, Recti content_rect);
+    void updateChildrenBoundsRow(entt::entity self, Recti context);
+    void updateChildrenBoundsColR(entt::entity self, Recti context);
+    void updateChildrenBoundsRowR(entt::entity self, Recti context);
 
     void update();
     void renderComp(const RenderContext& ctx) const override;
@@ -43,12 +39,23 @@ class Container : public RenderableInterface {
     static void notifyChildChangedBounds(entt::entity child);
     static void notifyChildChangedBounds(entt::entity self, entt::entity child);
 
-    static void add(entt::entity self, LayoutHnd&& layout, const sol::table& table);
+    static void lkh(entt::entity self, const sol::object& obj);
 
   private:
-    LayoutHnd layout_ = nullptr;
     EntityStorage children_;
     std::set<entt::entity> changed_bounds_children_;
+
+    enum class Direction : u8 { ROW, ROW_R, COL, COL_R };
+    enum class Justify : u8 { START, END, CENTER, SPACE_BETWEEN, SPACE_AROUND, SPACE_EVENLY };
+    enum class AlignCross : u8 { START, END, CENTER, STRETCH, BASELINE };
+
+    Direction direction_ = Direction::ROW;
+    Justify justify_ = Justify::START;
+    AlignCross align_cross_ = AlignCross::START;
+
+    int gap_ = 0;
+    int row_gap_ = 0;
+    int col_gap_ = 0;
 };
 
 struct ChildChangedBounds {};

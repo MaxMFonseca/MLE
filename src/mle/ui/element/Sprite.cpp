@@ -83,13 +83,12 @@ void initTempStuff() {
 }  // namespace
 
 void Sprite::renderComp(const RenderContext& ctx) const {
-    auto idx = renderer::useTexture(*ctx.thread, texture_.idx);
-
     struct {
         vec4f color{0};
         u32 tex_idx{};
     } pc;
-    pc.tex_idx = idx;
+    pc.color = color_;
+    pc.tex_idx = texture_.idx;
 
     ctx.thread->setPipeline(getPipeline());
     renderer::bindTexturesDSet(*ctx.thread);

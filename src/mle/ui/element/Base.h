@@ -126,6 +126,13 @@ struct TargetAspectRatio {
 struct Wrappapble {
     // TODO:
 };
+struct Dependencies {
+    struct Dependency {
+        entt::entity e;
+        // How?
+    };
+    std::vector<Dependency> v;
+};
 }  // namespace comp
 }  // namespace mle::ui::element
 

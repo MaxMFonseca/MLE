@@ -19,10 +19,10 @@ class Font {
         u32 texture_idx{};
         Rectf texture_rect{};
 
-        int advance = 0;
-        int lsb = 0;
-        vec2i size{0};
-        vec2i origin{0};
+        f32 advance = 0;
+        f32 lsb = 0;
+        vec2f size{0};
+        vec2f origin{0};
     };
 
     struct RenderText {
@@ -31,9 +31,9 @@ class Font {
             Type type = Type::INVALID;
             u32 texture_idx{};
             Rectf texture_rect{};
-            Rectu rect{};
+            Rectf rect{};
         };
-        u32 width = 0;
+        f32 width = 0;
         u32 char_count = 0;
         std::vector<Token> tokens{};
     };
@@ -70,19 +70,19 @@ class Font {
 
   private:
     std::string name_;
-    stbtt_fontinfo f_info_{};
     Bytes ttf_data_{};
+    stbtt_fontinfo f_info_{};
+    f32 height_ = DEFAULT_FONT_HEIGHT;
     f32 scale_ = 0.0F;
-    int ascent_ = 0;
-    int descent_ = 0;
-    int line_gap_ = 0;
-    int height_ = DEFAULT_FONT_HEIGHT;
+    f32 ascent_ = 0;
+    f32 descent_ = 0;
+    f32 line_gap_ = 0;
     int sdf_padding_ = 0;
-    vec2u atlas_size_{DEFAULT_FONT_HEIGHT * 10};
 
     std::map<char32, Glyph> chars_{};
     Glyph default_char_{};
 
+    vec2u atlas_size_{DEFAULT_FONT_HEIGHT * 16};
     std::vector<u32> atlases_;
     RectPacker packer_{};
     bool atlas_full_ = true;

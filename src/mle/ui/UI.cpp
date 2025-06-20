@@ -5,6 +5,7 @@
 
 #include "mle/common/Assert.h"
 #include "mle/common/RectPacker.h"
+#include "mle/common/Utils.h"
 #include "mle/lua/Lua.h"
 #include "mle/renderer/Image.h"
 #include "mle/renderer/Pipeline.h"
@@ -49,6 +50,8 @@ struct Position {
 
 void Impl::init() {
     MLE_I("Initializing UI");
+
+    renderer::addTexture("mle", res::addMleTexturePath("ui/mle.png"));
 
     element::addEngineLuaKeyHandlers();
 

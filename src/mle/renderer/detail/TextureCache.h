@@ -26,9 +26,8 @@ class TextureCache final {
 
     Texture get(const std::string& name, bool engine = false);
     Texture add(const std::string& name, bool engine = false);
-    Texture add(const fs::path& path, std::string name);
+    Texture add(std::string name, const fs::path& path);
     Texture add(const std::string& name, ImageHnd&& img);
-    u32 use(RenderingThread& thread, u32 idx);
 
     ImageRef getImage(u32 idx);
 
@@ -41,6 +40,7 @@ class TextureCache final {
   private:
     void finishedUpload(u32 idx);
     void updateImagesOnFrame();
+    void write(u32 idx);
 
   private:
     struct TextureData {
@@ -61,7 +61,6 @@ class TextureCache final {
     vk::DescriptorSetLayout descriptor_set_layout_;
     vk::DescriptorPool descriptor_pool_;
     vk::DescriptorSet dset_;
-    u32 current_bind_ = 0;
 
     std::vector<TextureUpdateJobData> update_images_on_frame_;
 };

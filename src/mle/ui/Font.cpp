@@ -39,21 +39,21 @@ void Font::init(CI ci) {
     auto init_font_result = stbtt_InitFont(&f_info_, rAs<u8*>(ttf_data_.data()), 0);
     MLE_ASSERT(init_font_result);
 
-    f32 fheight = as<f32>(height_);
-
-    scale_ = stbtt_ScaleForPixelHeight(&f_info_, fheight);
+    scale_ = stbtt_ScaleForPixelHeight(&f_info_, height_);
 
     int ascent = 0, descent = 0, line_gap = 0;
     stbtt_GetFontVMetrics(&f_info_, &ascent, &descent, &line_gap);
 
-    ascent_ = as<int>((as<f32>(ascent) * scale_));
-    descent_ = as<int>((as<f32>(descent) * scale_));
-    line_gap_ = as<int>((as<f32>(line_gap) * scale_));
+    auto amd = as<f32>(ascent - descent);
 
-    sdf_padding_ = as<int>(std::roundf(fheight / 8));
+    ascent_ = as<f32>(ascent) / amd;
+    descent_ = as<f32>(descent) / amd;
+    line_gap_ = as<f32>(line_gap) / amd;
 
-    u32 border_size = height_ / 16;
-    vec2u default_char_size{height_ / 4, ascent_ / 16 * 13};
+    sdf_padding_ = as<int>(std::roundf(height_ / 8));
+
+    u32 border_size = as<u32>(height_ / 16.F);
+    vec2u default_char_size{height_ / 4, as<int>(as<f32>(ascent) * scale_) / 16 * 13};
     std::vector<u8> default_char_data;
     default_char_data.resize(as<usize>(default_char_size.x * default_char_size.y), 0x00);
     for (u32 i = 0; i < default_char_size.y; ++i) {
@@ -70,7 +70,10 @@ void Font::init(CI ci) {
     default_char_.texture_rect.pos.y = as<f32>(idx_rect.pos.y) / as<f32>(atlas_size_.y);
     default_char_.texture_rect.size.x = as<f32>(idx_rect.size.x) / as<f32>(atlas_size_.x);
     default_char_.texture_rect.size.y = as<f32>(idx_rect.size.y) / as<f32>(atlas_size_.y);
-    default_char_.advance = as<int>(as<f32>(default_char_size.x) * 1.2F);
+    default_char_.advance = as<f32>(default_char_size.x) * 1.2F / height_;
+    default_char_.size.x = as<f32>(default_char_size.x) / height_;
+    default_char_.size.y = as<f32>(default_char_size.y) / height_;
+    default_char_.origin.y = ascent_ / 16 * 3 / height_;
 
     for (char32 i : ci.pre_load_string) {
         loadCodepoint(i);
@@ -78,6 +81,11 @@ void Font::init(CI ci) {
 }
 
 Font::Glyph Font::loadCodepoint(char32 codepoint) {
+    auto it = chars_.find(codepoint);
+    if (it != chars_.end()) {
+        return it->second;
+    }
+
     auto intc = as<int>(codepoint);
     MLE_T("Loading codepoint: {}, font: {}", intc, name_);
 
@@ -110,15 +118,21 @@ Font::Glyph Font::loadCodepoint(char32 codepoint) {
     ret.texture_rect.pos.y = as<f32>(texture_rect.pos.y) / as<f32>(atlas_size_.y);
     ret.texture_rect.size.x = as<f32>(texture_rect.size.x) / as<f32>(atlas_size_.x);
     ret.texture_rect.size.y = as<f32>(texture_rect.size.y) / as<f32>(atlas_size_.y);
-    ret.size = size;
-    ret.origin = origin;
-    ret.advance = advance;
-    ret.lsb = lsb;
+    ret.size.x = as<f32>(size.x) / height_;
+    ret.size.y = as<f32>(size.y) / height_;
+    ret.origin.x = as<f32>(origin.x) / height_;
+    ret.origin.y = as<f32>(origin.y) / height_;
+    ret.advance = as<f32>(advance) / height_;
+    ret.lsb = as<f32>(lsb) / height_;
+
+    chars_.emplace(codepoint, ret);
 
     return ret;
 }
 
 void Font::createAtlas() {
+    MLE_T("Creating new atlas for font: {}", name_);
+
     packer_ = {};
     packer_.padding = {2, 2};
     packer_.max_extent = atlas_size_;
@@ -160,7 +174,6 @@ Font::Glyph Font::getGlyph(char32 codepoint) {
     if (it == chars_.end()) {
         MLE_T("Glyph for codepoint {} not found in font {}, loading...", as<int>(codepoint), name_);
         auto glyph = loadCodepoint(codepoint);
-        chars_.emplace(codepoint, glyph);
         return glyph;
     }
     return it->second;
@@ -168,7 +181,7 @@ Font::Glyph Font::getGlyph(char32 codepoint) {
 
 Font::RenderText Font::makeText(const std::string& text) {
     RenderText ret;
-    u32 current_x = 0;
+    f32 current_x = 0;
 
     if (!utf8::is_valid(text)) {
         MLE_W("Text is not valid UTF-8: {}", text);
@@ -209,7 +222,7 @@ Font::RenderText Font::makeText(const std::string& text) {
         }
         if (last_codepoint && last_codepoint != U'\n') {
             int kern = stbtt_GetCodepointKernAdvance(&f_info_, static_cast<int>(last_codepoint), static_cast<int>(c));
-            current_x += as<u32>(std::roundf(as<f32>(kern) * scale_));
+            current_x += std::roundf(as<f32>(kern) * scale_) / height_;
         }
 
         token.rect.pos.x = current_x + glyph.origin.x;
