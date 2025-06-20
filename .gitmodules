@@ -22,3 +22,6 @@
 [submodule "external/entt"]
 	path = external/entt
 	url = https://github.com/skypjack/entt
+[submodule "external/utfcpp"]
+	path = external/utfcpp
+	url = https://github.com/nemtrif/utfcpp

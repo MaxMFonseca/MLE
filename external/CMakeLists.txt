@@ -29,3 +29,4 @@ target_include_directories(MLE PUBLIC sol2/include)
 
 target_include_directories(MLE PUBLIC entt/single_include)
 
+target_include_directories(MLE PUBLIC utfcpp/source)
