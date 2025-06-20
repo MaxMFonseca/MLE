@@ -36,8 +36,8 @@ void EntityStorage::add(entt::entity e, usize pos) {
             }
             count_++;
         } else {
-            // promote to vector
-            new (&children_.vec) std::vector<entt::entity>(children_.array.begin(), children_.array.end());
+            auto copy = children_.array;
+            new (&children_.vec) std::vector<entt::entity>(copy.begin(), copy.end());
 
             count_++;
             insertInVec(e, pos);
