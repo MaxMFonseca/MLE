@@ -17,6 +17,7 @@
 #include "mle/ui/Types.h"
 #include "mle/ui/UI.h"
 #include "mle/ui/Utils.h"
+#include "mle/ui/element/Renderable.h"
 
 // I will use lkh as short for Lua Key Handler
 
@@ -47,6 +48,8 @@ struct Name {
 };
 struct Background {
     Color color{};
+
+    void render(const RenderContext& ctx) const;
 
     static renderer::PipelineRef getPipeline();
 };

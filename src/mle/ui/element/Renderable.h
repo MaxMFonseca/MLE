@@ -5,12 +5,19 @@
 #include "mle/renderer/RenderingThread.h"
 
 namespace mle::ui::element {
+struct RenderContext {
+    renderer::RenderingThreadRef thread{};
+    Recti current_root_image_bounds{};
+    entt::entity self{};
+    entt::entity parent{};
+};
+
 struct RenderableInterface {
     MLE_NO_COPY_MOVE(RenderableInterface)
     RenderableInterface() = default;
     virtual ~RenderableInterface() = default;
 
-    virtual void renderComp(entt::entity self, renderer::RenderingThreadRef thread) const = 0;
+    virtual void renderComp(const RenderContext& ctx) const = 0;
 };
 
 using RenderableInterfaceRef = RenderableInterface*;
@@ -18,12 +25,12 @@ using RenderableInterfaceRef = RenderableInterface*;
 namespace comp {
 struct Renderable {
     using RIGetterFn = RenderableInterface& (*)(entt::entity);
-    // We store have a getter for the interface instead of storing the object cuz Container is a component
+    // We have a getter for the interface instead of storing the object cuz Container is a component
     // We cannot have a pointer to a component in a component (invalidation), so we use a reg getter function.
     // Maybe if I change Container?
     RIGetterFn ri_getter_fn;
 
-    void render(entt::entity self, renderer::RenderingThreadRef thread) const;
+    void render(RenderContext ctx) const;
 
     static void add(entt::entity e, RIGetterFn getter_fn);
 };

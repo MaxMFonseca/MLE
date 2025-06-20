@@ -82,36 +82,20 @@ void initTempStuff() {
 }
 }  // namespace
 
-void Sprite::renderComp(entt::entity self, renderer::RenderingThreadRef thread) const {
-    // FIXME: the context is wrong here, this should be renderd on the current root
-    // the thread does have the context for size, but not pos/rotation
-    // also we need to find a way to do clipping
-    // I will not render things this way..
-    // I will pack all renderables and try to not rebind the pipelines
-
-    auto& reg = getRegistry();
-    auto parent = reg.get<comp::Parent>(self).parent;
-    auto fbounds = reg.get<comp::Bounds>(parent).bounds.asF32();
-    auto fcbounds = reg.get<comp::Bounds>(self).bounds.asF32();
-
-    auto idx = renderer::useTexture(*thread, texture_.idx);
+void Sprite::renderComp(const RenderContext& ctx) const {
+    auto idx = renderer::useTexture(*ctx.thread, texture_.idx);
 
     struct {
-        vec2f pos{};
-        vec2f size{};
         vec4f color{0};
         u32 tex_idx{};
     } pc;
-    pc.pos = fcbounds.pos / fbounds.size;
-    pc.size = fcbounds.size / fbounds.size;
     pc.tex_idx = idx;
 
-    thread->setPipeline(getPipeline());
-    renderer::bindTexturesDSet(*thread);
-    thread->bindDescriptorSet(dset_sampler_, 1);
-    thread->pushConstants(&pc);
-    thread->setViewport();
-    thread->draw(1, 4);
+    ctx.thread->setPipeline(getPipeline());
+    renderer::bindTexturesDSet(*ctx.thread);
+    ctx.thread->bindDescriptorSet(dset_sampler_, 1);
+    ctx.thread->pushConstants(&pc);
+    ctx.thread->draw(1, 4);
 }
 
 void Sprite::setTexture(const std::string& texture_name) {

@@ -5,7 +5,7 @@
 namespace mle::ui::element::comp {
 class Sprite : public RenderableInterface {
   public:
-    void renderComp(entt::entity self, renderer::RenderingThreadRef thread) const override;
+    void renderComp(const RenderContext& ctx) const override;
 
     void setTexture(const std::string& texture_name);
 

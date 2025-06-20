@@ -6,6 +6,7 @@
 #include "mle/renderer/Renderer.h"
 #include "mle/renderer/Utils.h"
 #include "mle/ui/UI.h"
+#include "mle/ui/element/Renderable.h"
 
 namespace mle::ui::element::comp {
 namespace {
@@ -76,22 +77,8 @@ void initTempStuff() {
 }
 }  // namespace
 
-void Text::renderComp(entt::entity /*self*/, renderer::RenderingThreadRef thread) const {
-    // FIXME: the context is wrong here, this should be renderd on the current root
-    // the thread does have the context for size, but not pos/rotation
-    // also we need to find a way to do clipping
-    // I will not render things this way..
-    // I will pack all renderables and try to not rebind the pipelines
-
-    // auto& reg = getRegistry();
-    // auto parent = reg.get<comp::Parent>(self).parent;
-    // auto fbounds = reg.get<comp::Bounds>(parent).bounds.asF32();
-    // auto fcbounds = reg.get<comp::Bounds>(self).bounds.asF32();
-    // auto element_pos = fcbounds.pos / fbounds.size;
-    // auto element_size = fcbounds.size / fbounds.size;
-
+void Text::renderComp(const RenderContext& ctx) const {
     auto text = font_->makeText(text_);
-    // auto text_aspect = as<f32>(text.width) / as<f32>(font_->getHeight());
 
     struct Char {
         vec2f pos{};
@@ -124,9 +111,6 @@ void Text::renderComp(entt::entity /*self*/, renderer::RenderingThreadRef thread
         ch.texture_size = c.texture_rect.size;
         ch.texture_idx = 0;
 
-        MLE_VC(ch.pos);
-        MLE_VC(ch.size);
-
         // ch.outline_color = color_;
         // ch.outline_thickness = 0.0F;  // No outline for now
 
@@ -138,26 +122,20 @@ void Text::renderComp(entt::entity /*self*/, renderer::RenderingThreadRef thread
         chars.push_back(ch);
     }
 
-    thread->endRendering();
-
     renderer::Buffer::CI instance_buffer_ci;
     instance_buffer_ci.size = sizeof(Char) * text.char_count;
     instance_buffer_ci.usage = vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst;
-    instance_buffer_ci.allocation_type = renderer::Buffer::CI::AllocationType::GPU_ONLY;
+    instance_buffer_ci.allocation_type = renderer::Buffer::CI::AllocationType::GPU_ONLY_HOST_WRITE_SEQ;
     auto instance_buffer = renderer::Buffer::createHnd(instance_buffer_ci);
-    auto staging_buffer = instance_buffer->updateStaged(thread->cmd(), chars.data());
+    instance_buffer->update(chars.data());
 
-    thread->beginRendering();
-
-    thread->setPipeline(getPipeline());
-    thread->bindInstanceBuffer(instance_buffer.get());
-    renderer::bindTexturesDSet(*thread);
-    thread->bindDescriptorSet(dset_sampler_, 1);
-    thread->setViewport();
-    thread->draw(as<int>(text.char_count), 4);
+    ctx.thread->setPipeline(getPipeline());
+    ctx.thread->bindInstanceBuffer(instance_buffer.get());
+    renderer::bindTexturesDSet(*ctx.thread);
+    ctx.thread->bindDescriptorSet(dset_sampler_, 1);
+    ctx.thread->draw(as<int>(text.char_count), 4);
 
     renderer::deleteAfterFrame(std::move(instance_buffer));
-    renderer::deleteAfterFrame(std::move(staging_buffer));
 }
 
 void Text::setFont(const std::string& font_name) {

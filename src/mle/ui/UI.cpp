@@ -1,6 +1,7 @@
 #include "UI.h"
 
 #include <memory>
+#include <vulkan/vulkan_handles.hpp>
 
 #include "mle/common/Assert.h"
 #include "mle/common/RectPacker.h"
@@ -27,6 +28,8 @@ class Impl {
 
     auto& getRegistry() { return registry_; }
     auto& getFontCache() { return font_cache_; }
+    [[nodiscard]] auto getPreRenderCmdBuffer() const { return pre_render_cmd_buffer_; }
+    void addJobToQueue(vk::CommandBuffer cmd) { s_command_buffers_.emplace_back(cmd); }
 
   private:
     void checkElementsBoundChanged();
@@ -35,6 +38,9 @@ class Impl {
     entt::registry registry_;
     entt::entity root_ = entt::null;
     detail::FontCache font_cache_;
+
+    vk::CommandBuffer pre_render_cmd_buffer_;
+    std::vector<vk::CommandBuffer> s_command_buffers_;
 };
 
 struct Position {
@@ -92,7 +98,21 @@ void Impl::checkElementsBoundChanged() {
 }
 
 renderer::ImageRef Impl::render() {
-    registry_.get<element::comp::Renderable>(root_).render(root_, nullptr);
+    pre_render_cmd_buffer_ = renderer::getFrameSecondaryCmd();
+    vk::CommandBufferBeginInfo beg_info;
+    beg_info.setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
+    vk::CommandBufferInheritanceInfo ihi{};
+    beg_info.setPInheritanceInfo(&ihi);
+    renderer::check(pre_render_cmd_buffer_.begin(beg_info));
+
+    registry_.get<element::comp::Renderable>(root_).render({.self = root_});
+
+    renderer::check(pre_render_cmd_buffer_.end());
+    renderer::submitJobOnFrame(pre_render_cmd_buffer_);
+    for (auto cmd : s_command_buffers_) {
+        renderer::submitJobOnFrame(cmd);
+    }
+    s_command_buffers_.clear();
 
     return registry_.get<element::comp::RootImage>(root_).image_handle.get();
 }
@@ -130,6 +150,16 @@ entt::registry& getRegistry() {
 FontRef getFont(const std::string& font_name) {
     MLE_ASSERT(i_);
     return i_->getFontCache().get(font_name);
+}
+
+vk::CommandBuffer getPreRenderCmdBuffer() {
+    MLE_ASSERT(i_);
+    return i_->getPreRenderCmdBuffer();
+}
+
+void addJobToQueue(vk::CommandBuffer cmd) {
+    MLE_ASSERT(i_);
+    i_->addJobToQueue(cmd);
 }
 
 }  // namespace mle::ui

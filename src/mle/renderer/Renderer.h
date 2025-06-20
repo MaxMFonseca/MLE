@@ -78,6 +78,9 @@ void submitOTSWait(CmdType cmd_type, vk::CommandBuffer cmd);
 void submitOTSAsync(CmdType cmd_type, vk::CommandBuffer cmd, std::function<void(void)>&& callback = {});
 void submitOTSAsync(CmdType cmd_type, vk::SubmitInfo2 submit_info, std::function<void(void)>&& callback = {});
 
+vk::CommandBuffer getFrameSecondaryCmd();
+void submitJobOnFrame(vk::CommandBuffer cmd);
+
 namespace detail {
 ED& getED();                                  ///< Returns the event dispatcher instance for the renderer.
 VkContext& getVk();                           ///< Returns the Vulkan context instance.

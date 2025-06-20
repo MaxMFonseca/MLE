@@ -17,7 +17,7 @@ class Text : public RenderableInterface {
     Text() = default;
     ~Text() override = default;
 
-    void renderComp(entt::entity self, renderer::RenderingThreadRef thread) const override;
+    void renderComp(const RenderContext& ctx) const override;
 
     void setFont(const std::string& font_name = "");
     void setHeightPx(u32 height_px = 0);

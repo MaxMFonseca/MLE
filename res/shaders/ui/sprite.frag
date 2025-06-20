@@ -7,7 +7,6 @@ layout(set = 1, binding = 0) uniform sampler in_sampler;
 layout(location = 0) in vec2 in_uv;
 
 layout(push_constant) uniform PushConstants {
-    layout(offset = 16)
     vec4 color;
     uint tex_idx;
 } in_pc;

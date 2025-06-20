@@ -10,11 +10,13 @@
 #include "mle/ui/UI.h"
 
 namespace mle::ui::element::comp {
-void Renderable::render(entt::entity self, renderer::RenderingThreadRef thread) const {
+void Renderable::render(RenderContext ctx) const {
     auto& reg = getRegistry();
 
     renderer::RenderingThreadHnd this_thread = nullptr;
-    const auto* root_image = reg.try_get<comp::RootImage>(self);
+
+    const auto* root_image = reg.try_get<comp::RootImage>(ctx.self);
+
     if (root_image) {
         this_thread = std::make_unique<renderer::RenderingThread>();
         this_thread->init();
@@ -26,15 +28,21 @@ void Renderable::render(entt::entity self, renderer::RenderingThreadRef thread) 
         this_thread->setColorAttachments({attachment});
         this_thread->beginRendering();
 
-        thread = this_thread.get();
+        ctx.thread = this_thread.get();
+
+        auto bounds = reg.get<Bounds>(ctx.self);
+
+        ctx.current_root_image_bounds = bounds.bounds;
     }
 
     if (ri_getter_fn) {
-        ri_getter_fn(self).renderComp(self, thread);
+        ri_getter_fn(ctx.self).renderComp(ctx);
     }
 
     if (this_thread) {
-        this_thread->submit();
+        this_thread->endRendering();
+        this_thread->endCmd();
+        addJobToQueue(this_thread->cmd());
     }
 }
 

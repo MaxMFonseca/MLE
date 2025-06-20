@@ -14,6 +14,7 @@
 #include "mle/ui/Types.h"
 #include "mle/ui/UI.h"
 #include "mle/ui/element/LuaKeyHandlers.h"
+#include "mle/ui/element/Renderable.h"
 #include "sol/forward.hpp"
 
 namespace mle::ui::element {
@@ -279,6 +280,18 @@ void TargetPadding::addToRect(entt::entity self, Recti& rect) {
         }
         rect.size.y -= val;
     }
+}
+void Background::render(const RenderContext& ctx) const {
+    ctx.thread->setPipeline(Background::getPipeline());
+
+    struct {
+        vec4f color{};
+    } pc;
+
+    pc.color = color;
+
+    ctx.thread->pushConstants(&pc);
+    ctx.thread->draw(1, 4);
 }
 }  // namespace comp
 }  // namespace mle::ui::element

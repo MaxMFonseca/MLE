@@ -6,6 +6,7 @@
 #pragma once
 
 #include "Types.h"
+#include "mle/renderer/Utils.h"
 
 namespace mle::renderer {
 /**
@@ -50,6 +51,8 @@ class RenderingThread {
     void pushConstants(const void* push_constants);
     void bindDescriptorSet(vk::DescriptorSet set, u32 binding) const;
     void draw(int instance_count, int index_count) const;
+
+    void endCmd() { check(cmd_.end()); };
 
   private:
     vk::CommandBuffer cmd_;  ///< Thread-local Vulkan command buffer for recording rendering commands.

@@ -270,6 +270,16 @@ void enqueueTextureUpdateJob(TextureUpdateJobData&& data) {
     i_->getTextureCache().enqueueTextureUpdateJob(std::move(data));
 }
 
+vk::CommandBuffer getFrameSecondaryCmd() {
+    MLE_ASSERT(i_);
+    return i_->getFrameRenderer().getCmdSecondary();
+}
+
+void submitJobOnFrame(vk::CommandBuffer cmd) {
+    MLE_ASSERT(i_);
+    i_->getFrameRenderer().submitJob(cmd);
+}
+
 namespace detail {
 ED& getED() {
     MLE_ASSERT(i_);

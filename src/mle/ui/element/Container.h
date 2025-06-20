@@ -32,7 +32,7 @@ class Container : public RenderableInterface {
     void updateChildrenBounds(entt::entity self, Recti context = {}, bool verify_all = false, bool force_update = false) const;
 
     void update();
-    void renderComp(entt::entity self, renderer::RenderingThreadRef thread) const override;
+    void renderComp(const RenderContext& ctx) const override;
 
     void addChild(entt::entity self, const sol::table& table, usize pos = max<usize>());
     void addChildren(entt::entity self, const sol::table& table);
