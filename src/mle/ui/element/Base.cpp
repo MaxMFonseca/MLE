@@ -158,6 +158,9 @@ void TargetBound::fromString(const std::string& str) {
     auto split = splitNumberAndSuffix<f32>(str);
     MLE_ASSERT_LOG(split.has_value(), "Invalid target bound format: {}", str);
     val = split.value().first;
+    if (val == 0.0F && str[0] != '0') {
+        val = 1;
+    }
     const auto& suffix = split.value().second;
     type = stringToType(suffix);
     if (typeIsPercentage(type)) {
