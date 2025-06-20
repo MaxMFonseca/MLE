@@ -25,7 +25,18 @@ class Font {
         vec2i origin{0};
     };
 
-    struct Text {};
+    struct RenderText {
+        struct Token {
+            enum class Type : u8 { CHAR, SPACE, BR, INVALID };
+            Type type = Type::INVALID;
+            u32 texture_idx{};
+            Rectf texture_rect{};
+            Rectu rect{};
+        };
+        u32 width = 0;
+        u32 char_count = 0;
+        std::vector<Token> tokens{};
+    };
 
     struct CreateInfo {
         std::string name;
@@ -41,6 +52,9 @@ class Font {
 
     ~Font() = default;
 
+    [[nodiscard]] auto getHeight() const { return height_; }
+    [[nodiscard]] RenderText makeText(const std::string& text);
+
   private:
     friend class detail::FontCache;
     friend struct fmt::formatter<mle::ui::Font>;
@@ -51,6 +65,7 @@ class Font {
 
     Rectu addTexture(const void* data, vec2u size);
     void createAtlas();
+    Glyph getGlyph(char32 codepoint);
     Glyph loadCodepoint(char32 codepoint);
 
   private:
@@ -112,4 +127,30 @@ struct formatter<mle::ui::Font> : formatter<std::string> {
         return out;
     }
 };
+
+template <>
+struct formatter<mle::ui::Font::RenderText::Token> : formatter<std::string> {
+    template <typename FormatContext>
+    constexpr auto format(const mle::ui::Font::RenderText::Token& token, FormatContext& ctx) const {
+        return format_to(ctx.out(), "[ type: {}, texture_idx: {}, texture_rect: {}, rect: {} ]", static_cast<u8>(token.type), token.texture_idx,
+                         token.texture_rect, token.rect);
+    }
+};
+
+template <>
+struct formatter<mle::ui::Font::RenderText> : formatter<std::string> {
+    template <typename FormatContext>
+    constexpr auto format(const mle::ui::Font::RenderText& text, FormatContext& ctx) const {
+        auto out = ctx.out();
+        out = fmt::format_to(out, "RenderText {{\n");
+        out = fmt::format_to(out, "  width: {},\n", text.width);
+        out = fmt::format_to(out, "  tokens ({}): [\n", text.tokens.size());
+        for (const auto& token : text.tokens) {
+            out = fmt::format_to(out, "    {},\n", token);
+        }
+        out = fmt::format_to(out, "  ]\n}}\n");
+        return out;
+    }
+};
+
 }  // namespace fmt

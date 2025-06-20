@@ -1,6 +1,9 @@
 #include "Font.h"
 
+#include <utf8/unchecked.h>
+
 #include "UI.h"
+#include "mle/common/Types.h"
 #include "mle/core/Unwrap.h"
 #include "mle/renderer/Image.h"
 #include "mle/renderer/Types.h"
@@ -97,6 +100,8 @@ Font::Glyph Font::loadCodepoint(char32 codepoint) {
 
     int advance = 0, lsb = 0;
     stbtt_GetGlyphHMetrics(&f_info_, glyph_idx, &advance, &lsb);
+    advance = as<int>(std::roundf(as<f32>(advance) * scale_));
+    lsb = as<int>(std::roundf(as<f32>(lsb) * scale_));
 
     Glyph ret;
 
@@ -112,30 +117,6 @@ Font::Glyph Font::loadCodepoint(char32 codepoint) {
 
     return ret;
 }
-
-//     auto& cp_data = characters_[c];
-//     cp_data.glyph_idx = glyph_idx;
-//     cp_data.advance = (static_cast<f32>(advance) * scale_) / height_;
-//     cp_data.lsb = (static_cast<f32>(lsb) * scale_) / height_;
-//
-//     if (sdf_result != nullptr) {
-//         cp_data.size = vec2f(size) / height_;
-//         cp_data.origin = vec2f(origin) / height_;
-//
-//         renderer::Image::RawData char_data;
-//         char_data.channels = 1;
-//         char_data.extent = size;
-//         auto data_size = static_cast<usize>(size.x) * size.y;
-//         char_data.pixels.resize(data_size);
-//         memcpy(char_data.pixels.data(), sdf_result, data_size);
-//         stbtt_FreeSDF(sdf_result, nullptr);
-//         cp_data.texture = atlas_.addTexture(std::to_string(c), char_data, font_name_);
-//     }
-//
-//     MLE_T("font: {}. Added codepoint: {}, {}", font_name_, (int)c, cp_data);
-//
-//     return cp_data;
-// }
 
 void Font::createAtlas() {
     packer_ = {};
@@ -174,29 +155,73 @@ Rectu Font::addTexture(const void* data, vec2u size) {  // NOLINT
     return addTexture(data, size);
 }
 
-//
-// u32 texture_idx;
-// Rectf texture_rect;
-//
-// int height_ = 0;
-// int advance = 0;
-// int lsb = 0;
-// default_char_.texture_idx = atlas_t.idx;
-//
-// default_char_.texture = atlas_.addTexture("default", default_char_data, font_name_);
-// default_char_.size = vec2f(default_char_data.extent) / height_;
-// default_char_.origin = {-default_char_.size.x * 0.1, -default_char_.size.y};
-// default_char_.advance = default_char_.size.x * 1.2F;
-// }
+Font::Glyph Font::getGlyph(char32 codepoint) {
+    auto it = chars_.find(codepoint);
+    if (it == chars_.end()) {
+        MLE_T("Glyph for codepoint {} not found in font {}, loading...", as<int>(codepoint), name_);
+        auto glyph = loadCodepoint(codepoint);
+        chars_.emplace(codepoint, glyph);
+        return glyph;
+    }
+    return it->second;
+}
 
-// const Font::CodepointData& Font::getCodepointData(char32 c) {
-//     auto it = characters_.find(c);
-//     if (it == characters_.end()) {
-//         return loadCodepoint(c);
-//     }
-//     return it->second;
-// }
-//
+Font::RenderText Font::makeText(const std::string& text) {
+    RenderText ret;
+    u32 current_x = 0;
+
+    if (!utf8::is_valid(text)) {
+        MLE_W("Text is not valid UTF-8: {}", text);
+        return ret;
+    }
+
+    std::u32string text32;
+    utf8::unchecked::utf8to32(text.begin(), text.end(), std::back_inserter(text32));
+
+    [[maybe_unused]] char32 last_codepoint = 0;
+
+    for (char32 c : text32) {
+        RenderText::Token& token = ret.tokens.emplace_back();
+
+        if (c == U' ') {
+            token.type = RenderText::Token::Type::SPACE;
+            token.rect.pos.x = current_x;
+            token.rect.size.x = default_char_.advance;
+            current_x += default_char_.advance;
+            last_codepoint = c;
+            continue;
+        }
+
+        if (c == U'\n') {
+            token.type = RenderText::Token::Type::BR;
+            last_codepoint = c;
+            continue;
+        }
+
+        auto glyph = getGlyph(c);
+        token.type = RenderText::Token::Type::CHAR;
+        token.texture_idx = glyph.texture_idx;
+        token.texture_rect = glyph.texture_rect;
+
+        if (last_codepoint && last_codepoint != U'\n') {
+            int kern = stbtt_GetCodepointKernAdvance(&f_info_, static_cast<int>(last_codepoint), static_cast<int>(c));
+            current_x += as<u32>(std::roundf(as<f32>(kern) * scale_));
+        }
+
+        token.rect.pos.x = current_x + glyph.lsb;
+        token.rect.pos.y = 0;
+        token.rect.size.x = glyph.size.x;
+        token.rect.size.y = glyph.size.y;
+
+        current_x += glyph.advance;
+        last_codepoint = c;
+        ret.char_count++;
+    }
+
+    ret.width = current_x;
+    return ret;
+}
+
 // f32 Font::getGlyphKernAdvance(int a, int b) const {
 //     if (a && b) {
 //         return (static_cast<f32>(stbtt_GetGlyphKernAdvance(&font_info_, a, b)) * scale_) / height_;

@@ -75,9 +75,8 @@ void Shader::reflect(const Bytes& spv_data) {
         }
         std::ranges::sort(input_vars, [](const SpvReflectInterfaceVariable* a, const SpvReflectInterfaceVariable* b) { return a->location < b->location; });
 
-        auto last_location = max<usize>();
-        usize offset = 0;
-        auto first_instance_attribute_location = max<usize>();
+        auto last_location = max<u32>();
+        u32 offset = 0;
         for (auto& input_var : input_vars) {
             const SpvReflectInterfaceVariable& refl_var = *input_var;
             if (refl_var.decoration_flags & SPV_REFLECT_DECORATION_BUILT_IN) {
@@ -93,19 +92,19 @@ void Shader::reflect(const Bytes& spv_data) {
             attribute.location = refl_var.location;
             MLE_T("Attribute {}: location: {}, format: {}", refl_var.name, attribute.location, vk::to_string(attribute.format));
 
-            MLE_ASSERT_LOG(!(last_location == max<usize>() && attribute.location != 0), "First attribute location must be 0");
-            MLE_ASSERT_LOG(last_location == max<usize>() || last_location + 1 == attribute.location,
+            MLE_ASSERT_LOG(!(last_location == max<u32>() && attribute.location != 0), "First attribute location must be 0");
+            MLE_ASSERT_LOG(last_location == max<u32>() || last_location + 1 == attribute.location,
                            "Attribute locations must be consecutive, last: {}, current: {}", last_location, attribute.location);
 
             std::string var_name = refl_var.name;
             if (var_name.starts_with("ini_")) {
-                if (first_instance_attribute_location == max<usize>()) {
-                    first_instance_attribute_location = attribute.location;
+                if (first_instance_attribute_location_ == max<u32>()) {
+                    first_instance_attribute_location_ = attribute.location;
                 }
             } else {
-                if (first_instance_attribute_location != max<usize>()) {
+                if (first_instance_attribute_location_ != max<u32>()) {
                     core::unrecoverable("All instance attributes must be defined after vertex attributes, instance at {}, vertex at {}",
-                                        first_instance_attribute_location, attribute.location);
+                                        first_instance_attribute_location_, attribute.location);
                 }
             }
 
@@ -191,14 +190,14 @@ vk::PipelineShaderStageCreateInfo Shader::getPipelineShaderStageCreateInfo() con
 
     bool has_instance_attributes = first_instance_attribute_location_ != max<uint>();
     bool has_vertex_attributes = !has_instance_attributes || first_instance_attribute_location_ > 0;
-    usize last_vertex_attribute = has_instance_attributes ? first_instance_attribute_location_ - 1 : vertex_attributes_.size();
+    u32 last_vertex_attribute = has_instance_attributes ? first_instance_attribute_location_ - 1 : vertex_attributes_.size();
 
     if (has_vertex_attributes) {
         auto& vertex_binding = ret.binding_descriptions.emplace_back();
         vertex_binding.binding = 0;
         vertex_binding.inputRate = vk::VertexInputRate::eVertex;
         vertex_binding.stride = 0;
-        for (usize i = 0; i < last_vertex_attribute; ++i) {
+        for (u32 i = 0; i < last_vertex_attribute; ++i) {
             MLE_T("Vertex attribute {}: location: {}, format: {}", i, vertex_attributes_[i].location, vk::to_string(vertex_attributes_[i].format));
             vertex_binding.stride += typeSize(ret.attribute_descriptions[i].format);
             ret.attribute_descriptions[i].binding = vertex_binding.binding;

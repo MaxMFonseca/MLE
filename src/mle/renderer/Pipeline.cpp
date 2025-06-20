@@ -26,6 +26,9 @@ void Pipeline::init(const CI& ci) {
     MLE_ASSERT_LOG(ci.blend_attachments.size() == ci.color_attachment_formats.size(),
                    "Number of blend attachments must match the number of color attachment formats");
 
+    first_instance_binding_ = ci.vertex_shader->getFirstInstanceAttributeLocation();
+    MLE_C(first_instance_binding_);
+
     vk::GraphicsPipelineCreateInfo pipeline_ci;
 
     MLE_T("Shader stages");
@@ -210,4 +213,5 @@ PushConstantField Pipeline::getPushConstantField(const std::string& name) const 
 
     MLE_UNREACHABLE_LOG("Push constant field not found: {}", name);
 }
+
 }  // namespace mle::renderer

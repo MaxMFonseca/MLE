@@ -52,10 +52,6 @@ class RenderingThread {
     void draw(int instance_count, int index_count) const;
 
   private:
-    friend class Pipeline;
-    void beginRendering(const Pipeline* pipeline, vk::RenderingInfo info);
-
-  private:
     vk::CommandBuffer cmd_;  ///< Thread-local Vulkan command buffer for recording rendering commands.
 
     bool in_rendering_ = false;  ///< Flag indicating if currently in a rendering pass.

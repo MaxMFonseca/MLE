@@ -83,8 +83,6 @@ void initTempStuff() {
 }  // namespace
 
 void Sprite::renderComp(entt::entity self, renderer::RenderingThreadRef thread) const {
-    thread->setPipeline(getPipeline());
-
     // FIXME: the context is wrong here, this should be renderd on the current root
     // the thread does have the context for size, but not pos/rotation
     // also we need to find a way to do clipping

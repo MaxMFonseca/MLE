@@ -157,7 +157,9 @@ void RenderingThread::bindVertexBuffer(BufferRef buffer, usize offset) const {
 
 void RenderingThread::bindInstanceBuffer(BufferRef buffer, usize offset) const {
     MLE_ASSERT(in_rendering_);
-    cmd_.bindVertexBuffers(1, buffer->get(), offset);
+    MLE_ASSERT(pipeline_);
+    MLE_ASSERT(pipeline_->hasInstance());
+    cmd_.bindVertexBuffers(pipeline_->getFirstInstanceBinding(), buffer->get(), offset);
 }
 
 void RenderingThread::bindIndexBuffer(BufferRef buffer, usize offset) const {

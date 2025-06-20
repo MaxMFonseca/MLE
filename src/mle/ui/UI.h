@@ -13,6 +13,8 @@ void shutdown();
 void update();
 renderer::ImageRef render();
 entt::registry& getRegistry();
+FontRef getFont(const std::string& font_name = "");
+
 namespace detail {
 FontCache& getFontCache();
 }  // namespace detail

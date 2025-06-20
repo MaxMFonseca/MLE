@@ -15,7 +15,7 @@ class Shader : public LiveCounter<Shader> {
 
     [[nodiscard]] vk::ShaderModule getModule() const { return shader_module_; }
     [[nodiscard]] vk::ShaderStageFlagBits getStage() const { return stage_; }
-    [[nodiscard]] uint getFirstInstanceAttributeLocation() const { return first_instance_attribute_location_; }
+    [[nodiscard]] u32 getFirstInstanceAttributeLocation() const { return first_instance_attribute_location_; }
     [[nodiscard]] const std::vector<vk::VertexInputAttributeDescription>& getVertexAttributes() const { return vertex_attributes_; }
     [[nodiscard]] const std::vector<vk::DescriptorSetLayoutBinding>& getDescriptors() const { return descriptors_; }
     [[nodiscard]] vk::PushConstantRange getPushConstantRange() const { return pc_range_; }
@@ -38,7 +38,7 @@ class Shader : public LiveCounter<Shader> {
 
     vk::ShaderModule shader_module_;
     vk::ShaderStageFlagBits stage_{};
-    uint first_instance_attribute_location_ = max<uint>();
+    u32 first_instance_attribute_location_ = max<u32>();
     std::vector<vk::VertexInputAttributeDescription> vertex_attributes_;
     std::vector<vk::DescriptorSetLayoutBinding> descriptors_;
     vk::PushConstantRange pc_range_;

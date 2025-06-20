@@ -66,6 +66,7 @@ Texture getTexture(const std::string& name, bool engine = false);  ///< Returns 
 
 void enqueueTextureUpdateJob(TextureUpdateJobData&& data);
 
+// FIXME: This must disapear!
 u32 useTexture(RenderingThread& thread, u32 idx);  ///< Write texture and returns the index of the texture in the current frame.
 
 vk::DescriptorSetLayout getTexturesDescriptorSetLayout();  ///< Returns the descriptor set layout used for textures.

@@ -36,6 +36,12 @@ return {
 			background = "GREEN",
 		},
 		{
+			size_y = 30,
+
+			background = "BLUE",
+			text = { "... HelloWorld! Now we can render text elements! ...", color = "RED" },
+		},
+		{
 			size = { 100, 100 },
 			-- margin = { t = 100, l = 200 },
 			background = "MAGENTA",

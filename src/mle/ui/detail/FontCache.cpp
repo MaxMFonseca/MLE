@@ -26,13 +26,13 @@ FontRef FontCache::add(Font::CI&& ci) {
 }
 
 FontRef FontCache::get(const std::string& name) {
+    MLE_ASSERT_LOG(!fonts_.empty(), "Font cache is empty!");
     for (const auto& font : fonts_) {
         if (font->name_ == name) {
             return font.get();
         }
     }
     MLE_E("Font with name '{}' not found. Retuning default.", name);
-    MLE_ASSERT_LOG(!fonts_.empty(), "Font cache is empty!");
-    return fonts_.front().get();  // This should always be valid
+    return fonts_.front().get();
 }
 }  // namespace mle::ui::detail

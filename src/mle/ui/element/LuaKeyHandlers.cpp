@@ -11,6 +11,7 @@
 #include "mle/ui/element/Base.h"
 #include "mle/ui/element/Container.h"
 #include "mle/ui/element/ListLayout.h"
+#include "mle/ui/element/Text.h"
 
 namespace mle::ui::element {
 namespace {
@@ -292,5 +293,6 @@ void addEngineLuaKeyHandlers() {
     addLuaKeyHandler("list", ListLayout::lkhList);
     addLuaKeyHandler("root_image", comp::RootImage::lkh);
     addLuaKeyHandler("sprite", comp::Sprite::lkh);
+    addLuaKeyHandler("text", comp::Text::lkh);
 }
 }  // namespace mle::ui::element

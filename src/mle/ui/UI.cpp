@@ -26,6 +26,7 @@ class Impl {
     inline renderer::ImageRef render();
 
     auto& getRegistry() { return registry_; }
+    auto& getFontCache() { return font_cache_; }
 
   private:
     void checkElementsBoundChanged();
@@ -124,6 +125,11 @@ renderer::ImageRef render() {
 entt::registry& getRegistry() {
     MLE_ASSERT(i_);
     return i_->getRegistry();
+}
+
+FontRef getFont(const std::string& font_name) {
+    MLE_ASSERT(i_);
+    return i_->getFontCache().get(font_name);
 }
 
 }  // namespace mle::ui

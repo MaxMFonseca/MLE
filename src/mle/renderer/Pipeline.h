@@ -6,6 +6,7 @@
 #pragma once
 
 #include "Types.h"
+#include "glm/fwd.hpp"
 #include "mle/common/LiveCounter.h"
 #include "mle/common/math/Types.h"
 
@@ -77,6 +78,9 @@ class Pipeline final : public LiveCounter<Pipeline> {
     /// Returns the pipeline layout used by this pipeline.
     [[nodiscard]] auto getPipelineLayout() const { return pipeline_layout_; }
 
+    [[nodiscard]] bool hasInstance() const { return first_instance_binding_ != max<u8>(); }  ///< Returns true if the pipeline has instance attributes.
+    [[nodiscard]] u8 getFirstInstanceBinding() const { return first_instance_binding_; }     ///< Returns the first instance binding index.
+
     /**
      * @brief Finds a push constant field by name.
      * @param name The name of the field.
@@ -94,5 +98,6 @@ class Pipeline final : public LiveCounter<Pipeline> {
     std::vector<PushConstantField> pc_fields_;  ///< Push constant fields.
     u8 pc_size_ = 0;                            ///< Total size of push constants in bytes.
     u8 pc_frag_offset_ = max<u8>();             ///< Offset to fragment-stage constants (if any).
+    u8 first_instance_binding_ = max<u8>();     ///< First instance binding index.
 };
 }  // namespace mle::renderer
