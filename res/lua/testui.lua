@@ -36,10 +36,10 @@ return {
 			background = "GREEN",
 		},
 		{
-			size_y = 30,
+			size_x = "0.9f",
 
 			background = "BLUE",
-			text = { "... HelloWorld! Now we can render text elements! ...", color = "RED" },
+			text = { "A ... HelloWorld! Now we can render text elements! ... A", color = "RED" },
 		},
 		{
 			size = { 100, 100 },

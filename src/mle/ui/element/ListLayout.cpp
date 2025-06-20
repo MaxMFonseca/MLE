@@ -5,6 +5,7 @@
 #include "mle/ui/UI.h"
 #include "mle/ui/element/Base.h"
 #include "mle/ui/element/Container.h"
+#include "mle/ui/element/Renderable.h"
 
 namespace mle::ui::element {
 void ListLayout::lkhList(entt::entity self, const sol::object& obj) {
@@ -76,7 +77,6 @@ void ListLayout::updateChildrenBoundsY(entt::entity self, Recti content_rect, [[
     cinfos.reserve(children.size());
 
     comp::TargetPadding::addToRect(self, content_rect);
-    MLE_VC(content_rect);
 
     int main_axis_size = 0;
     f32 main_axis_flex_shares = 0.0F;
@@ -120,7 +120,9 @@ void ListLayout::updateChildrenBoundsY(entt::entity self, Recti content_rect, [[
     }
 
     int main_axis_pos = content_rect.top();
-    for (auto& cinfo : cinfos) {
+    for (usize i = 0; i < children.size(); i++) {
+        auto& cinfo = cinfos[i];
+
         if (cinfo.bounds.immutable) {
             continue;
         }
@@ -164,6 +166,8 @@ ListLayout::ChildBuildInfo::ChildBuildInfo(entt::registry& r, entt::entity e, Re
 
     if (const auto* target_aspect_ratio = r.try_get<comp::TargetAspectRatio>(e); target_aspect_ratio) {
         aspect_ratio = target_aspect_ratio->v;
+    } else if (const comp::Renderable* renderable = r.try_get<comp::Renderable>(e); renderable && renderable->aspect_ratio != 0.0F) {
+        aspect_ratio = renderable->aspect_ratio;
     }
 
     if (target_size) {

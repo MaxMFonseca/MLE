@@ -27,7 +27,6 @@ void Pipeline::init(const CI& ci) {
                    "Number of blend attachments must match the number of color attachment formats");
 
     first_instance_binding_ = ci.vertex_shader->getFirstInstanceAttributeLocation();
-    MLE_C(first_instance_binding_);
 
     vk::GraphicsPipelineCreateInfo pipeline_ci;
 

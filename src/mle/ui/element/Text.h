@@ -3,6 +3,7 @@
 #include "mle/common/Utils.h"
 #include "mle/lua/Types.h"
 #include "mle/renderer/Types.h"
+#include "mle/ui/Font.h"
 #include "mle/ui/Types.h"
 #include "mle/ui/element/Renderable.h"
 
@@ -25,6 +26,7 @@ class Text : public RenderableInterface {
     void setWrap(bool wrap = true);
     void setColor(Color color);
     void setText(std::string text);
+    void updateText(entt::entity self);
 
     static void lkh(entt::entity self, const sol::object& o);
 
@@ -37,5 +39,6 @@ class Text : public RenderableInterface {
     u32 text_height_px_ = 0;  // 0 means fit
     Justify justify_ = Justify::LEFT;
     bool wrap_ = false;
+    Font::RenderText render_text_;
 };
 }  // namespace mle::ui::element::comp

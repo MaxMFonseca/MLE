@@ -181,6 +181,7 @@ Font::RenderText Font::makeText(const std::string& text) {
     [[maybe_unused]] char32 last_codepoint = 0;
 
     for (char32 c : text32) {
+        MLE_VC((int)c);
         RenderText::Token& token = ret.tokens.emplace_back();
 
         if (c == U' ') {
@@ -203,13 +204,16 @@ Font::RenderText Font::makeText(const std::string& text) {
         token.texture_idx = glyph.texture_idx;
         token.texture_rect = glyph.texture_rect;
 
+        if (!last_codepoint) {
+            current_x = -glyph.origin.x;
+        }
         if (last_codepoint && last_codepoint != U'\n') {
             int kern = stbtt_GetCodepointKernAdvance(&f_info_, static_cast<int>(last_codepoint), static_cast<int>(c));
             current_x += as<u32>(std::roundf(as<f32>(kern) * scale_));
         }
 
-        token.rect.pos.x = current_x + glyph.lsb;
-        token.rect.pos.y = 0;
+        token.rect.pos.x = current_x + glyph.origin.x;
+        token.rect.pos.y = ascent_ + glyph.origin.y;
         token.rect.size.x = glyph.size.x;
         token.rect.size.y = glyph.size.y;
 
@@ -221,12 +225,5 @@ Font::RenderText Font::makeText(const std::string& text) {
     ret.width = current_x;
     return ret;
 }
-
-// f32 Font::getGlyphKernAdvance(int a, int b) const {
-//     if (a && b) {
-//         return (static_cast<f32>(stbtt_GetGlyphKernAdvance(&font_info_, a, b)) * scale_) / height_;
-//     }
-//     return 0;
-// }
 
 }  // namespace mle::ui

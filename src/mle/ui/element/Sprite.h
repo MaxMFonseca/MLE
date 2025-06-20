@@ -7,7 +7,7 @@ class Sprite : public RenderableInterface {
   public:
     void renderComp(const RenderContext& ctx) const override;
 
-    void setTexture(const std::string& texture_name);
+    void setTexture(entt::entity self, const std::string& texture_name);
 
     void setColor(const sol::object& o);
     void setColor(Color color);

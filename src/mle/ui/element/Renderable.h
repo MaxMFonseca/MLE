@@ -28,11 +28,13 @@ struct Renderable {
     // We have a getter for the interface instead of storing the object cuz Container is a component
     // We cannot have a pointer to a component in a component (invalidation), so we use a reg getter function.
     // Maybe if I change Container?
-    RIGetterFn ri_getter_fn;
+    RIGetterFn ri_getter_fn{};
 
     void render(RenderContext ctx) const;
 
-    static void add(entt::entity e, RIGetterFn getter_fn);
+    static Renderable* add(entt::entity e, RIGetterFn getter_fn);
+
+    f32 aspect_ratio = 0.0F;
 };
 
 struct RootImage {

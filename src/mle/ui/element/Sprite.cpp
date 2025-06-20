@@ -98,9 +98,11 @@ void Sprite::renderComp(const RenderContext& ctx) const {
     ctx.thread->draw(1, 4);
 }
 
-void Sprite::setTexture(const std::string& texture_name) {
+void Sprite::setTexture(entt::entity self, const std::string& texture_name) {
     texture_ = renderer::getTexture(texture_name);
-    getPipeline();
+
+    auto& renderable = getRegistry().get<comp::Renderable>(self);
+    renderable.aspect_ratio = texture_.image->getAspectRatio();
 }
 
 void Sprite::setColor(const sol::object& o) {
@@ -124,13 +126,13 @@ void Sprite::lkh(entt::entity self, const sol::object& o) {
     comp::Renderable::add(self, [](entt::entity self) -> RenderableInterface& { return getRegistry().get<Sprite>(self); });
 
     if (o.is<std::string>()) {
-        comp->setTexture(o.as<std::string>());
+        comp->setTexture(self, o.as<std::string>());
     } else if (o.is<sol::table>()) {
         auto table = o.as<sol::table>();
         std::string texture_name;
         auto lua_get_result = lua::tryGetKeyOrIdx(table, "texture", 1, texture_name);
         MLE_ASSERT(lua_get_result);
-        comp->setTexture(texture_name);
+        comp->setTexture(self, texture_name);
 
         if (const sol::object color_r = table["color"]; color_r.valid()) {
             comp->setColor(color_r);

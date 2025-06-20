@@ -5,6 +5,7 @@
 #include "mle/renderer/Pipeline.h"
 #include "mle/renderer/Renderer.h"
 #include "mle/renderer/Utils.h"
+#include "mle/ui/Types.h"
 #include "mle/ui/UI.h"
 #include "mle/ui/element/Renderable.h"
 
@@ -78,8 +79,6 @@ void initTempStuff() {
 }  // namespace
 
 void Text::renderComp(const RenderContext& ctx) const {
-    auto text = font_->makeText(text_);
-
     struct Char {
         vec2f pos{};
         vec2f size{};
@@ -92,18 +91,18 @@ void Text::renderComp(const RenderContext& ctx) const {
     };
 
     std::vector<Char> chars;
-    chars.reserve(text.char_count);
+    chars.reserve(render_text_.char_count);
 
-    for (auto c : text.tokens) {
+    for (auto c : render_text_.tokens) {
         if (c.type != Font::RenderText::Token::Type::CHAR) {
             continue;
         }
 
         Char ch{};
-        ch.size.x = (as<f32>(c.rect.size.x) / as<f32>(text.width));
+        ch.size.x = (as<f32>(c.rect.size.x) / as<f32>(render_text_.width));
         ch.size.y = (as<f32>(c.rect.size.y) / as<f32>(font_->getHeight()));
 
-        ch.pos.x = (as<f32>(c.rect.pos.x) / as<f32>(text.width));
+        ch.pos.x = (as<f32>(c.rect.pos.x) / as<f32>(render_text_.width));
         ch.pos.y = (as<f32>(c.rect.pos.y) / as<f32>(font_->getHeight()));
 
         ch.color = color_;
@@ -123,7 +122,7 @@ void Text::renderComp(const RenderContext& ctx) const {
     }
 
     renderer::Buffer::CI instance_buffer_ci;
-    instance_buffer_ci.size = sizeof(Char) * text.char_count;
+    instance_buffer_ci.size = sizeof(Char) * render_text_.char_count;
     instance_buffer_ci.usage = vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst;
     instance_buffer_ci.allocation_type = renderer::Buffer::CI::AllocationType::GPU_ONLY_HOST_WRITE_SEQ;
     auto instance_buffer = renderer::Buffer::createHnd(instance_buffer_ci);
@@ -133,7 +132,7 @@ void Text::renderComp(const RenderContext& ctx) const {
     ctx.thread->bindInstanceBuffer(instance_buffer.get());
     renderer::bindTexturesDSet(*ctx.thread);
     ctx.thread->bindDescriptorSet(dset_sampler_, 1);
-    ctx.thread->draw(as<int>(text.char_count), 4);
+    ctx.thread->draw(as<int>(render_text_.char_count), 4);
 
     renderer::deleteAfterFrame(std::move(instance_buffer));
 }
@@ -163,6 +162,12 @@ void Text::setText(std::string text) {
     if (text_.empty()) {
         text_ = "<>";
     }
+}
+
+void Text::updateText(entt::entity self) {
+    render_text_ = font_->makeText(text_);
+    auto& renderable = getRegistry().get<comp::Renderable>(self);
+    renderable.aspect_ratio = static_cast<f32>(render_text_.width) / static_cast<f32>(font_->getHeight());
 }
 
 void Text::lkh(entt::entity self, const sol::object& o) {
@@ -222,6 +227,8 @@ void Text::lkh(entt::entity self, const sol::object& o) {
     } else {
         MLE_UNREACHABLE_LOG("Unexpected object type for Sprite: {}", o.get_type());
     }
+
+    comp->updateText(self);
 }
 
 renderer::PipelineRef Text::getPipeline() {

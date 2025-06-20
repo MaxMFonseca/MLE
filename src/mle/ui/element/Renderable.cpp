@@ -46,13 +46,14 @@ void Renderable::render(RenderContext ctx) const {
     }
 }
 
-void Renderable::add(entt::entity e, RIGetterFn getter_fn) {
+Renderable* Renderable::add(entt::entity e, RIGetterFn getter_fn) {
     auto& reg = getRegistry();
     auto* comp = reg.try_get<comp::Renderable>(e);
     if (!comp) {
         comp = &reg.emplace<comp::Renderable>(e);
     }
     comp->ri_getter_fn = getter_fn;
+    return comp;
 }
 
 void RootImage::lkh(entt::entity self, const sol::object& o) {

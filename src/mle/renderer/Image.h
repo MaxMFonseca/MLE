@@ -142,6 +142,8 @@ class Image final : LiveCounter<Image> {
     static int getFormatChannelCount(vk::Format format);
     static vk::Format getDefaultFormatForChannelCount(int c);
 
+    [[nodiscard]] f32 getAspectRatio() const { return static_cast<f32>(extent_.x) / static_cast<f32>(extent_.y); }
+
     struct FileInfo {
         vec2i extent;
         int channels;
