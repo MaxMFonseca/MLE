@@ -118,8 +118,6 @@ void RenderingThread::endRendering() {
 
 void RenderingThread::setViewport(const Rectf& viewport) const {
     MLE_ASSERT(in_rendering_);
-    MLE_ASSERT_LOG(viewport.size.x >= 0.0F && viewport.size.y >= 0.0F, "Viewport size must be non-negative");
-    MLE_ASSERT_LOG(viewport.pos.x >= 0.0F && viewport.pos.y >= 0.0F, "Viewport position must be non-negative");
     MLE_T("Setting viewport: pos = {}, size = {}", viewport.pos, viewport.size);
 
     vk::Viewport vv{};
@@ -145,6 +143,14 @@ void RenderingThread::setViewport(const Rectf& viewport) const {
     scissor.offset.y = static_cast<int>(viewport.pos.y);
     scissor.extent.width = static_cast<u32>(vv.width);
     scissor.extent.height = static_cast<u32>(vv.height);
+    if (scissor.offset.x < 0) {
+        scissor.extent.width += scissor.offset.x;
+        scissor.offset.x = 0;
+    }
+    if (scissor.offset.y < 0) {
+        scissor.extent.height += scissor.offset.y;
+        scissor.offset.y = 0;
+    }
 
     cmd_.setViewport(0, {vv});
     cmd_.setScissor(0, scissor);

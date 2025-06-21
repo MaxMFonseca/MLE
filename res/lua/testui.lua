@@ -27,7 +27,8 @@ return {
 		{
 			size = { 100, ".1f" },
 			-- margin = { b = 100 },
-			background = "GREEN",
+			background = "RED",
+			origin = "c",
 		},
 		{
 			size_x = "0.9f",
@@ -62,6 +63,20 @@ return {
 			sprite = {
 				"star.png",
 				color = "NQW",
+			},
+		},
+		{
+			pos = { "100%", 0 },
+			origin = "rt",
+			size_x = 100,
+			size_y = "70%",
+			background = "NQW",
+
+			c = {
+				{
+					size = { "10%", "0.8f" },
+					background = "BLUE",
+				},
 			},
 		},
 		-- {

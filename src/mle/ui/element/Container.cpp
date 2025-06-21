@@ -54,8 +54,6 @@ ChildBuildInfo::ChildBuildInfo(entt::registry& r, entt::entity e, Recti parent_r
         aspect_ratio = renderable->getAspectRatio();
     }
 
-    MLE_VC(aspect_ratio);
-
     if (target_size) {
         switch (target_size->x.type) {
             case BType::DEFAULT:
@@ -262,11 +260,11 @@ void Container::updateChildrenBounds(entt::entity self, Recti context, bool veri
     auto& bounds = getRegistry().get<comp::Bounds>(self).bounds;
 
     if (!isFitX(self)) {
-        context.pos.x = bounds.top();
+        context.pos.x = bounds.left();
         context.size.x = bounds.width();
     }
     if (!isFitY(self)) {
-        context.pos.y = bounds.left();
+        context.pos.y = bounds.top();
         context.size.y = bounds.height();
     }
 
@@ -453,6 +451,11 @@ void Container::updateChildrenBoundsCol(entt::entity self, Recti content_rect) {
                 updateChildrenBoundsColCross(cinfo, content_rect);
             }
 
+            if (cinfo.origin) {
+                cinfo.bounds.bounds.pos.x -= as<int>(cinfo.origin->origin.x * as<f32>(cinfo.bounds.bounds.size.x));
+                cinfo.bounds.bounds.pos.y -= as<int>(cinfo.origin->origin.y * as<f32>(cinfo.bounds.bounds.size.y));
+            }
+
             changed_entities.emplace(children[i]);
         }
     }
@@ -577,10 +580,24 @@ void Container::updateChildrenBoundsCol(entt::entity self, Recti content_rect) {
             }
         }
 
+        cinfo.bounds.bounds.pos.x += content_rect.pos.x;
+        cinfo.bounds.bounds.pos.y += content_rect.pos.y;
+
+        if (cinfo.origin) {
+            cinfo.bounds.bounds.pos.x -= as<int>(cinfo.origin->origin.x * as<f32>(cinfo.bounds.bounds.size.x));
+            cinfo.bounds.bounds.pos.y -= as<int>(cinfo.origin->origin.y * as<f32>(cinfo.bounds.bounds.size.y));
+        }
+
         changed_entities.emplace(children[i]);
+    }
+
+    for (auto e : changed_entities) {
+        auto* e_container = reg.try_get<Container>(e);
+        if (e_container) {
+            e_container->updateChildrenBounds(e, content_rect, false, true);
+        }
     }
 
     changed_bounds_children_.clear();
 }
-
 }  // namespace mle::ui::element::comp

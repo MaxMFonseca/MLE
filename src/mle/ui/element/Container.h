@@ -50,7 +50,7 @@ class Container : public RenderableInterface {
     enum class Justify : u8 { START, END, CENTER, SPACE_BETWEEN, SPACE_AROUND, SPACE_EVENLY };
     enum class AlignCross : u8 { START, END, CENTER, STRETCH, BASELINE };
 
-    Direction direction_ = Direction::ROW;
+    Direction direction_ = Direction::COL;
     Justify justify_ = Justify::START;
     AlignCross align_cross_ = AlignCross::START;
 
