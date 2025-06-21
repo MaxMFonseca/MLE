@@ -96,6 +96,18 @@ class Image final : LiveCounter<Image> {
     void update(vk::CommandBuffer cmd, BufferRef buffer, Rectu rect) { update(cmd, buffer, {rect.size.x, rect.size.y}, {rect.pos.x, rect.pos.y}); }
 
     /**
+     * @brief Performs a copy operation from another image.
+     *
+     * Copies a region of one image into this image.
+     *
+     * @param cmd Command buffer to record the copy.
+     * @param src Source image.
+     * @param src_rect Region of the source image to read from.
+     * @param dst_rect Region of this image to write into.
+     */
+    void updateCopy(vk::CommandBuffer cmd, ImageRef src, Recti src_rect = {}, Recti dst_rect = {});
+
+    /**
      * @brief Performs a blit operation from another image.
      *
      * Copies a region of one image into this image.

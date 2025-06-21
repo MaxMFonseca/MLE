@@ -4,6 +4,7 @@
 #include <vulkan/vulkan_core.h>
 
 #include <vulkan/vulkan_enums.hpp>
+#include <vulkan/vulkan_handles.hpp>
 #include <vulkan/vulkan_structs.hpp>
 
 #include "Renderer.h"
@@ -144,6 +145,52 @@ void Image::update(vk::CommandBuffer cmd, BufferRef buffer, vec2i extent, vec2i 
     region.imageExtent = vk::Extent3D{static_cast<u32>(extent.x), static_cast<u32>(extent.y), 1};
 
     cmd.copyBufferToImage(buffer->get(), o_, vk::ImageLayout::eTransferDstOptimal, region);
+}
+
+void Image::updateCopy(vk::CommandBuffer cmd, ImageRef src, Recti src_rect, Recti dst_rect) {
+    if (src_rect.size.x == 0) {
+        src_rect.size.x = src->getExtent().x - src_rect.pos.x;
+    }
+    if (src_rect.size.y == 0) {
+        src_rect.size.y = src->getExtent().y - src_rect.pos.y;
+    }
+    if (dst_rect.size.x == 0) {
+        dst_rect.size.x = extent_.x - dst_rect.pos.x;
+    }
+    if (dst_rect.size.y == 0) {
+        dst_rect.size.y = extent_.y - dst_rect.pos.y;
+    }
+
+    vk::ImageCopy2 region = {};
+    region.srcSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
+    region.srcSubresource.mipLevel = 0;
+    region.srcSubresource.baseArrayLayer = 0;
+    region.srcSubresource.layerCount = 1;
+    region.srcOffset = vk::Offset3D{src_rect.pos.x, src_rect.pos.y, 0};
+
+    region.dstSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
+    region.dstSubresource.mipLevel = 0;
+    region.dstSubresource.baseArrayLayer = 0;
+    region.dstSubresource.layerCount = 1;
+    region.dstOffset = vk::Offset3D{dst_rect.pos.x, dst_rect.pos.y, 0};
+
+    region.extent = vk::Extent3D{
+        static_cast<uint32_t>(src_rect.size.x),
+        static_cast<uint32_t>(src_rect.size.y),
+        1,
+    };
+
+    vk::CopyImageInfo2 copy_info = {};
+    copy_info.srcImage = src->get();
+    copy_info.dstImage = o_;
+    copy_info.srcImageLayout = vk::ImageLayout::eTransferSrcOptimal;
+    copy_info.dstImageLayout = vk::ImageLayout::eTransferDstOptimal;
+    copy_info.setRegions(region);
+
+    src->transitionState(cmd, State::TRANSFER_SRC);
+    transitionState(cmd, State::TRANSFER_DST);
+
+    cmd.copyImage2(copy_info);
 }
 
 void Image::updateBlit(vk::CommandBuffer cmd, ImageRef src, Recti src_rect, Recti dst_rect) {
