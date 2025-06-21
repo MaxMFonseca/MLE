@@ -91,4 +91,9 @@ FrameRenderer& getFrameRenderer();            ///< Returns the frame renderer in
 void waitIdle();                              ///< Waits for the Vulkan device to become idle, ensuring all operations are complete.
 vk::CommandBuffer getFramePrimaryCmd();
 }  // namespace detail
+
+template <typename T>
+void destroy(T t) {
+    detail::getDevice().destroy(t);
+}
 }  // namespace mle::renderer
