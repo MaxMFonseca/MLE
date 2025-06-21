@@ -134,6 +134,8 @@ struct Rect {
 
     /// Returns a rectangle with the same position and size, but with floating-point precision.
     [[nodiscard]] constexpr Rect<f32> asF32() const { return {as<f32>(pos.x), as<f32>(pos.y), as<f32>(size.x), as<f32>(size.y)}; }
+    /// Returns a rectangle with the same position and size, but with int precision
+    [[nodiscard]] constexpr Rect<i32> asI32() const { return {as<i32>(pos.x), as<i32>(pos.y), as<i32>(size.x), as<i32>(size.y)}; }
 };
 
 /**
