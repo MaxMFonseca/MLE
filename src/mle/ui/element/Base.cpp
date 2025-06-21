@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <vulkan/vulkan_enums.hpp>
 
+#include "Container.h"
 #include "mle/common/Assert.h"
 #include "mle/common/Utils.h"
 #include "mle/lua/Utils.h"
@@ -194,6 +195,11 @@ void TargetBound::fromLua(const sol::object& obj) {
         return;
     }
     MLE_UNREACHABLE_LOG("Unexpected obj type for TargetBound: {}", obj.get_type());
+}
+
+Container& Parent::container(entt::entity self) {
+    auto& reg = getRegistry();
+    return reg.get<Container>(reg.get<Parent>(self).parent);
 }
 
 renderer::PipelineRef Background::getPipeline() {

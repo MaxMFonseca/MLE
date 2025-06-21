@@ -299,6 +299,69 @@ void origin(entt::entity self, const sol::object& obj) {
     }
 }
 
+void rel(entt::entity self, const sol::object& obj) {
+    auto& reg = getRegistry();
+
+    auto* comp = reg.try_get<comp::TargetRelations>(self);
+    if (!comp) {
+        comp = &reg.emplace<comp::TargetRelations>(self);
+    }
+
+    auto& parent = comp::Parent::container(self);
+
+    auto table = lua::as<sol::table>(obj);
+    for (const auto& [_, v] : table) {
+        auto str = lua::as<std::string>(v);
+        auto ss = split(str, ':');
+
+        if (ss.size() != 3) {
+            MLE_W("Invalid relation format: '{}'. Expected format is 'type:target:offset'.", str);
+            continue;
+        }
+
+        comp::TargetRelations::Dep dep;
+        comp::TargetRelations::Dep dep2;
+        bool duo_dep = false;
+
+        if (ss[0] == "pos_x") {
+            dep.type = comp::TargetRelations::Dep::Type::POS_X;
+        } else if (ss[0] == "pos_y") {
+            dep.type = comp::TargetRelations::Dep::Type::POS_Y;
+        } else if (ss[0] == "size_x") {
+            dep.type = comp::TargetRelations::Dep::Type::SIZE_X;
+        } else if (ss[0] == "size_y") {
+            dep.type = comp::TargetRelations::Dep::Type::SIZE_Y;
+        } else if (ss[0] == "pos") {
+            dep.type = comp::TargetRelations::Dep::Type::POS_X;
+            dep2.type = comp::TargetRelations::Dep::Type::POS_Y;
+            duo_dep = true;
+        } else if (ss[0] == "size") {
+            dep.type = comp::TargetRelations::Dep::Type::SIZE_X;
+            dep2.type = comp::TargetRelations::Dep::Type::SIZE_Y;
+            duo_dep = true;
+        }
+
+        dep2.e = dep.e = parent.getChild(ss[1]);
+        if (dep.e == entt::null) {
+            MLE_W("Invalid relation. Target {} not found on parent.", ss[1]);
+            continue;
+        }
+
+        if (std::isdigit(ss[2][0]) || ss[2][0] == '.') {
+            dep2.val = dep.val = std::stof(ss[2]);
+        } else {
+            auto v = stringToOrigin(ss[2]);
+            dep.val = v.x;
+            dep2.val = v.y;
+        }
+
+        comp->v.emplace_back(dep);
+        if (duo_dep) {
+            comp->v.emplace_back(dep2);
+        }
+    }
+}
+
 void aspectRatio(entt::entity self, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
     auto& reg = getRegistry();
@@ -357,6 +420,7 @@ void addEngineLuaKeyHandlers() {
     addLuaKeyHandler("origin", origin);
     addLuaKeyHandler("aspect_ratio", aspectRatio);
     addLuaKeyHandler("background", background);
+    addLuaKeyHandler("rel", rel);
     addLuaKeyHandler("children", comp::Container::lkh);
     addLuaKeyHandler("container", comp::Container::lkh);
     addLuaKeyHandler("c", comp::Container::lkh);

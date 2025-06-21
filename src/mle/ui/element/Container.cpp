@@ -1,5 +1,6 @@
 #include "Container.h"
 
+#include "mle/common/Assert.h"
 #include "mle/lua/Utils.h"
 #include "mle/renderer/RenderingThread.h"
 #include "mle/ui/Types.h"
@@ -17,9 +18,8 @@ struct ChildBuildInfo {
     const comp::TargetSize* target_size;
     const comp::TargetPosition* target_position;
     const comp::TargetMargin* target_margin;
-    const comp::Dependencies* dependencies;
-    // const comp::TargetPadding* target_padding;
-    // const comp::Origin* origin;
+    const comp::TargetRelations* target_relations;
+    const comp::Origin* origin;
 
     struct {
         int t{}, b{}, l{}, r{};
@@ -37,9 +37,9 @@ ChildBuildInfo::ChildBuildInfo(entt::registry& r, entt::entity e, Recti parent_r
     target_size(bounds.immutable ? nullptr : r.try_get<comp::TargetSize>(e)),
     target_position(bounds.immutable ? nullptr : r.try_get<comp::TargetPosition>(e)),
     target_margin(bounds.immutable ? nullptr : r.try_get<comp::TargetMargin>(e)),
-    dependencies(bounds.immutable ? nullptr : r.try_get<comp::Dependencies>(e))
-//
-{
+    target_relations(bounds.immutable ? nullptr : r.try_get<comp::TargetRelations>(e)),
+    origin(bounds.immutable ? nullptr : r.try_get<comp::Origin>(e)) {
+    //
     using BType = comp::TargetBound::Type;
 
     if (bounds.immutable) {
@@ -217,6 +217,29 @@ void Container::update(entt::entity self, const sol::object& obj) {
     addChildren(self, table);
 }
 
+entt::entity Container::getChild(const std::string& name) const {
+    auto children = getChildren();
+    auto it = std::ranges::find_if(children, [name](entt::entity e) {
+        auto* namec = getRegistry().try_get<Name>(e);
+        return namec && namec->name == name;
+    });
+    if (it == children.end()) {
+        MLE_W("Container: No child with name '{}'", name);
+        return entt::null;
+    }
+    return *it;
+}
+
+usize Container::getChildIdx(entt::entity child) const {
+    auto children = getChildren();
+    auto it = std::ranges::find(children, child);
+    if (it == children.end()) {
+        MLE_W("Container: No child with entity {}", child);
+        return max<usize>();
+    }
+    return std::distance(children.begin(), it);
+}
+
 void Container::addChildren(entt::entity self, const sol::table& table) {
     for (const auto& [key, val] : table) {
         if (key.is<std::string>()) {
@@ -368,7 +391,7 @@ void Container::updateChildrenBoundsCol(entt::entity self, Recti content_rect) {
 
         for (usize i = 0; i < children.size(); i++) {
             auto& cinfo = cinfos[i];
-            if (cinfo.bounds.immutable || cinfo.target_position) {
+            if (cinfo.bounds.immutable || cinfo.target_position || cinfo.target_relations) {
                 continue;
             }
 
@@ -407,7 +430,7 @@ void Container::updateChildrenBoundsCol(entt::entity self, Recti content_rect) {
         for (usize i = 0; i < children.size(); i++) {
             auto& cinfo = cinfos[i];
 
-            if (cinfo.bounds.immutable || cinfo.target_position) {
+            if (cinfo.bounds.immutable || cinfo.target_position || cinfo.target_relations) {
                 continue;
             }
 
@@ -438,12 +461,13 @@ void Container::updateChildrenBoundsCol(entt::entity self, Recti content_rect) {
     for (usize i = 0; i < children.size(); i++) {
         auto& cinfo = cinfos.at(i);
 
-        if (!cinfo.target_position || cinfo.bounds.immutable) {
+        if (cinfo.bounds.immutable || cinfo.bounds.bounds.size.x != 0) {
             continue;
         }
+
         bool need_update = changed_bounds_children_.contains(children[i]);
-        if (cinfo.dependencies) {
-            for (auto v : cinfo.dependencies->v) {
+        if (cinfo.target_relations) {
+            for (auto v : cinfo.target_relations->v) {
                 need_update |= changed_bounds_children_.contains(v.e);
             }
         }
@@ -451,19 +475,36 @@ void Container::updateChildrenBoundsCol(entt::entity self, Recti content_rect) {
             continue;
         }
 
+        if (cinfo.target_relations) {
+            for (const auto& r : cinfo.target_relations->v) {
+                auto eidx = getChildIdx(r.e);
+                MLE_ASSERT(eidx != max<usize>() && eidx < i);
+                auto& target_bounds = cinfos[eidx].bounds.bounds;
+                if (r.type == TargetRelations::Dep::Type::SIZE_X) {
+                    cinfo.bounds.bounds.size.x = as<int>(r.val) * target_bounds.size.x;
+                } else if (r.type == TargetRelations::Dep::Type::SIZE_Y) {
+                    cinfo.bounds.bounds.size.y = as<int>(r.val) * target_bounds.size.y;
+                } else if (r.type == TargetRelations::Dep::Type::POS_X) {
+                    cinfo.bounds.bounds.pos.x = target_bounds.pos.x + as<int>(r.val) * target_bounds.size.x;
+                } else if (r.type == TargetRelations::Dep::Type::POS_Y) {
+                    cinfo.bounds.bounds.pos.y = target_bounds.pos.y + as<int>(r.val) * target_bounds.size.y;
+                }
+            }
+        }
+
         if (cinfo.target_size) {
             switch (cinfo.target_size->x.type) {
                 using Type = TargetBound::Type;
                 case Type::DEFAULT:
                 case Type::PX: {
-                    cinfo.bounds.bounds.size.x = as<int>(cinfo.target_size->x.val);
+                    cinfo.bounds.bounds.size.x += as<int>(cinfo.target_size->x.val);
                 } break;
                 case Type::PARENT: {
-                    cinfo.bounds.bounds.size.x = as<int>(cinfo.target_size->x.val * as<f32>(content_rect.width()));
+                    cinfo.bounds.bounds.size.x += as<int>(cinfo.target_size->x.val * as<f32>(content_rect.width()));
                 } break;
                 case Type::FIT: {
                     MLE_ASSERT(cinfo.target_position->x.type == Type::DEFAULT || cinfo.target_position->x.type == Type::PX);
-                    cinfo.bounds.bounds.size.x = content_rect.width() - as<int>(cinfo.target_position->x.val);
+                    cinfo.bounds.bounds.size.x += content_rect.width() - as<int>(cinfo.target_position->x.val);
                 } break;
                 case Type::SELF_H:
                 case Type::SELF:
@@ -472,19 +513,19 @@ void Container::updateChildrenBoundsCol(entt::entity self, Recti content_rect) {
                     MLE_UNREACHABLE_LOG("Unexpected target size type: {}", cinfo.target_size->x.type);
                 }
             }
+
             switch (cinfo.target_size->y.type) {
                 using Type = TargetBound::Type;
                 case Type::DEFAULT:
                 case Type::PX: {
-                    cinfo.bounds.bounds.size.y = as<int>(cinfo.target_size->y.val);
+                    cinfo.bounds.bounds.size.y += as<int>(cinfo.target_size->y.val);
                 } break;
                 case Type::PARENT: {
-                    cinfo.bounds.bounds.size.y = as<int>(cinfo.target_size->y.val * as<f32>(content_rect.height()));
+                    cinfo.bounds.bounds.size.y += as<int>(cinfo.target_size->y.val * as<f32>(content_rect.height()));
                 } break;
                 case Type::FIT: {
                     MLE_ASSERT(cinfo.target_position->y.type == Type::DEFAULT || cinfo.target_position->y.type == Type::PX);
-                    cinfo.bounds.bounds.size.y = content_rect.height() - as<int>(cinfo.target_position->y.val);
-                    MLE_C("HITHIWjnk");
+                    cinfo.bounds.bounds.size.y += content_rect.height() - as<int>(cinfo.target_position->y.val);
                 } break;
                 case Type::SELF_W:
                 case Type::SELF:
@@ -493,18 +534,15 @@ void Container::updateChildrenBoundsCol(entt::entity self, Recti content_rect) {
                     MLE_UNREACHABLE_LOG("Unexpected target size type: {}", cinfo.target_size->y.type);
                 }
             }
+        }
 
-            MLE_VC(cinfo.aspect_ratio);
-            if (cinfo.bounds.bounds.size.x == 0 && cinfo.aspect_ratio != 0) {
-                cinfo.bounds.bounds.size.x = as<int>(as<f32>(cinfo.bounds.bounds.size.y) * cinfo.aspect_ratio);
-                MLE_C("aHITHIWjnk");
-            } else if (cinfo.bounds.bounds.size.y == 0 && cinfo.aspect_ratio != 0) {
-                cinfo.bounds.bounds.size.y = as<int>(as<f32>(cinfo.bounds.bounds.size.x) / cinfo.aspect_ratio);
-                MLE_C("bHITHIWjnk");
-            }
+        if (cinfo.bounds.bounds.size.x == 0 && cinfo.aspect_ratio != 0) {
+            cinfo.bounds.bounds.size.x = as<int>(as<f32>(cinfo.bounds.bounds.size.y) * cinfo.aspect_ratio);
+        } else if (cinfo.bounds.bounds.size.y == 0 && cinfo.aspect_ratio != 0) {
+            cinfo.bounds.bounds.size.y = as<int>(as<f32>(cinfo.bounds.bounds.size.x) / cinfo.aspect_ratio);
+        }
 
-            MLE_ASSERT(cinfo.bounds.bounds.size.x >= 0 && cinfo.bounds.bounds.size.y >= 0);
-        } else {
+        if (cinfo.bounds.bounds.size.x == 0 || cinfo.bounds.bounds.size.y == 0) {
             auto* renderable = reg.try_get<comp::Renderable>(children[i]);
             if (!renderable) {
                 MLE_TODO;
@@ -512,8 +550,32 @@ void Container::updateChildrenBoundsCol(entt::entity self, Recti content_rect) {
             cinfo.bounds.bounds.size = renderable->getSize();
         }
 
-        cinfo.bounds.bounds.pos.x = as<int>(cinfo.target_position->x.val);
-        cinfo.bounds.bounds.pos.y = as<int>(cinfo.target_position->y.val);
+        MLE_ASSERT(cinfo.bounds.bounds.size.x >= 0 && cinfo.bounds.bounds.size.y >= 0);
+
+        if (cinfo.target_position) {
+            switch (cinfo.target_position->x.type) {
+                case TargetBound::Type::DEFAULT:
+                case TargetBound::Type::PX: {
+                    cinfo.bounds.bounds.pos.x += as<int>(cinfo.target_position->x.val);
+                } break;
+                case TargetBound::Type::PARENT: {
+                    cinfo.bounds.bounds.pos.x += as<int>(cinfo.target_position->x.val * as<f32>(content_rect.width()));
+                } break;
+                default:
+                    MLE_UNREACHABLE_LOG("Unexpected target position type: {}", cinfo.target_position->x.type);
+            }
+            switch (cinfo.target_position->y.type) {
+                case TargetBound::Type::DEFAULT:
+                case TargetBound::Type::PX: {
+                    cinfo.bounds.bounds.pos.y += as<int>(cinfo.target_position->y.val);
+                } break;
+                case TargetBound::Type::PARENT: {
+                    cinfo.bounds.bounds.pos.y += as<int>(cinfo.target_position->y.val * as<f32>(content_rect.height()));
+                } break;
+                default:
+                    MLE_UNREACHABLE_LOG("Unexpected target position type: {}", cinfo.target_position->y.type);
+            }
+        }
 
         changed_entities.emplace(children[i]);
     }

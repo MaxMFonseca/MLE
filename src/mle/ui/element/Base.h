@@ -40,8 +40,10 @@ struct Bounds {
     Recti bounds{};
     bool immutable = false;  // static would be a better name, but it is reserved
 };
+class Container;
 struct Parent {
     entt::entity parent = entt::null;
+    static Container& container(entt::entity self);
 };
 struct Name {
     std::string name;
@@ -126,12 +128,13 @@ struct TargetAspectRatio {
 struct Wrappapble {
     // TODO:
 };
-struct Dependencies {
-    struct Dependency {
-        entt::entity e;
-        // How?
+struct TargetRelations {
+    struct Dep {
+        f32 val = 0;
+        entt::entity e{};
+        enum class Type : u8 { POS_X, POS_Y, SIZE_X, SIZE_Y } type{};
     };
-    std::vector<Dependency> v;
+    std::vector<Dep> v{};
 };
 }  // namespace comp
 }  // namespace mle::ui::element

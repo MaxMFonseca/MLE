@@ -32,9 +32,10 @@ class Container : public RenderableInterface {
 
     void addChild(entt::entity self, const sol::table& table, usize pos = max<usize>());
     void addChildren(entt::entity self, const sol::table& table);
-    auto getChildren() { return children_.get(); }
+    [[nodiscard]] auto getChildren() const { return children_.get(); }
     [[nodiscard]] entt::entity getChild(usize idx) const;
-    [[nodiscard]] entt::entity getChild(std::string name) const;
+    [[nodiscard]] entt::entity getChild(const std::string& name) const;
+    [[nodiscard]] usize getChildIdx(entt::entity) const;
 
     static void notifyChildChangedBounds(entt::entity child);
     static void notifyChildChangedBounds(entt::entity self, entt::entity child);

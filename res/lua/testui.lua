@@ -20,21 +20,6 @@ return {
 			},
 		},
 		{
-			-- size = { "1f", "1f" }, {0,DEFAULT} BEHAVIOR FOR LIST CONTAINER
-			-- aspect_ratio = 1,
-
-			pos = { 100, 100 },
-			size = { "10%", "s" },
-
-			sprite = {
-				"star.png",
-				color = "NQB",
-			},
-
-			-- margin = { b = 100 },
-			background = "GREEN",
-		},
-		{
 			size = { 100, "1f" },
 			-- margin = { b = 100 },
 			background = "GREEN",
@@ -54,6 +39,30 @@ return {
 			size = { 100, 100 },
 			-- margin = { t = 100, l = 200 },
 			background = "MAGENTA",
+		},
+		{
+			"star",
+
+			pos = { 100, 100 },
+			size = { "10%", "s" },
+
+			sprite = {
+				"star.png",
+				color = "NQB",
+			},
+
+			-- margin = { b = 100 },
+			background = "GREEN",
+		},
+		{
+			pos = { 20, 20 },
+			rel = { "size_x:star:1", "pos:star:br" },
+			-- size = {},
+			-- size_r = {},
+			sprite = {
+				"star.png",
+				color = "NQW",
+			},
 		},
 		-- {
 		-- 	"background",
