@@ -225,7 +225,7 @@ void Text::lkh(entt::entity self, const sol::object& o) {
         }
 
     } else {
-        MLE_UNREACHABLE_LOG("Unexpected object type for Sprite: {}", o.get_type());
+        MLE_UNREACHABLE_LOG("Unexpected object type for Text: {}", o.get_type());
     }
 
     comp->updateText(self);

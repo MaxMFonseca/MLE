@@ -16,20 +16,48 @@ return {
 			pos = { "50%", "6%" },
 			origin = "ct",
 			size_y = 256,
-			blur = true,
+			-- blur = true,
 			text = {
 				"Hello MAX!",
-				color = "WHITE",
+				color = "BLACK",
 			},
 		},
 		{
 			rel = { "pos:title:cb" },
 			pos_y = 60,
 			origin = "ct",
-			size_x = "30%",
-			aspect_ratio = 1,
+			-- size_y = "50%",
 			-- background = "NQW",
 			blur = true,
+
+			c = {
+				align = "center",
+				-- gap = 10,
+				{
+					text = { "Single Player" },
+					-- blur = true,
+				},
+				{
+					text = { "Multiplayer" },
+					-- blur = true,
+				},
+				{
+					text = { "Achievements" },
+					-- blur = true,
+				},
+				{
+					text = { "TexturePacks" },
+					-- blur = true,
+				},
+				{
+					text = { "Settings" },
+					-- blur = true,
+				},
+				{
+					text = { "Exit" },
+					-- blur = true,
+				},
+			},
 		},
 	},
 	-- c = {

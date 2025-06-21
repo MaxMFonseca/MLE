@@ -2,6 +2,7 @@
 
 #include "../Types.h"
 #include "mle/common/Utils.h"
+#include "mle/common/math/Types.h"
 #include "mle/lua/Types.h"
 #include "mle/renderer/RenderingThread.h"
 #include "mle/ui/Utils.h"
@@ -26,6 +27,9 @@ class Container : public RenderableInterface {
     void updateChildrenBoundsRow(entt::entity self, Recti context);
     void updateChildrenBoundsColR(entt::entity self, Recti context);
     void updateChildrenBoundsRowR(entt::entity self, Recti context);
+
+    void moveChildren(vec2i v);
+    void alignChildren(vec2i axis);
 
     void update();
     void renderComp(const RenderContext& ctx) const override;

@@ -35,7 +35,7 @@ class Text : public RenderableInterface {
   private:
     std::string text_;
     FontRef font_{};
-    Color color_{};
+    Color color_ = Color::WHITE;
     u32 text_height_px_ = 0;  // 0 means fit
     Justify justify_ = Justify::LEFT;
     bool wrap_ = false;

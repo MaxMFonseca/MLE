@@ -1,6 +1,9 @@
 #include "Container.h"
 
+#include <algorithm>
+
 #include "mle/common/Assert.h"
+#include "mle/common/math/Types.h"
 #include "mle/lua/Utils.h"
 #include "mle/renderer/RenderingThread.h"
 #include "mle/ui/Types.h"
@@ -8,6 +11,7 @@
 #include "mle/ui/element/Base.h"
 #include "mle/ui/element/Renderable.h"
 #include "sol/function_types_templated.hpp"
+#include "sol/types.hpp"
 
 namespace mle::ui::element::comp {
 namespace {
@@ -212,6 +216,24 @@ void Container::update(entt::entity self, const sol::object& obj) {
         }
     }
 
+    if (const auto align_r = table["align"]; align_r.valid()) {
+        MLE_ASSERT(align_r.is<std::string>());
+        auto align_str = toLower(align_r.get<std::string>());
+        if (align_str == "start") {
+            align_cross_ = AlignCross::START;
+        } else if (align_str == "end") {
+            align_cross_ = AlignCross::END;
+        } else if (align_str == "center") {
+            align_cross_ = AlignCross::CENTER;
+        } else if (align_str == "stretch") {
+            align_cross_ = AlignCross::STRETCH;
+        } else if (align_str == "baseline") {
+            align_cross_ = AlignCross::BASELINE;
+        } else {
+            MLE_UNREACHABLE_LOG("Unexpected align string: {}", align_str);
+        }
+    }
+
     addChildren(self, table);
 }
 
@@ -261,11 +283,14 @@ void Container::addChild(entt::entity self, const sol::table& table, [[maybe_unu
 void Container::updateChildrenBounds(entt::entity self, Recti context, bool verify_all, bool force_update) {  // NOLINT
     auto& bounds = getRegistry().get<comp::Bounds>(self).bounds;
 
-    if (!isFitX(self)) {
+    bool is_fit_x = isFitX(self);
+    bool is_fit_y = isFitY(self);
+
+    if (!is_fit_x) {
         context.pos.x = bounds.left();
         context.size.x = bounds.width();
     }
-    if (!isFitY(self)) {
+    if (!is_fit_y) {
         context.pos.y = bounds.top();
         context.size.y = bounds.height();
     }
@@ -296,6 +321,30 @@ void Container::updateChildrenBounds(entt::entity self, Recti context, bool veri
             }
         }
     }
+
+    if (is_fit_x) {
+        auto left = context.right();
+        auto right = 0;
+        for (auto c : children_.get()) {
+            auto child_bounds = getRegistry().get<comp::Bounds>(c).bounds;
+            left = std::min(child_bounds.left(), left);
+            right = std::max(child_bounds.right(), right);
+        }
+        context.size.x = right - left;
+    }
+    if (is_fit_y) {
+        auto top = context.bottom();
+        auto bottom = 0;
+        for (auto c : children_.get()) {
+            auto child_bounds = getRegistry().get<comp::Bounds>(c).bounds;
+            top = std::min(child_bounds.top(), top);
+            bottom = std::max(child_bounds.bottom(), bottom);
+        }
+        context.size.y = bottom - top;
+    }
+
+    auto* renderable = getRegistry().try_get<comp::Renderable>(self);
+    renderable->size_ = {context.size.x, context.size.y};
 }
 
 void Container::notifyChildChangedBounds(entt::entity child) {  // NOLINT
@@ -420,10 +469,6 @@ void Container::updateChildrenBoundsCol(entt::entity self, Recti content_rect) {
             main_axis_size += cinfo.content_px.y + cinfo.margin_px.t + cinfo.margin_px.b;
             main_axis_flex_shares += cinfo.content_flex.y + cinfo.margin_flex.t + cinfo.margin_flex.b;
             non_immutable_children_cound++;
-
-            MLE_VC(main_axis_size);
-            MLE_VC(main_axis_flex_shares);
-            MLE_VC(non_immutable_children_cound);
         }
 
         main_axis_size += (non_immutable_children_cound - 1) * gap_;
@@ -466,6 +511,12 @@ void Container::updateChildrenBoundsCol(entt::entity self, Recti content_rect) {
             if (cinfo.origin) {
                 cinfo.bounds.bounds.pos.x -= as<int>(cinfo.origin->origin.x * as<f32>(cinfo.bounds.bounds.size.x));
                 cinfo.bounds.bounds.pos.y -= as<int>(cinfo.origin->origin.y * as<f32>(cinfo.bounds.bounds.size.y));
+            }
+
+            MLE_ASSERT(cinfo.bounds.bounds.size.x > 0 && cinfo.bounds.bounds.size.y > 0);
+
+            if (auto* e_container = reg.try_get<Container>(children[i]); e_container) {
+                e_container->updateChildrenBounds(children[i], content_rect);
             }
 
             changed_entities.emplace(children[i]);
@@ -551,21 +602,14 @@ void Container::updateChildrenBoundsCol(entt::entity self, Recti content_rect) {
             }
         }
 
-        if (cinfo.bounds.bounds.size.x == 0 && cinfo.aspect_ratio != 0) {
-            cinfo.bounds.bounds.size.x = as<int>(as<f32>(cinfo.bounds.bounds.size.y) * cinfo.aspect_ratio);
-        } else if (cinfo.bounds.bounds.size.y == 0 && cinfo.aspect_ratio != 0) {
-            cinfo.bounds.bounds.size.y = as<int>(as<f32>(cinfo.bounds.bounds.size.x) / cinfo.aspect_ratio);
-        }
-
-        if (cinfo.bounds.bounds.size.x == 0 || cinfo.bounds.bounds.size.y == 0) {
-            auto* renderable = reg.try_get<comp::Renderable>(children[i]);
-            if (!renderable) {
-                MLE_TODO;
+        if (cinfo.aspect_ratio != 0) {
+            if (cinfo.bounds.bounds.size.x == 0) {
+                cinfo.bounds.bounds.size.x = as<int>(as<f32>(cinfo.bounds.bounds.size.y) * cinfo.aspect_ratio);
             }
-            cinfo.bounds.bounds.size = renderable->getSize();
+            if (cinfo.bounds.bounds.size.y == 0) {
+                cinfo.bounds.bounds.size.y = as<int>(as<f32>(cinfo.bounds.bounds.size.x) / cinfo.aspect_ratio);
+            }
         }
-
-        MLE_ASSERT(cinfo.bounds.bounds.size.x >= 0 && cinfo.bounds.bounds.size.y >= 0);
 
         if (cinfo.target_position) {
             switch (cinfo.target_position->x.type) {
@@ -595,21 +639,95 @@ void Container::updateChildrenBoundsCol(entt::entity self, Recti content_rect) {
         cinfo.bounds.bounds.pos.x += content_rect.pos.x;
         cinfo.bounds.bounds.pos.y += content_rect.pos.y;
 
-        if (cinfo.origin) {
-            cinfo.bounds.bounds.pos.x -= as<int>(cinfo.origin->origin.x * as<f32>(cinfo.bounds.bounds.size.x));
-            cinfo.bounds.bounds.pos.y -= as<int>(cinfo.origin->origin.y * as<f32>(cinfo.bounds.bounds.size.y));
+        bool fit_x = false;
+        bool fit_y = false;
+
+        auto* c_container = reg.try_get<Container>(children[i]);
+        if (c_container) {
+            auto max_rect = content_rect;
+            if (cinfo.bounds.bounds.size.x > 0) {
+                max_rect.size.x = cinfo.bounds.bounds.size.x;
+            } else {
+                max_rect.size.x = content_rect.size.x - (cinfo.bounds.bounds.pos.x - content_rect.pos.x);
+                fit_x = true;
+            }
+            if (cinfo.bounds.bounds.size.y > 0) {
+                max_rect.size.y = cinfo.bounds.bounds.size.y;
+            } else {
+                max_rect.size.y = content_rect.size.y - (cinfo.bounds.bounds.pos.y - content_rect.pos.y);
+                fit_y = true;
+            }
+            c_container->updateChildrenBounds(children[i], max_rect);
         }
+
+        if (cinfo.bounds.bounds.size.x == 0 || cinfo.bounds.bounds.size.y == 0) {
+            auto* renderable = reg.try_get<comp::Renderable>(children[i]);
+            if (!renderable) {
+                MLE_TODO;
+            }
+            cinfo.bounds.bounds.size = renderable->getSize();
+        }
+
+        MLE_ASSERT(cinfo.bounds.bounds.size.x > 0 && cinfo.bounds.bounds.size.y > 0);
+
+        if (c_container) {
+            c_container->alignChildren(cinfo.bounds.bounds.size);
+        }
+
+        vec2i origin{0};
+
+        if (cinfo.origin) {
+            origin.x = as<int>(cinfo.origin->origin.x * as<f32>(cinfo.bounds.bounds.size.x));
+            origin.y = as<int>(cinfo.origin->origin.y * as<f32>(cinfo.bounds.bounds.size.y));
+        }
+
+        if (c_container) {
+            auto move = (cinfo.bounds.bounds.pos - content_rect.pos) * vec2i{fit_x, fit_y};
+            move -= origin;
+            c_container->moveChildren(move);
+        }
+
+        cinfo.bounds.bounds.pos.x -= origin.x;
+        cinfo.bounds.bounds.pos.y -= origin.y;
 
         changed_entities.emplace(children[i]);
     }
 
-    for (auto e : changed_entities) {
-        auto* e_container = reg.try_get<Container>(e);
-        if (e_container) {
-            e_container->updateChildrenBounds(e, content_rect, false, true);
+    changed_bounds_children_.clear();
+}
+
+void Container::moveChildren(vec2i v) {
+    auto& reg = getRegistry();
+    for (auto c : children_.get()) {
+        auto& bounds = reg.get<comp::Bounds>(c).bounds;
+        bounds.pos += v;
+    }
+}
+
+void Container::alignChildren(vec2i axis) {
+    auto& reg = getRegistry();
+    for (auto c : children_.get()) {
+        const auto* target_position = reg.try_get<comp::TargetPosition>(c);
+        if (target_position) {
+            continue;
+        }
+        auto& child_bounds = reg.get<comp::Bounds>(c).bounds;
+        switch (align_cross_) {
+            case AlignCross::START:
+                break;
+            case AlignCross::CENTER: {
+                if (direction_ == Direction::COL || direction_ == Direction::COL_R) {
+                    child_bounds.pos.x += (axis.x - child_bounds.size.x) / 2;
+                } else {
+                    child_bounds.pos.y += (axis.y - child_bounds.size.y) / 2;
+                }
+            } break;
+            case AlignCross::END:
+            case AlignCross::STRETCH:
+            case AlignCross::BASELINE:
+                MLE_TODO;
+                break;
         }
     }
-
-    changed_bounds_children_.clear();
 }
 }  // namespace mle::ui::element::comp

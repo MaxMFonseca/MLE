@@ -56,7 +56,8 @@ bool isFitX(entt::entity e) {
     }
     const auto* target_size = getRegistry().try_get<comp::TargetSize>(e);
     if (target_size) {
-        return target_size->x.type == comp::TargetBound::Type::FIT;
+        using Type = comp::TargetBound::Type;
+        return target_size->x.type == Type::FIT || (target_size->x.type == Type::DEFAULT && target_size->x.val == 0);
     }
     return true;
 }
@@ -67,7 +68,8 @@ bool isFitY(entt::entity e) {
     }
     const auto* target_size = getRegistry().try_get<comp::TargetSize>(e);
     if (target_size) {
-        return target_size->y.type == comp::TargetBound::Type::FIT;
+        using Type = comp::TargetBound::Type;
+        return target_size->y.type == Type::FIT || (target_size->y.type == Type::DEFAULT && target_size->y.val == 0);
     }
     return true;
 }
