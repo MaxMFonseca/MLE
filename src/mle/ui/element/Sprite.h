@@ -17,7 +17,7 @@ class Sprite : public RenderableInterface {
     static renderer::PipelineRef getPipeline();
 
   private:
-    Color color_;
+    Color color_ = Color::WHITE;
     renderer::Texture texture_;
 };
 }  // namespace mle::ui::element::comp

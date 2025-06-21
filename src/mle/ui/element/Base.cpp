@@ -1,8 +1,5 @@
 #include "Base.h"
 
-#include <algorithm>
-#include <vulkan/vulkan_enums.hpp>
-
 #include "Container.h"
 #include "mle/common/Assert.h"
 #include "mle/common/Utils.h"
@@ -301,6 +298,108 @@ void Background::render(const RenderContext& ctx) const {
 
     ctx.thread->pushConstants(&pc);
     ctx.thread->draw(1, 4);
+}
+
+void Blur::render(const RenderContext& ctx) const {
+    ctx.thread->endRendering();
+
+    auto& reg = getRegistry();
+    auto& bounds = reg.get<comp::Bounds>(ctx.self);
+
+    renderer::Image::CI copy_ci;
+    copy_ci.usage = vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eTransferDst;
+    copy_ci.extent = {bounds.bounds.size.x, bounds.bounds.size.y};
+    copy_ci.format = ctx.root_image->getFormat();
+    auto image_copy = renderer::Image::createHnd(copy_ci);
+
+    image_copy->updateCopy(ctx.thread->cmd(), ctx.root_image, ctx.viewport.asI32());
+
+    image_copy->transitionState(ctx.thread->cmd(), renderer::Image::State::SHADER_READ);
+
+    ctx.thread->beginRendering({}, false);
+
+    vk::DescriptorImageInfo image_info;
+    image_info.imageLayout = image_copy->getCurrentLayout();
+    image_info.imageView = image_copy->getDefaultView();
+    vk::WriteDescriptorSet write0;
+    write0.descriptorCount = 1;
+    write0.descriptorType = vk::DescriptorType::eCombinedImageSampler;
+    write0.dstBinding = 0;
+    write0.setImageInfo(image_info);
+
+    ctx.thread->setPipeline(getPipeline().first);
+
+    ctx.thread->pushDescriptor(0, {write0});
+
+    ctx.thread->setViewport(ctx.viewport);
+
+    ctx.thread->draw(1, 4);
+
+    renderer::deleteAfterFrame(std::move(image_copy));
+}
+
+std::pair<renderer::PipelineRef, vk::DescriptorSetLayout> Blur::getPipeline() {
+    static renderer::PipelineHnd pipeline;
+    static vk::DescriptorSetLayout dsl;
+    static vk::Sampler sampler;
+
+    if (!pipeline) {
+        MLE_T("Creating blur pipeline");
+
+        MLE_T("  sampler");
+        vk::SamplerCreateInfo sampler_ci;
+        sampler_ci.magFilter = vk::Filter::eLinear;
+        sampler_ci.minFilter = vk::Filter::eLinear;
+        sampler_ci.addressModeU = vk::SamplerAddressMode::eMirroredRepeat;
+        sampler_ci.addressModeV = vk::SamplerAddressMode::eMirroredRepeat;
+        sampler_ci.addressModeW = vk::SamplerAddressMode::eMirroredRepeat;
+        sampler_ci.anisotropyEnable = VK_FALSE;
+        sampler_ci.maxAnisotropy = 1.0F;
+        sampler_ci.borderColor = vk::BorderColor::eFloatOpaqueWhite;
+        sampler_ci.unnormalizedCoordinates = VK_FALSE;
+        sampler_ci.compareEnable = VK_FALSE;
+        sampler_ci.compareOp = vk::CompareOp::eAlways;
+        sampler_ci.mipmapMode = vk::SamplerMipmapMode::eLinear;
+        sampler_ci.minLod = 0.0F;
+        sampler_ci.maxLod = 0.0F;
+        sampler_ci.mipLodBias = 0.0F;
+
+        // TODO: move this out
+        sampler = renderer::unwrap(renderer::detail::getDevice().createSampler(sampler_ci));
+
+        MLE_T("  descriptor set layout");
+        vk::DescriptorSetLayoutBinding binding;
+        binding.binding = 0;
+        binding.descriptorType = vk::DescriptorType::eCombinedImageSampler;
+        binding.descriptorCount = 1;
+        binding.stageFlags = vk::ShaderStageFlagBits::eFragment;
+        binding.pImmutableSamplers = &sampler;
+
+        vk::DescriptorSetLayoutCreateInfo dsl_ci;
+        dsl_ci.bindingCount = 1;
+        dsl_ci.flags = vk::DescriptorSetLayoutCreateFlagBits::ePushDescriptorKHR;
+        dsl_ci.pBindings = &binding;
+
+        dsl = renderer::unwrap(renderer::detail::getDevice().createDescriptorSetLayout(dsl_ci));
+
+        MLE_T("  pipeline");
+        renderer::Pipeline::CI ci;
+        ci.vertex_shader = renderer::getShader("ui/quad.vert", true);
+        ci.fragment_shader = renderer::getShader("ui/blur.frag", true);
+        ci.color_attachment_formats = {renderer::getDefaultColorFormat()};
+        ci.blend_attachments = renderer::makeDefaultBlendAttachmentStates(1);
+        ci.topology = vk::PrimitiveTopology::eTriangleStrip;
+        ci.descriptor_set_layouts.emplace_back(dsl);
+        pipeline = renderer::Pipeline::createHnd(ci);
+
+        renderer::addOnShutdown([&]() {
+            pipeline.reset();
+            renderer::destroy(dsl);
+            renderer::destroy(sampler);
+        });
+    }
+
+    return std::make_pair(pipeline.get(), dsl);
 }
 }  // namespace comp
 }  // namespace mle::ui::element

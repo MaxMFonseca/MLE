@@ -48,7 +48,13 @@ void RenderingThread::setPipeline(PipelineRef p) {
     cmd_.bindPipeline(vk::PipelineBindPoint::eGraphics, p->get());
 }
 
-void RenderingThread::beginRendering(Recti render_area) {
+void RenderingThread::pushDescriptor(u32 set, const std::vector<vk::WriteDescriptorSet>& writes) {
+    MLE_ASSERT(in_rendering_);
+    MLE_ASSERT(pipeline_);
+    cmd_.pushDescriptorSetKHR(vk::PipelineBindPoint::eGraphics, pipeline_->getPipelineLayout(), set, writes);
+}
+
+void RenderingThread::beginRendering(Recti render_area, bool can_clear) {
     if (render_area.size.x == 0) {
         render_area.size.x = color_attachments_.at(0).image->getExtent().x - render_area.pos.x;
     }
@@ -85,10 +91,14 @@ void RenderingThread::beginRendering(Recti render_area) {
         } else {
             rattachment.imageView = attachment.image->getDefaultView();
         }
-        rattachment.loadOp = attachment.load;
         rattachment.clearValue = attachment.clear_value;
         rattachment.storeOp = attachment.store;
         rattachment.imageLayout = vk::ImageLayout::eAttachmentOptimal;
+
+        rattachment.loadOp = attachment.load;
+        if (rattachment.loadOp == vk::AttachmentLoadOp::eClear && !can_clear) {
+            rattachment.loadOp = vk::AttachmentLoadOp::eLoad;
+        }
     }
     render_info.setColorAttachments(attachment_descriptions);
 
@@ -97,12 +107,20 @@ void RenderingThread::beginRendering(Recti render_area) {
         depth_attachment_.image->transitionState(cmd_, Image::State::DEPTH_ATT);
 
         depth_attachment.imageView = !depth_attachment_.view ? depth_attachment_.image->getDefaultView() : depth_attachment_.view;
-        depth_attachment.loadOp = depth_attachment_.load;
         depth_attachment.clearValue = depth_attachment_.clear_value;
         depth_attachment.storeOp = depth_attachment_.store;
         depth_attachment.imageLayout = vk::ImageLayout::eAttachmentOptimal;
 
+        depth_attachment.loadOp = depth_attachment_.load;
+        if (depth_attachment.loadOp == vk::AttachmentLoadOp::eClear && !can_clear) {
+            depth_attachment.loadOp = vk::AttachmentLoadOp::eLoad;
+        }
+
         render_info.setPDepthAttachment(&depth_attachment);
+    }
+
+    for (auto c : color_attachments_) {
+        c.image->transitionState(cmd_, Image::State::COLOR_ATT);
     }
 
     cmd_.beginRendering(render_info);

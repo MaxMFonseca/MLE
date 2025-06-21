@@ -42,7 +42,8 @@ class RenderingThread {
     void setColorAttachments(std::vector<AttachmentInfo>&& attachments);
     void setDepthAttachment(const AttachmentInfo& attachment);
     void setPipeline(PipelineRef p);
-    void beginRendering(Recti render_area = {});
+    void beginRendering(Recti render_area = {}, bool can_clear = true);
+    void beginRenderingKeepState();
     void endRendering();
     void setViewport(const Rectf& viewport = {}) const;
     void bindVertexBuffer(BufferRef buffer, usize offset = 0) const;
@@ -50,6 +51,7 @@ class RenderingThread {
     void bindIndexBuffer(BufferRef buffer, usize offset = 0) const;
     void pushConstants(const void* push_constants);
     void bindDescriptorSet(vk::DescriptorSet set, u32 binding) const;
+    void pushDescriptor(u32 set, const std::vector<vk::WriteDescriptorSet>& writes);
     void draw(int instance_count, int index_count) const;
 
     void endCmd() { check(cmd_.end()); };

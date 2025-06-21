@@ -11,6 +11,7 @@
 
 #include "mle/common/Assert.h"
 #include "mle/common/Types.h"
+#include "mle/common/Utils.h"
 #include "mle/common/math/Types.h"
 #include "mle/common/math/Types2D.h"
 

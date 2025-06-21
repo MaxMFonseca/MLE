@@ -32,6 +32,7 @@ void Renderable::render(RenderContext ctx) const {
 
         auto bounds = reg.get<Bounds>(ctx.self);
 
+        ctx.root_image = root_image->image_handle.get();
         ctx.current_root_image_bounds = bounds.bounds;
     }
 

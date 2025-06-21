@@ -7,9 +7,11 @@
 namespace mle::ui::element {
 struct RenderContext {
     renderer::RenderingThreadRef thread{};
+    renderer::ImageRef root_image{};
     Recti current_root_image_bounds{};
     entt::entity self{};
     entt::entity parent{};
+    Rectf viewport{};
 };
 
 struct RenderableInterface {

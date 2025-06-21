@@ -7,9 +7,9 @@
 #pragma once
 
 #include <entt/entt.hpp>
-#include <variant>
 
 #include "mle/common/Color.h"
+#include "mle/common/Utils.h"
 #include "mle/common/math/Types.h"
 #include "mle/common/math/Types2D.h"
 #include "mle/renderer/RenderingThread.h"
@@ -54,6 +54,12 @@ struct Background {
     void render(const RenderContext& ctx) const;
 
     static renderer::PipelineRef getPipeline();
+};
+struct Blur {
+    int a = 0;
+    void render(const RenderContext& ctx) const;
+
+    static std::pair<renderer::PipelineRef, vk::DescriptorSetLayout> getPipeline();
 };
 /**
  * @brief Represents a bound or constraint for UI element positioning or sizing.

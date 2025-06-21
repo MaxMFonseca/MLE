@@ -1,10 +1,12 @@
 #version 450 core
 
-layout(location = 0) in flat vec4 in_color;
+layout(push_constant) uniform PushConstants {
+    vec4 color;
+} pc;
 
 layout(location = 0) out vec4 out_color;
 
 void main()
 {
-    out_color = in_color;
+    out_color = pc.color;
 }

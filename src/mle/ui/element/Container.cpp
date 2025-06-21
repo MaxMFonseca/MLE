@@ -254,6 +254,8 @@ void Container::addChild(entt::entity self, const sol::table& table, [[maybe_unu
     applyTable(child_entt, table, self);
 
     children_.add(child_entt, pos);
+
+    notifyChildChangedBounds(self, child_entt);
 }
 
 void Container::updateChildrenBounds(entt::entity self, Recti context, bool verify_all, bool force_update) {  // NOLINT
@@ -330,14 +332,20 @@ void Container::renderComp(const RenderContext& ctx) const {
         Rectf viewport = child_bounds->bounds.asF32();
         viewport.pos += ctx.current_root_image_bounds.pos;
 
+        child_ctx.viewport = viewport;
+
         const auto* bg = reg.try_get<Background>(child);
+        const auto* blur = reg.try_get<Blur>(child);
         const auto* renderable = reg.try_get<Renderable>(child);
 
-        if (bg || renderable) {
+        if (bg || renderable || blur) {
             ctx.thread->setViewport(viewport);
             // TODO: scissor
         }
 
+        if (blur) {
+            blur->render(child_ctx);
+        }
         if (bg) {
             bg->render(child_ctx);
         }
@@ -412,6 +420,10 @@ void Container::updateChildrenBoundsCol(entt::entity self, Recti content_rect) {
             main_axis_size += cinfo.content_px.y + cinfo.margin_px.t + cinfo.margin_px.b;
             main_axis_flex_shares += cinfo.content_flex.y + cinfo.margin_flex.t + cinfo.margin_flex.b;
             non_immutable_children_cound++;
+
+            MLE_VC(main_axis_size);
+            MLE_VC(main_axis_flex_shares);
+            MLE_VC(non_immutable_children_cound);
         }
 
         main_axis_size += (non_immutable_children_cound - 1) * gap_;
@@ -488,9 +500,9 @@ void Container::updateChildrenBoundsCol(entt::entity self, Recti content_rect) {
                 } else if (r.type == TargetRelations::Dep::Type::SIZE_Y) {
                     cinfo.bounds.bounds.size.y = as<int>(r.val) * target_bounds.size.y;
                 } else if (r.type == TargetRelations::Dep::Type::POS_X) {
-                    cinfo.bounds.bounds.pos.x = target_bounds.pos.x + as<int>(r.val) * target_bounds.size.x;
+                    cinfo.bounds.bounds.pos.x = target_bounds.pos.x + as<int>(r.val * as<f32>(target_bounds.size.x));
                 } else if (r.type == TargetRelations::Dep::Type::POS_Y) {
-                    cinfo.bounds.bounds.pos.y = target_bounds.pos.y + as<int>(r.val) * target_bounds.size.y;
+                    cinfo.bounds.bounds.pos.y = target_bounds.pos.y + as<int>(r.val * as<f32>(target_bounds.size.y));
                 }
             }
         }

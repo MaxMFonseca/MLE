@@ -387,6 +387,13 @@ void background(entt::entity self, const sol::object& obj) {
     reg.emplace_or_replace<comp::Background>(self, Color::fromLua(obj));
 }
 
+void blur(entt::entity self, const sol::object& obj) {
+    MLE_ASSERT(obj.valid());
+    auto& reg = getRegistry();
+
+    reg.emplace_or_replace<comp::Blur>(self);
+}
+
 auto& getMap() {
     static std::unordered_map<std::string, LuaKeyHandlerFn> lua_keys;
     return lua_keys;
@@ -420,6 +427,7 @@ void addEngineLuaKeyHandlers() {
     addLuaKeyHandler("origin", origin);
     addLuaKeyHandler("aspect_ratio", aspectRatio);
     addLuaKeyHandler("background", background);
+    addLuaKeyHandler("blur", blur);
     addLuaKeyHandler("rel", rel);
     addLuaKeyHandler("children", comp::Container::lkh);
     addLuaKeyHandler("container", comp::Container::lkh);
