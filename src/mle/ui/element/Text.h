@@ -7,8 +7,8 @@
 #include "mle/ui/Types.h"
 #include "mle/ui/element/Renderable.h"
 
-namespace mle::ui::element::comp {
-class Text : public RenderableInterface {
+namespace mle::ui::element {
+class Text : public RenderableImpl {
   public:
     enum class Justify : u8 { RIGHT, LEFT, CENTER, JUSTIFY };
 
@@ -18,7 +18,9 @@ class Text : public RenderableInterface {
     Text() = default;
     ~Text() override = default;
 
-    void renderComp(const RenderContext& ctx) const override;
+    void apply(entt::entity self, const sol::object& o) override;
+
+    void render(const RenderContext& ctx) const override;
 
     void setFont(const std::string& font_name = "");
     void setHeightPx(u32 height_px = 0);
@@ -26,9 +28,9 @@ class Text : public RenderableInterface {
     void setWrap(bool wrap = true);
     void setColor(Color color);
     void setText(std::string text);
-    void updateText(entt::entity self);
+    void updateText();
 
-    static void lkh(entt::entity self, const sol::object& o);
+    [[nodiscard]] vec2i getSize() const override;
 
     static renderer::PipelineRef getPipeline();
 
@@ -41,4 +43,4 @@ class Text : public RenderableInterface {
     bool wrap_ = false;
     Font::RenderText render_text_;
 };
-}  // namespace mle::ui::element::comp
+}  // namespace mle::ui::element

@@ -134,7 +134,7 @@ void RenderingThread::endRendering() {
     }
 }
 
-void RenderingThread::setViewport(const Rectf& viewport) const {
+void RenderingThread::setViewport(const Rectf& viewport) {
     MLE_ASSERT(in_rendering_);
     MLE_T("Setting viewport: pos = {}, size = {}", viewport.pos, viewport.size);
 
@@ -171,6 +171,8 @@ void RenderingThread::setViewport(const Rectf& viewport) const {
     }
 
     cmd_.setViewport(0, {vv});
+    viewport_ = Rectf{vv.x, vv.y, vv.width, vv.height};
+
     cmd_.setScissor(0, scissor);
 }
 

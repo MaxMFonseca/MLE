@@ -16,6 +16,7 @@
 #include "mle/ui/element/Base.h"
 #include "mle/ui/element/Container.h"
 #include "mle/ui/element/LuaKeyHandlers.h"
+#include "mle/window/Window.h"
 
 namespace mle::ui {
 namespace {
@@ -31,6 +32,7 @@ class Impl {
     auto& getFontCache() { return font_cache_; }
     [[nodiscard]] auto getPreRenderCmdBuffer() const { return pre_render_cmd_buffer_; }
     void addJobToQueue(vk::CommandBuffer cmd) { s_command_buffers_.emplace_back(cmd); }
+    [[nodiscard]] auto getRootSize() const { return root_size_; }
 
   private:
     void checkElementsBoundChanged();
@@ -42,6 +44,8 @@ class Impl {
 
     vk::CommandBuffer pre_render_cmd_buffer_;
     std::vector<vk::CommandBuffer> s_command_buffers_;
+
+    vec2u root_size_{0};
 };
 
 struct Position {
@@ -50,6 +54,8 @@ struct Position {
 
 void Impl::init() {
     MLE_I("Initializing UI");
+
+    root_size_ = window::getSize();
 
     renderer::addTexture("mle", res::addMleTexturePath("ui/mle.png"));
 
@@ -65,7 +71,7 @@ void Impl::init() {
     MLE_VD(font);
 
     root_ = registry_.create();
-    element::applyTable(root_, lua::require("testui", true));
+    element::applyEntityTable(root_, lua::require("testui", true));
 
     MLE_ASSERT_LOG(registry_.try_get<element::comp::RootImage>(root_), "The root element must have the root_image field set.");
 }
@@ -92,9 +98,9 @@ void Impl::checkElementsBoundChanged() {
 
     if (view->size() == 1) {
         auto e = *view.begin();
-        registry_.get<element::comp::Container>(e).updateChildrenBounds(e);
+        registry_.get<element::comp::Container>(e).updateChildrenBounds(e, root_size_);
     } else {
-        registry_.get<element::comp::Container>(root_).updateChildrenBounds(root_, {}, true);
+        registry_.get<element::comp::Container>(root_).updateChildrenBounds(root_, root_size_, true);
     }
 
     registry_.clear<element::comp::ChildChangedBounds>();
@@ -163,6 +169,11 @@ vk::CommandBuffer getPreRenderCmdBuffer() {
 void addJobToQueue(vk::CommandBuffer cmd) {
     MLE_ASSERT(i_);
     i_->addJobToQueue(cmd);
+}
+
+vec2u getRootSize() {
+    MLE_ASSERT(i_);
+    return i_->getRootSize();
 }
 
 }  // namespace mle::ui

@@ -13,7 +13,7 @@
 #include "mle/ui/UI.h"
 #include "sol/forward.hpp"
 
-namespace mle::ui::element::comp {
+namespace mle::ui::element {
 namespace {
 vk::DescriptorSetLayout dsl_sampler_;  // NOLINT
 vk::DescriptorPool dpool_sampler_;     // NOLINT
@@ -82,7 +82,7 @@ void initTempStuff() {
 }
 }  // namespace
 
-void Sprite::renderComp(const RenderContext& ctx) const {
+void Sprite::render(const RenderContext& ctx) const {
     struct {
         vec4f color{0};
         u32 tex_idx{};
@@ -97,11 +97,8 @@ void Sprite::renderComp(const RenderContext& ctx) const {
     ctx.thread->draw(1, 4);
 }
 
-void Sprite::setTexture(entt::entity self, const std::string& texture_name) {
+void Sprite::setTexture(entt::entity /*unused*/, const std::string& texture_name) {
     texture_ = renderer::getTexture(texture_name);
-
-    auto& renderable = getRegistry().get<comp::Renderable>(self);
-    renderable.size_ = texture_.image->getExtent();
 }
 
 void Sprite::setColor(const sol::object& o) {
@@ -112,29 +109,20 @@ void Sprite::setColor(Color color) {
     color_ = color;
 }
 
-void Sprite::lkh(entt::entity self, const sol::object& o) {
+void Sprite::apply(entt::entity self, const sol::object& o) {
     MLE_ASSERT(o.valid());
-    auto& reg = getRegistry();
-
-    auto* comp = reg.try_get<Sprite>(self);
-
-    if (!comp) {
-        comp = &reg.emplace<Sprite>(self);
-    }
-
-    comp::Renderable::add(self, [](entt::entity self) -> RenderableInterface& { return getRegistry().get<Sprite>(self); });
 
     if (o.is<std::string>()) {
-        comp->setTexture(self, o.as<std::string>());
+        setTexture(self, o.as<std::string>());
     } else if (o.is<sol::table>()) {
         auto table = o.as<sol::table>();
         std::string texture_name;
         auto lua_get_result = lua::tryGetKeyOrIdx(table, "texture", 1, texture_name);
         MLE_ASSERT(lua_get_result);
-        comp->setTexture(self, texture_name);
+        setTexture(self, texture_name);
 
         if (const sol::object color_r = table["color"]; color_r.valid()) {
-            comp->setColor(color_r);
+            setColor(color_r);
         }
     } else {
         MLE_UNREACHABLE_LOG("Unexpected object type for Sprite: {}", o.get_type());
@@ -159,4 +147,4 @@ renderer::PipelineRef Sprite::getPipeline() {
     }
     return pipeline.get();
 }
-}  // namespace mle::ui::element::comp
+}  // namespace mle::ui::element

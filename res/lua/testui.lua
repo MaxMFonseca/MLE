@@ -3,7 +3,6 @@ return {
 		extent = { 1920, 1080 },
 		clear_color = "NQB",
 	},
-	bounds = { 0, 0, 1920, 1080 },
 	-- padding = 10,
 	c = {
 		{
@@ -26,16 +25,17 @@ return {
 			rel = { "pos:title:cb" },
 			pos_y = 60,
 			origin = "ct",
-			-- size_y = "50%",
-			-- background = "NQW",
+			size_y = "30%",
 			blur = true,
+			padding = 10,
 
 			c = {
-				align = "center",
-				-- gap = 10,
+				-- align = "center",
+				gap = 20,
 				{
 					text = { "Single Player" },
 					-- blur = true,
+					-- background = "RED",
 				},
 				{
 					text = { "Multiplayer" },
@@ -46,7 +46,7 @@ return {
 					-- blur = true,
 				},
 				{
-					text = { "TexturePacks" },
+					text = { "... Texture Packs ..." },
 					-- blur = true,
 				},
 				{
@@ -60,6 +60,8 @@ return {
 			},
 		},
 	},
+	-- 	},
+	-- },
 	-- c = {
 	-- 	direction = "col",
 	-- 	gap = 10,

@@ -18,6 +18,7 @@ FontRef getFont(const std::string& font_name = "");
 
 vk::CommandBuffer getPreRenderCmdBuffer();
 void addJobToQueue(vk::CommandBuffer cmd);
+vec2u getRootSize();
 
 namespace detail {
 FontCache& getFontCache();

@@ -6,6 +6,7 @@
 #pragma once
 
 #include "Types.h"
+#include "mle/renderer/Image.h"
 #include "mle/renderer/Utils.h"
 
 namespace mle::renderer {
@@ -25,6 +26,8 @@ class RenderingThread {
 
     /// Constructs an empty RenderingThread. Use `init()` before before anything.
     RenderingThread() = default;
+    explicit RenderingThread(vk::CommandBuffer cmd) :
+        cmd_(cmd) {}
     ~RenderingThread() = default;
 
     /**
@@ -45,7 +48,7 @@ class RenderingThread {
     void beginRendering(Recti render_area = {}, bool can_clear = true);
     void beginRenderingKeepState();
     void endRendering();
-    void setViewport(const Rectf& viewport = {}) const;
+    void setViewport(const Rectf& viewport = {});
     void bindVertexBuffer(BufferRef buffer, usize offset = 0) const;
     void bindInstanceBuffer(BufferRef buffer, usize offset = 0) const;
     void bindIndexBuffer(BufferRef buffer, usize offset = 0) const;
@@ -56,6 +59,11 @@ class RenderingThread {
 
     void endCmd() { check(cmd_.end()); };
 
+    [[nodiscard]] Recti getRenderArea() const { return render_area_; }
+    [[nodiscard]] auto getViewport() const { return viewport_; }
+    [[nodiscard]] auto getColor0Image() const { return color_attachments_.at(0).image; }
+    [[nodiscard]] auto getColor0Size() const { return color_attachments_.at(0).image->getExtent(); }
+
   private:
     vk::CommandBuffer cmd_;  ///< Thread-local Vulkan command buffer for recording rendering commands.
 
@@ -63,6 +71,8 @@ class RenderingThread {
 
     std::vector<AttachmentInfo> color_attachments_{};  ///< Framebuffer attachments.
     AttachmentInfo depth_attachment_{};                ///< Depth attachment info.
+
+    Rectf viewport_{0, 0, 0, 0};  ///< Current viewport size.
 
     PipelineRef pipeline_{nullptr};  ///< Currently bound pipeline.
     Recti render_area_{};            ///< Current rendering area.

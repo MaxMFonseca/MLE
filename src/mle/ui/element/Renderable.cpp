@@ -7,7 +7,10 @@
 #include "mle/renderer/RenderingThread.h"
 #include "mle/renderer/Types.h"
 #include "mle/renderer/Utils.h"
+#include "mle/ui/Types.h"
 #include "mle/ui/UI.h"
+#include "mle/ui/element/Bounds.h"
+#include "mle/ui/element/Container.h"
 
 namespace mle::ui::element::comp {
 void Renderable::render(RenderContext ctx) const {
@@ -29,15 +32,14 @@ void Renderable::render(RenderContext ctx) const {
         this_thread->beginRendering();
 
         ctx.thread = this_thread.get();
-
-        auto bounds = reg.get<Bounds>(ctx.self);
-
-        ctx.root_image = root_image->image_handle.get();
-        ctx.current_root_image_bounds = bounds.bounds;
     }
 
-    if (ri_getter_fn) {
-        ri_getter_fn(ctx.self).renderComp(ctx);
+    if (i) {
+        i->render(ctx);
+    } else {
+        auto* container = reg.try_get<comp::Container>(ctx.self);
+        MLE_ASSERT_LOG(container, "Renderable component without implementation and no Container component found for entity");
+        container->render(ctx);
     }
 
     if (this_thread) {
@@ -47,28 +49,17 @@ void Renderable::render(RenderContext ctx) const {
     }
 }
 
-Renderable* Renderable::add(entt::entity e, RIGetterFn getter_fn) {
+void Renderable::apply(entt::entity self, const sol::object& obj) const {
+    MLE_ASSERT(i);
+    i->apply(self, obj);
+}
+
+Renderable* Renderable::add(entt::entity e, RenderableImplHnd impl) {
     auto& reg = getRegistry();
-    auto* comp = reg.try_get<comp::Renderable>(e);
-    if (!comp) {
-        comp = &reg.emplace<comp::Renderable>(e);
-    }
-    comp->ri_getter_fn = getter_fn;
+    auto* comp = reg.try_get<Renderable>(e);
+    MLE_ASSERT_LOG(comp == nullptr, "Renderable component already exists for entity {}", e);
+    comp = &reg.emplace<Renderable>(e, std::move(impl));
     return comp;
 }
 
-void RootImage::lkh(entt::entity self, const sol::object& o) {
-    lua::assertIs<sol::table>(o);
-    auto& reg = getRegistry();
-
-    auto table = o.as<sol::table>();
-
-    auto& comp = reg.emplace_or_replace<RootImage>(self);
-    renderer::Image::CI ci;
-    ci.usage = vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eColorAttachment;
-    ci.extent = lua::as<vec2i>(table["extent"]);
-    ci.format = renderer::getDefaultColorFormat();
-    comp.image_handle = renderer::Image::createHnd(ci);
-    comp.clear_color = Color::fromLua(table["clear_color"]);
-}
 }  // namespace mle::ui::element::comp

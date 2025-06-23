@@ -9,7 +9,7 @@
 #include "mle/ui/UI.h"
 #include "mle/ui/element/Renderable.h"
 
-namespace mle::ui::element::comp {
+namespace mle::ui::element {
 namespace {
 vk::DescriptorSetLayout dsl_sampler_;  // NOLINT
 vk::DescriptorPool dpool_sampler_;     // NOLINT
@@ -78,7 +78,7 @@ void initTempStuff() {
 }
 }  // namespace
 
-void Text::renderComp(const RenderContext& ctx) const {
+void Text::render(const RenderContext& ctx) const {
     struct Char {
         vec2f pos{};
         vec2f size{};
@@ -164,71 +164,60 @@ void Text::setText(std::string text) {
     }
 }
 
-void Text::updateText(entt::entity self) {
+void Text::updateText() {
     render_text_ = font_->makeText(text_);
-    auto& renderable = getRegistry().get<comp::Renderable>(self);
-    renderable.size_ = {render_text_.width * font_->getHeight(), font_->getHeight()};
 }
 
-void Text::lkh(entt::entity self, const sol::object& o) {
+void Text::apply(entt::entity /*self*/, const sol::object& o) {
     MLE_ASSERT(o.valid());
-    auto& reg = getRegistry();
-
-    auto* comp = reg.try_get<Text>(self);
-
-    if (!comp) {
-        comp = &reg.emplace<Text>(self);
-    }
-
-    comp::Renderable::add(self, [](entt::entity self) -> RenderableInterface& { return getRegistry().get<Text>(self); });
 
     if (o.is<sol::table>()) {
         auto table = o.as<sol::table>();
         std::string text_string;
         auto lua_get_result = lua::tryGetKeyOrIdx(table, "texture", 1, text_string);
         MLE_ASSERT(lua_get_result);
-        comp->setText(text_string);
+        setText(text_string);
 
         if (const sol::object color_r = table["color"]; color_r.valid()) {
-            comp->setColor(Color::fromLua(color_r));
+            setColor(Color::fromLua(color_r));
         }
 
         if (const sol::object font_r = table["font"]; font_r.valid()) {
             MLE_ASSERT(font_r.is<std::string>());
-            comp->setFont(font_r.as<std::string>());
-        } else if (!comp->font_) {
-            comp->setFont();
+            setFont(font_r.as<std::string>());
+        } else if (!font_) {
+            setFont();
         }
 
         if (const sol::object height_r = table["height"]; height_r.valid()) {
             MLE_ASSERT(height_r.get_type() == sol::type::number);
-            comp->setHeightPx(height_r.as<u32>());
+            setHeightPx(height_r.as<u32>());
         }
 
         if (const sol::object justify_r = table["justify"]; justify_r.valid()) {
             MLE_ASSERT(justify_r.is<std::string>());
             std::string justify_str = justify_r.as<std::string>();
             if (justify_str == "l") {
-                comp->setJustify(Text::Justify::LEFT);
+                setJustify(Text::Justify::LEFT);
             } else if (justify_str == "r") {
-                comp->setJustify(Text::Justify::RIGHT);
+                setJustify(Text::Justify::RIGHT);
             } else if (justify_str == "j") {
-                comp->setJustify(Text::Justify::CENTER);
+                setJustify(Text::Justify::CENTER);
             } else {
-                comp->setJustify(Text::Justify::JUSTIFY);
+                setJustify(Text::Justify::JUSTIFY);
             }
         }
 
         if (const sol::object wrap_r = table["wrap"]; wrap_r.valid()) {
             MLE_ASSERT(wrap_r.is<bool>());
-            comp->setWrap(wrap_r.as<bool>());
+            setWrap(wrap_r.as<bool>());
         }
 
     } else {
         MLE_UNREACHABLE_LOG("Unexpected object type for Text: {}", o.get_type());
     }
 
-    comp->updateText(self);
+    updateText();
 }
 
 renderer::PipelineRef Text::getPipeline() {
@@ -249,4 +238,12 @@ renderer::PipelineRef Text::getPipeline() {
     }
     return pipeline.get();
 }
-}  // namespace mle::ui::element::comp
+
+vec2i Text::getSize() const {
+    if (wrap_) {
+        MLE_TODO;
+    }
+
+    return {render_text_.width * font_->getHeight(), font_->getHeight()};
+}
+}  // namespace mle::ui::element

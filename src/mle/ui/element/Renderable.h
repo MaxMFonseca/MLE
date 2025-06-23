@@ -7,45 +7,43 @@
 namespace mle::ui::element {
 struct RenderContext {
     renderer::RenderingThreadRef thread{};
-    renderer::ImageRef root_image{};
-    Recti current_root_image_bounds{};
     entt::entity self{};
     entt::entity parent{};
-    Rectf viewport{};
 };
 
-struct RenderableInterface {
-    MLE_NO_COPY_MOVE(RenderableInterface)
-    RenderableInterface() = default;
-    virtual ~RenderableInterface() = default;
+struct RenderableImpl {
+    MLE_NO_COPY_MOVE(RenderableImpl)
 
-    virtual void renderComp(const RenderContext& ctx) const = 0;
+    RenderableImpl() = default;
+    virtual ~RenderableImpl() = default;
+
+    virtual void apply(entt::entity self, const sol::object& obj) = 0;
+    virtual void render(const RenderContext& ctx) const = 0;
+
+    [[nodiscard]] virtual vec2i getSize() const = 0;
+    [[nodiscard]] virtual f32 getAspectRatio() const { return as<f32>(getSize().x) / as<f32>(getSize().y); }
 };
-
-using RenderableInterfaceRef = RenderableInterface*;
+using RenderableImplHnd = std::unique_ptr<RenderableImpl>;
 
 namespace comp {
 struct Renderable {
-    using RIGetterFn = RenderableInterface& (*)(entt::entity);
-    // We have a getter for the interface instead of storing the object cuz Container is a component
-    // We cannot have a pointer to a component in a component (invalidation), so we use a reg getter function.
-    // Maybe if I change Container?
-    RIGetterFn ri_getter_fn{};
+    MLE_NO_COPY_MOVE(Renderable)
 
+    virtual ~Renderable() = default;
+    Renderable() = default;
+    explicit Renderable(RenderableImplHnd impl) :
+        i(std::move(impl)) {}
+
+    void apply(entt::entity self, const sol::object& obj) const;
     void render(RenderContext ctx) const;
 
-    static Renderable* add(entt::entity e, RIGetterFn getter_fn);
+    [[nodiscard]] auto getSize() const { return i ? i->getSize() : vec2i{0}; }
+    [[nodiscard]] auto getAspectRatio() const { return i ? i->getAspectRatio() : 0.0F; }
 
-    vec2i size_{0, 0};
-    [[nodiscard]] auto getSize() const { return size_; }
-    [[nodiscard]] f32 getAspectRatio() const { return size_.y == 0 ? 0.0F : as<f32>(size_.x) / as<f32>(size_.y); }
+    static Renderable* add(entt::entity e, RenderableImplHnd impl);
+
+    RenderableImplHnd i{};
 };
 
-struct RootImage {
-    renderer::ImageHnd image_handle{};
-    Color clear_color{};
-
-    static void lkh(entt::entity self, const sol::object& o);
-};
 }  // namespace comp
 }  // namespace mle::ui::element
