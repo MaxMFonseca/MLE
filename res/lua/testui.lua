@@ -25,12 +25,11 @@ return {
 			rel = { "pos:title:cb" },
 			pos_y = 60,
 			origin = "ct",
-			size_y = "30%",
 			blur = true,
 			padding = 10,
 
 			c = {
-				-- align = "center",
+				align = "center",
 				gap = 20,
 				{
 					text = { "Single Player" },

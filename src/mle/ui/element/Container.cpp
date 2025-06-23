@@ -202,8 +202,6 @@ void Container::apply(entt::entity self, const sol::object& obj) {
             align_cross_ = AlignCross::CENTER;
         } else if (align_str == "stretch") {
             align_cross_ = AlignCross::STRETCH;
-        } else if (align_str == "baseline") {
-            align_cross_ = AlignCross::BASELINE;
         } else {
             MLE_UNREACHABLE_LOG("Unexpected align string: {}", align_str);
         }
@@ -512,22 +510,12 @@ void Container::updateChildrenBounds(entt::entity self, vec2u max_size, bool, bo
 
             MLE_ASSERT(cinfo.bounds.parent_px.size.x > 0 && cinfo.bounds.parent_px.size.y > 0);
 
-            // if (c_container) {
-            //     c_container->alignChildren(cinfo.bounds.parent_px.size);
-            // }
-
             vec2i origin{0};
 
             if (cinfo.target_origin) {
                 origin.x = as<int>(cinfo.target_origin->v.x * as<f32>(cinfo.bounds.parent_px.size.x));
                 origin.y = as<int>(cinfo.target_origin->v.y * as<f32>(cinfo.bounds.parent_px.size.y));
             }
-
-            // if (c_container) {
-            //     auto move = (cinfo.bounds.parent_px.pos - padded.pos) * vec2i{fit_x, fit_y};
-            //     move -= origin;
-            //     c_container->moveChildren(move);
-            // }
 
             cinfo.bounds.parent_px.pos.x -= origin.x;
             cinfo.bounds.parent_px.pos.y -= origin.y;
@@ -569,8 +557,7 @@ void Container::calculateChildrenSpan(const std::vector<ChildBuildInfo>& cinfos,
     children_span_ = ret;
 }
 
-namespace {
-void updateChildrenBoundsColCross(ChildBuildInfo& cinfo, Recti content_rect) {
+void Container::updateChildBoundsColCross(ChildBuildInfo& cinfo, Recti content_rect) {  // NOLINT
     f32 off_flex_shares = cinfo.content_flex.x + cinfo.margin_flex.r + cinfo.margin_flex.l;
     f32 off_remaining = as<f32>(content_rect.width() - cinfo.margin_px.r - cinfo.margin_px.l - cinfo.content_px.x);
     f32 off_flex_value_px = off_flex_shares != 0.0F && off_remaining != 0.0F ? off_remaining / std::max(1.0F, off_flex_shares) : 0.0F;
@@ -580,7 +567,6 @@ void updateChildrenBoundsColCross(ChildBuildInfo& cinfo, Recti content_rect) {
 
     cinfo.bounds.parent_px.size.x = cinfo.content_px.x + as<int>(cinfo.content_flex.x * off_flex_value_px);
 }
-}  // namespace
 
 void Container::updateChildrenBoundsFlex(FlexUpdateData data) {
     auto children = children_.get();
@@ -599,7 +585,7 @@ void Container::updateChildrenBoundsFlex(FlexUpdateData data) {
         bool off_is_default = cinfo.content_flex.x == 0.0F && cinfo.content_px.x == 0;
 
         if (!off_is_default) {
-            updateChildrenBoundsColCross(cinfo, data.padded);
+            updateChildBoundsColCross(cinfo, data.padded);
         }
 
         if (main_is_default) {
@@ -626,6 +612,7 @@ void Container::updateChildrenBoundsFlex(FlexUpdateData data) {
         main_axis_share_value_px = as<f32>(main_axis_remaining_px) / std::max(1.0F, main_axis_flex_shares);
     }
 
+    int cross_max_size = 0;
     int main_axis_pos = data.padded.pos.y;
     for (usize i = 0; i < children.size(); i++) {
         auto& cinfo = data.cinfos[i];
@@ -650,12 +637,40 @@ void Container::updateChildrenBoundsFlex(FlexUpdateData data) {
                 cinfo.content_flex.x = 1.0F;
             }
 
-            updateChildrenBoundsColCross(cinfo, data.padded);
+            updateChildBoundsColCross(cinfo, data.padded);
         }
 
         MLE_ASSERT(cinfo.bounds.parent_px.size.x > 0 && cinfo.bounds.parent_px.size.y > 0);
 
+        cross_max_size = std::max(cinfo.bounds.parent_px.size.x, cross_max_size);
+
         data.changed_children.emplace(children[i]);
+    }
+
+    if (align_cross_ != AlignCross::START) {
+        MLE_VC(cross_max_size);
+        for (usize i = 0; i < children.size(); i++) {
+            auto& cinfo = data.cinfos[i];
+
+            if (!cinfo.is_flex) {
+                continue;
+            }
+
+            // This will break some margins, if I ever need to support margins in cross axis, I will need to fix this
+            switch (align_cross_) {
+                case AlignCross::END: {
+                    cinfo.bounds.parent_px.pos.x += cross_max_size - cinfo.bounds.parent_px.size.x;
+                } break;
+                case AlignCross::CENTER: {
+                    cinfo.bounds.parent_px.pos.x += (cross_max_size - cinfo.bounds.parent_px.size.x) / 2;
+                } break;
+                case AlignCross::STRETCH: {
+                    cinfo.bounds.parent_px.size.x = cross_max_size;
+                } break;
+                default:
+                    break;
+            }
+        }
     }
 }
 }  // namespace mle::ui::element::comp

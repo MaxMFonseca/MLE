@@ -17,7 +17,7 @@ class Container {
   public:
     enum class Direction : u8 { ROW, ROW_R, COL, COL_R };
     enum class Justify : u8 { START, END, CENTER, SPACE_BETWEEN, SPACE_AROUND, SPACE_EVENLY };
-    enum class AlignCross : u8 { START, END, CENTER, STRETCH, BASELINE };
+    enum class AlignCross : u8 { START, END, CENTER, STRETCH };
 
   public:
     MLE_NO_COPY_MOVE(Container)
@@ -57,6 +57,8 @@ class Container {
 
     [[nodiscard]] auto getChildrenSpan() { return children_span_; }
     void calculateChildrenSpan(const std::vector<ChildBuildInfo>& cinfos, std::array<int, 4> padding);
+
+    void updateChildBoundsColCross(ChildBuildInfo& cinfo, Recti content_rect);
 
   private:
     EntityStorage children_;
@@ -134,8 +136,6 @@ struct formatter<mle::ui::element::comp::Container::AlignCross> : formatter<std:
                 return format_to(ctx.out(), "CENTER");
             case AlignCross::STRETCH:
                 return format_to(ctx.out(), "STRETCH");
-            case AlignCross::BASELINE:
-                return format_to(ctx.out(), "BASELINE");
         }
     }
 };
