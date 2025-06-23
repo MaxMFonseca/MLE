@@ -396,6 +396,22 @@ inline Recti as(const sol::object& o) {
     MLE_UNREACHABLE_LOG("Cannot convert to Recti from {}", o.get_type());
 }
 
+template <>
+inline Rectf as(const sol::object& o) {
+    MLE_ASSERT(o.valid());
+
+    if (o.is<Recti>()) {
+        return o.as<Rectf>();
+    }
+    if (o.is<sol::table>()) {
+        Rectf ret;
+        getList<f32>(o, ret.pos.x, ret.pos.y, ret.size.x, ret.size.y);
+        return ret;
+    }
+
+    MLE_UNREACHABLE_LOG("Cannot convert to Recti from {}", o.get_type());
+}
+
 /**
  * @brief As overload for `vec3f`. Accepts o as num, vec3f, or a table(list) with 3 numeric elements.
  *
