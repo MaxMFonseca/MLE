@@ -10,6 +10,7 @@
 #include "mle/ui/UI.h"
 #include "mle/ui/element/Base.h"
 #include "mle/ui/element/Bounds.h"
+#include "mle/ui/element/Collidable.h"
 #include "mle/ui/element/LuaKeyHandlers.h"
 #include "mle/ui/element/Renderable.h"
 #include "sol/function_types_templated.hpp"
@@ -669,6 +670,29 @@ void Container::updateChildrenBoundsFlex(FlexUpdateData data) {
                 } break;
                 default:
                     break;
+            }
+        }
+    }
+}
+
+void Container::collide(entt::entity, vec2i cursor) {  // NOLINT
+    auto& reg = getRegistry();
+    auto children = children_.get();
+
+    for (auto child : children) {
+        auto& bounds = reg.get<Bounds>(child);
+        if (bounds.parent_px.contains(cursor)) {
+            bool solved = false;
+            if (auto* container = reg.try_get<Container>(child); container) {
+                cursor -= bounds.parent_px.pos;
+                container->collide(child, cursor);
+            }
+            if (auto* collidable = reg.try_get<Collidable>(child); collidable) {
+                collidable->hovered();
+                solved = true;
+            }
+            if (solved) {
+                break;
             }
         }
     }

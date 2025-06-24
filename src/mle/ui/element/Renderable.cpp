@@ -1,7 +1,5 @@
 #include "Renderable.h"
 
-#include <vulkan/vulkan_enums.hpp>
-
 #include "mle/lua/Utils.h"
 #include "mle/renderer/Image.h"
 #include "mle/renderer/RenderingThread.h"
@@ -19,7 +17,6 @@ void Renderable::render(RenderContext ctx) const {
     renderer::RenderingThreadHnd this_thread = nullptr;
 
     const auto* root_image = reg.try_get<comp::RootImage>(ctx.self);
-
     if (root_image) {
         this_thread = std::make_unique<renderer::RenderingThread>();
         this_thread->init();

@@ -4,6 +4,7 @@
 
 #include "Sprite.h"
 #include "mle/common/Assert.h"
+#include "mle/lua/Lua.h"
 #include "mle/lua/Types.h"
 #include "mle/lua/Utils.h"
 #include "mle/renderer/Image.h"
@@ -11,6 +12,7 @@
 #include "mle/ui/UI.h"
 #include "mle/ui/element/Base.h"
 #include "mle/ui/element/Bounds.h"
+#include "mle/ui/element/Collidable.h"
 #include "mle/ui/element/Container.h"
 #include "mle/ui/element/Text.h"
 
@@ -174,7 +176,9 @@ void background(entt::entity self, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
     auto& reg = getRegistry();
 
-    reg.emplace_or_replace<comp::Background>(self, Color::fromLua(obj));
+    auto color = Color::fromLua(obj);
+    MLE_VC(color);
+    reg.emplace_or_replace<comp::Background>(self, color);
 }
 
 void blur(entt::entity self, const sol::object& obj) {
@@ -225,6 +229,45 @@ void text(entt::entity self, const sol::object& obj) {
     renderable->apply(self, obj);
 }
 
+void onHover(entt::entity self, const sol::object& obj) {
+    MLE_ASSERT(obj.valid());
+    auto& reg = getRegistry();
+
+    auto* comp = reg.try_get<comp::OnHover>(self);
+    if (!comp) {
+        comp = &reg.emplace<comp::OnHover>(self);
+        comp::Collidable::add(self);
+    }
+
+    comp->fn = [fn = lua::as<sol::function>(obj)](entt::entity self) { fn(EWrap(self)); };
+}
+
+void onHoverEnter(entt::entity self, const sol::object& obj) {
+    MLE_ASSERT(obj.valid());
+    auto& reg = getRegistry();
+
+    auto* comp = reg.try_get<comp::OnHoverEnter>(self);
+    if (!comp) {
+        comp = &reg.emplace<comp::OnHoverEnter>(self);
+        comp::Collidable::add(self);
+    }
+
+    comp->fn = [fn = lua::as<sol::function>(obj)](entt::entity self) { fn(EWrap(self)); };
+}
+
+void onHoverLeave(entt::entity self, const sol::object& obj) {
+    MLE_ASSERT(obj.valid());
+    auto& reg = getRegistry();
+
+    auto* comp = reg.try_get<comp::OnHoverLeave>(self);
+    if (!comp) {
+        comp = &reg.emplace<comp::OnHoverLeave>(self);
+        comp::Collidable::add(self);
+    }
+
+    comp->fn = [fn = lua::as<sol::function>(obj)](entt::entity self) { fn(EWrap(self)); };
+}
+
 auto& getMap() {
     static std::unordered_map<std::string, LuaKeyHandlerFn> lua_keys;
     return lua_keys;
@@ -253,15 +296,25 @@ void applyEntityTable(entt::entity e, const sol::table& table) {
         if (!lua::tryAs(key, key_str)) {
             continue;
         }
-        auto fn_r = getLuaKeyHandlerFn(key_str);
-        if (!fn_r) {
-            continue;
-        }
-        fn_r.value()(e, value);
+
+        EntityWrapper{e}.apply(key_str, value);
     }
 }
 
+void EntityWrapper::apply(const std::string& key, const sol::object& obj) const {
+    MLE_ASSERT(obj.valid());
+    auto fn_r = getLuaKeyHandlerFn(key);
+    if (!fn_r) {
+        MLE_W("No Lua key handler for '{}'", key);
+        return;
+    }
+    fn_r.value()(o, obj);
+}
+
 void addEngineLuaKeyHandlers() {
+    auto ut = lua::newUsertype<EntityWrapper>("entt");
+    ut["apply"] = &EntityWrapper::apply;
+
     addLuaKeyHandler("name", name);
     addLuaKeyHandler("size", size);
     addLuaKeyHandler("size_x", sizeX);
@@ -281,5 +334,8 @@ void addEngineLuaKeyHandlers() {
     addLuaKeyHandler("root_image", rootImage);
     addLuaKeyHandler("sprite", sprite);
     addLuaKeyHandler("text", text);
+    addLuaKeyHandler("on_hover", onHover);
+    addLuaKeyHandler("on_hover_enter", onHoverEnter);
+    addLuaKeyHandler("on_hover_leave", onHoverLeave);
 }
 }  // namespace mle::ui::element

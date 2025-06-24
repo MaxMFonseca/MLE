@@ -194,7 +194,6 @@ Font::RenderText Font::makeText(const std::string& text) {
     [[maybe_unused]] char32 last_codepoint = 0;
 
     for (char32 c : text32) {
-        MLE_VC((int)c);
         RenderText::Token& token = ret.tokens.emplace_back();
 
         if (c == U' ') {

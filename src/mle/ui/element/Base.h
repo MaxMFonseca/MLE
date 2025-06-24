@@ -16,6 +16,7 @@
 
 namespace mle::ui::element {  // NOLINT
 namespace comp {
+using CallbackFn = std::function<void(entt::entity)>;
 struct Parent {
     entt::entity parent = entt::null;
     static Container& container(entt::entity self);

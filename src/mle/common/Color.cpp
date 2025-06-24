@@ -53,7 +53,7 @@ Color Color::fromLua(const sol::object& object) {
             auto table = object.as<sol::table>();
 
             f32 r = NAN, g = NAN, b = NAN, a = NAN;
-            if (lua::tryGetList<f32>(table, r, g, b, a)) {
+            if (!lua::tryGetList<f32>(table, r, g, b, a)) {
                 MLE_W("Invalid Lua color table, returning WHITE");
                 return WHITE;
             }

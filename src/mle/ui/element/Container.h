@@ -30,6 +30,8 @@ class Container {
     // Verify all forces full tree traversal in layer order
     void updateChildrenBounds(entt::entity self, vec2u max_size = {}, bool verify_all = false, bool force_update = false);
 
+    void collide(entt::entity self, vec2i cursor);
+
     void update();
     void render(const RenderContext& ctx) const;
 

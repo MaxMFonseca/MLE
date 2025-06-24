@@ -86,11 +86,7 @@ struct Rect {
     }
 
     /// True if point is inside rectangle (inclusive).
-    [[nodiscard]] constexpr bool contains(vec2<T> point) const
-        requires std::is_floating_point_v<T>
-    {
-        return left() <= point.x && point.x <= right() && top() <= point.y && point.y <= bottom();
-    }
+    [[nodiscard]] constexpr bool contains(vec2<T> point) const { return left() <= point.x && point.x <= right() && top() <= point.y && point.y <= bottom(); }
 
     /**
      * @brief Returns the normalized coordinates of a point inside this rectangle (aka local UV).

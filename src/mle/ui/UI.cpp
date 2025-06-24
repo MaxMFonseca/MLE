@@ -14,6 +14,7 @@
 #include "mle/renderer/Types.h"
 #include "mle/renderer/Utils.h"
 #include "mle/ui/element/Base.h"
+#include "mle/ui/element/Collidable.h"
 #include "mle/ui/element/Container.h"
 #include "mle/ui/element/LuaKeyHandlers.h"
 #include "mle/window/Window.h"
@@ -83,7 +84,14 @@ void Impl::shutdown() {
 }
 
 void Impl::update() {
-    // solveUserInput();  // !! Compute colision on render data
+    vec2u cursor = window::getUIM().getCursorPos();
+    auto& root_container = registry_.get<element::comp::Container>(root_);
+    root_container.collide(root_, cursor);
+
+    auto view = registry_.view<element::comp::Collidable>();
+    for (auto e : view) {
+        view.get<element::comp::Collidable>(e).update(e);
+    }
 
     // updateElements();
 

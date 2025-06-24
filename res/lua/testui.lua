@@ -33,28 +33,57 @@ return {
 				gap = 20,
 				{
 					text = { "Single Player" },
-					-- blur = true,
-					-- background = "RED",
+					on_hover_enter = function(self)
+						self:apply("text", { color = "NQB" })
+					end,
+					on_hover_leave = function(self)
+						self:apply("text", { color = "WHITE" })
+					end,
 				},
 				{
 					text = { "Multiplayer" },
-					-- blur = true,
+					on_hover_enter = function(self)
+						self:apply("text", { color = "NQB" })
+					end,
+					on_hover_leave = function(self)
+						self:apply("text", { color = "WHITE" })
+					end,
 				},
 				{
 					text = { "Achievements" },
-					-- blur = true,
+					on_hover_enter = function(self)
+						self:apply("text", { color = "NQB" })
+					end,
+					on_hover_leave = function(self)
+						self:apply("text", { color = "WHITE" })
+					end,
 				},
 				{
 					text = { "... Texture Packs ..." },
-					-- blur = true,
+					on_hover_enter = function(self)
+						self:apply("text", { color = "NQB" })
+					end,
+					on_hover_leave = function(self)
+						self:apply("text", { color = "WHITE" })
+					end,
 				},
 				{
 					text = { "Settings" },
-					-- blur = true,
+					on_hover_enter = function(self)
+						self:apply("text", { color = "NQB" })
+					end,
+					on_hover_leave = function(self)
+						self:apply("text", { color = "WHITE" })
+					end,
 				},
 				{
 					text = { "Exit" },
-					-- blur = true,
+					on_hover_enter = function(self)
+						self:apply("text", { color = "RED" })
+					end,
+					on_hover_leave = function(self)
+						self:apply("text", { color = "WHITE" })
+					end,
 				},
 			},
 		},

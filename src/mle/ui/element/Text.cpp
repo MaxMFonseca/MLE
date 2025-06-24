@@ -165,6 +165,7 @@ void Text::setText(std::string text) {
 }
 
 void Text::updateText() {
+    // TODO: update only if text or font changed
     render_text_ = font_->makeText(text_);
 }
 
@@ -174,9 +175,10 @@ void Text::apply(entt::entity /*self*/, const sol::object& o) {
     if (o.is<sol::table>()) {
         auto table = o.as<sol::table>();
         std::string text_string;
-        auto lua_get_result = lua::tryGetKeyOrIdx(table, "texture", 1, text_string);
-        MLE_ASSERT(lua_get_result);
-        setText(text_string);
+        auto lua_get_result = lua::tryGetKeyOrIdx(table, "text", 1, text_string);
+        if (lua_get_result) {
+            setText(text_string);
+        }
 
         if (const sol::object color_r = table["color"]; color_r.valid()) {
             setColor(Color::fromLua(color_r));
