@@ -40,6 +40,16 @@ class TSQueue {
         return ret;
     }
 
+    std::vector<T> popAll() {
+        std::scoped_lock lock(mutex_);
+        std::vector<T> ret;
+        while (!queue_.empty()) {
+            ret.push_back(std::move(queue_.front()));
+            queue_.pop();
+        }
+        return ret;
+    }
+
     std::optional<T> popMove(bool wait = true) {
         std::unique_lock lock(mutex_);
 
