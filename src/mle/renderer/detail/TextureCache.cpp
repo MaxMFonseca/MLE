@@ -227,9 +227,10 @@ void TextureCache::finishedUpload(u32 idx) {
     textures_.at(it->idx).ready = true;
 
     getDevice().destroy(it->semaphore);
-    updating_textures_.erase(it);
 
     write(it->idx);
+
+    updating_textures_.erase(it);
 }
 
 Texture TextureCache::get(const std::string& name, bool engine) {
