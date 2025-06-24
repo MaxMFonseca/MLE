@@ -208,6 +208,10 @@ void Container::apply(entt::entity self, const sol::object& obj) {
         }
     }
 
+    if (const auto children_base_r = table["children_base"]; children_base_r.valid()) {
+        children_base_ = lua::as<sol::table>(children_base_r);
+    }
+
     addChildren(self, table);
 }
 
@@ -257,6 +261,9 @@ void Container::addChild(entt::entity self, const sol::table& table, [[maybe_unu
 
     reg.emplace<comp::Parent>(child, self);
 
+    if (children_base_.valid()) {
+        applyEntityTable(child, children_base_);
+    }
     applyEntityTable(child, table);
 
     children_.add(child, pos);

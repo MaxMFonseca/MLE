@@ -75,6 +75,8 @@ class Container {
     int col_gap_ = 0;
 
     Recti children_span_{0, 0, 0, 0};
+
+    sol::table children_base_;
 };
 
 struct ChildChangedBounds {};

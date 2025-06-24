@@ -31,58 +31,33 @@ return {
 			c = {
 				align = "center",
 				gap = 20,
-				{
-					text = { "Single Player" },
+				children_base = {
 					on_hover_enter = function(self)
 						self:apply("text", { color = "NQB" })
 					end,
 					on_hover_leave = function(self)
 						self:apply("text", { color = "WHITE" })
 					end,
+				},
+				{
+					text = { "Single Player" },
 				},
 				{
 					text = { "Multiplayer" },
-					on_hover_enter = function(self)
-						self:apply("text", { color = "NQB" })
-					end,
-					on_hover_leave = function(self)
-						self:apply("text", { color = "WHITE" })
-					end,
 				},
 				{
 					text = { "Achievements" },
-					on_hover_enter = function(self)
-						self:apply("text", { color = "NQB" })
-					end,
-					on_hover_leave = function(self)
-						self:apply("text", { color = "WHITE" })
-					end,
 				},
 				{
 					text = { "... Texture Packs ..." },
-					on_hover_enter = function(self)
-						self:apply("text", { color = "NQB" })
-					end,
-					on_hover_leave = function(self)
-						self:apply("text", { color = "WHITE" })
-					end,
 				},
 				{
 					text = { "Settings" },
-					on_hover_enter = function(self)
-						self:apply("text", { color = "NQB" })
-					end,
-					on_hover_leave = function(self)
-						self:apply("text", { color = "WHITE" })
-					end,
 				},
 				{
 					text = { "Exit" },
 					on_hover_enter = function(self)
 						self:apply("text", { color = "RED" })
-					end,
-					on_hover_leave = function(self)
-						self:apply("text", { color = "WHITE" })
 					end,
 				},
 			},
