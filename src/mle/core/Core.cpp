@@ -1,5 +1,6 @@
 #include "mle/core/Core.h"
 
+#include <chrono>
 #include <thread>
 
 #include "mle/common/Assert.h"
@@ -13,6 +14,7 @@
 // #include "mle/ui/Controller.h"
 // #include "mle/ui/UI.h"
 #include "detail/ThreadPool.h"
+#include "mle/audio/Audio.h"
 #include "mle/renderer/Renderer.h"
 #include "mle/ui/UI.h"
 #include "mle/window/Events.h"
@@ -93,6 +95,7 @@ void Impl::update() {
     window::update();
     ui::update();
     renderer::update();
+    audio::update();
 
     current_second_times_.updates++;
     current_second_times_.time_updating += sw.elapsed<std::chrono::nanoseconds>();
@@ -147,6 +150,7 @@ void Impl::shutdown() {
 
     renderer::detail::waitIdle();
 
+    audio::shutdown();
     ui::shutdown();
     renderer::shutdown();
     window::shutdown();
@@ -212,6 +216,9 @@ void Impl::init(CI ci) {  // NOLINT
     MLE_T("UI");
     ui::init();
 
+    MLE_T("Audio");
+    audio::init();
+
     state_ = State::INITIALIZED;
     MLE_I("Core initialized successfully!");
 }
@@ -231,6 +238,13 @@ void Impl::run() {
             next_update += TICK_RATE;
             update();
             now = sw.elapsed<std::chrono::nanoseconds>();
+
+            // TODO: remove this
+            static std::chrono::nanoseconds last_played_test = now;
+            if (now - last_played_test > std::chrono::milliseconds(1000)) {
+                audio::enqueueCommand(audio::PlaySound{.name = std::string("res/i/sounds/menu_click.flac")});
+                last_played_test = now;
+            }
         }
 
         render();
