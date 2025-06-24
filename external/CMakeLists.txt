@@ -23,6 +23,9 @@ target_link_libraries(MLE spirv-reflect-static)
 find_package(ICU REQUIRED COMPONENTS uc i18n)
 target_link_libraries(MLE ICU::uc ICU::i18n)
 
+find_package(OpenAL REQUIRED)
+target_link_libraries(MLE ${OPENAL_LIBRARY})
+
 target_include_directories(MLE PUBLIC stb)
 
 target_include_directories(MLE PUBLIC sol2/include)
@@ -30,3 +33,5 @@ target_include_directories(MLE PUBLIC sol2/include)
 target_include_directories(MLE PUBLIC entt/single_include)
 
 target_include_directories(MLE PUBLIC utfcpp/source)
+
+target_include_directories(MLE PUBLIC dr_libs)
