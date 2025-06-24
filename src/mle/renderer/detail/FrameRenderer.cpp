@@ -270,7 +270,7 @@ Result FrameRenderer::beginFrame() {
 
     MLE_ASSERT_LOG(current_frame_ == NO_FRAME, "Cannot begin frame when a frame is already in progress. Call endFrame() first.");
 
-    MLE_D("beginFrame. NextFrame: {}", next_frame_);
+    MLE_T("beginFrame. NextFrame: {}", next_frame_);
 
     auto device = getDevice();
 

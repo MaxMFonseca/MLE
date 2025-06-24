@@ -53,6 +53,13 @@ sol::table createTable();
 sol::table createTable(const std::string& name);
 
 /**
+ * @brief Gets the MLE Lua table containing engine-specific functions and data.
+ *
+ * @return A reference to the MLE Lua table.
+ */
+sol::table getMleTable();
+
+/**
  * @brief Creates a new Lua table based on an existing one.
  * @param table Source Lua table to copy.
  * @param deep Whether to perform a deep copy.

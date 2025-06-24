@@ -20,9 +20,11 @@ class Impl {
     inline sol::table createTable(const sol::table& table, bool deep = false);
 
     sol::state& getSol() { return sol_; }
+    auto getMleTable() { return mle_table_; }
 
   private:
     sol::state sol_;
+    sol::table mle_table_;
 };
 // TODO: I will probably allocate this at a linear allocator along the other core singletons in the future
 std::unique_ptr<Impl> i_;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
@@ -55,9 +57,11 @@ void Impl::init() {
     MLE_D("{}", sol_["jit"]["version"].get<std::string>());
 
     require("utils", true);
-    MLE_T("LuaUtils: {}", getTable("LuaUtils"));
+    MLE_D("LuaUtils: {}", getTable("LuaUtils"));
 
     MLE_I("Module initialized successfully!");
+
+    mle_table_ = createTable("mle");
 }
 
 void Impl::shutdown() {  // NOLINT this can be static for now but should not be static in the future
@@ -159,6 +163,11 @@ sol::table createTable(const std::string& name) {
 sol::table createTable(const sol::table& table, bool deep) {
     MLE_ASSERT(i_);
     return i_->createTable(table, deep);
+}
+
+sol::table getMleTable() {
+    MLE_ASSERT(i_);
+    return i_->getMleTable();
 }
 
 namespace detail {

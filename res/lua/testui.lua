@@ -34,6 +34,7 @@ return {
 				children_base = {
 					on_hover_enter = function(self)
 						self:apply("text", { color = "NQB" })
+						mle.audio.play("res/i/sounds/menu_click.flac")
 					end,
 					on_hover_leave = function(self)
 						self:apply("text", { color = "WHITE" })
@@ -58,6 +59,8 @@ return {
 					text = { "Exit" },
 					on_hover_enter = function(self)
 						self:apply("text", { color = "RED" })
+						mle.audio.play("res/i/sounds/menu_click.flac")
+						mle.core.stop()
 					end,
 				},
 			},

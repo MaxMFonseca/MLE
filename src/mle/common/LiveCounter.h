@@ -27,7 +27,7 @@ class LiveCounter {  // NOLINT
     /// Constructs and registers a new debug instance with a unique ID.
     LiveCounter() :
         debuggable_id_(genID()) {
-        MLE_D("Debuggable id {}", debuggable_id_);
+        MLE_T("Debuggable id {}", debuggable_id_);
         getActiveInstances().insert(debuggable_id_);
     }
 
@@ -42,9 +42,9 @@ class LiveCounter {  // NOLINT
 
     /// Logs all currently active instance IDs of the class.
     static void listActiveInstances(std::string type_name) {
-        MLE_D("Count of active instances of {}: {}", type_name, getActiveInstances().size());
+        MLE_T("Count of active instances of {}: {}", type_name, getActiveInstances().size());
         for (auto id : getActiveInstances()) {
-            MLE_D("  Instance ID: {}", id);
+            MLE_T("  Instance ID: {}", id);
         }
     }
 

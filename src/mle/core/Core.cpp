@@ -44,7 +44,6 @@ class Impl {
 
   private:
     State state_ = State::UNINITIALIZED;
-    sol::table mle_table_;
 
     Stopwatch running_stopwatch_;
     f32 running_time_float_ = 0.F;
@@ -90,7 +89,7 @@ void Impl::update() {
     update_call_count_++;
     MLE_D("----- UPDATE ({}) -----", update_call_count_);
 
-    mle_table_["time"] = running_time_float_ = running_stopwatch_.elapsedSecFloat();
+    lua::getMleTable()["time"] = running_time_float_ = running_stopwatch_.elapsedSecFloat();
 
     window::update();
     ui::update();
@@ -135,12 +134,28 @@ void Impl::registerLuaTypes(const CI& ci) {
     MLE_T("Common");
     registerLuaTypesMath();
     Color::registerLuaTypes();
+
     MLE_T("UI");
     // ui::registerLuaTypes();
+
+    MLE_T("Audio");
+    audio::registerLuaTypes();
+
     if (ci.registerLuaTypes) {
         MLE_T("USER");
         ci.registerLuaTypes();
     }
+
+    MLE_T("Core");
+    auto core_table = lua::createTable();
+    core_table["stop"] = []() {
+        MLE_VI("Stop requested from lua.");
+        core::stop();
+    };
+
+    lua::getMleTable()["core"] = core_table;
+
+    MLE_D("MLE table: {}", lua::getMleTable());
 }
 
 void Impl::shutdown() {
@@ -154,7 +169,6 @@ void Impl::shutdown() {
     ui::shutdown();
     renderer::shutdown();
     window::shutdown();
-    mle_table_.reset();
     lua::shutdown();
 
     state_ = State::SHUTDOWN;
@@ -200,7 +214,6 @@ void Impl::init(CI ci) {  // NOLINT
     MLE_ASSERT_LOG(fs::exists(res::addUserLuaPath("config.lua")), "Create the config.lua file inside {}/{}", RES_BASE_PATH, ResPath::LUA);
     sol::table init_config = lua::require("config");
 
-    mle_table_ = lua::createTable("mle");
     Color::addEngineDefaultColors();
     if (const auto colors = init_config["colors"]; colors.valid()) {
         Color::addColors(colors);
@@ -239,12 +252,12 @@ void Impl::run() {
             update();
             now = sw.elapsed<std::chrono::nanoseconds>();
 
-            // TODO: remove this
-            static std::chrono::nanoseconds last_played_test = now;
-            if (now - last_played_test > std::chrono::milliseconds(1000)) {
-                audio::enqueueCommand(audio::PlaySound{.name = std::string("res/i/sounds/menu_click.flac")});
-                last_played_test = now;
-            }
+            // // TODO: remove this
+            // static std::chrono::nanoseconds last_played_test = now;
+            // if (now - last_played_test > std::chrono::milliseconds(1000)) {
+            //     audio::enqueueCommand(audio::PlaySound{.name = std::string("res/i/sounds/menu_click.flac")});
+            //     last_played_test = now;
+            // }
         }
 
         render();

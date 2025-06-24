@@ -13,6 +13,7 @@
 #include "mle/common/containers/TSQueue.h"
 #include "mle/common/math/Types.h"
 #include "mle/core/Core.h"
+#include "mle/lua/Lua.h"
 
 namespace mle::audio {
 namespace {
@@ -347,5 +348,15 @@ void update() {
 void enqueueCommand(Command cmd) {
     MLE_ASSERT(i_);
     i_->enqueueCommand(std::move(cmd));
+}
+
+void registerLuaTypes() {
+    MLE_T("Registering audio Lua types");
+
+    auto audio_table = lua::createTable();
+    audio_table["play"] = [](const std::string& name) { enqueueCommand(PlaySound{.name = name}); };
+
+    auto mle_table = lua::getMleTable();
+    mle_table["audio"] = audio_table;
 }
 }  // namespace mle::audio
