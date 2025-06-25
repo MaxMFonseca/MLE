@@ -33,6 +33,9 @@
     MLE_NO_COPY(Class)          \
     MLE_NO_MOVE(Class)
 
+/// No operation macro
+#define MLE_NOOP ((void)0)
+
 namespace mle {
 /**
  * @brief Splits a string by a given delimiter.
