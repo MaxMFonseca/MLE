@@ -186,6 +186,23 @@ inline T getKeyOr(const sol::table& table, const std::string& key, T default_val
 }
 
 /**
+ * @brief Extract a value from a Lua table by index, or return a default value if the index does not exist.
+ *
+ * @tparam T Expected value type.
+ * @param table Lua table object.
+ * @param idx Index to look for in the table.
+ * @param default_value Default value to return if the index does not exist.
+ * @return The value at the specified index, converted to type T, or the default value if the index does not exist.
+ */
+template <typename T>
+inline T getIdxOr(const sol::table& table, int idx, T default_value) {
+    if (table[idx].valid()) {
+        return as<T>(table[idx]);
+    }
+    return default_value;
+}
+
+/**
  * @brief Try to extract a value from a Lua table by key.
  *
  * @tparam T Expected value type.
