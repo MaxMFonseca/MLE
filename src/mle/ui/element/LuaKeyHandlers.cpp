@@ -229,40 +229,18 @@ void text(entt::entity self, const sol::object& obj) {
     renderable->apply(self, obj);
 }
 
-void onHover(entt::entity self, const sol::object& obj) {
+template <typename T, bool Click = false>
+void collidable(entt::entity self, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
     auto& reg = getRegistry();
 
-    auto* comp = reg.try_get<comp::OnHover>(self);
+    auto* comp = reg.try_get<T>(self);
     if (!comp) {
-        comp = &reg.emplace<comp::OnHover>(self);
+        comp = &reg.emplace<T>(self);
         comp::Collidable::add(self);
     }
-
-    comp->fn = [fn = lua::as<sol::function>(obj)](entt::entity self) { fn(EWrap(self)); };
-}
-
-void onHoverEnter(entt::entity self, const sol::object& obj) {
-    MLE_ASSERT(obj.valid());
-    auto& reg = getRegistry();
-
-    auto* comp = reg.try_get<comp::OnHoverEnter>(self);
-    if (!comp) {
-        comp = &reg.emplace<comp::OnHoverEnter>(self);
-        comp::Collidable::add(self);
-    }
-
-    comp->fn = [fn = lua::as<sol::function>(obj)](entt::entity self) { fn(EWrap(self)); };
-}
-
-void onHoverLeave(entt::entity self, const sol::object& obj) {
-    MLE_ASSERT(obj.valid());
-    auto& reg = getRegistry();
-
-    auto* comp = reg.try_get<comp::OnHoverLeave>(self);
-    if (!comp) {
-        comp = &reg.emplace<comp::OnHoverLeave>(self);
-        comp::Collidable::add(self);
+    if constexpr (Click) {
+        reg.try_get<comp::Collidable>(self)->clicable = true;
     }
 
     comp->fn = [fn = lua::as<sol::function>(obj)](entt::entity self) { fn(EWrap(self)); };
@@ -353,9 +331,13 @@ void addEngineLuaKeyHandlers() {
     addLuaKeyHandler("root_image", rootImage);
     addLuaKeyHandler("sprite", sprite);
     addLuaKeyHandler("text", text);
-    addLuaKeyHandler("on_hover", onHover);
-    addLuaKeyHandler("on_hover_enter", onHoverEnter);
-    addLuaKeyHandler("on_hover_leave", onHoverLeave);
     addLuaKeyHandler("table", table);
+    addLuaKeyHandler("on_hover", collidable<comp::OnHover>);
+    addLuaKeyHandler("on_hover_enter", collidable<comp::OnHoverEnter>);
+    addLuaKeyHandler("on_hover_leave", collidable<comp::OnHoverLeave>);
+    addLuaKeyHandler("on_click", collidable<comp::OnLeftPressed, true>);
+    addLuaKeyHandler("on_left_pressed", collidable<comp::OnLeftPressed, true>);
+    addLuaKeyHandler("on_left_released", collidable<comp::OnLeftReleased, true>);
+    addLuaKeyHandler("on_left_down", collidable<comp::OnLeftDown, true>);
 }
 }  // namespace mle::ui::element

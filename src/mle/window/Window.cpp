@@ -13,6 +13,7 @@ class Impl {
   public:
     inline void init(const CI& ci);
     inline void update();
+    void lateUpdate() { uim_.lateUpdate(); }
     inline void shutdown();
 
     auto& getCurrentConfig() { return current_config_; }
@@ -183,6 +184,11 @@ void init(const CI& ci) {
 void update() {
     MLE_ASSERT(i_);
     i_->update();
+}
+
+void lateUpdate() {
+    MLE_ASSERT(i_);
+    i_->lateUpdate();
 }
 
 void shutdown() {

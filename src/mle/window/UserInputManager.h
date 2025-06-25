@@ -99,6 +99,9 @@ class UserInputManager {
     /// Updates internal state each frame.
     void update();
 
+    /// Updates internal state on frame end.
+    void lateUpdate();
+
     /// Sets the current cursor position in screen space.
     void setCursorPos(const vec2d& pos);
 
@@ -130,13 +133,13 @@ class UserInputManager {
     [[nodiscard]] f64 getScrollOffset() const { return scroll_offset_; }
 
     /// Returns true if the key is in the pressed state.
-    void isPressed(Key key) const;
+    bool isPressed(Key key) const;
 
     /// Returns true if the key is in the released state.
-    void isReleased(Key key) const;
+    bool isReleased(Key key) const;
 
     /// Returns true if the key is held down.
-    void isDown(Key key) const;
+    bool isDown(Key key) const;
 
     /// Returns true if the cursor is inside the given rect (in screen space).
     bool isCursorInside(const Rectf& rect) { return rect.contains(cursor_pos_); }

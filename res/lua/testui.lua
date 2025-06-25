@@ -60,7 +60,7 @@ return {
 				},
 				{
 					text = { "Exit" },
-					on_click = function(self)
+					on_left_released = function(self)
 						mle.core.stop()
 					end,
 					table = {

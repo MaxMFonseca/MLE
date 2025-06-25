@@ -48,6 +48,9 @@ void init(const CI& ci);
 /// Updates window state and polls events. Should be called once per frame.
 void update();
 
+/// Updates UIM after frame
+void lateUpdate();
+
 /// Shuts down the window and releases resources.
 void shutdown();
 

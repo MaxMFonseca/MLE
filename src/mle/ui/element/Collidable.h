@@ -16,13 +16,23 @@ struct OnHoverLeave {
 // struct OnHoverOut {
 //     CallbackFn fn;
 // };
+struct OnLeftPressed {
+    CallbackFn fn;
+};
+struct OnLeftReleased {
+    CallbackFn fn;
+};
+struct OnLeftDown {
+    CallbackFn fn;
+};
 
 struct Collidable {
     enum class State : u8 { OUT, ENTER, IN, LEAVE, KEEP };
     State state = State::OUT;
+    bool clicable = false;
 
     void update(entt::entity self);
-    void hovered();
+    bool hovered(entt::entity self);
 
     static void add(entt::entity self);
 

@@ -682,26 +682,29 @@ void Container::updateChildrenBoundsFlex(FlexUpdateData data) {
     }
 }
 
-void Container::collide(entt::entity, vec2i cursor) {  // NOLINT
+bool Container::collide(entt::entity, vec2i cursor) {  // NOLINT
     auto& reg = getRegistry();
     auto children = children_.get();
 
     for (auto child : children) {
         auto& bounds = reg.get<Bounds>(child);
         if (bounds.parent_px.contains(cursor)) {
-            bool solved = false;
-            if (auto* container = reg.try_get<Container>(child); container) {
+            bool click_solved = false;
+            auto* container = reg.try_get<Container>(child);
+            if (container) {
                 cursor -= bounds.parent_px.pos;
-                container->collide(child, cursor);
+                click_solved = container->collide(child, cursor);
             }
             if (auto* collidable = reg.try_get<Collidable>(child); collidable) {
-                collidable->hovered();
-                solved = true;
+                bool col_solved_click = collidable->hovered(child);
+                MLE_ASSERT_LOG(!(container && col_solved_click), "Do not use Collidable with Container!");
+                click_solved |= col_solved_click;
             }
-            if (solved) {
-                break;
+            if (click_solved) {
+                return true;
             }
         }
     }
+    return false;
 }
 }  // namespace mle::ui::element::comp

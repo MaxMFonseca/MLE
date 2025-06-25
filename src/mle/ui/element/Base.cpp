@@ -163,15 +163,11 @@ std::pair<renderer::PipelineRef, vk::DescriptorSetLayout> Blur::getPipeline() {
 }
 
 void Table::apply(entt::entity /*unused*/, const sol::table& tbl) {
-    MLE_VC(1);
     if (!v.valid()) {
-        MLE_VC(2);
         v = lua::createTable(tbl, true);
     } else {
-        MLE_VC(3);
         lua::merge(v, tbl);
     }
-    MLE_VC(4);
 }
 }  // namespace comp
 }  // namespace mle::ui::element

@@ -96,6 +96,8 @@ void Impl::update() {
     renderer::update();
     audio::update();
 
+    window::lateUpdate();
+
     current_second_times_.updates++;
     current_second_times_.time_updating += sw.elapsed<std::chrono::nanoseconds>();
 }

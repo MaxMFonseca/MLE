@@ -1,12 +1,50 @@
 #include "Collidable.h"
 
+#include "mle/ui/UI.h"
+#include "mle/window/Types.h"
+#include "mle/window/Window.h"
+
 namespace mle::ui::element::comp {
-void Collidable::hovered() {
+bool Collidable::hovered(entt::entity self) {
     if (state == State::IN) {
         state = State::KEEP;
     } else {
         state = State::ENTER;
     }
+
+    if (!clicable) {
+        return false;
+    }
+
+    auto& reg = getRegistry();
+    switch (window::getUIM().getState(window::Key::MOUSE_LEFT)) {
+        case window::KeyState::PRESSED: {
+            auto* comp = reg.try_get<OnLeftPressed>(self);
+            if (comp) {
+                comp->fn(self);
+            }
+            return true;
+        } break;
+        case window::KeyState::DOWN: {  // NOLINT
+            auto* comp = reg.try_get<OnLeftDown>(self);
+            if (comp) {
+                comp->fn(self);
+            }
+            return true;
+        } break;
+        case window::KeyState::RELEASED: {
+            auto* comp = reg.try_get<OnLeftReleased>(self);
+            if (comp) {
+                comp->fn(self);
+            }
+            return true;
+        } break;
+        case window::KeyState::UP:
+            MLE_NOOP;
+            break;
+    }
+
+    return false;
 }
 
 void Collidable::update(entt::entity self) {

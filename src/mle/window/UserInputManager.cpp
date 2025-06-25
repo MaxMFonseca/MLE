@@ -79,6 +79,21 @@ void KeyListener::unsign() {
     getUIM().unsignKeylistener(this);
 }
 
+void UserInputManager::lateUpdate() {
+    auto it = active_keys_.begin();
+    while (it != active_keys_.end()) {
+        auto& [key, state] = *it;
+
+        if (state == KeyState::PRESSED) {
+            state = KeyState::DOWN;
+        } else if (state == KeyState::RELEASED) {
+            it = active_keys_.erase(it);
+            continue;
+        }
+        ++it;
+    }
+}
+
 void UserInputManager::update() {
     auto it = active_keys_.begin();
     while (it != active_keys_.end()) {
@@ -89,18 +104,11 @@ void UserInputManager::update() {
             auto reverse_it = listeners->second.rbegin();
             for (; reverse_it != listeners->second.rend(); ++reverse_it) {
                 if ((*reverse_it)->tryCall(shift_, ctrl_, alt_)) {
-                    break;  // only the last listener can consume the event
+                    break;
                 }
             }
         }
-
-        if (state == KeyState::PRESSED) {
-            state = KeyState::DOWN;
-        } else if (state == KeyState::RELEASED) {
-            it = active_keys_.erase(it);
-            continue;
-        }
-        ++it;
+        it++;
     }
 
     cursor_pos_delta_ = cursor_pos_ - cursor_pos_prev_;
@@ -192,5 +200,17 @@ void UserInputManager::unsignKeylistener(KeyListenerRef listener) {
     auto& listeners = listeners_[packKeyKeyState(listener->getKey(), listener->getState())];
     std::erase(listeners, listener);
     listener->setSigned(false);
+}
+
+bool UserInputManager::isPressed(Key key) const {
+    return getState(key) == KeyState::PRESSED;
+}
+
+bool UserInputManager::isReleased(Key key) const {
+    return getState(key) == KeyState::RELEASED;
+}
+
+bool UserInputManager::isDown(Key key) const {
+    return getState(key) == KeyState::DOWN;
 }
 }  // namespace mle::window
