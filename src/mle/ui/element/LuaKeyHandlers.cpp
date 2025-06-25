@@ -268,6 +268,17 @@ void onHoverLeave(entt::entity self, const sol::object& obj) {
     comp->fn = [fn = lua::as<sol::function>(obj)](entt::entity self) { fn(EWrap(self)); };
 }
 
+void table(entt::entity self, const sol::object& obj) {
+    auto& reg = getRegistry();
+
+    auto* comp = reg.try_get<comp::Table>(self);
+    if (!comp) {
+        comp = &reg.emplace<comp::Table>(self);
+    }
+
+    comp->apply(self, lua::as<sol::table>(obj));
+}
+
 auto& getMap() {
     static std::unordered_map<std::string, LuaKeyHandlerFn> lua_keys;
     return lua_keys;
@@ -311,9 +322,17 @@ void EntityWrapper::apply(const std::string& key, const sol::object& obj) const 
     fn_r.value()(o, obj);
 }
 
+#define MLE_ASSERT_HAS(T) MLE_ASSERT_LOG(getRegistry().all_of<T>(o), "Entity does not have component {}", #T)
+
+sol::table EntityWrapper::getTable() const {
+    MLE_ASSERT_HAS(comp::Table);
+    return getRegistry().get<comp::Table>(o).v;
+}
+
 void addEngineLuaKeyHandlers() {
     auto ut = lua::newUsertype<EntityWrapper>("entt");
     ut["apply"] = &EntityWrapper::apply;
+    ut["getTable"] = &EntityWrapper::getTable;
 
     addLuaKeyHandler("name", name);
     addLuaKeyHandler("size", size);
@@ -337,5 +356,6 @@ void addEngineLuaKeyHandlers() {
     addLuaKeyHandler("on_hover", onHover);
     addLuaKeyHandler("on_hover_enter", onHoverEnter);
     addLuaKeyHandler("on_hover_leave", onHoverLeave);
+    addLuaKeyHandler("table", table);
 }
 }  // namespace mle::ui::element

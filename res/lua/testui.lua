@@ -33,12 +33,15 @@ return {
 				gap = 20,
 				children_base = {
 					on_hover_enter = function(self)
-						self:apply("text", { color = "NQB" })
+						self:apply("text", { color = self:getTable().hover_color })
 						mle.audio.play("res/i/sounds/menu_click.flac")
 					end,
 					on_hover_leave = function(self)
 						self:apply("text", { color = "WHITE" })
 					end,
+					table = {
+						hover_color = "NQB",
+					},
 				},
 				{
 					text = { "Single Player" },
@@ -57,11 +60,12 @@ return {
 				},
 				{
 					text = { "Exit" },
-					on_hover_enter = function(self)
-						self:apply("text", { color = "RED" })
-						mle.audio.play("res/i/sounds/menu_click.flac")
+					on_click = function(self)
 						mle.core.stop()
 					end,
+					table = {
+						hover_color = "RED",
+					},
 				},
 			},
 		},

@@ -4,6 +4,7 @@
 #include "mle/common/Utils.h"
 #include "mle/common/math/Types.h"
 #include "mle/common/math/Types2D.h"
+#include "mle/lua/Types.h"
 #include "mle/renderer/RenderingThread.h"
 #include "mle/renderer/Types.h"
 #include "mle/ui/Types.h"
@@ -44,6 +45,11 @@ struct Blur {
     void render(const RenderContext& ctx);
 
     static std::pair<renderer::PipelineRef, vk::DescriptorSetLayout> getPipeline();
+};
+struct Table {
+    sol::table v;
+
+    void apply(entt::entity self, const sol::table& tbl);
 };
 }  // namespace comp
 }  // namespace mle::ui::element

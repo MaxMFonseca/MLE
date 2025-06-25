@@ -3,6 +3,7 @@
 #include "Container.h"
 #include "mle/common/Assert.h"
 #include "mle/common/Utils.h"
+#include "mle/lua/Lua.h"
 #include "mle/lua/Utils.h"
 #include "mle/renderer/Image.h"
 #include "mle/renderer/Pipeline.h"
@@ -159,6 +160,18 @@ std::pair<renderer::PipelineRef, vk::DescriptorSetLayout> Blur::getPipeline() {
     }
 
     return std::make_pair(pipeline.get(), dsl);
+}
+
+void Table::apply(entt::entity /*unused*/, const sol::table& tbl) {
+    MLE_VC(1);
+    if (!v.valid()) {
+        MLE_VC(2);
+        v = lua::createTable(tbl, true);
+    } else {
+        MLE_VC(3);
+        lua::merge(v, tbl);
+    }
+    MLE_VC(4);
 }
 }  // namespace comp
 }  // namespace mle::ui::element

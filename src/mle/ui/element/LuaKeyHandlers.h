@@ -9,6 +9,7 @@ struct EntityWrapper {
     entt::entity o;
 
     void apply(const std::string& key, const sol::object& obj) const;
+    [[nodiscard]] sol::table getTable() const;
 };
 using EWrap = EntityWrapper;
 
