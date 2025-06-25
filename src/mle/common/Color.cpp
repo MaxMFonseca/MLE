@@ -52,11 +52,18 @@ Color Color::fromLua(const sol::object& object) {
         case sol::type::table: {
             auto table = object.as<sol::table>();
 
-            f32 r = NAN, g = NAN, b = NAN, a = NAN;
-            if (!lua::tryGetList<f32>(table, r, g, b, a)) {
+            f32 r = NAN, g = NAN, b = NAN;
+            if (!lua::tryGetList<f32>(table, r, g, b)) {
                 MLE_W("Invalid Lua color table, returning WHITE");
                 return WHITE;
             }
+
+            if (r > 1 || g > 1 || b > 1) {
+                u32 a = lua::getIdxOr(table, 4, MAX_U8);
+                return Color{as<u32>(r), as<u32>(g), as<u32>(b), a};
+            }
+
+            f32 a = lua::getIdxOr(table, 4, 1.F);
             return Color{r, g, b, a};
         }
         case sol::type::userdata: {

@@ -64,7 +64,7 @@ return {
 						mle.core.stop()
 					end,
 					table = {
-						hover_color = "RED",
+						hover_color = { 60, 10, 200 },
 					},
 				},
 			},
