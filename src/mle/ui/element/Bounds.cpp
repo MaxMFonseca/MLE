@@ -114,6 +114,19 @@ void TargetBound::apply(const sol::object& obj) {
 void TargetPosition::apply(entt::entity self, const sol::object& obj) {
     if (obj.is<f32>()) {
         x.val = y.val = obj.as<f32>();
+    } else if (obj.is<std::string>()) {
+        auto str = obj.as<std::string>();
+        auto c0 = str[0];
+        if (std::isdigit(c0) || c0 == '.') {
+            x.applyStr(str);
+            y.applyStr(str);
+        } else {
+            MLE_ASSERT_LOG(str.size() <= 2, "Invalid target position string: '{}'. Expected format is 'x(origin_val)' or 'xy(origin_val)'.", str);
+            auto str_pos = stringToOrigin(str);
+            x.val = str_pos.x;
+            y.val = str_pos.y;
+            y.type = x.type = TargetBound::Type::PARENT;
+        }
     } else {
         MLE_ASSERT(obj.is<sol::table>());
         auto table = obj.as<sol::table>();
