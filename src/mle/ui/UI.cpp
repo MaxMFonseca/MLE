@@ -90,18 +90,27 @@ void Impl::shutdown() {
 void Impl::update() {
     if (next_root_) {
         nextRoot();
+    } else {
+        vec2u cursor = window::getUIM().getCursorPos();
+        auto& root_container = registry_.get<element::comp::Container>(root_);
+        root_container.collide(root_, cursor);
+
+        auto view = registry_.view<element::comp::Collidable>();
+        for (auto e : view) {
+            view.get<element::comp::Collidable>(e).update(e);
+        }
     }
 
-    vec2u cursor = window::getUIM().getCursorPos();
-    auto& root_container = registry_.get<element::comp::Container>(root_);
-    root_container.collide(root_, cursor);
-
-    auto view = registry_.view<element::comp::Collidable>();
-    for (auto e : view) {
-        view.get<element::comp::Collidable>(e).update(e);
+    auto on_init_view = registry_.view<element::comp::OnInit>();
+    for (auto e : on_init_view) {
+        on_init_view.get<element::comp::OnInit>(e).fn(e);
     }
+    registry_.clear<element::comp::OnInit>();
 
-    // updateElements();
+    auto on_update_view = registry_.view<element::comp::OnUpdate>();
+    for (auto e : on_update_view) {
+        on_update_view.get<element::comp::OnUpdate>(e).fn(e);
+    }
 
     checkElementsBoundChanged();
 }

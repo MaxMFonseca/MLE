@@ -17,7 +17,7 @@
 
 namespace mle::ui::element {  // NOLINT
 namespace comp {
-using CallbackFn = std::function<void(entt::entity)>;
+using CallbackFn = std::function<void(EntityWrapper)>;
 struct Parent {
     entt::entity parent = entt::null;
     static Container& container(entt::entity self);
@@ -50,6 +50,13 @@ struct Table {
     sol::table v;
 
     void apply(entt::entity self, const sol::table& tbl);
+};
+
+struct OnInit {
+    CallbackFn fn;
+};
+struct OnUpdate {
+    CallbackFn fn;
 };
 }  // namespace comp
 }  // namespace mle::ui::element

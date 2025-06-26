@@ -256,7 +256,7 @@ void collidable(entt::entity self, const sol::object& obj) {
         reg.try_get<comp::Collidable>(self)->clicable = true;
     }
 
-    comp->fn = [fn = lua::as<sol::function>(obj)](entt::entity self) { fn(EWrap(self)); };
+    comp->fn = lua::as<sol::function>(obj);
 }
 
 void table(entt::entity self, const sol::object& obj) {
@@ -268,6 +268,30 @@ void table(entt::entity self, const sol::object& obj) {
     }
 
     comp->apply(self, lua::as<sol::table>(obj));
+}
+
+void onInit(entt::entity self, const sol::object& obj) {
+    MLE_ASSERT(obj.valid());
+    auto& reg = getRegistry();
+
+    auto* comp = reg.try_get<comp::OnInit>(self);
+    if (!comp) {
+        comp = &reg.emplace<comp::OnInit>(self);
+    }
+
+    comp->fn = lua::as<sol::function>(obj);
+}
+
+void onUpdate(entt::entity self, const sol::object& obj) {
+    MLE_ASSERT(obj.valid());
+    auto& reg = getRegistry();
+
+    auto* comp = reg.try_get<comp::OnUpdate>(self);
+    if (!comp) {
+        comp = &reg.emplace<comp::OnUpdate>(self);
+    }
+
+    comp->fn = lua::as<sol::function>(obj);
 }
 
 auto& getMap() {
@@ -346,6 +370,8 @@ void addEngineLuaKeyHandlers() {
     addLuaKeyHandler("text", text);
     addLuaKeyHandler("shader", shader);
     addLuaKeyHandler("table", table);
+    addLuaKeyHandler("on_init", onInit);
+    addLuaKeyHandler("on_update", onUpdate);
     addLuaKeyHandler("on_hover", collidable<comp::OnHover>);
     addLuaKeyHandler("on_hover_enter", collidable<comp::OnHoverEnter>);
     addLuaKeyHandler("on_hover_leave", collidable<comp::OnHoverLeave>);

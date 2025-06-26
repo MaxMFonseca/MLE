@@ -6,6 +6,8 @@
 
 namespace mle::ui::element {  // NOLINT
 struct EntityWrapper {
+    EntityWrapper(entt::entity o) :  // NOLINT
+        o(o) {};
     entt::entity o;
 
     void apply(const std::string& key, const sol::object& obj) const;

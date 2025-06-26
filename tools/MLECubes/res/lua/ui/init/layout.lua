@@ -1,17 +1,18 @@
+local color = Color.fromString("ZERO")
+
 return {
+	on_init = function(self)
+		print("on_init layout")
+	end,
+	on_update = function(self)
+		color = Color.mix(Color.fromString("red800"), Color.fromString("blue800"), (math.sin(mle.time) + 1) / 2)
+	end,
+
 	root_image = {
 		extent = { 1920, 1080 },
 		clear_color = "slate300",
 	},
 	c = {
-		-- {
-		-- 	background = "emerald500",
-		--
-		-- 	text = {
-		-- 		"Max!",
-		-- 		color = "amber500",
-		-- 	},
-		-- },
 		{
 			"BG",
 			size = "100%",
@@ -22,9 +23,9 @@ return {
 				fn = function(self)
 					return {
 						pc = {
-							canvas_size = { 1920, 1080 },
-							color = Color.fromString("cyan800"),
-							time = mle.time,
+							canvas_size = { 190 * 3, 100 * 3 },
+							color = color,
+							time = mle.time * 3,
 						},
 					}
 				end,
@@ -37,8 +38,11 @@ return {
 			origin = "ct",
 			text = {
 				"Hello World!",
-				color = "cyan400",
+				color = "emerald300",
 			},
+			on_update = function(self)
+				self:apply("text", { color = color })
+			end,
 		},
 	},
 }
