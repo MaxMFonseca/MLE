@@ -135,8 +135,8 @@ renderer::PipelineRef Sprite::getPipeline() {
         initTempStuff();
 
         renderer::Pipeline::CI ci;
-        ci.vertex_shader = renderer::getShader("ui/sprite.vert", true);
-        ci.fragment_shader = renderer::getShader("ui/sprite.frag", true);
+        ci.vertex_shader = renderer::getShader("mle/ui/sprite.vert");
+        ci.fragment_shader = renderer::getShader("mle/ui/sprite.frag");
         ci.color_attachment_formats = {renderer::getDefaultColorFormat()};
         ci.blend_attachments = renderer::makeDefaultBlendAttachmentStates(1);
         ci.topology = vk::PrimitiveTopology::eTriangleStrip;

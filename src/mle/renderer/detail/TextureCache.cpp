@@ -109,29 +109,12 @@ ImageRef TextureCache::getImage(u32 idx) {
     return textures_.at(idx).image.get();
 }
 
-Texture TextureCache::add(const std::string& name, bool engine) {
-    fs::path path = name;
-    if (engine) {
-        path = res::addMleTexturePath(name);
-    } else {
-        path = res::addUserTexturePath(name);
-    }
-    return add(name, path);
-}
-
-Texture TextureCache::add(std::string name, const fs::path& path) {
-    MLE_D("Adding texture from file: {}", path.generic_string());
+Texture TextureCache::add(std::string name) {
+    MLE_D("Adding texture: {}", name);
 
     MLE_ASSERT(!texture_names_.contains(name));
 
-    if (name.empty()) {
-        name = res::removeBasePath(path.string());
-        MLE_D("Texture name not provided, using: {}", name);
-    } else {
-        MLE_D("Texture name provided: {}", name);
-    }
-
-    auto file_data = Image::readFile(path);
+    auto file_data = Image::readFile("res/textures/" + name);
 
     u32 idx = 0;
     if (!free_indices_.empty()) {
@@ -233,13 +216,14 @@ void TextureCache::finishedUpload(u32 idx) {
     updating_textures_.erase(it);
 }
 
-Texture TextureCache::get(const std::string& name, bool engine) {
+Texture TextureCache::get(const std::string& name) {
     auto it = texture_names_.find(name);
     if (it != texture_names_.end()) {
         return {.image = textures_[it->second].image.get(), .idx = it->second, .ready = textures_[it->second].ready};
     }
 
-    return add(name, engine);  // If not found, try to add it
+    MLE_D("Texture '{}' not found in cache, attempting to load", name);
+    return add(name);
 }
 
 void TextureCache::write(u32 idx) {

@@ -24,9 +24,7 @@ class TextureCache final {
     void update();
     void frameBegin();
 
-    Texture get(const std::string& name, bool engine = false);
-    Texture add(const std::string& name, bool engine = false);
-    Texture add(std::string name, const fs::path& path);
+    Texture get(const std::string& name);
     Texture add(const std::string& name, ImageHnd&& img);
 
     ImageRef getImage(u32 idx);
@@ -38,6 +36,8 @@ class TextureCache final {
     void enqueueTextureUpdateJob(TextureUpdateJobData&& data) { update_images_on_frame_.emplace_back(std::move(data)); }
 
   private:
+    Texture add(std::string name);
+
     void finishedUpload(u32 idx);
     void updateImagesOnFrame();
     void write(u32 idx);

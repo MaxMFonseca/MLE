@@ -12,8 +12,7 @@ namespace mle::renderer::detail {
 namespace {
 // This function validates the shader file name and extracts the stage from the file extension.
 vk::ShaderStageFlagBits getFileStage(const fs::path& filepath) {
-    MLE_ASSERT_LOG(filepath.extension() == ".spv", "For now only spv files are supported");
-    auto stage_extension = filepath.stem().extension();
+    auto stage_extension = filepath.extension();
     if (stage_extension == ".frag") {
         return vk::ShaderStageFlagBits::eFragment;
     }
@@ -36,34 +35,14 @@ void ShaderCache::reset() {
     shaders_.clear();
 }
 
-ShaderRef ShaderCache::addShader(const std::string& name, bool engine) {
-    fs::path path = name;
-    if (engine) {
-        path = res::addMleShaderPath(name);
-    } else {
-        path = res::addUserShaderPath(name);
-    }
-    path += ".spv";
-    return addShader(path, name);
-}
+ShaderRef ShaderCache::addShader(std::string name) {
+    MLE_D("Adding shader : {}", name);
 
-ShaderRef ShaderCache::addShader(const fs::path& path, std::string name) {
-    MLE_D("Adding shader from file: {}", path.generic_string());
+    auto stage = getFileStage(name);
 
-    auto stage = getFileStage(path);  // This also validates the name
-
-    if (name.empty()) {
-        auto no_spv = path;
-        no_spv.replace_extension("");
-        name = res::removeBasePath(no_spv.string());
-        MLE_D("Shader name not provided, using: {}", name);
-    } else {
-        MLE_D("Shader name provided: {}", name);
-    }
-
-    auto file = readFile(path, true);
+    auto file = readFile("res/shaders/" + name + ".spv");
     if (!file) {
-        core::unrecoverable("Failed to read shader file: {}", path.generic_string());
+        core::unrecoverable("Failed to read shader: {}", name);
     }
 
     vk::ShaderModuleCreateInfo module_ci;
@@ -83,13 +62,13 @@ ShaderRef ShaderCache::addShader(const fs::path& path, std::string name) {
     return r.first->second.get();
 }
 
-ShaderRef ShaderCache::get(const std::string& name, bool engine) {
+ShaderRef ShaderCache::get(const std::string& name) {
     auto it = shaders_.find(name);
     if (it != shaders_.end()) {
         return it->second.get();
     }
 
     MLE_D("Shader '{}' not found in cache, attempting to load", name);
-    return addShader(name, engine);
+    return addShader(name);
 }
 }  // namespace mle::renderer::detail

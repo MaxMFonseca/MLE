@@ -58,13 +58,11 @@ void deleteAfterFrame(BufferHnd&& buffer);  ///< Schedules a buffer for destruct
 
 vk::Format getDefaultColorFormat();  ///< Returns the default image format used by the renderer.
 
-ShaderRef getShader(const std::string& name, bool engine = false);  ///< Returns a shader reference by name, loading it if necessary.
+ShaderRef getShader(const std::string& name);  ///< Returns a shader reference by name, loading it if necessary.
 
 Texture addTexture(const std::string& name, ImageHnd&& img);  ///< Gives an image to the texture cache, allowing it to be used by name.
 
-Texture addTexture(const std::string& name, const fs::path& path);  ///< Add a new texture from name and path
-
-Texture getTexture(const std::string& name, bool engine = false);  ///< Returns a texture reference by name, loading it if necessary.
+Texture getTexture(const std::string& name);  ///< Returns a texture reference by name, loading it if necessary.
 
 void enqueueTextureUpdateJob(TextureUpdateJobData&& data);
 

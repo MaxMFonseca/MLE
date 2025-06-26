@@ -39,8 +39,8 @@ renderer::PipelineRef Background::getPipeline() {
     static renderer::PipelineHnd pipeline;
     if (!pipeline) {
         renderer::Pipeline::CI ci;
-        ci.vertex_shader = renderer::getShader("ui/rect.vert", true);
-        ci.fragment_shader = renderer::getShader("ui/rect.frag", true);
+        ci.vertex_shader = renderer::getShader("mle/ui/rect.vert");
+        ci.fragment_shader = renderer::getShader("mle/ui/rect.frag");
         ci.color_attachment_formats = {renderer::getDefaultColorFormat()};
         ci.blend_attachments = renderer::makeDefaultBlendAttachmentStates(1);
         ci.topology = vk::PrimitiveTopology::eTriangleStrip;
@@ -144,8 +144,8 @@ std::pair<renderer::PipelineRef, vk::DescriptorSetLayout> Blur::getPipeline() {
 
         MLE_T("  pipeline");
         renderer::Pipeline::CI ci;
-        ci.vertex_shader = renderer::getShader("ui/quad.vert", true);
-        ci.fragment_shader = renderer::getShader("ui/blur.frag", true);
+        ci.vertex_shader = renderer::getShader("mle/ui/quad.vert");
+        ci.fragment_shader = renderer::getShader("mle/ui/blur.frag");
         ci.color_attachment_formats = {renderer::getDefaultColorFormat()};
         ci.blend_attachments = renderer::makeDefaultBlendAttachmentStates(1);
         ci.topology = vk::PrimitiveTopology::eTriangleStrip;

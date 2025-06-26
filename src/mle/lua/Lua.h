@@ -27,19 +27,14 @@ void init();
 void shutdown();
 
 /**
- * @brief Executes a Lua script file.
- * @param file Path to the Lua file to be executed.
- * @return The result of the script execution as a Lua object.
- */
-sol::object scriptFile(const fs::path& file);
-
-/**
- * @brief Loads a Lua module using `require`.
+ * @brief Loads a Lua file.
+ *
+ * Remeber to add mle/ for engine code, and <mod> for mod code (i for app is std)
+ *
  * @param module_name Name of the Lua module.
- * @param engine Whether to load from engine-specific Lua module path.
  * @return The returned object from the required module.
  */
-sol::object require(const std::string& module_name, bool engine = false);
+sol::object require(const std::string& module_name);
 
 /// Creates a new empty Lua table.
 sol::table createTable();

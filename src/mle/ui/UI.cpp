@@ -65,15 +65,12 @@ void Impl::init() {
 
     root_size_ = window::getSize();
 
-    renderer::addTexture("mle", res::addMleTexturePath("ui/mle.png"));
-
     element::addEngineLuaKeyHandlers();
 
     font_cache_.init();
 
     Font::CI default_font_ci;
-    default_font_ci.name = "DigitalDisco";
-    default_font_ci.engine = true;
+    default_font_ci.path = "mle/DigitalDisco.ttf";
     default_font_ci.pre_load_string = U"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+-=[]{}|;':\",.<>?/~`";
     font_cache_.add(std::move(default_font_ci));
 }

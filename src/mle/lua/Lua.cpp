@@ -13,7 +13,7 @@ class Impl {
     inline void init();
     inline void shutdown();
     inline sol::object scriptFile(const fs::path& file);
-    inline sol::object require(const std::string& module_name, bool engine = false);
+    inline sol::object require(const std::string& module_name);
     inline sol::table getTable(const std::string& name);
     inline sol::table createTable();
     inline sol::table createTable(const std::string& name);
@@ -51,35 +51,30 @@ void Impl::init() {
     }
 
     auto package_path = sol_["package"]["path"];
-    package_path = package_path.get<std::string>() + ";" + res::addMleLuaPath("?.lua") + ";" + res::addUserLuaPath("?.lua");
+    package_path = package_path.get<std::string>() + ";res/lua/?.lua";
 
     MLE_I("{}", sol_["_VERSION"].get<std::string>());
     MLE_I("{}", sol_["jit"]["version"].get<std::string>());
     MLE_I("{}", sol_["package"]["path"].get<std::string>());
 
-    require("utils", true);
-    MLE_D("LuaUtils: {}", getTable("LuaUtils"));
-
     MLE_I("Module initialized successfully!");
 
     mle_table_ = createTable("mle");
+    mle_table_["utils"] = require("mle/utils");
 }
 
-void Impl::shutdown() {  // NOLINT this can be static for now but should not be static in the future
+void Impl::shutdown() {  // NOLINT this can be static, but I will not now
     MLE_I("Shutting down Lua Module");
     MLE_D("Module shut down successfully!");
 }
 
-sol::object Impl::scriptFile(const fs::path& file) {
-    return sol_.script_file(file);
-}
+sol::object Impl::require(const std::string& module_name) {
+    MLE_D("Requiring Lua module: {}", module_name);
 
-sol::object Impl::require(const std::string& module_name, bool engine) {
-    MLE_D("Requiring Lua module: {}, engine: {}", module_name, engine);
-    if (engine) {
-        return scriptFile(res::addMleLuaPath(module_name + ".lua"));
-    }
-    return scriptFile(res::addUserLuaPath(module_name + ".lua"));
+    MLE_ASSERT_LOG(!module_name.empty(), "Module name must not be empty");
+    MLE_ASSERT_LOG(!module_name.ends_with(".lua"), "Module name must not end with .lua");
+
+    return sol_.script_file("res/lua/" + module_name + ".lua");
 }
 
 sol::table Impl::getTable(const std::string& name) {
@@ -141,14 +136,9 @@ void shutdown() {
     }
 }
 
-sol::object scriptFile(const fs::path& file) {
+sol::object require(const std::string& module_name) {
     MLE_ASSERT(i_);
-    return i_->scriptFile(file);
-}
-
-sol::object require(const std::string& module_name, bool engine) {
-    MLE_ASSERT(i_);
-    return i_->require(module_name, engine);
+    return i_->require(module_name);
 }
 
 sol::table createTable() {

@@ -1,14 +1,23 @@
 return {
 	root_image = {
 		extent = { 1920, 1080 },
-		clear_color = "NQB",
+		clear_color = "slate300",
 	},
 	c = {
 		{
-			size_y = "10%",
-			origin = "c",
-			pos = "c",
-			text = { "Hello world!" },
+			background = "emerald500",
+
+			text = {
+				"Max!",
+				color = "amber500",
+			},
 		},
+		-- {
+		-- 	"BG",
+		-- 	shader = {
+		-- 		vert = "ui/quad",
+		-- 		frag = "ui/init/bg",
+		-- 	},
+		-- },
 	},
 }

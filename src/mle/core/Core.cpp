@@ -219,8 +219,11 @@ void Impl::init(CI ci) {  // NOLINT
     lua::init();
     registerLuaTypes(ci);
 
-    MLE_ASSERT_LOG(fs::exists(res::addUserLuaPath("config.lua")), "Create the config.lua file inside {}/{}", RES_BASE_PATH, ResPath::LUA);
-    sol::table init_config = lua::require("config");
+    // TODO: remove this requirement
+    if (!fs::exists("res/lua/i/config.lua")) {
+        core::unrecoverable("App lua config file not found! Expected at: res/lua/i/config.lua");
+    }
+    sol::table init_config = lua::require("i/config");
 
     Color::addEngineDefaultColors();
     if (const auto colors = init_config["colors"]; colors.valid()) {

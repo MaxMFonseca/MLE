@@ -228,8 +228,8 @@ renderer::PipelineRef Text::getPipeline() {
         initTempStuff();
 
         renderer::Pipeline::CI ci;
-        ci.vertex_shader = renderer::getShader("ui/sdf_text_instanced.vert", true);
-        ci.fragment_shader = renderer::getShader("ui/sdf_text_instanced.frag", true);
+        ci.vertex_shader = renderer::getShader("mle/ui/sdf_text_instanced.vert");
+        ci.fragment_shader = renderer::getShader("mle/ui/sdf_text_instanced.frag");
         ci.color_attachment_formats = {renderer::getDefaultColorFormat()};
         ci.blend_attachments = renderer::makeDefaultBlendAttachmentStates(1);
         ci.topology = vk::PrimitiveTopology::eTriangleStrip;

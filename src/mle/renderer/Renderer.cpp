@@ -216,22 +216,18 @@ vk::Format getDefaultColorFormat() {
     return i_->getVk().getColorFormat();
 }
 
-ShaderRef getShader(const std::string& name, bool engine) {
+ShaderRef getShader(const std::string& name) {
     MLE_ASSERT(i_);
-    return i_->getShaderCache().get(name, engine);
+    return i_->getShaderCache().get(name);
 }
 
 Texture addTexture(const std::string& name, ImageHnd&& img) {
     return i_->getTextureCache().add(name, std::move(img));
 }
 
-Texture addTexture(const std::string& name, const fs::path& path) {
-    return i_->getTextureCache().add(name, path);
-}
-
-Texture getTexture(const std::string& name, bool engine) {
+Texture getTexture(const std::string& name) {
     MLE_ASSERT(i_);
-    return i_->getTextureCache().get(name, engine);
+    return i_->getTextureCache().get(name);
 }
 
 vk::CommandBuffer getOTSCmd(CmdType type) {

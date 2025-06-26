@@ -9,26 +9,22 @@
 #include "mle/renderer/Types.h"
 
 namespace mle::ui {
-
 void Font::init(CI ci) {
     MLE_ASSERT_LOG(!ci.name.empty() || !ci.path.empty(), "Font name or path must be provided");
 
     if (ci.name.empty()) {
-        auto no_ext = ci.path;
-        no_ext.replace_extension("");
-        ci.name = res::removeBasePath(no_ext.string());
+        ci.name = ci.path.filename().replace_extension("");
         MLE_D("Shader name not provided, using: {}", ci.name);
     }
 
     if (ci.path.empty()) {
-        ci.path = ci.name;
-        if (ci.engine) {
-            ci.path = res::addMleFontPath(ci.name);
-        } else {
-            ci.path = res::addUserFontPath(ci.name);
-        }
+        ci.path = "res/fonts/i/";
+        ci.path += ci.name;
         ci.path += ".ttf";
+        MLE_D("Path name empty for font name {}. Assuming app path {}.", ci.name, ci.path);
     }
+
+    ci.path = "res/fonts/" + ci.path.string();
 
     MLE_I("Creating font {}, path: {}", ci.name, ci.path.string());
 

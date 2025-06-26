@@ -40,8 +40,7 @@ class Font {
 
     struct CreateInfo {
         std::string name;
-        fs::path path = "";
-        bool engine = false;
+        fs::path path;
 
         std::u32string pre_load_string;
     };

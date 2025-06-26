@@ -15,14 +15,14 @@ class ShaderCache {
     void reset();
 
     /**
-     * @brief Adds a shader module to the cache.
+     * @brief Retrieves a shader by name. Or tries to load it if not found.
      *
-     * @param name This should be <relative>/<name>.<stage> the full path will be added with addUserShaderPath or addMleShaderPath if `engine` is true.
-     * relative path is relative to the user or engine shader path.
-     * @param engine If true, the shader is added to the engine's shader path, otherwise to the user shader path.
+     * @param name The name of the shader to retrieve.
+     * @return A reference to the shader.
      */
-    ShaderRef addShader(const std::string& name, bool engine = false);
+    ShaderRef get(const std::string& name);
 
+  private:
     /**
      * @brief Adds a shader module to the cache.
      *
@@ -30,16 +30,7 @@ class ShaderCache {
      * @param name The shader name. If empty, this will be the path striped of base and .spv.
      * ie. if default res values "res/mle/shaders/hello_world.vert.spv" will be "hello_world.vert".
      */
-    ShaderRef addShader(const fs::path& path, std::string name = "");
-
-    /**
-     * @brief Retrieves a shader by name. Or tries to load it if not found.
-     *
-     * @param name The name of the shader to retrieve.
-     * @param engine If true, the shader is retrieved from the engine's shader path, otherwise from the user shader path.
-     * @return A reference to the shader.
-     */
-    ShaderRef get(const std::string& name, bool engine = false);
+    ShaderRef addShader(std::string name);
 
   private:
     std::unordered_map<std::string, ShaderHnd> shaders_;
