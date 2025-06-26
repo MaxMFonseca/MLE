@@ -52,6 +52,7 @@ class Impl {
 
     vec2u root_size_{0};
 
+    // TODO: make this a function insead so we can perform some sort of media query
     sol::table next_root_{};
 };
 

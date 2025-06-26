@@ -7,7 +7,7 @@ namespace mle_cubes {
 void App::init() {
     MLE_C("MLECubes App initializing");
 
-    mle::ui::setNextRoot(mle::lua::require("testui", true));
+    mle::ui::setNextRoot(mle::lua::require("ui/init/layout"));
 }
 
 void App::shutdown() {
