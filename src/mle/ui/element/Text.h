@@ -38,6 +38,8 @@ class Text : public RenderableImpl {
     std::string text_;
     FontRef font_{};
     Color color_ = Color::WHITE;
+    Color outline_color_ = Color::BLACK;
+    f32 outline_thickness_ = 0.0F;
     u32 text_height_px_ = 0;  // 0 means fit
     Justify justify_ = Justify::LEFT;
     bool wrap_ = false;

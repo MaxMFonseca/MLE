@@ -110,8 +110,8 @@ void Text::render(const RenderContext& ctx) const {
         ch.texture_size = c.texture_rect.size;
         ch.texture_idx = c.texture_idx;
 
-        // ch.outline_color = color_;
-        // ch.outline_thickness = 0.0F;  // No outline for now
+        ch.outline_color = outline_color_;
+        ch.outline_thickness = outline_thickness_;
 
         // if (c.type == RenderText::Token::Type::BR) {
         //     ch.pos.x = element_pos.x;
@@ -208,6 +208,25 @@ void Text::apply(entt::entity /*self*/, const sol::object& o) {
             } else {
                 setJustify(Text::Justify::JUSTIFY);
             }
+        }
+
+        if (const sol::object outline_r = table["outline"]; outline_r.valid()) {
+            auto str = outline_r.as<std::string>();
+            auto colon_pos = str.find(':');
+            if (colon_pos != std::string::npos) {
+                outline_color_ = Color::fromString(str.substr(0, colon_pos));
+                outline_thickness_ = std::stof(str.substr(colon_pos + 1));
+            } else {
+                outline_color_ = Color::fromString(str);
+            }
+        }
+
+        if (const sol::object outline_color_r = table["outline_color"]; outline_color_r.valid()) {
+            outline_color_ = lua::as<Color>(outline_color_r);
+        }
+
+        if (const sol::object outline_thickness_r = table["outline_thickness"]; outline_thickness_r.valid()) {
+            outline_thickness_ = lua::as<f32>(outline_thickness_r);
         }
 
         if (const sol::object wrap_r = table["wrap"]; wrap_r.valid()) {

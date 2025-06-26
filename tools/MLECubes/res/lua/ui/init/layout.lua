@@ -23,9 +23,9 @@ return {
 				fn = function(self)
 					return {
 						pc = {
-							canvas_size = { 190 * 3, 100 * 3 },
+							canvas_size = { 190 * 7, 100 * 7 },
 							color = color,
-							time = mle.time * 3,
+							time = mle.time * 1.5,
 						},
 					}
 				end,
@@ -37,11 +37,12 @@ return {
 			size_y = 300,
 			origin = "ct",
 			text = {
-				"Hello World!",
+				". MLECubes .",
 				color = "emerald300",
+				outline = "BLACK:2",
 			},
 			on_update = function(self)
-				self:apply("text", { color = color })
+				self:apply("text", { color = color:withA(0.6) })
 			end,
 		},
 	},
