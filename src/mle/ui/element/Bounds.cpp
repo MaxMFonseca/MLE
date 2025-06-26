@@ -168,6 +168,10 @@ void TargetPosition::applyY(entt::entity self, const sol::object& obj) {
 void TargetSize::apply(entt::entity self, const sol::object& obj) {
     if (obj.is<f32>()) {
         x.val = y.val = obj.as<f32>();
+    } else if (obj.is<std::string>()) {
+        auto str = obj.as<std::string>();
+        x.applyStr(str);
+        y.applyStr(str);
     } else {
         MLE_ASSERT(obj.is<sol::table>());
         auto table = obj.as<sol::table>();
