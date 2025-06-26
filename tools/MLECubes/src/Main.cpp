@@ -1,5 +1,7 @@
 #include <mle/Entry.inl>
 
+#include "App.h"
+
 mle::core::CI config() {
     mle::core::CI config;
 
@@ -8,6 +10,8 @@ mle::core::CI config() {
 
     // config.registerLuaTypes = registerLuaTypes;
     // config.registerUIElementExtraTypes = registerUIElementExtraTypes();
+
+    config.app = std::make_unique<mle_cubes::App>();
 
     return config;
 }

@@ -20,6 +20,8 @@ vk::CommandBuffer getPreRenderCmdBuffer();
 void addJobToQueue(vk::CommandBuffer cmd);
 vec2u getRootSize();
 
+void setNextRoot(const sol::table& next_root);
+
 namespace detail {
 FontCache& getFontCache();
 }  // namespace detail

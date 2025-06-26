@@ -656,7 +656,6 @@ void Container::updateChildrenBoundsFlex(FlexUpdateData data) {
     }
 
     if (align_cross_ != AlignCross::START) {
-        MLE_VC(cross_max_size);
         for (usize i = 0; i < children.size(); i++) {
             auto& cinfo = data.cinfos[i];
 

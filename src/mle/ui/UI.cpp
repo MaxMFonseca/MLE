@@ -18,6 +18,7 @@
 #include "mle/ui/element/Container.h"
 #include "mle/ui/element/LuaKeyHandlers.h"
 #include "mle/window/Window.h"
+#include "utf8/unchecked.h"
 
 namespace mle::ui {
 namespace {
@@ -34,9 +35,12 @@ class Impl {
     [[nodiscard]] auto getPreRenderCmdBuffer() const { return pre_render_cmd_buffer_; }
     void addJobToQueue(vk::CommandBuffer cmd) { s_command_buffers_.emplace_back(cmd); }
     [[nodiscard]] auto getRootSize() const { return root_size_; }
+    void setNextRoot(const sol::table& next_root) { next_root_ = next_root; }
 
   private:
     void checkElementsBoundChanged();
+
+    void nextRoot();
 
   private:
     entt::registry registry_;
@@ -47,6 +51,8 @@ class Impl {
     std::vector<vk::CommandBuffer> s_command_buffers_;
 
     vec2u root_size_{0};
+
+    sol::table next_root_{};
 };
 
 struct Position {
@@ -68,13 +74,7 @@ void Impl::init() {
     default_font_ci.name = "DigitalDisco";
     default_font_ci.engine = true;
     default_font_ci.pre_load_string = U"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+-=[]{}|;':\",.<>?/~`";
-    auto& font = *font_cache_.add(std::move(default_font_ci));
-    MLE_VD(font);
-
-    root_ = registry_.create();
-    element::applyEntityTable(root_, lua::require("testui", true));
-
-    MLE_ASSERT_LOG(registry_.try_get<element::comp::RootImage>(root_), "The root element must have the root_image field set.");
+    font_cache_.add(std::move(default_font_ci));
 }
 
 void Impl::shutdown() {
@@ -84,6 +84,10 @@ void Impl::shutdown() {
 }
 
 void Impl::update() {
+    if (next_root_) {
+        nextRoot();
+    }
+
     vec2u cursor = window::getUIM().getCursorPos();
     auto& root_container = registry_.get<element::comp::Container>(root_);
     root_container.collide(root_, cursor);
@@ -112,6 +116,21 @@ void Impl::checkElementsBoundChanged() {
     }
 
     registry_.clear<element::comp::ChildChangedBounds>();
+}
+
+void Impl::nextRoot() {
+    MLE_I("Switching root element.");
+
+    renderer::detail::waitIdle();
+
+    registry_.clear();
+    root_ = registry_.create();
+    element::applyEntityTable(root_, next_root_);
+    next_root_.reset();
+
+    MLE_ASSERT_LOG(registry_.try_get<element::comp::RootImage>(root_), "The root element must have the root_image field set.");
+
+    MLE_I("New root element created.");
 }
 
 renderer::ImageRef Impl::render() {
@@ -182,6 +201,11 @@ void addJobToQueue(vk::CommandBuffer cmd) {
 vec2u getRootSize() {
     MLE_ASSERT(i_);
     return i_->getRootSize();
+}
+
+void setNextRoot(const sol::table& next_root) {
+    MLE_ASSERT(i_);
+    i_->setNextRoot(next_root);
 }
 
 }  // namespace mle::ui
