@@ -4,4 +4,6 @@ return {
 		height = 1080,
 		title = "MLECubes",
 	},
+
+	colors = require("tailwind_colors"),
 }
