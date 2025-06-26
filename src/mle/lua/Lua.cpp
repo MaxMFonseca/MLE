@@ -46,15 +46,16 @@ void Impl::init() {
 
     sol_.open_libraries(sol::lib::base, sol::lib::package, sol::lib::jit, sol::lib::math, sol::lib::string, sol::lib::table);
 
-    auto package_path = sol_["package"]["path"];
-    package_path = package_path.get<std::string>() + ";" + ResPath::LUA + "?.lua";
-
     if (!sol_["jit"].valid()) {
         core::unrecoverable("Lua JIT is not available!");
     }
 
-    MLE_D("{}", sol_["_VERSION"].get<std::string>());
-    MLE_D("{}", sol_["jit"]["version"].get<std::string>());
+    auto package_path = sol_["package"]["path"];
+    package_path = package_path.get<std::string>() + ";" + res::addMleLuaPath("?.lua") + ";" + res::addUserLuaPath("?.lua");
+
+    MLE_I("{}", sol_["_VERSION"].get<std::string>());
+    MLE_I("{}", sol_["jit"]["version"].get<std::string>());
+    MLE_I("{}", sol_["package"]["path"].get<std::string>());
 
     require("utils", true);
     MLE_D("LuaUtils: {}", getTable("LuaUtils"));
