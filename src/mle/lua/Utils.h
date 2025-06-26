@@ -14,6 +14,7 @@
 
 #include "Types.h"
 #include "mle/common/Assert.h"
+#include "mle/common/Color.h"
 #include "mle/common/Logger.h"
 #include "mle/common/math/Types.h"
 #include "mle/common/math/Types2D.h"
@@ -67,6 +68,12 @@ template <typename T>
 inline T as(const sol::object& obj) {
     MLE_ASSERT_LOG(valid<T>(obj), "Object is not valid or not of type {}", obj.get_type());
     return obj.as<T>();
+}
+
+/// Overload for Color type.
+template <>
+inline Color as(const sol::object& obj) {
+    return Color::fromLua(obj);
 }
 
 /**
@@ -397,6 +404,7 @@ inline bool tryAs(const sol::object& o, vec2i& out) {
     return false;
 }
 
+/// Overload for Recti type.
 template <>
 inline Recti as(const sol::object& o) {
     MLE_ASSERT(o.valid());
@@ -413,6 +421,7 @@ inline Recti as(const sol::object& o) {
     MLE_UNREACHABLE_LOG("Cannot convert to Recti from {}", o.get_type());
 }
 
+/// Overload for Rectf type.
 template <>
 inline Rectf as(const sol::object& o) {
     MLE_ASSERT(o.valid());
