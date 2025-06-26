@@ -150,7 +150,7 @@ template <>
 struct formatter<mle::Color> : formatter<std::string> {
     template <typename FormatContext>
     constexpr auto format(const mle::Color& color, FormatContext& ctx) const {
-        return format_to(ctx.out(), "[[r:{}, g:{}, b:{}, a:{}] {:#x}]", color.r, color.g, color.b, color.a, color.asRGBA());
+        return format_to(ctx.out(), "[[r:{}, g:{}, b:{}, a:{}] [hex:#{:08X}]]", color.r, color.g, color.b, color.a, color.asRGBA());
     }
 };
 }  // namespace fmt
