@@ -3,6 +3,7 @@
 #include "../Types.h"
 #include "mle/common/Color.h"
 #include "mle/renderer/RenderingThread.h"
+#include "mle/ui/element/Types.h"
 
 namespace mle::ui::element {
 struct RenderContext {

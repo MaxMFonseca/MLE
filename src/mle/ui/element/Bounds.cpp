@@ -40,7 +40,7 @@ TargetBound::Type stringToType(const std::string& str) {
     return Type::DEFAULT;
 }
 
-f32 charToOrigin(char c) {
+std::optional<f32> charToOrigin(char c) {
     switch (c) {
         case 'l':
         case 't':
@@ -53,15 +53,15 @@ f32 charToOrigin(char c) {
             return 0.5F;
         default:
             MLE_W("Unexpected char in origin string: '{}'", c);
-            return 0.0F;
+            return {};
     }
 }
 
 vec2f stringToOrigin(const std::string& s) {
     vec2f ret{};
-    ret.x = charToOrigin(s[0]);
+    ret.x = charToOrigin(s[0]).value_or(0);
     if (s.size() > 1) {
-        ret.y = charToOrigin(s[1]);
+        ret.y = charToOrigin(s[1]).value_or(0);
     } else {
         ret.y = ret.x;
     }
@@ -70,6 +70,15 @@ vec2f stringToOrigin(const std::string& s) {
 }  // namespace
 
 void TargetBound::applyStr(const std::string& str) {
+    if (str.size() == 1) {
+        auto opt = charToOrigin(str[0]);
+        if (opt) {
+            val = opt.value();
+            type = Type::PARENT;
+            return;
+        }
+    }
+
     auto split = splitNumberAndSuffix<f32>(str);
     MLE_ASSERT_LOG(split.has_value(), "Invalid target bound format: {}", str);
     val = split.value().first;
@@ -347,7 +356,7 @@ void TargetOrigin::apply(entt::entity self, const sol::object& obj) {
 
         if (const auto x_r = lua::getKeyOrIdx(obj.as<sol::table>(), "x", 1); x_r) {
             if (x_r->is<std::string>()) {
-                v.x = charToOrigin(x_r->as<std::string>()[0]);
+                v.x = charToOrigin(x_r->as<std::string>()[0]).value_or(0);
             } else if (x_r->is<f32>()) {
                 v.x = x_r->as<f32>();
             } else {
@@ -357,7 +366,7 @@ void TargetOrigin::apply(entt::entity self, const sol::object& obj) {
 
         if (const auto y_r = lua::getKeyOrIdx(obj.as<sol::table>(), "y", 2); y_r) {
             if (y_r->is<std::string>()) {
-                v.y = charToOrigin(y_r->as<std::string>()[0]);
+                v.y = charToOrigin(y_r->as<std::string>()[0]).value_or(0);
             } else if (y_r->is<f32>()) {
                 v.y = y_r->as<f32>();
             } else {

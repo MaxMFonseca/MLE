@@ -2,7 +2,17 @@
 
 #include <entt/entt.hpp>
 
+#include "mle/lua/Types.h"
+
 namespace mle::ui::element {  // NOLINT
+struct EntityWrapper {
+    entt::entity o;
+
+    void apply(const std::string& key, const sol::object& obj) const;
+    [[nodiscard]] sol::table getTable() const;
+};
+using EWrap = EntityWrapper;
+
 namespace comp {
 class Container;
 }  // namespace comp

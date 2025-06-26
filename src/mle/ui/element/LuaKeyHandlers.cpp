@@ -14,6 +14,7 @@
 #include "mle/ui/element/Bounds.h"
 #include "mle/ui/element/Collidable.h"
 #include "mle/ui/element/Container.h"
+#include "mle/ui/element/Shader.h"
 #include "mle/ui/element/Text.h"
 
 namespace mle::ui::element {
@@ -229,6 +230,18 @@ void text(entt::entity self, const sol::object& obj) {
     renderable->apply(self, obj);
 }
 
+void shader(entt::entity self, const sol::object& obj) {
+    MLE_ASSERT(obj.valid());
+    auto& reg = getRegistry();
+
+    auto* renderable = reg.try_get<comp::Renderable>(self);
+    if (!renderable) {
+        renderable = &reg.emplace<comp::Renderable>(self, std::make_unique<Shader>());
+    }
+
+    renderable->apply(self, obj);
+}
+
 template <typename T, bool Click = false>
 void collidable(entt::entity self, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
@@ -331,6 +344,7 @@ void addEngineLuaKeyHandlers() {
     addLuaKeyHandler("root_image", rootImage);
     addLuaKeyHandler("sprite", sprite);
     addLuaKeyHandler("text", text);
+    addLuaKeyHandler("shader", shader);
     addLuaKeyHandler("table", table);
     addLuaKeyHandler("on_hover", collidable<comp::OnHover>);
     addLuaKeyHandler("on_hover_enter", collidable<comp::OnHoverEnter>);
