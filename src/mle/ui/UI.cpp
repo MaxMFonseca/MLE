@@ -17,6 +17,7 @@
 #include "mle/ui/element/Collidable.h"
 #include "mle/ui/element/Container.h"
 #include "mle/ui/element/LuaKeyHandlers.h"
+#include "mle/ui/element/Types.h"
 #include "mle/window/Window.h"
 #include "utf8/unchecked.h"
 
@@ -73,6 +74,11 @@ void Impl::init() {
     default_font_ci.path = "mle/DigitalDisco.ttf";
     default_font_ci.pre_load_string = U"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+-=[]{}|;':\",.<>?/~`";
     font_cache_.add(std::move(default_font_ci));
+
+    auto ui_table = lua::createTable();
+    ui_table["table"] = lua::createTable();
+
+    lua::getMleTable()["ui"] = ui_table;
 }
 
 void Impl::shutdown() {
