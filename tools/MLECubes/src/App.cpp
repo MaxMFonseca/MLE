@@ -16,5 +16,13 @@ void App::shutdown() {
 
 void App::update() {
     MLE_W("MLECubes App updating");
+
+    static int update_count = 0;
+    if (update_count < 35) {
+        update_count++;
+        if (update_count == 35) {
+            mle::ui::setNextRoot(mle::lua::require("i/ui/editor/layout"));
+        }
+    }
 }
 }  // namespace mle_cubes

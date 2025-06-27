@@ -359,12 +359,38 @@ void Container::updateChildrenBounds(entt::entity self, vec2u max_size, bool, bo
         }
 
         if (flex_need_update) {
-            updateChildrenBoundsFlex({
-                .self = self,
-                .padded = padded,
-                .cinfos = cinfos,
-                .changed_children = changed_children,
-            });
+            switch (direction_) {
+                case Direction::ROW: {
+                    updateChildrenBoundsFlexRow({
+                        .self = self,
+                        .padded = padded,
+                        .cinfos = cinfos,
+                        .changed_children = changed_children,
+                    });
+                } break;
+                case Direction::COL: {
+                    updateChildrenBoundsFlexCol({
+                        .self = self,
+                        .padded = padded,
+                        .cinfos = cinfos,
+                        .changed_children = changed_children,
+                    });
+                } break;
+                case Direction::ROW_R:
+                case Direction::COL_R:
+                    MLE_TODO;
+                    break;
+            }
+
+            for (usize i = 0; i < children.size(); i++) {
+                auto& cinfo = cinfos[i];
+
+                if (!cinfo.is_flex || !cinfo.container) {
+                    continue;
+                }
+
+                cinfo.container->updateChildrenBounds(children[i], cinfo.bounds.parent_px.size);
+            }
         }
 
         for (usize i = 0; i < children.size(); i++) {
@@ -576,7 +602,7 @@ void Container::updateChildBoundsColCross(ChildBuildInfo& cinfo, Recti content_r
     cinfo.bounds.parent_px.size.x = cinfo.content_px.x + as<int>(cinfo.content_flex.x * off_flex_value_px);
 }
 
-void Container::updateChildrenBoundsFlex(FlexUpdateData data) {
+void Container::updateChildrenBoundsFlexCol(FlexUpdateData data) {
     auto children = children_.get();
 
     int main_axis_size = 0;
@@ -666,13 +692,129 @@ void Container::updateChildrenBoundsFlex(FlexUpdateData data) {
             // This will break some margins, if I ever need to support margins in cross axis, I will need to fix this
             switch (align_cross_) {
                 case AlignCross::END: {
-                    cinfo.bounds.parent_px.pos.x += cross_max_size - cinfo.bounds.parent_px.size.x;
+                    cinfo.bounds.parent_px.pos.x += data.padded.size.y - cinfo.bounds.parent_px.size.x;
                 } break;
                 case AlignCross::CENTER: {
-                    cinfo.bounds.parent_px.pos.x += (cross_max_size - cinfo.bounds.parent_px.size.x) / 2;
+                    cinfo.bounds.parent_px.pos.x += (data.padded.size.y - cinfo.bounds.parent_px.size.x) / 2;
                 } break;
                 case AlignCross::STRETCH: {
                     cinfo.bounds.parent_px.size.x = cross_max_size;
+                } break;
+                default:
+                    break;
+            }
+        }
+    }
+}
+
+void Container::updateChildBoundsRowCross(ChildBuildInfo& cinfo, Recti content_rect) {  // NOLINT
+    f32 off_flex_shares = cinfo.content_flex.y + cinfo.margin_flex.t + cinfo.margin_flex.b;
+    f32 off_remaining = as<f32>(content_rect.height() - cinfo.margin_px.t - cinfo.margin_px.b - cinfo.content_px.y);
+    f32 off_flex_value_px = off_flex_shares != 0.0F && off_remaining != 0.0F ? off_remaining / std::max(1.0F, off_flex_shares) : 0.0F;
+
+    cinfo.bounds.parent_px.pos.y = content_rect.top() + cinfo.margin_px.t;
+    cinfo.bounds.parent_px.pos.y += as<int>(cinfo.margin_flex.t * off_flex_value_px);
+
+    cinfo.bounds.parent_px.size.y = cinfo.content_px.y + as<int>(cinfo.content_flex.y * off_flex_value_px);
+}
+
+void Container::updateChildrenBoundsFlexRow(FlexUpdateData data) {
+    auto children = children_.get();
+
+    int main_axis_size = 0;
+    f32 main_axis_flex_shares = 0.0F;
+    int non_immutable_children_count = 0;
+
+    for (usize i = 0; i < children.size(); i++) {
+        auto& cinfo = data.cinfos[i];
+        if (!cinfo.is_flex) {
+            continue;
+        }
+
+        bool main_is_default = cinfo.content_flex.x == 0.0F && cinfo.content_px.x == 0;
+        bool off_is_default = cinfo.content_flex.y == 0.0F && cinfo.content_px.y == 0;
+
+        if (!off_is_default) {
+            updateChildBoundsRowCross(cinfo, data.padded);
+        }
+
+        if (main_is_default) {
+            if (off_is_default || cinfo.aspect_ratio == 0.0F) {
+                cinfo.content_flex.x = 1.0F;
+                main_is_default = false;
+            } else {
+                cinfo.content_px.x = as<int>(as<f32>(cinfo.bounds.parent_px.size.y) * cinfo.aspect_ratio);
+            }
+        }
+
+        main_axis_size += cinfo.content_px.x + cinfo.margin_px.l + cinfo.margin_px.r;
+        main_axis_flex_shares += cinfo.content_flex.x + cinfo.margin_flex.l + cinfo.margin_flex.r;
+        non_immutable_children_count++;
+    }
+
+    main_axis_size += (non_immutable_children_count - 1) * gap_;
+
+    f32 main_axis_remaining_px = as<f32>(data.padded.size.x - main_axis_size);
+    f32 main_axis_share_value_px = 0.0F;
+    if (main_axis_remaining_px < 0) {
+        MLE_TODO;
+    } else if (main_axis_remaining_px != 0 && main_axis_flex_shares != 0.0F) {
+        main_axis_share_value_px = as<f32>(main_axis_remaining_px) / std::max(1.0F, main_axis_flex_shares);
+    }
+
+    int cross_max_size = 0;
+    int main_axis_pos = data.padded.pos.x;
+    for (usize i = 0; i < children.size(); i++) {
+        auto& cinfo = data.cinfos[i];
+
+        if (!cinfo.is_flex) {
+            continue;
+        }
+
+        cinfo.margin_px.l += as<int>(cinfo.margin_flex.l * main_axis_share_value_px);
+        cinfo.margin_px.r += as<int>(cinfo.margin_flex.r * main_axis_share_value_px);
+        cinfo.content_px.x += as<int>(cinfo.content_flex.x * main_axis_share_value_px);
+
+        cinfo.bounds.parent_px.pos.x = main_axis_pos + cinfo.margin_px.l;
+        cinfo.bounds.parent_px.size.x = cinfo.content_px.x;
+
+        main_axis_pos = cinfo.bounds.parent_px.pos.x + cinfo.bounds.parent_px.size.x + cinfo.margin_px.r + gap_;
+
+        if (cinfo.bounds.parent_px.size.y == 0) {
+            if (cinfo.aspect_ratio != 0) {
+                cinfo.content_px.y = as<int>(as<f32>(cinfo.bounds.parent_px.size.x) / cinfo.aspect_ratio);
+            } else {
+                cinfo.content_flex.y = 1.0F;
+            }
+
+            updateChildBoundsRowCross(cinfo, data.padded);
+        }
+
+        MLE_ASSERT(cinfo.bounds.parent_px.size.x > 0 && cinfo.bounds.parent_px.size.y > 0);
+
+        cross_max_size = std::max(cinfo.bounds.parent_px.size.y, cross_max_size);
+
+        data.changed_children.emplace(children[i]);
+    }
+
+    if (align_cross_ != AlignCross::START) {
+        for (usize i = 0; i < children.size(); i++) {
+            auto& cinfo = data.cinfos[i];
+
+            if (!cinfo.is_flex) {
+                continue;
+            }
+
+            // This will break some margins, if I ever need to support margins in cross axis, I will need to fix this
+            switch (align_cross_) {
+                case AlignCross::END: {
+                    cinfo.bounds.parent_px.pos.y += data.padded.size.y - cinfo.bounds.parent_px.size.y;
+                } break;
+                case AlignCross::CENTER: {
+                    cinfo.bounds.parent_px.pos.y += (data.padded.size.y - cinfo.bounds.parent_px.size.y) / 2;
+                } break;
+                case AlignCross::STRETCH: {
+                    cinfo.bounds.parent_px.size.y = cross_max_size;
                 } break;
                 default:
                     break;

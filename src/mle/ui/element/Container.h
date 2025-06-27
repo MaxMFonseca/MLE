@@ -55,12 +55,14 @@ class Container {
         std::set<entt::entity>& changed_children;
     };
 
-    void updateChildrenBoundsFlex(FlexUpdateData data);
+    void updateChildBoundsColCross(ChildBuildInfo& cinfo, Recti content_rect);
+    void updateChildBoundsRowCross(ChildBuildInfo& cinfo, Recti content_rect);
+
+    void updateChildrenBoundsFlexCol(FlexUpdateData data);
+    void updateChildrenBoundsFlexRow(FlexUpdateData data);
 
     [[nodiscard]] auto getChildrenSpan() { return children_span_; }
     void calculateChildrenSpan(const std::vector<ChildBuildInfo>& cinfos, std::array<int, 4> padding);
-
-    void updateChildBoundsColCross(ChildBuildInfo& cinfo, Recti content_rect);
 
   private:
     EntityStorage children_;
@@ -140,6 +142,9 @@ struct formatter<mle::ui::element::comp::Container::AlignCross> : formatter<std:
                 return format_to(ctx.out(), "CENTER");
             case AlignCross::STRETCH:
                 return format_to(ctx.out(), "STRETCH");
+            default:
+                MLE_UNREACHABLE_LOG("Unexpected AlignCross value: {}", static_cast<u8>(ac));
+                return format_to(ctx.out(), "<unknown>");
         }
     }
 };

@@ -42,7 +42,7 @@ return {
 				outline = "BLACK:2",
 			},
 			on_update = function(self)
-				self:apply("text", { color = color:withA(0.6) })
+				self:apply("text", { color = color:withA(0.5) })
 			end,
 		},
 	},

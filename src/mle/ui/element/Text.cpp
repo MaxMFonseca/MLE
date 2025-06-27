@@ -166,13 +166,18 @@ void Text::setText(std::string text) {
 
 void Text::updateText() {
     // TODO: update only if text or font changed
+    if (!font_) {
+        font_ = ui::getFont();
+    }
     render_text_ = font_->makeText(text_);
 }
 
 void Text::apply(entt::entity /*self*/, const sol::object& o) {
     MLE_ASSERT(o.valid());
-
-    if (o.is<sol::table>()) {
+    if (o.is<std::string>()) {
+        auto str = lua::as<std::string>(o);
+        setText(str);
+    } else if (o.is<sol::table>()) {
         auto table = o.as<sol::table>();
         std::string text_string;
         auto lua_get_result = lua::tryGetKeyOrIdx(table, "text", 1, text_string);

@@ -1,0 +1,15 @@
+return {
+	root_image = {
+		extent = { 1920, 1080 },
+		clear_color = "NQB",
+	},
+	c = {
+		require("i.ui.editor.header")({
+			size_y = "3.5%",
+		}),
+		{
+			size_y = "0.25%",
+			background = "BLACK",
+		},
+	},
+}
