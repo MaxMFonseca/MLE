@@ -14,7 +14,7 @@ find_package(Vulkan REQUIRED)
 target_link_libraries(MLE vulkan)
 
 target_include_directories(MLE PUBLIC LuaJIT/src)
-target_link_libraries(MLE ${CMAKE_SOURCE_DIR}/external/LuaJIT/src/libluajit.a)
+target_link_libraries(MLE ${CMAKE_CURRENT_SOURCE_DIR}/LuaJIT/src/libluajit.a)
 
 set(SPIRV_REFLECT_STATIC_LIB ON CACHE BOOL "Build a SPIRV-Reflect static library" FORCE)
 add_subdirectory(SPIRV-Reflect)

@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 option(ENABLE_DOXYGEN "Build Doxygen documentation" OFF)
+option(BUILD_TOOLS "Build the internal tools" OFF)
 
 add_compile_definitions(
     VULKAN_HPP_NO_EXCEPTIONS
@@ -36,7 +37,7 @@ endforeach()
 set(MLE_HEADERS ${FILTERED_HEADERS})
 
 add_library(MLE STATIC ${MLE_SRC} ${MLE_HEADERS})
-target_include_directories(MLE PUBLIC ${CMAKE_SOURCE_DIR}/src)
+target_include_directories(MLE PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 target_compile_features(MLE PUBLIC cxx_std_23)
 target_compile_options(MLE PUBLIC -Wall -Wextra -Wpedantic -Werror -fno-rtti)
@@ -56,5 +57,9 @@ target_compile_options(MLE PRIVATE
     $<$<CXX_COMPILER_ID:MSVC>:/EHs- /EHa->
 )
 
-add_subdirectory(${CMAKE_SOURCE_DIR}/external)
-add_subdirectory(${CMAKE_SOURCE_DIR}/tools)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/external)
+
+if (BUILD_TOOLS)
+  message(STATUS "Including MLE tools..")
+  add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/tools)
+endif()
