@@ -53,7 +53,7 @@ class Impl {
 
     std::mutex al_mutex_;
 
-    static ALuint loadFlacToBuffer(const std::string& filename);
+    static ALuint loadFlacToBuffer(std::string filename);
     ALuint getBufferForSound(const std::string& name);
     void stopAllSources();
     void cleanupFinishedSources();
@@ -137,10 +137,12 @@ void Impl::shutdown() {
     }
 }
 
-ALuint Impl::loadFlacToBuffer(const std::string& filename) {
+ALuint Impl::loadFlacToBuffer(std::string filename) {
     drflac_uint32 channels = 0;
     drflac_uint32 sample_rate = 0;
     drflac_uint64 total_frame_count = 0;
+
+    filename.insert(0, "res/sounds/");
 
     i16* p_samples = drflac_open_file_and_read_pcm_frames_s16(filename.c_str(), &channels, &sample_rate, &total_frame_count, nullptr);
 
