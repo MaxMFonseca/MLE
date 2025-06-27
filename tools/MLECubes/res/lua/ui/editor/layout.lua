@@ -11,5 +11,12 @@ return {
 			size_y = "0.25%",
 			background = "BLACK",
 		},
+		{
+			"EditorView",
+			on_init = function(self)
+				print("EditorView created")
+				self.dispatchEvent("editor_view_created")
+			end,
+		},
 	},
 }

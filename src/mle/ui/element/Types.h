@@ -12,6 +12,8 @@ struct EntityWrapper {
 
     void apply(const std::string& key, const sol::object& obj) const;
     [[nodiscard]] sol::table getTable() const;
+
+    static void dispatchEvent(const std::string& event_name);
 };
 using EWrap = EntityWrapper;
 

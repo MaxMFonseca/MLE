@@ -16,6 +16,7 @@
 #include "mle/ui/element/Container.h"
 #include "mle/ui/element/Shader.h"
 #include "mle/ui/element/Text.h"
+#include "mle/ui/element/Types.h"
 
 namespace mle::ui::element {
 namespace {
@@ -337,6 +338,10 @@ void EntityWrapper::apply(const std::string& key, const sol::object& obj) const 
     fn_r.value()(o, obj);
 }
 
+void EntityWrapper::dispatchEvent(const std::string& event_name) {
+    ui::dispatchEvent(event_name);
+}
+
 #define MLE_ASSERT_HAS(T) MLE_ASSERT_LOG(getRegistry().all_of<T>(o), "Entity does not have component {}", #T)
 
 sol::table EntityWrapper::getTable() const {
@@ -348,6 +353,7 @@ void addEngineLuaKeyHandlers() {
     auto ut = lua::newUsertype<EntityWrapper>("entt");
     ut["apply"] = &EntityWrapper::apply;
     ut["getTable"] = &EntityWrapper::getTable;
+    ut["dispatchEvent"] = &EntityWrapper::dispatchEvent;
 
     addLuaKeyHandler("name", name);
     addLuaKeyHandler("size", size);

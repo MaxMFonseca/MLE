@@ -4,6 +4,7 @@
 #include <vulkan/vulkan_handles.hpp>
 
 #include "mle/common/Assert.h"
+#include "mle/common/Logger.h"
 #include "mle/common/RectPacker.h"
 #include "mle/common/Utils.h"
 #include "mle/lua/Lua.h"
@@ -13,6 +14,7 @@
 #include "mle/renderer/RenderingThread.h"
 #include "mle/renderer/Types.h"
 #include "mle/renderer/Utils.h"
+#include "mle/ui/Types.h"
 #include "mle/ui/element/Base.h"
 #include "mle/ui/element/Collidable.h"
 #include "mle/ui/element/Container.h"
@@ -38,6 +40,10 @@ class Impl {
     [[nodiscard]] auto getRootSize() const { return root_size_; }
     void setNextRoot(const sol::table& next_root) { next_root_ = next_root; }
 
+    ID addListener(const std::string& event_name, std::function<void()>&& callback);
+    void removeListener(const std::string& event_name, ID id);
+    void dispatchEvent(const std::string& event_name);
+
   private:
     void checkElementsBoundChanged();
 
@@ -55,6 +61,9 @@ class Impl {
 
     // TODO: make this a function insead so we can perform some sort of media query
     sol::table next_root_{};
+
+    // TODO: improve tihs
+    std::map<std::string, std::map<ID, std::pair<std::function<void(void)>, bool>>> event_listeners_;
 };
 
 struct Position {
@@ -88,6 +97,16 @@ void Impl::shutdown() {
 }
 
 void Impl::update() {
+    for (auto e : event_listeners_) {
+        for (auto it = e.second.begin(); it != e.second.end();) {
+            if (!it->second.second) {
+                it = e.second.erase(it);
+            } else {
+                ++it;
+            }
+        }
+    }
+
     if (next_root_) {
         nextRoot();
     } else {
@@ -166,6 +185,38 @@ renderer::ImageRef Impl::render() {
     return registry_.get<element::comp::RootImage>(root_).image_handle.get();
 }
 
+ID Impl::addListener(const std::string& event_name, std::function<void()>&& callback) {
+    auto& listeners = event_listeners_[event_name];
+    ID id = genID();
+    listeners[id].first = std::move(callback);
+    listeners[id].second = false;
+    MLE_T("Adding UI event listener for {} with ID {}", event_name, id);
+    return id;
+}
+
+void Impl::removeListener(const std::string& event_name, ID id) {
+    MLE_T("Removing UI event listener for {} with ID {}", event_name, id);
+    auto event_type_it = event_listeners_.find(event_name);
+    if (event_type_it != event_listeners_.end()) {
+        auto listener_it = event_type_it->second.find(id);
+        if (listener_it != event_type_it->second.end()) {
+            listener_it->second.second = true;
+        }
+    }
+}
+
+void Impl::dispatchEvent(const std::string& event_name) {
+    MLE_T("Dispatching UI event {}", event_name);
+    auto it = event_listeners_.find(event_name);
+    if (it != event_listeners_.end()) {
+        for (const auto& [id, callback] : it->second) {
+            if (!callback.second) {
+                callback.first();
+            }
+        }
+    }
+}
+
 std::unique_ptr<Impl> i_ = nullptr;  // NOLINT
 }  // namespace
 
@@ -221,4 +272,30 @@ void setNextRoot(const sol::table& next_root) {
     i_->setNextRoot(next_root);
 }
 
+ID addListener(const std::string& event_name, std::function<void()>&& callback) {
+    MLE_ASSERT(i_);
+    return i_->addListener(event_name, std::move(callback));
+}
+
+void removeListener(const std::string& event_name, ID id) {
+    MLE_ASSERT(i_);
+    i_->removeListener(event_name, id);
+}
+
+void dispatchEvent(const std::string& event_name) {
+    MLE_ASSERT(i_);
+    i_->dispatchEvent(event_name);
+}
+
+entt::entity getElement(const std::string& name) {
+    MLE_ASSERT(i_);
+    auto view = i_->getRegistry().view<element::comp::Name>();
+    for (auto e : view) {
+        if (view.get<element::comp::Name>(e).name == name) {
+            return e;
+        }
+    }
+    MLE_E("Element with name '{}' not found", name);
+    return entt::null;
+}
 }  // namespace mle::ui
