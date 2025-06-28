@@ -7,7 +7,7 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
 fi
 
 _APP_ROOT="$(pwd)"
-MLE_APP_NAME="<fillme>"
+#MLE_APP_NAME="<fillme>"
 
 function mle_setup() {
   echo "TODO"
@@ -112,6 +112,21 @@ function mle_run() {
     esac
   done
 
+  cd "${_APP_ROOT}"
+  rm -rf "build/${build_type}/bin/res"
+  mkdir -p "build/${build_type}/bin/res"
+  cd "build/${build_type}/bin/res"
+
+  local arr=("lua" "textures" "shaders" "fonts" "sounds")
+  for i in "${arr[@]}"; do
+    mkdir -p "${i}"
+    cd "${i}"
+
+    ln -s "${_APP_ROOT}/external/MLE/res/${i}" "mle" 2>/dev/null
+    ln -s "${_APP_ROOT}/res/${i}" "i" 2>/dev/null
+    cd ..
+  done
+
   cd "${_APP_ROOT}/build/${build_type}/bin" || return 1
   "./${MLE_APP_NAME}" "${args[@]}"
   cd "${_APP_ROOT}"
@@ -119,6 +134,30 @@ function mle_run() {
   rm -f latest.log
   ln -s "${_APP_ROOT}/build/${build_type}/bin/logs/latest.log" latest.log 2>/dev/null
   echo "Latest logs in latest.log"
+}
+
+function _mle_compile_shaders() {
+  local shader_dir="$1"
+
+  find "$shader_dir" -type f \( \
+    -name "*.vert" -o -name "*.frag" -o -name "*.comp" -o -name "*.geom" -o -name "*.tesc" -o -name "*.tese" \
+    \) | while read -r shader; do
+    output="${shader}.spv"
+    echo "Compiling $(basename "$shader") -> $(basename "$output")"
+    glslangValidator -V "$shader" -o "$output"
+    if [ $? -ne 0 ]; then
+      echo "❌ Failed to compile: $shader"
+      return 1
+    fi
+  done
+}
+
+function mle_compile_mle_shaders() {
+  _mle_compile_shaders "${_APP_ROOT}/external/MLE/res/shaders"
+}
+
+function mle_compile_app_shaders() {
+  _mle_compile_shaders "${_APP_ROOT}/res/shaders"
 }
 
 function mle_clean() {
