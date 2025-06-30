@@ -79,6 +79,18 @@ struct Texture {
     bool ready = false;
 };
 
+struct Model {
+    BufferRef vertex_buffer{};
+    BufferRef index_buffer{};
+    int index_count = 0;
+};
+
+struct VertexPCN {
+    vec3f pos{0.0F};
+    vec3f color{1.0F};
+    vec3f normal{0.0F};
+};
+
 struct TextureUpdateJobData {
     BufferHnd buffer;
     Rectu area;

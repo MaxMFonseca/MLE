@@ -58,11 +58,17 @@ void deleteAfterFrame(BufferHnd&& buffer);  ///< Schedules a buffer for destruct
 
 vk::Format getDefaultColorFormat();  ///< Returns the default image format used by the renderer.
 
+vk::Format getDepthFormat();  ///< Returns the default depth format used by the renderer.
+
 ShaderRef getShader(const std::string& name);  ///< Returns a shader reference by name, loading it if necessary.
 
 Texture addTexture(const std::string& name, ImageHnd&& img);  ///< Gives an image to the texture cache, allowing it to be used by name.
 
 Texture getTexture(const std::string& name);  ///< Returns a texture reference by name, loading it if necessary.
+
+Expected<Model> getModel(const std::string& name);  ///< Returns a model reference by name, loading it if necessary.
+
+void loadModel(const std::string& name, std::function<void(Model)>&& callback = {});  ///< Requests loading a model by name.
 
 void enqueueTextureUpdateJob(TextureUpdateJobData&& data);
 

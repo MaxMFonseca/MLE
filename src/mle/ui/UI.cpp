@@ -32,6 +32,7 @@ class Impl {
 
     inline void update();
     inline renderer::ImageRef render();
+    void renderModel(renderer::ImageRef image) const;
 
     auto& getRegistry() { return registry_; }
     auto& getFontCache() { return font_cache_; }
@@ -64,6 +65,9 @@ class Impl {
 
     // TODO: improve tihs
     std::map<std::string, std::map<ID, std::pair<std::function<void(void)>, bool>>> event_listeners_;
+
+    renderer::Model model_;
+    renderer::ImageHnd depth_;
 };
 
 struct Position {
@@ -88,6 +92,14 @@ void Impl::init() {
     ui_table["table"] = lua::createTable();
 
     lua::getMleTable()["ui"] = ui_table;
+
+    renderer::loadModel("mle/Spider1", [this](renderer::Model m) { model_ = m; });
+
+    renderer::Image::CI depth_ci;
+    depth_ci.format = renderer::getDepthFormat();
+    depth_ci.extent = {root_size_.x, root_size_.y};
+    depth_ci.usage = vk::ImageUsageFlagBits::eDepthStencilAttachment | vk::ImageUsageFlagBits::eSampled;
+    depth_ = renderer::Image::createHnd(depth_ci);
 }
 
 void Impl::shutdown() {
@@ -182,7 +194,82 @@ renderer::ImageRef Impl::render() {
     }
     s_command_buffers_.clear();
 
-    return registry_.get<element::comp::RootImage>(root_).image_handle.get();
+    renderer::ImageRef root_image = registry_.try_get<element::comp::RootImage>(root_)->image_handle.get();
+
+    // TODO: remove this
+    renderModel(root_image);
+
+    return root_image;
+}
+
+void Impl::renderModel(renderer::ImageRef image) const {
+    if (!model_.vertex_buffer) {
+        return;
+    }
+
+    static renderer::PipelineHnd pipeline;
+    if (!pipeline) {
+        renderer::Pipeline::CI ci;
+        ci.vertex_shader = renderer::getShader("mle/model.vert");
+        ci.fragment_shader = renderer::getShader("mle/model.frag");
+        ci.color_attachment_formats.emplace_back(renderer::getDefaultColorFormat());
+        ci.blend_attachments = renderer::makeDefaultBlendAttachmentStates(1);
+        ci.topology = vk::PrimitiveTopology::eTriangleList;
+        ci.depth = true;
+        pipeline = renderer::Pipeline::createHnd(ci);
+        renderer::addOnShutdown([]() { pipeline.reset(); });
+    }
+
+    renderer::RenderingThread thread;
+    thread.init();
+    renderer::AttachmentInfo attachment;
+    attachment.image = image;
+    attachment.load = vk::AttachmentLoadOp::eLoad;
+    attachment.store = vk::AttachmentStoreOp::eStore;
+    renderer::AttachmentInfo depth_attachment;
+    depth_attachment.image = depth_.get();
+    depth_attachment.load = vk::AttachmentLoadOp::eClear;
+    depth_attachment.store = vk::AttachmentStoreOp::eStore;
+    depth_attachment.clear_value = vk::ClearDepthStencilValue{1.0F, 0};
+    thread.setColorAttachments({attachment});
+    thread.setDepthAttachment(depth_attachment);
+    thread.beginRendering();
+    thread.setPipeline(pipeline.get());
+    thread.setViewport();
+    thread.bindVertexBuffer(model_.vertex_buffer);
+    thread.bindIndexBuffer(model_.index_buffer);
+
+    f32 fov = glm::radians(60.0F);
+    f32 aspect = 16.0F / 9.0F;
+    f32 near_plane = 0.1F;
+    f32 far_plane = 100.0F;
+
+    mat4f proj = glm::perspective(fov, aspect, near_plane, far_plane);
+
+    vec3f eye = {0.0F, 3.0F, 6.0F};
+    vec3f center = {0.0F, 2.0F, 0.0F};
+    vec3f up = {0.0F, -1.0F, 0.0F};
+
+    mat4f view = glm::lookAt(eye, center, up);
+
+    mat4f vp = proj * view;
+
+    static f32 rot = 0;
+    rot += 0.01;
+    mat4f model = glm::rotate(mat4f(1.0F), rot, vec3f(0.0F, 1.0F, 0.0F));
+
+    mat4f mvp = vp * model;
+
+    struct {
+        mat4f mat{1};
+    } pc;
+    pc.mat = mvp;
+
+    thread.pushConstants(&pc);
+
+    thread.drawIndexed(1, model_.index_count);
+
+    thread.submit();
 }
 
 ID Impl::addListener(const std::string& event_name, std::function<void()>&& callback) {

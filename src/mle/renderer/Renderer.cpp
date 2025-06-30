@@ -16,6 +16,7 @@
 #include "mle/renderer/Utils.h"
 #include "mle/renderer/detail/CommandPoolManager.h"
 #include "mle/renderer/detail/FrameRenderer.h"
+#include "mle/renderer/detail/ModelCache.h"
 #include "mle/renderer/detail/ShaderCache.h"
 #include "mle/renderer/detail/TextureCache.h"
 #include "mle/window/Window.h"
@@ -42,6 +43,7 @@ class Impl {
     auto& getFrameRenderer() { return frame_renderer_; }             ///< Returns the frame renderer for managing frame-specific operations.
     auto& getShaderCache() { return shader_cache_; }                 ///< Returns the shader cache for managing shaders.
     auto& getTextureCache() { return texture_cache_; }               ///< Returns the texture cache for managing textures.
+    auto& getModelCache() { return model_cache_; }                   ///< Returns the model cache for managing 3D models.
 
     CommandPool& getOTSPool(CmdType type);
     vk::CommandBuffer getOTSCmd(CmdType type);
@@ -61,6 +63,7 @@ class Impl {
     detail::FrameRenderer frame_renderer_;
     detail::ShaderCache shader_cache_;
     detail::TextureCache texture_cache_;
+    detail::ModelCache model_cache_;
 
     std::vector<std::function<void(void)>> shutdown_delete_stack_;
 };
@@ -90,6 +93,9 @@ void Impl::init() {
     texture_cache_.init();
     shutdown_delete_stack_.emplace_back([this]() { texture_cache_.reset(); });
 
+    model_cache_.init();
+    shutdown_delete_stack_.emplace_back([this]() { model_cache_.reset(); });
+
     shutdown_delete_stack_.emplace_back([this]() { fence_pool_.reset(); });
 
     MLE_I("Renderer initialized successfully!");
@@ -117,7 +123,6 @@ void Impl::addOnShutdown(std::function<void(void)>&& func) {
 
 void Impl::update() {
     fence_pool_.update();
-    texture_cache_.update();
 }
 
 Result Impl::beginFrame() {
@@ -216,6 +221,11 @@ vk::Format getDefaultColorFormat() {
     return i_->getVk().getColorFormat();
 }
 
+vk::Format getDepthFormat() {
+    MLE_ASSERT(i_);
+    return i_->getVk().getDepthFormat();
+}
+
 ShaderRef getShader(const std::string& name) {
     MLE_ASSERT(i_);
     return i_->getShaderCache().get(name);
@@ -228,6 +238,18 @@ Texture addTexture(const std::string& name, ImageHnd&& img) {
 Texture getTexture(const std::string& name) {
     MLE_ASSERT(i_);
     return i_->getTextureCache().get(name);
+}
+
+Expected<Model> getModel(const std::string& name) {
+    MLE_ASSERT(i_);
+    return i_->getModelCache().get(name);
+}
+
+void loadModel(const std::string& name, std::function<void(Model)>&& callback) {
+    MLE_ASSERT(i_);
+    if (i_->getModelCache().loadModel(name, std::move(callback)) != Result::OK) {
+        core::unrecoverable("Failed to load model: {}", name);
+    }
 }
 
 vk::CommandBuffer getOTSCmd(CmdType type) {

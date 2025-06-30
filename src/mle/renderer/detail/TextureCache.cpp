@@ -64,9 +64,6 @@ void TextureCache::reset() {
     descriptor_set_layout_ = nullptr;
 }
 
-void TextureCache::update() {  // NOLINT
-}
-
 void TextureCache::updateImagesOnFrame() {
     if (update_images_on_frame_.empty()) {
         return;
@@ -207,6 +204,7 @@ void TextureCache::finishedUpload(u32 idx) {
     auto it = std::ranges::find_if(updating_textures_, [idx](const UpdatingData& data) { return data.idx == idx; });
     MLE_ASSERT_LOG(it != updating_textures_.end(), "Texture with index {} not found in updating textures", idx);
 
+    // TODO: add a callback here
     textures_.at(it->idx).ready = true;
 
     getDevice().destroy(it->semaphore);

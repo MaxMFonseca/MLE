@@ -21,7 +21,7 @@ class TextureCache final {
     void init();
     void reset();
 
-    void update();
+    // void update();
     void frameBegin();
 
     Texture get(const std::string& name);
