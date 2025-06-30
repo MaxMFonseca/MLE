@@ -21,6 +21,7 @@ enum class [[nodiscard]] Result : u8 {
     TIMEOUT,                ///< Operation timed out.
     SWAPCHAIN_NOT_VISIBLE,  ///< Swapchain is not visible, e.g., window minimized or not focused.
     FRAME_SKIP,             ///< Frame was skipped, e.g., due to swapchain not being visible.
+    NOT_READY,
 
     NOK,               ///< Generic Error. Try to avoid. Bad practice! Adding new fields here is easy!
     INVALID_ARGUMENT,  ///< Invalid argument provided.
@@ -38,6 +39,7 @@ static constexpr const char* toString(Result result) {
         CASE(TIMEOUT);
         CASE(SWAPCHAIN_NOT_VISIBLE);
         CASE(FRAME_SKIP);
+        CASE(NOT_READY);
 
         CASE(NOK);
         CASE(INVALID_ARGUMENT);
