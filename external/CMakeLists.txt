@@ -35,3 +35,5 @@ target_include_directories(MLE PUBLIC entt/single_include)
 target_include_directories(MLE PUBLIC utfcpp/source)
 
 target_include_directories(MLE PUBLIC dr_libs)
+
+target_include_directories(MLE PUBLIC json)
