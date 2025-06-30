@@ -129,7 +129,7 @@ function mle_run_tool() {
 
   rm -rf "build/${build_type}/tools/${tool_name}/res"
   mkdir -p "build/${build_type}/tools/${tool_name}/res"
-  local arr=("lua" "textures" "shaders" "fonts" "sounds")
+  local arr=("lua" "textures" "shaders" "fonts" "sounds" "models")
   cd "build/${build_type}/tools/${tool_name}/res"
 
   for i in "${arr[@]}"; do
