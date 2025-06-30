@@ -199,6 +199,26 @@ function mle_nvim_dap() {
   echo "  NVIM_DAP_PROGRAM=$NVIM_DAP_PROGRAM"
 }
 
+function _mle_compile_shaders() {
+  local shader_dir="$1"
+
+  find "$shader_dir" -type f \( \
+    -name "*.vert" -o -name "*.frag" -o -name "*.comp" -o -name "*.geom" -o -name "*.tesc" -o -name "*.tese" \
+    \) | while read -r shader; do
+    output="${shader}.spv"
+    echo "Compiling $(basename "$shader") -> $(basename "$output")"
+    glslangValidator -V "$shader" -o "$output"
+    if [ $? -ne 0 ]; then
+      echo "❌ Failed to compile: $shader"
+      return 1
+    fi
+  done
+}
+
+function mle_compile_shaders() {
+  _mle_compile_shaders "${_MLE_ROOT}/res/shaders"
+}
+
 function mle_gen_docs() {
   cd "${_MLE_ROOT}"
   doxygen docs/Doxyfile.in
@@ -218,6 +238,7 @@ function mle_help() {
   echo "  mle_ber alias for mle_build_and_run_tool"
   echo "  mle_clean"
   echo "  mle_nvim_dap -n test_name [-t build_type]"
+  echo "  mle_compile_shaders folder_path"
   echo "  mle_gen_docs"
   echo "  mle_help"
 }
