@@ -32,7 +32,6 @@ class RenderingThread {
 
     /**
      * @brief Initializes the rendering thread state.
-     * @param primary Whether this is the primary rendering thread.
      */
     void init();
 
@@ -55,7 +54,8 @@ class RenderingThread {
     void pushConstants(const void* push_constants);
     void bindDescriptorSet(vk::DescriptorSet set, u32 binding) const;
     void pushDescriptor(u32 set, const std::vector<vk::WriteDescriptorSet>& writes);
-    void draw(int instance_count, int index_count) const;
+    void draw(int instance_count, int vertex_count) const;
+    void drawIndexed(int instance_count, int index_count, usize index_offset = 0) const;
 
     void endCmd() { check(cmd_.end()); };
 

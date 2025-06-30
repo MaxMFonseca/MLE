@@ -218,9 +218,15 @@ void RenderingThread::bindDescriptorSet(vk::DescriptorSet set, u32 binding) cons
     cmd_.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipeline_->getPipelineLayout(), binding, {set}, {});
 }
 
-void RenderingThread::draw(int instance_count, int index_count) const {
+void RenderingThread::draw(int instance_count, int vertex_count) const {
     MLE_ASSERT(in_rendering_);
     MLE_ASSERT(pipeline_);
-    cmd_.draw(index_count, instance_count, 0, 0);
+    cmd_.draw(vertex_count, instance_count, 0, 0);
+}
+
+void RenderingThread::drawIndexed(int instance_count, int index_count, usize index_offset) const {
+    MLE_ASSERT(in_rendering_);
+    MLE_ASSERT(pipeline_);
+    cmd_.drawIndexed(index_count, instance_count, index_offset, 0, 0);
 }
 }  // namespace mle::renderer
