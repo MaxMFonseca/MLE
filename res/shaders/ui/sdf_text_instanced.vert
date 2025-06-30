@@ -1,11 +1,11 @@
 #version 450 core
 
 vec2 vertices[] = {
-        vec2(0.0, 0.0),
-        vec2(0.0, 1.0),
-        vec2(1.0, 0.0),
-        vec2(1.0, 1.0)
-    };
+    vec2( 0.0,  0.0),
+    vec2( 1.0,  0.0),
+    vec2( 0.0,  1.0),
+    vec2( 1.0,  1.0)
+};
 
 layout(location = 0) in vec2 ini_pos;
 layout(location = 1) in vec2 ini_size;
@@ -31,7 +31,4 @@ void main() {
     out_texture_index = ini_texture_index;
     out_outline_color = ini_outline_color;
     out_outline_thickness = 0.5 - ini_outline_thickness / 32.0;
-
-    //gl_Position.x = vertices[gl_VertexIndex].x;
-    //gl_Position.y = vertices[gl_VertexIndex].y;
 }
