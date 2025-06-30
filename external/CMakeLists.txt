@@ -36,4 +36,6 @@ target_include_directories(MLE PUBLIC utfcpp/source)
 
 target_include_directories(MLE PUBLIC dr_libs)
 
+target_include_directories(MLE PUBLIC tinygltf)
+
 target_include_directories(MLE PUBLIC json)
