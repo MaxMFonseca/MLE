@@ -1,5 +1,6 @@
 #include "RenderingThread.h"
 
+#include <vulkan/vulkan_enums.hpp>
 #include <vulkan/vulkan_handles.hpp>
 #include <vulkan/vulkan_structs.hpp>
 
@@ -40,18 +41,20 @@ void RenderingThread::setDepthAttachment(const AttachmentInfo& attachment) {
 }
 
 void RenderingThread::setPipeline(PipelineRef p) {
-    MLE_ASSERT(in_rendering_);
+    MLE_ASSERT(p->isCompute() || in_rendering_);
     if (p == pipeline_) {
         return;
     }
     pipeline_ = p;
-    cmd_.bindPipeline(vk::PipelineBindPoint::eGraphics, p->get());
+    cmd_.bindPipeline(pipeline_->isCompute() ? vk::PipelineBindPoint::eCompute : vk::PipelineBindPoint::eGraphics, p->get());
 }
 
 void RenderingThread::pushDescriptor(u32 set, const std::vector<vk::WriteDescriptorSet>& writes) {
-    MLE_ASSERT(in_rendering_);
     MLE_ASSERT(pipeline_);
-    cmd_.pushDescriptorSetKHR(vk::PipelineBindPoint::eGraphics, pipeline_->getPipelineLayout(), set, writes);
+    MLE_ASSERT(pipeline_->isCompute() || in_rendering_);
+
+    cmd_.pushDescriptorSetKHR(pipeline_->isCompute() ? vk::PipelineBindPoint::eCompute : vk::PipelineBindPoint::eGraphics, pipeline_->getPipelineLayout(), set,
+                              writes);
 }
 
 void RenderingThread::beginRendering(Recti render_area, bool can_clear) {
@@ -131,6 +134,7 @@ void RenderingThread::endRendering() {
     if (in_rendering_) {
         cmd_.endRendering();
         in_rendering_ = false;
+        pipeline_ = nullptr;
     }
 }
 
@@ -194,12 +198,18 @@ void RenderingThread::bindIndexBuffer(BufferRef buffer, usize offset) const {
 }
 
 void RenderingThread::pushConstants(const void* push_constants) {
-    MLE_ASSERT(in_rendering_);
     MLE_ASSERT(pipeline_);
+    MLE_ASSERT(pipeline_->isCompute() || in_rendering_);
     MLE_ASSERT(pipeline_->hasPushConstants());
+
     auto pc_size = pipeline_->getPushConstantSize();
     auto pc_frag_offset = pipeline_->getPushConstantFragOffset();
     auto pipeline_layout = pipeline_->getPipelineLayout();
+
+    if (pipeline_->isCompute()) {
+        cmd_.pushConstants(pipeline_layout, vk::ShaderStageFlagBits::eCompute, 0, pc_size, push_constants);
+        return;
+    }
 
     if (pc_frag_offset == max<u8>()) {
         cmd_.pushConstants(pipeline_layout, vk::ShaderStageFlagBits::eVertex, 0, pc_size, push_constants);
@@ -213,20 +223,26 @@ void RenderingThread::pushConstants(const void* push_constants) {
 }
 
 void RenderingThread::bindDescriptorSet(vk::DescriptorSet set, u32 binding) const {
-    MLE_ASSERT(in_rendering_);
     MLE_ASSERT(pipeline_);
-    cmd_.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipeline_->getPipelineLayout(), binding, {set}, {});
+    MLE_ASSERT(pipeline_->isCompute() || in_rendering_);
+
+    cmd_.bindDescriptorSets(pipeline_->isCompute() ? vk::PipelineBindPoint::eCompute : vk::PipelineBindPoint::eGraphics, pipeline_->getPipelineLayout(),
+                            binding, {set}, {});
 }
 
 void RenderingThread::draw(int instance_count, int vertex_count) const {
-    MLE_ASSERT(in_rendering_);
-    MLE_ASSERT(pipeline_);
+    MLE_ASSERT(in_rendering_ && pipeline_);
     cmd_.draw(vertex_count, instance_count, 0, 0);
 }
 
 void RenderingThread::drawIndexed(int instance_count, int index_count, usize index_offset) const {
-    MLE_ASSERT(in_rendering_);
-    MLE_ASSERT(pipeline_);
+    MLE_ASSERT(in_rendering_ && pipeline_);
     cmd_.drawIndexed(index_count, instance_count, index_offset, 0, 0);
+}
+
+void RenderingThread::dispatchCompute(int group_count_x, int group_count_y, int group_count_z) const {
+    MLE_ASSERT(pipeline_ && pipeline_->isCompute());
+
+    cmd_.dispatch(group_count_x, group_count_y, group_count_z);
 }
 }  // namespace mle::renderer

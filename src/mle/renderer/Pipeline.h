@@ -22,8 +22,9 @@ class Pipeline final : public LiveCounter<Pipeline> {
     /// Configuration for creating a graphics pipeline.
     /// TODO: I hate the fact that I use vectors here...
     struct CreateInfo {
-        ShaderRef vertex_shader = nullptr;                                                                         ///< Vertex shader module.
-        ShaderRef fragment_shader = nullptr;                                                                       ///< Fragment shader module.
+        ShaderRef vertex_shader = nullptr;    ///< Vertex shader module.
+        ShaderRef fragment_shader = nullptr;  ///< Fragment shader module.
+        ShaderRef compute_shader = nullptr;
         vk::PrimitiveTopology topology = vk::PrimitiveTopology::eTriangleList;                                     ///< Primitive topology.
         vk::PolygonMode polygon_mode = vk::PolygonMode::eFill;                                                     ///< Polygon rasterization mode.
         vk::CullModeFlags cull_mode = vk::CullModeFlagBits::eBack;                                                 ///< Face culling mode.
@@ -81,6 +82,8 @@ class Pipeline final : public LiveCounter<Pipeline> {
     [[nodiscard]] bool hasInstance() const { return first_instance_binding_ != max<u8>(); }  ///< Returns true if the pipeline has instance attributes.
     [[nodiscard]] u8 getFirstInstanceBinding() const { return first_instance_binding_; }     ///< Returns the first instance binding index.
 
+    [[nodiscard]] bool isCompute() const { return compute_; }  ///< Returns true if this is a compute pipeline.
+
     /**
      * @brief Finds a push constant field by name.
      * @param name The name of the field.
@@ -92,6 +95,9 @@ class Pipeline final : public LiveCounter<Pipeline> {
     /// Creates the internal pipeline layout based on the configuration.
     void createPipelineLayout(const CI& ci);
 
+    void initGraphicsPipeline(const CI& ci);
+    void initComputePipeline(const CI& ci);
+
   private:
     vk::Pipeline o_;                            ///< Vulkan pipeline object.
     vk::PipelineLayout pipeline_layout_;        ///< Pipeline layout object.
@@ -99,5 +105,6 @@ class Pipeline final : public LiveCounter<Pipeline> {
     u8 pc_size_ = 0;                            ///< Total size of push constants in bytes.
     u8 pc_frag_offset_ = max<u8>();             ///< Offset to fragment-stage constants (if any).
     u8 first_instance_binding_ = max<u8>();     ///< First instance binding index.
+    bool compute_ = false;                      ///< True if this is a compute pipeline.
 };
 }  // namespace mle::renderer

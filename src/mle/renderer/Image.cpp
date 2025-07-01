@@ -302,7 +302,7 @@ void Image::transitionLayout(vk::CommandBuffer cmd, TransitionLayoutInfo info) {
         return;
     }
 
-    vk::ImageMemoryBarrier2KHR barrier = {};
+    vk::ImageMemoryBarrier2 barrier = {};
     barrier.image = o_;
     barrier.oldLayout = current_layout_;
     barrier.newLayout = info.new_layout;
@@ -399,6 +399,13 @@ void Image::transitionState(vk::CommandBuffer cmd, State state) {
                     info.dst_stage_mask = vk::PipelineStageFlagBits2::eEarlyFragmentTests;
                     info.dst_access_mask = vk::AccessFlagBits2::eDepthStencilAttachmentWrite;
                 } break;
+                case State::COMPUTE_RW: {
+                    info.new_layout = vk::ImageLayout::eGeneral;
+                    info.src_stage_mask = {};
+                    info.src_access_mask = {};
+                    info.dst_stage_mask = vk::PipelineStageFlagBits2::eComputeShader;
+                    info.dst_access_mask = vk::AccessFlagBits2::eShaderRead | vk::AccessFlagBits2::eShaderWrite;
+                } break;
                 default: {
                     MLE_UNREACHABLE_LOG("Invalid state transition from INITIAL to {}", state);
                 } break;
@@ -488,6 +495,27 @@ void Image::transitionState(vk::CommandBuffer cmd, State state) {
                 } break;
             }
         } break;
+        case State::COMPUTE_RW: {
+            switch (state) {
+                case State::TRANSFER_SRC: {
+                    info.new_layout = vk::ImageLayout::eTransferDstOptimal;
+                    info.src_stage_mask = vk::PipelineStageFlagBits2::eComputeShader;
+                    info.src_access_mask = vk::AccessFlagBits2::eShaderRead | vk::AccessFlagBits2::eShaderWrite;
+                    info.dst_stage_mask = vk::PipelineStageFlagBits2::eTransfer;
+                    info.dst_access_mask = vk::AccessFlagBits2::eTransferRead;
+                } break;
+                case State::SHADER_READ: {
+                    info.new_layout = vk::ImageLayout::eReadOnlyOptimal;
+                    info.src_stage_mask = vk::PipelineStageFlagBits2::eComputeShader;
+                    info.src_access_mask = vk::AccessFlagBits2::eShaderRead | vk::AccessFlagBits2::eShaderWrite;
+                    info.dst_stage_mask = vk::PipelineStageFlagBits2::eFragmentShader;
+                    info.dst_access_mask = vk::AccessFlagBits2::eShaderRead;
+                } break;
+                default: {
+                    MLE_UNREACHABLE_LOG("Invalid state transition from COMPUTE to {}", state);
+                } break;
+            }
+        } break;
         case State::SHADER_READ: {
             switch (state) {
                 case State::TRANSFER_DST: {
@@ -503,6 +531,13 @@ void Image::transitionState(vk::CommandBuffer cmd, State state) {
                     info.src_access_mask = vk::AccessFlagBits2::eShaderRead;
                     info.dst_stage_mask = vk::PipelineStageFlagBits2::eColorAttachmentOutput;
                     info.dst_access_mask = vk::AccessFlagBits2::eColorAttachmentWrite;
+                } break;
+                case State::COMPUTE_RW: {
+                    info.new_layout = vk::ImageLayout::eGeneral;
+                    info.src_stage_mask = vk::PipelineStageFlagBits2::eFragmentShader;
+                    info.src_access_mask = vk::AccessFlagBits2::eShaderRead;
+                    info.dst_stage_mask = vk::PipelineStageFlagBits2::eComputeShader;
+                    info.dst_access_mask = vk::AccessFlagBits2::eShaderRead | vk::AccessFlagBits2::eShaderWrite;
                 } break;
                 default: {
                     MLE_UNREACHABLE_LOG("Invalid state transition from SHADER_READ to {}", state);

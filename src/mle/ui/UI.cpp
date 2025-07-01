@@ -2,11 +2,13 @@
 
 #include <memory>
 #include <vulkan/vulkan_handles.hpp>
+#include <vulkan/vulkan_structs.hpp>
 
 #include "mle/common/Assert.h"
 #include "mle/common/Logger.h"
 #include "mle/common/RectPacker.h"
 #include "mle/common/Utils.h"
+#include "mle/core/Core.h"
 #include "mle/lua/Lua.h"
 #include "mle/renderer/Image.h"
 #include "mle/renderer/Pipeline.h"
@@ -32,7 +34,7 @@ class Impl {
 
     inline void update();
     inline renderer::ImageRef render();
-    void renderModel(renderer::ImageRef image) const;
+    void doNoise(renderer::RenderingThread& thread);
 
     auto& getRegistry() { return registry_; }
     auto& getFontCache() { return font_cache_; }
@@ -65,9 +67,6 @@ class Impl {
 
     // TODO: improve tihs
     std::map<std::string, std::map<ID, std::pair<std::function<void(void)>, bool>>> event_listeners_;
-
-    renderer::Model model_;
-    renderer::ImageHnd depth_;
 };
 
 struct Position {
@@ -93,13 +92,21 @@ void Impl::init() {
 
     lua::getMleTable()["ui"] = ui_table;
 
-    renderer::loadModel("mle/Spider1", [this](renderer::Model m) { model_ = m; });
+    renderer::Image::CI noise_image_ci;
+    noise_image_ci.extent = {512, 512};
+    noise_image_ci.format = vk::Format::eR8Unorm;
+    noise_image_ci.usage = vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eStorage;
 
-    renderer::Image::CI depth_ci;
-    depth_ci.format = renderer::getDepthFormat();
-    depth_ci.extent = {root_size_.x, root_size_.y};
-    depth_ci.usage = vk::ImageUsageFlagBits::eDepthStencilAttachment | vk::ImageUsageFlagBits::eSampled;
-    depth_ = renderer::Image::createHnd(depth_ci);
+    auto image = renderer::Image::createHnd(noise_image_ci);
+
+    MLE_ASSERT(1 == image->createView({
+                        .r = vk::ComponentSwizzle::eR,
+                        .g = vk::ComponentSwizzle::eR,
+                        .b = vk::ComponentSwizzle::eR,
+                        .a = vk::ComponentSwizzle::eR,
+                    }));
+
+    renderer::addTexture("noise", std::move(image));
 }
 
 void Impl::shutdown() {
@@ -177,18 +184,73 @@ void Impl::nextRoot() {
     MLE_I("New root element created.");
 }
 
+void Impl::doNoise(renderer::RenderingThread& thread) {  // NOLINT
+    static renderer::PipelineHnd pipeline;
+    static vk::DescriptorSetLayout dsl;
+    if (!pipeline) {
+        renderer::Pipeline::CI ci;
+        ci.compute_shader = renderer::getShader("mle/noise/simplex.comp");
+
+        // TODO: I realy want this to be auto and cached
+        vk::DescriptorSetLayoutBinding dsl_b0;
+        dsl_b0.binding = 0;
+        dsl_b0.descriptorType = vk::DescriptorType::eStorageImage;
+        dsl_b0.stageFlags = vk::ShaderStageFlagBits::eCompute;
+        dsl_b0.descriptorCount = 1;
+
+        vk::DescriptorSetLayoutCreateInfo dsl_ci;
+        dsl_ci.setBindings(dsl_b0);
+        dsl_ci.setFlags(vk::DescriptorSetLayoutCreateFlagBits::ePushDescriptorKHR);
+
+        dsl = renderer::unwrap(renderer::detail::getDevice().createDescriptorSetLayout(dsl_ci));
+
+        ci.descriptor_set_layouts.emplace_back(dsl);
+
+        pipeline = renderer::Pipeline::createHnd(ci);
+    }
+
+    auto cmd = thread.cmd();
+
+    auto noise_image = renderer::getTexture("noise");
+    noise_image.image->transitionState(cmd, renderer::Image::State::COMPUTE_RW);
+
+    thread.setPipeline(pipeline.get());
+
+    vk::DescriptorImageInfo image_info;
+    image_info.imageView = noise_image.image->getView();
+    image_info.imageLayout = vk::ImageLayout::eGeneral;
+    vk::WriteDescriptorSet write;
+    write.dstBinding = 0;
+    write.descriptorCount = 1;
+    write.descriptorType = vk::DescriptorType::eStorageImage;
+    write.setImageInfo(image_info);
+    thread.pushDescriptor(0, {write});
+
+    struct PC {
+        vec3f offset{0.F};
+        f32 scale = 5;
+    } pc;
+    pc.offset.x = as<f32>(core::getRunningTimeMS().count()) / 1000.F / 10;  // Use time as offset
+    pc.offset.y = as<f32>(core::getRunningTimeMS().count()) / 1000.F / 10;  // Use time as offset
+    pc.offset.z = as<f32>(core::getRunningTimeMS().count()) / 1000.F / 5;   // Use time as offset
+
+    thread.pushConstants(&pc);
+
+    thread.dispatchCompute(noise_image.image->getExtent().x / 16, noise_image.image->getExtent().y / 16);
+
+    noise_image.image->transitionState(cmd, renderer::Image::State::SHADER_READ);
+}
+
 renderer::ImageRef Impl::render() {
-    pre_render_cmd_buffer_ = renderer::getFrameSecondaryCmd();
-    vk::CommandBufferBeginInfo beg_info;
-    beg_info.setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
-    vk::CommandBufferInheritanceInfo ihi{};
-    beg_info.setPInheritanceInfo(&ihi);
-    renderer::check(pre_render_cmd_buffer_.begin(beg_info));
+    renderer::RenderingThread pre_render_thread;
+    pre_render_thread.init();
+    pre_render_cmd_buffer_ = pre_render_thread.cmd();
+
+    doNoise(pre_render_thread);
 
     registry_.get<element::comp::Renderable>(root_).render({.self = root_});
 
-    renderer::check(pre_render_cmd_buffer_.end());
-    renderer::submitJobOnFrame(pre_render_cmd_buffer_);
+    pre_render_thread.submit();
     for (auto cmd : s_command_buffers_) {
         renderer::submitJobOnFrame(cmd);
     }
@@ -196,80 +258,7 @@ renderer::ImageRef Impl::render() {
 
     renderer::ImageRef root_image = registry_.try_get<element::comp::RootImage>(root_)->image_handle.get();
 
-    // TODO: remove this
-    renderModel(root_image);
-
     return root_image;
-}
-
-void Impl::renderModel(renderer::ImageRef image) const {
-    if (!model_.vertex_buffer) {
-        return;
-    }
-
-    static renderer::PipelineHnd pipeline;
-    if (!pipeline) {
-        renderer::Pipeline::CI ci;
-        ci.vertex_shader = renderer::getShader("mle/model.vert");
-        ci.fragment_shader = renderer::getShader("mle/model.frag");
-        ci.color_attachment_formats.emplace_back(renderer::getDefaultColorFormat());
-        ci.blend_attachments = renderer::makeDefaultBlendAttachmentStates(1);
-        ci.topology = vk::PrimitiveTopology::eTriangleList;
-        ci.depth = true;
-        pipeline = renderer::Pipeline::createHnd(ci);
-        renderer::addOnShutdown([]() { pipeline.reset(); });
-    }
-
-    renderer::RenderingThread thread;
-    thread.init();
-    renderer::AttachmentInfo attachment;
-    attachment.image = image;
-    attachment.load = vk::AttachmentLoadOp::eLoad;
-    attachment.store = vk::AttachmentStoreOp::eStore;
-    renderer::AttachmentInfo depth_attachment;
-    depth_attachment.image = depth_.get();
-    depth_attachment.load = vk::AttachmentLoadOp::eClear;
-    depth_attachment.store = vk::AttachmentStoreOp::eStore;
-    depth_attachment.clear_value = vk::ClearDepthStencilValue{1.0F, 0};
-    thread.setColorAttachments({attachment});
-    thread.setDepthAttachment(depth_attachment);
-    thread.beginRendering();
-    thread.setPipeline(pipeline.get());
-    thread.setViewport();
-    thread.bindVertexBuffer(model_.vertex_buffer);
-    thread.bindIndexBuffer(model_.index_buffer);
-
-    f32 fov = glm::radians(60.0F);
-    f32 aspect = 16.0F / 9.0F;
-    f32 near_plane = 0.1F;
-    f32 far_plane = 100.0F;
-
-    mat4f proj = glm::perspective(fov, aspect, near_plane, far_plane);
-
-    vec3f eye = {0.0F, 3.0F, 6.0F};
-    vec3f center = {0.0F, 2.0F, 0.0F};
-    vec3f up = {0.0F, -1.0F, 0.0F};
-
-    mat4f view = glm::lookAt(eye, center, up);
-
-    mat4f vp = proj * view;
-
-    static f32 rot = 0;
-    rot += 0.01;
-    mat4f model = glm::rotate(mat4f(1.0F), rot, vec3f(0.0F, 1.0F, 0.0F));
-
-    mat4f mvp = vp * model;
-
-    struct {
-        mat4f mat{1};
-    } pc;
-    pc.mat = mvp;
-
-    thread.pushConstants(&pc);
-
-    thread.drawIndexed(1, model_.index_count);
-
-    thread.submit();
 }
 
 ID Impl::addListener(const std::string& event_name, std::function<void()>&& callback) {

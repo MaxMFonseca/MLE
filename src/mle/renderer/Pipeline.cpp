@@ -20,6 +20,18 @@ PipelineHnd Pipeline::createHnd(const CI& ci) {
 void Pipeline::init(const CI& ci) {
     MLE_D("Building pipeline");
 
+    MLE_ASSERT(ci.vertex_shader || ci.fragment_shader || ci.compute_shader);
+
+    createPipelineLayout(ci);
+
+    if (ci.compute_shader) {
+        initComputePipeline(ci);
+    } else {
+        initGraphicsPipeline(ci);
+    }
+}
+
+void Pipeline::initGraphicsPipeline(const CI& ci) {
     MLE_ASSERT_LOG(ci.vertex_shader, "Vertex shader must be set");
     MLE_ASSERT_LOG(ci.fragment_shader, "Fragment shader must be set");
     MLE_ASSERT_LOG(ci.color_attachment_formats.size() > 0, "At least one color attachment format must be set");
@@ -134,8 +146,6 @@ void Pipeline::init(const CI& ci) {
     dynamic_state_ci.setDynamicStates(ci.dynamic_states);
     pipeline_ci.setPDynamicState(&dynamic_state_ci);
 
-    MLE_T("Pipeline layout");
-    createPipelineLayout(ci);
     pipeline_ci.layout = pipeline_layout_;
 
     pipeline_ci.renderPass = nullptr;
@@ -160,6 +170,26 @@ void Pipeline::init(const CI& ci) {
     MLE_T("Pipeline created successfully");
 }
 
+void Pipeline::initComputePipeline(const CI& ci) {
+    MLE_ASSERT_LOG(ci.compute_shader, "Compute shader must be set");
+
+    compute_ = true;
+
+    vk::ComputePipelineCreateInfo pipeline_ci;
+
+    MLE_T("Shader stages");
+    ci.compute_shader->logID("ComputeShader");
+
+    pipeline_ci.setStage(ci.compute_shader->getPipelineShaderStageCreateInfo());
+
+    pipeline_ci.layout = pipeline_layout_;
+    pipeline_ci.basePipelineHandle = nullptr;
+    pipeline_ci.basePipelineIndex = 0;
+
+    o_ = unwrap(detail::getVk().getDevice().createComputePipeline(nullptr, pipeline_ci));
+    MLE_T("Compute pipeline created successfully");
+}
+
 Pipeline::~Pipeline() {
     if (pipeline_layout_) {
         detail::getDevice().destroy(pipeline_layout_);
@@ -181,12 +211,19 @@ void Pipeline::createPipelineLayout(const CI& ci) {
     pc_frag_offset_ = max<u8>();
     int pc_count = 0;
     std::array<vk::PushConstantRange, 2> pc_ranges{};
-    if (ci.vertex_shader->getPushConstantRange().size != 0U) {
+    if ((ci.compute_shader != nullptr) && ci.compute_shader->getPushConstantRange().size != 0U) {
+        pc_ranges.at(0) = ci.compute_shader->getPushConstantRange();
+        pc_fields_ = ci.compute_shader->getPushConstantFields();
+        MLE_ASSERT_LOG(pc_ranges.at(0).offset == 0,
+                       "Compute shader push constant offset must be 0, add layout(offset = 0) to the first line of your compute shader pc block.");
+        pc_count++;
+    }
+    if ((ci.vertex_shader != nullptr) && ci.vertex_shader->getPushConstantRange().size != 0U) {
         pc_ranges.at(0) = ci.vertex_shader->getPushConstantRange();
         pc_fields_ = ci.vertex_shader->getPushConstantFields();
         pc_count++;
     }
-    if (ci.fragment_shader->getPushConstantRange().size != 0U) {
+    if ((ci.fragment_shader != nullptr) && ci.fragment_shader->getPushConstantRange().size != 0U) {
         pc_frag_offset_ = static_cast<int>(pc_ranges.at(0).size);
         pc_ranges.at(pc_count) = ci.fragment_shader->getPushConstantRange();
         pc_fields_.insert(pc_fields_.end(), ci.fragment_shader->getPushConstantFields().begin(), ci.fragment_shader->getPushConstantFields().end());
@@ -212,5 +249,4 @@ PushConstantField Pipeline::getPushConstantField(const std::string& name) const 
 
     MLE_UNREACHABLE_LOG("Push constant field not found: {}", name);
 }
-
 }  // namespace mle::renderer

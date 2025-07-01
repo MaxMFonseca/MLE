@@ -44,7 +44,7 @@ class Image final : LiveCounter<Image> {
 
     using ViewCI = ImageViewCreateInfo;  ///< Alias for ViewCreateInfo.
 
-    /// Describes the current layout or usage of the image.
+    /// Describes the current state of the image.
     enum class State : u8 {
         INITIAL,       ///< Undefined initial state.
         TRANSFER_SRC,  ///< Used as source in a transfer.
@@ -52,7 +52,8 @@ class Image final : LiveCounter<Image> {
         COLOR_ATT,     ///< Used as a color attachment.
         DEPTH_ATT,     ///< Used as a depth attachment.
         PRESENT,       ///< Presentable (swapchain).
-        SHADER_READ    ///< Readable in shaders.
+        COMPUTE_RW,    ///< Compute read/write.
+        SHADER_READ    ///< Readable in shaders. TODO: rename this to FS_READ and add COMPUTE_R
     };
 
   public:
@@ -235,6 +236,8 @@ struct formatter<Image::State> : formatter<std::string> {
                 return format_to(ctx.out(), "PRESENT");
             case Image::State::DEPTH_ATT:
                 return format_to(ctx.out(), "DEPTH_ATT");
+            case Image::State::COMPUTE_RW:
+                return format_to(ctx.out(), "COMPUTE_RW");
             case Image::State::SHADER_READ:
                 return format_to(ctx.out(), "SHADER_READ");
         }

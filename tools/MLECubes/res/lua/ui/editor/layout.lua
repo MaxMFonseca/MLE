@@ -13,10 +13,15 @@ return {
 		},
 		{
 			"EditorView",
-			on_init = function(self)
-				print("EditorView created")
-				self.dispatchEvent("editor_view_created")
-			end,
+			size_y = "1f",
+			-- size_x = "100%",
+			sprite = {
+				"noise",
+			},
+			-- on_init = function(self)
+			-- 	print("EditorView created")
+			-- 	self.dispatchEvent("editor_view_created")
+			-- end,
 		},
 	},
 }

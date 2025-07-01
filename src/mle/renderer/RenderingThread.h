@@ -25,6 +25,7 @@ class RenderingThread {
     RenderingThread& operator=(RenderingThread&&) = delete;
 
     /// Constructs an empty RenderingThread. Use `init()` before before anything.
+    /// TODO: call init here
     RenderingThread() = default;
     explicit RenderingThread(vk::CommandBuffer cmd) :
         cmd_(cmd) {}
@@ -35,7 +36,7 @@ class RenderingThread {
      */
     void init();
 
-    /// Ends the current command buffer recording
+    /// Ends the current command buffer recording and submit
     void submit();
 
     /// Returns the internal Vulkan command buffer used for issuing commands.
@@ -56,6 +57,7 @@ class RenderingThread {
     void pushDescriptor(u32 set, const std::vector<vk::WriteDescriptorSet>& writes);
     void draw(int instance_count, int vertex_count) const;
     void drawIndexed(int instance_count, int index_count, usize index_offset = 0) const;
+    void dispatchCompute(int group_count_x, int group_count_y = 1, int group_count_z = 1) const;
 
     void endCmd() { check(cmd_.end()); };
 
