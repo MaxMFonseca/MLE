@@ -228,7 +228,7 @@ void TextureCache::write(u32 idx) {
     auto& texture = textures_.at(idx);
 
     vk::DescriptorImageInfo image_info;
-    image_info.imageView = texture.image->getDefaultView();
+    image_info.imageView = texture.image->getView();
     image_info.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
 
     vk::WriteDescriptorSet write;

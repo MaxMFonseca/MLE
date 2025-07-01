@@ -82,7 +82,7 @@ void Blur::render(const RenderContext& ctx) {
 
     vk::DescriptorImageInfo image_info;
     image_info.imageLayout = image->getCurrentLayout();
-    image_info.imageView = image->getDefaultView();
+    image_info.imageView = image->getView();
     vk::WriteDescriptorSet write0;
     write0.descriptorCount = 1;
     write0.descriptorType = vk::DescriptorType::eCombinedImageSampler;

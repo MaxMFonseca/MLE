@@ -35,6 +35,10 @@ class TextureCache final {
 
     void enqueueTextureUpdateJob(TextureUpdateJobData&& data) { update_images_on_frame_.emplace_back(std::move(data)); }
 
+    // TODO: write descriptor on frame and use something like
+    // so I can use views other than the default
+    // int use(idx, viewId);
+
   private:
     Texture add(std::string name);
 

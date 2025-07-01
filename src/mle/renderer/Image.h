@@ -7,6 +7,15 @@
 #include "mle/renderer/Renderer.h"
 
 namespace mle::renderer {
+/// Specifies parameters for creating an image view.
+/// Declaring it out of Image because of clang constructor bug
+struct ImageViewCreateInfo {
+    vk::ComponentSwizzle r = vk::ComponentSwizzle::eIdentity;
+    vk::ComponentSwizzle g = vk::ComponentSwizzle::eIdentity;
+    vk::ComponentSwizzle b = vk::ComponentSwizzle::eIdentity;
+    vk::ComponentSwizzle a = vk::ComponentSwizzle::eIdentity;
+};
+
 /**
  * @brief Represents a Vulkan image with associated memory allocation.
  *
@@ -33,9 +42,7 @@ class Image final : LiveCounter<Image> {
     };
     using CI = CreateInfo;  ///< Alias for CreateInfo.
 
-    /// Specifies parameters for creating an image view.
-    struct ViewCreateInfo {};
-    using ViewCI = ViewCreateInfo;  ///< Alias for ViewCreateInfo.
+    using ViewCI = ImageViewCreateInfo;  ///< Alias for ViewCreateInfo.
 
     /// Describes the current layout or usage of the image.
     enum class State : u8 {
@@ -146,10 +153,12 @@ class Image final : LiveCounter<Image> {
     [[nodiscard]] vk::Extent2D getVkExtent2D() const { return {static_cast<u32>(extent_.x), static_cast<u32>(extent_.y)}; }
     [[nodiscard]] auto getFormat() const { return format_; }                 ///< Returns the image format
     [[nodiscard]] auto getImageUsage() const { return image_usage_; }        ///< Result the image usage flags.
-    [[nodiscard]] auto getDefaultView() const { return default_view_; }      ///< Returns the default image view.
     [[nodiscard]] auto getCurrentLayout() const { return current_layout_; }  ///< Returns the current image layout.
     [[nodiscard]] u64 getAllocationSize() const;                             ///< Returns the size of the image allocation in bytes.
     [[nodiscard]] u64 getSizeInBytes() const;                                ///< Returns the size of the image in bytes (extent * format size).
+
+    /// Returns the view created with id
+    [[nodiscard]] vk::ImageView getView(usize id = 0) const;
 
     static int getFormatChannelCount(vk::Format format);
     static vk::Format getDefaultFormatForChannelCount(int c);
@@ -174,12 +183,10 @@ class Image final : LiveCounter<Image> {
         return createStagingBuffer(rAs<const void*>(data.pixels.data()), data.extent, data.channels);
     }
 
+    [[nodiscard]] usize createView(const ViewCI& ci = ViewCI{});
+
   private:
     void initImage(const CI& ci);
-    void initDefaultImageView();
-
-    // This should not be private, but for now it is incomplete and should not be used outside
-    [[nodiscard]] vk::ImageView createImageView() const;
 
     struct TransitionLayoutInfo {
         vk::ImageLayout new_layout;
@@ -200,11 +207,11 @@ class Image final : LiveCounter<Image> {
     VmaAllocation allocation_ = {};
     VmaAllocationInfo allocation_info_ = {};
 
-    vk::ImageView default_view_;
-
     State current_state_ = State::INITIAL;
 
     vk::ImageLayout current_layout_ = vk::ImageLayout::eUndefined;
+
+    std::vector<vk::ImageView> views_;
 };
 
 }  // namespace mle::renderer

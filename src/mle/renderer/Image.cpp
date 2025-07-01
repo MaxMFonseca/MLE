@@ -12,6 +12,7 @@
 #include "mle/common/Assert.h"
 #include "mle/common/Utils.h"
 #include "mle/core/Core.h"
+#include "mle/renderer/Utils.h"
 
 namespace mle::renderer {
 ImageHnd Image::createHnd(const CI& ci) {
@@ -27,8 +28,8 @@ Image::~Image() {
 
     MLE_LOG_THIS_T;
 
-    if (default_view_) {
-        detail::getDevice().destroyImageView(default_view_);
+    for (auto v : views_) {
+        detail::getDevice().destroy(v);
     }
     if (allocation_) {
         vmaDestroyImage(detail::getVma(), o_, allocation_);
@@ -79,18 +80,13 @@ void Image::initImage(const CI& ci) {
     format_ = ci.format;
     image_usage_ = ci.usage;
 
-    initDefaultImageView();
-}
-
-void Image::initDefaultImageView() {
-    if (swapchain_) {
-        return;
+    if (!swapchain_) {
+        MLE_T("Creating default image view for image: {}", (void*)o_);
+        [[maybe_unused]] auto _ = createView();
     }
-
-    default_view_ = createImageView();
 }
 
-vk::ImageView Image::createImageView() const {
+usize Image::createView(const ViewCI& ci) {
     MLE_LOG_THIS_T;
 
     vk::ImageViewCreateInfo image_view_ci = {};
@@ -98,10 +94,10 @@ vk::ImageView Image::createImageView() const {
     image_view_ci.image = o_;
     image_view_ci.viewType = vk::ImageViewType::e2D;
     image_view_ci.format = format_;
-    image_view_ci.components.r = vk::ComponentSwizzle::eIdentity;
-    image_view_ci.components.g = vk::ComponentSwizzle::eIdentity;
-    image_view_ci.components.b = vk::ComponentSwizzle::eIdentity;
-    image_view_ci.components.a = vk::ComponentSwizzle::eIdentity;
+    image_view_ci.components.r = ci.r;
+    image_view_ci.components.g = ci.g;
+    image_view_ci.components.b = ci.b;
+    image_view_ci.components.a = ci.a;
     if (image_usage_ & vk::ImageUsageFlagBits::eDepthStencilAttachment) {
         image_view_ci.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eDepth;
     } else {
@@ -112,12 +108,18 @@ vk::ImageView Image::createImageView() const {
     image_view_ci.subresourceRange.baseArrayLayer = 0;
     image_view_ci.subresourceRange.layerCount = 1;
 
-    auto view_r = detail::getDevice().createImageView(image_view_ci);
-    if (view_r.result != vk::Result::eSuccess) {
-        core::unrecoverable("Failed to create image view: {}", as<vk::Result>(view_r.result));
+    vk::ImageView vkhnd = unwrap(detail::getDevice().createImageView(image_view_ci));
+    views_.push_back(vkhnd);
+    return views_.size() - 1;
+}
+
+[[nodiscard]] vk::ImageView Image::getView(usize id) const {
+    MLE_ASSERT(!views_.empty());
+    if (id >= views_.size()) {
+        MLE_E("Image view id {} is out of range, using default view id 0", id);
+        id = 0;
     }
-    // TODO: add a map of named image views?
-    return view_r.value;
+    return views_.at(id);
 }
 
 void Image::update(vk::CommandBuffer cmd, BufferRef buffer, vec2i extent, vec2i offset) {

@@ -89,7 +89,7 @@ void RenderingThread::beginRendering(Recti render_area, bool can_clear) {
         if (attachment.view) {
             rattachment.imageView = attachment.view;
         } else {
-            rattachment.imageView = attachment.image->getDefaultView();
+            rattachment.imageView = attachment.image->getView();
         }
         rattachment.clearValue = attachment.clear_value;
         rattachment.storeOp = attachment.store;
@@ -106,7 +106,7 @@ void RenderingThread::beginRendering(Recti render_area, bool can_clear) {
     if (depth_attachment_.image || depth_attachment_.view) {
         depth_attachment_.image->transitionState(cmd_, Image::State::DEPTH_ATT);
 
-        depth_attachment.imageView = !depth_attachment_.view ? depth_attachment_.image->getDefaultView() : depth_attachment_.view;
+        depth_attachment.imageView = !depth_attachment_.view ? depth_attachment_.image->getView() : depth_attachment_.view;
         depth_attachment.clearValue = depth_attachment_.clear_value;
         depth_attachment.storeOp = depth_attachment_.store;
         depth_attachment.imageLayout = vk::ImageLayout::eAttachmentOptimal;
