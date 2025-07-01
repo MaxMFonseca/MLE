@@ -7,7 +7,7 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
 fi
 
 _APP_ROOT="$(pwd)"
-#MLE_APP_NAME="<fillme>"
+: "${MLE_APP_NAME:=<app_name>}"
 
 function mle_setup() {
   echo "TODO"
@@ -128,6 +128,7 @@ function mle_run() {
   done
 
   cd "${_APP_ROOT}/build/${build_type}/bin" || return 1
+  echo "Running app at $(pwd) -> ./${MLE_APP_NAME}"
   "./${MLE_APP_NAME}" "${args[@]}"
   cd "${_APP_ROOT}"
 
