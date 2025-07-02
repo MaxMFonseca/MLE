@@ -117,6 +117,8 @@ void Impl::render() {
         return;
     }
 
+    app_->render();
+
     renderer::endFrame(ui::render());
 
     current_second_times_.frames++;

@@ -16,6 +16,7 @@ class App : public mle::core::App {
     void shutdown() override;
 
     void update() override;
+    void render() override {};
 
   private:
     std::unique_ptr<Editor> editor_;
