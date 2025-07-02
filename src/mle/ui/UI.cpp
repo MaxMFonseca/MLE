@@ -34,7 +34,6 @@ class Impl {
 
     inline void update();
     inline renderer::ImageRef render();
-    void doNoise(renderer::RenderingThread& thread);
 
     auto& getRegistry() { return registry_; }
     auto& getFontCache() { return font_cache_; }
@@ -91,22 +90,6 @@ void Impl::init() {
     ui_table["table"] = lua::createTable();
 
     lua::getMleTable()["ui"] = ui_table;
-
-    renderer::Image::CI noise_image_ci;
-    noise_image_ci.extent = {512, 512};
-    noise_image_ci.format = vk::Format::eR8Unorm;
-    noise_image_ci.usage = vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eStorage;
-
-    auto image = renderer::Image::createHnd(noise_image_ci);
-
-    MLE_ASSERT(1 == image->createView({
-                        .r = vk::ComponentSwizzle::eR,
-                        .g = vk::ComponentSwizzle::eR,
-                        .b = vk::ComponentSwizzle::eR,
-                        .a = vk::ComponentSwizzle::eR,
-                    }));
-
-    renderer::addTexture("noise", std::move(image));
 }
 
 void Impl::shutdown() {
@@ -184,69 +167,10 @@ void Impl::nextRoot() {
     MLE_I("New root element created.");
 }
 
-void Impl::doNoise(renderer::RenderingThread& thread) {  // NOLINT
-    static renderer::PipelineHnd pipeline;
-    static vk::DescriptorSetLayout dsl;
-    if (!pipeline) {
-        renderer::Pipeline::CI ci;
-        ci.compute_shader = renderer::getShader("mle/noise/simplex.comp");
-
-        // TODO: I realy want this to be auto and cached
-        vk::DescriptorSetLayoutBinding dsl_b0;
-        dsl_b0.binding = 0;
-        dsl_b0.descriptorType = vk::DescriptorType::eStorageImage;
-        dsl_b0.stageFlags = vk::ShaderStageFlagBits::eCompute;
-        dsl_b0.descriptorCount = 1;
-
-        vk::DescriptorSetLayoutCreateInfo dsl_ci;
-        dsl_ci.setBindings(dsl_b0);
-        dsl_ci.setFlags(vk::DescriptorSetLayoutCreateFlagBits::ePushDescriptorKHR);
-
-        dsl = renderer::unwrap(renderer::detail::getDevice().createDescriptorSetLayout(dsl_ci));
-
-        ci.descriptor_set_layouts.emplace_back(dsl);
-
-        pipeline = renderer::Pipeline::createHnd(ci);
-    }
-
-    auto cmd = thread.cmd();
-
-    auto noise_image = renderer::getTexture("noise");
-    noise_image.image->transitionState(cmd, renderer::Image::State::COMPUTE_RW);
-
-    thread.setPipeline(pipeline.get());
-
-    vk::DescriptorImageInfo image_info;
-    image_info.imageView = noise_image.image->getView();
-    image_info.imageLayout = vk::ImageLayout::eGeneral;
-    vk::WriteDescriptorSet write;
-    write.dstBinding = 0;
-    write.descriptorCount = 1;
-    write.descriptorType = vk::DescriptorType::eStorageImage;
-    write.setImageInfo(image_info);
-    thread.pushDescriptor(0, {write});
-
-    struct PC {
-        vec3f offset{0.F};
-        f32 scale = 5;
-    } pc;
-    pc.offset.x = as<f32>(core::getRunningTimeMS().count()) / 1000.F / 10;  // Use time as offset
-    pc.offset.y = as<f32>(core::getRunningTimeMS().count()) / 1000.F / 10;  // Use time as offset
-    pc.offset.z = as<f32>(core::getRunningTimeMS().count()) / 1000.F / 5;   // Use time as offset
-
-    thread.pushConstants(&pc);
-
-    thread.dispatchCompute(noise_image.image->getExtent().x / 16, noise_image.image->getExtent().y / 16);
-
-    noise_image.image->transitionState(cmd, renderer::Image::State::SHADER_READ);
-}
-
 renderer::ImageRef Impl::render() {
     renderer::RenderingThread pre_render_thread;
     pre_render_thread.init();
     pre_render_cmd_buffer_ = pre_render_thread.cmd();
-
-    doNoise(pre_render_thread);
 
     registry_.get<element::comp::Renderable>(root_).render({.self = root_});
 
