@@ -144,6 +144,131 @@ using Rectf = Rect<f32>;  ///< 2D floating-point rectangle.
 using Rectd = Rect<f64>;  ///< 2D double-precision rectangle.
 /// @}
 
+/**
+ * @brief Infinite line represented by a point and a normalized direction.
+ * @ingroup MathTypes
+ */
+class Line2D {
+  public:
+    /// Constructs a default line at origin pointing right.
+    Line2D() :
+        origin_(0.0F),
+        direction_(1.0F, 0.0F) {}
+
+    /// Constructs a line from a point and direction (assumes direction is normalized).
+    Line2D(vec2f origin, vec2f direction) :
+        origin_(origin),
+        direction_(direction) {}
+
+    /// Constructs a line that passes through two distinct points.
+    static Line2D fromPoints(vec2f a, vec2f b) { return {a, glm::normalize(b - a)}; }
+
+    /// Gets a point on the line at parameter t (negative t is also valid).
+    [[nodiscard]] constexpr vec2f at(f32 t) const { return origin_ + direction_ * t; }
+
+    /// Projects a point onto the line, returning parameter t.
+    [[nodiscard]] constexpr f32 project(vec2f point) const { return glm::dot(point - origin_, direction_); }
+
+    /// Returns the closest point on the line to a given point.
+    [[nodiscard]] constexpr vec2f closestPoint(vec2f point) const { return at(project(point)); }
+
+    /// Returns the origin of the line.
+    [[nodiscard]] constexpr vec2f origin() const { return origin_; }
+
+    /// Returns the (normalized) direction of the line.
+    [[nodiscard]] constexpr vec2f direction() const { return direction_; }
+
+    /// Resturns true if the line contains a point (within epsilon).
+    [[nodiscard]] bool contains(vec2f point, f32 epsilon = 1e-5F) const;
+
+  private:
+    vec2f origin_;
+    vec2f direction_;
+};
+
+/**
+ * @brief Line segment represented by two endpoints.
+ * @ingroup MathTypes
+ */
+class LineSegment2D {
+  public:
+    /// Constructs a zero-length segment at origin.
+    LineSegment2D() :
+        a_(0.0F),
+        b_(0.0F) {}
+
+    /// Constructs a segment from two points.
+    LineSegment2D(vec2f a, vec2f b) :
+        a_(a),
+        b_(b) {}
+
+    /// Returns the start point of the segment.
+    [[nodiscard]] constexpr vec2f getA() const { return a_; }
+
+    /// Returns the end point of the segment.
+    [[nodiscard]] constexpr vec2f getB() const { return b_; }
+
+    /// Returns the direction vector (not normalized).
+    [[nodiscard]] constexpr vec2f getDirection() const { return b_ - a_; }
+
+    /// Returns the length of the segment.
+    [[nodiscard]] f32 getLength() const { return glm::length(getDirection()); }
+
+    /// Returns the midpoint of the segment.
+    [[nodiscard]] constexpr vec2f getCenter() const { return (a_ + b_) * 0.5F; }
+
+    /// Returns a point at parameter t ∈ [0,1].
+    [[nodiscard]] constexpr vec2f at(f32 t) const { return a_ + getDirection() * t; }
+
+    /// Returns the closest point on the segment to a given point.
+    [[nodiscard]] vec2f closestPoint(vec2f point) const;
+
+    /// True if the point lies on the segment (within epsilon).
+    [[nodiscard]] bool contains(vec2f point, f32 epsilon = 1e-5F) const;
+
+  private:
+    vec2f a_;
+    vec2f b_;
+};
+
+/**
+ * @brief Ray represented by an origin and normalized direction.
+ * @ingroup MathTypes
+ */
+class Ray2D {
+  public:
+    /// Constructs a default ray at origin pointing right.
+    Ray2D() :
+        origin_(0.0F),
+        direction_(1.0F, 0.0F) {}
+
+    /// Constructs a ray from a point and direction (assumes direction is normalized).
+    Ray2D(vec2f origin, vec2f direction) :
+        origin_(origin),
+        direction_(direction) {}
+
+    /// Constructs a ray from two points (from a to b).
+    static Ray2D fromPoints(vec2f a, vec2f b) { return {a, glm::normalize(b - a)}; }
+
+    /// Returns a point on the ray at parameter t ≥ 0.
+    [[nodiscard]] constexpr vec2f at(f32 t) const { return origin_ + direction_ * t; }
+
+    /// Projects a point onto the ray, returning clamped parameter t ≥ 0.
+    [[nodiscard]] constexpr f32 project(vec2f point) const { return glm::max(0.0F, glm::dot(point - origin_, direction_)); }
+
+    /// Returns the closest point on the ray to a given point.
+    [[nodiscard]] constexpr vec2f getClosestPoint(vec2f point) const { return at(project(point)); }
+
+    /// Returns the origin of the ray.
+    [[nodiscard]] constexpr vec2f getOrigin() const { return origin_; }
+
+    /// Returns the (normalized) direction of the ray.
+    [[nodiscard]] constexpr vec2f getDirection() const { return direction_; }
+
+  private:
+    vec2f origin_;
+    vec2f direction_;
+};
 }  // namespace mle
 
 namespace fmt {
@@ -154,4 +279,30 @@ struct formatter<mle::Rect<T>> : formatter<std::string> {
         return format_to(ctx.out(), "[pos:{}, size:{}]", rect.pos, rect.size);
     }
 };
+
+template <>
+struct formatter<mle::Line2D> : formatter<std::string> {
+    template <typename FormatContext>
+    constexpr auto format(const mle::Line2D& line, FormatContext& ctx) const {
+        return format_to(ctx.out(), "[origin:{}, direction:{}]", line.origin(), line.direction());
+    }
+};
+
+template <>
+struct formatter<mle::LineSegment2D> : formatter<std::string> {
+    template <typename FormatContext>
+    constexpr auto format(const mle::LineSegment2D& segment, FormatContext& ctx) const {
+        return format_to(ctx.out(), "[a:{}, b:{}]", segment.getA(), segment.getB());
+    }
+};
+
+template <>
+
+struct formatter<mle::Ray2D> : formatter<std::string> {
+    template <typename FormatContext>
+    constexpr auto format(const mle::Ray2D& ray, FormatContext& ctx) const {
+        return format_to(ctx.out(), "[origin:{}, direction:{}]", ray.getOrigin(), ray.getDirection());
+    }
+};
+
 }  // namespace fmt
