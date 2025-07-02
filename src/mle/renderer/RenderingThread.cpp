@@ -135,6 +135,7 @@ void RenderingThread::endRendering() {
         cmd_.endRendering();
         in_rendering_ = false;
         pipeline_ = nullptr;
+        viewport_ = {0.0F, 0.0F, 0.0F, 0.0F};
     }
 }
 
@@ -230,13 +231,29 @@ void RenderingThread::bindDescriptorSet(vk::DescriptorSet set, u32 binding) cons
                             binding, {set}, {});
 }
 
-void RenderingThread::draw(int instance_count, int vertex_count) const {
+void RenderingThread::setLineWidth(f32 v) {
+    MLE_ASSERT(in_rendering_);
+    MLE_ASSERT_LOG(v > 0.0F, "Line width must be greater than 0.0F, got: {}", v);
+    cmd_.setLineWidth(v);
+}
+
+void RenderingThread::draw(int instance_count, int vertex_count) {
     MLE_ASSERT(in_rendering_ && pipeline_);
+    if (viewport_.size.x == 0.0F || viewport_.size.y == 0.0F) {
+        MLE_W("Viewport size is zero. Call setViewport()");
+        setViewport();
+    }
+    MLE_ASSERT(viewport_.size.x > 0.0F && viewport_.size.y > 0.0F);
     cmd_.draw(vertex_count, instance_count, 0, 0);
 }
 
-void RenderingThread::drawIndexed(int instance_count, int index_count, usize index_offset) const {
+void RenderingThread::drawIndexed(int instance_count, int index_count, usize index_offset) {
     MLE_ASSERT(in_rendering_ && pipeline_);
+    if (viewport_.size.x == 0.0F || viewport_.size.y == 0.0F) {
+        MLE_W("Viewport size is zero. Call setViewport()");
+        setViewport();
+    }
+    MLE_ASSERT(viewport_.size.x > 0.0F && viewport_.size.y > 0.0F);
     cmd_.drawIndexed(index_count, instance_count, index_offset, 0, 0);
 }
 

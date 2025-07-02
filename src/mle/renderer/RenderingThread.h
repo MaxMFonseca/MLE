@@ -55,8 +55,9 @@ class RenderingThread {
     void pushConstants(const void* push_constants);
     void bindDescriptorSet(vk::DescriptorSet set, u32 binding) const;
     void pushDescriptor(u32 set, const std::vector<vk::WriteDescriptorSet>& writes);
-    void draw(int instance_count, int vertex_count) const;
-    void drawIndexed(int instance_count, int index_count, usize index_offset = 0) const;
+    void setLineWidth(f32 v);
+    void draw(int instance_count, int vertex_count);
+    void drawIndexed(int instance_count, int index_count, usize index_offset = 0);
     void dispatchCompute(int group_count_x, int group_count_y = 1, int group_count_z = 1) const;
 
     void endCmd() { check(cmd_.end()); };
