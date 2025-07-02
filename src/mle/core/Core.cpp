@@ -35,14 +35,17 @@ class Impl {
     [[nodiscard]] f32 getRunningTimeFloat() const;
     void execAsync(std::function<void()>&& func);
     auto& rng() { return rng_; }
+    void setNextScene(std::unique_ptr<Scene>&& scene) { next_scene_ = std::move(scene); }
 
   private:
     void update();
-    void render();
+    void render(f64 dt);
     void updateSecondTimes(std::chrono::seconds current);
     static void registerLuaTypes(const CI& ci);
     static void registerLuaTypesMath();
     static void logInitParams(const CI& ci);
+
+    void swapScenes();
 
   private:
     State state_ = State::UNINITIALIZED;
@@ -69,7 +72,8 @@ class Impl {
 
     std::mt19937_64 rng_{std::random_device{}()};
 
-    CI::App app_;
+    std::unique_ptr<Scene> scene_ = nullptr;
+    std::unique_ptr<Scene> next_scene_ = nullptr;
 };
 
 void Impl::updateSecondTimes(std::chrono::seconds current) {
@@ -90,6 +94,8 @@ void Impl::updateSecondTimes(std::chrono::seconds current) {
 }
 
 void Impl::update() {
+    swapScenes();
+
     Stopwatch sw;
 
     update_call_count_++;
@@ -102,7 +108,7 @@ void Impl::update() {
     renderer::update();
     audio::update();
 
-    app_.update();
+    scene_->update();
 
     window::lateUpdate();
 
@@ -110,7 +116,24 @@ void Impl::update() {
     current_second_times_.time_updating += sw.elapsed<std::chrono::nanoseconds>();
 }
 
-void Impl::render() {
+void Impl::swapScenes() {
+    if (!next_scene_) {
+        return;
+    }
+
+    MLE_I("Swapping scenes...");
+
+    renderer::detail::waitIdle();
+
+    if (scene_) {
+        scene_->shutdown();
+    }
+    scene_ = std::move(next_scene_);
+    next_scene_ = nullptr;
+    scene_->init();
+}
+
+void Impl::render(f64 dt) {
     Stopwatch sw;
 
     render_call_count_++;
@@ -121,7 +144,7 @@ void Impl::render() {
         return;
     }
 
-    app_.render();
+    scene_->render(dt);
 
     renderer::endFrame(ui::render());
 
@@ -177,7 +200,7 @@ void Impl::shutdown() {
 
     renderer::detail::waitIdle();
 
-    app_.shutdown();
+    scene_->shutdown();
 
     audio::shutdown();
     ui::shutdown();
@@ -249,9 +272,8 @@ void Impl::init(CI ci) {  // NOLINT
     MLE_T("Audio");
     audio::init();
 
-    MLE_T("App");
-    app_ = ci.app;
-    app_.init();
+    MLE_ASSERT_LOG(ci.scene, "A scene must be provided in CI!");
+    setNextScene(std::move(ci.scene));
 
     state_ = State::INITIALIZED;
     MLE_I("Core initialized successfully!");
@@ -259,11 +281,12 @@ void Impl::init(CI ci) {  // NOLINT
 
 void Impl::run() {
     MLE_I("--------------------------- RUN ---------------------------");
-    // ui::switchController();
 
     running_stopwatch_.reset();
     auto& sw = running_stopwatch_;
     auto next_update = sw.elapsed<std::chrono::nanoseconds>();
+
+    auto last_render = next_update;
 
     state_ = State::RUNNING;
     while (state_ == State::RUNNING) {
@@ -272,16 +295,13 @@ void Impl::run() {
             next_update += TICK_RATE;
             update();
             now = sw.elapsed<std::chrono::nanoseconds>();
-
-            // // TODO: remove this
-            // static std::chrono::nanoseconds last_played_test = now;
-            // if (now - last_played_test > std::chrono::milliseconds(1000)) {
-            //     audio::enqueueCommand(audio::PlaySound{.name = std::string("res/i/sounds/menu_click.flac")});
-            //     last_played_test = now;
-            // }
         }
 
-        render();
+        f64 now_f32 = as<f64>(sw.elapsed<std::chrono::nanoseconds>().count()) / 1'000'000'000.0;
+        f64 last_f32 = as<f64>(last_render.count()) / 1'000'000'000.0;
+        f64 dt = now_f32 - last_f32;
+        render(dt);
+        last_render = sw.elapsed<std::chrono::nanoseconds>();
 
         auto sec = sw.elapsed<std::chrono::seconds>();
         if (sec > seconds_running_) {
@@ -385,5 +405,10 @@ bool maybe(f32 chance) {
     MLE_ASSERT(i_);
     std::bernoulli_distribution dist(chance);
     return dist(i_->rng());
+}
+
+void setNextScene(std::unique_ptr<Scene>&& scene) {
+    MLE_ASSERT(i_);
+    i_->setNextScene(std::move(scene));
 }
 }  // namespace mle::core

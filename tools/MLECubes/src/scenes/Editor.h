@@ -1,18 +1,18 @@
 #pragma once
 
 #include "mle/common/Utils.h"
+#include "mle/core/Scene.h"
 
 namespace mle_cubes {
-class Editor {
+using namespace mle;  // NOLINT
+class Editor : public core::Scene {
   public:
     MLE_NO_COPY_MOVE(Editor)
 
     Editor() = default;
-    ~Editor() = default;
+    ~Editor() override = default;
 
-    void init();
-
-    void render();
+    void init() override;
 
   private:
     void editorViewCreated();

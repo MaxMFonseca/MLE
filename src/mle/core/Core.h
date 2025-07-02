@@ -35,23 +35,15 @@
 #include "mle/common/Result.h"
 // #include "mle/ui/Types.h"
 #include "mle/common/Utils.h"
+#include "mle/core/Scene.h"
 
 namespace mle::core {
-
-/// Callbacks for the app
-struct App {};
-
 /// Configuration info for initializing the core engine.
 struct CreateInfo {
     std::string app_name;                    ///< Application name
     std::function<void()> registerLuaTypes;  ///< Callback to register Lua bindings
 
-    struct App {
-        void (*init)(){};
-        void (*shutdown)(){};
-        void (*update)(){};
-        void (*render)(){};
-    } app;
+    std::unique_ptr<Scene> scene;
 };
 using CI = CreateInfo;  ///< Alias for CreateInfo
 
@@ -125,6 +117,9 @@ f32 rngf(f32 max = 1.0F, f32 min = 0.F);
 
 /// Returns true with the given chance (default 50%).
 bool maybe(f32 chance = 0.5);
+
+/// Sets the next scene
+void setNextScene(std::unique_ptr<Scene>&& scene);
 
 }  // namespace mle::core
 

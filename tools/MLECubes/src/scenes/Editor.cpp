@@ -1,9 +1,14 @@
 #include "Editor.h"
 
+#include "mle/lua/Lua.h"
 #include "mle/ui/UI.h"
 
 namespace mle_cubes {
 void Editor::init() {
+    MLE_C("MLECubes App initializing");
+
+    mle::ui::setNextRoot(mle::lua::require("i/ui/editor/layout"));
+
     editor_view_created_id_ = mle::ui::addListener("editor_view_created", [this]() { editorViewCreated(); });
 }
 
