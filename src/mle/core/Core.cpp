@@ -1,6 +1,7 @@
 #include "mle/core/Core.h"
 
 #include <chrono>
+#include <random>
 #include <thread>
 
 #include "mle/common/Assert.h"
@@ -33,6 +34,7 @@ class Impl {
     [[nodiscard]] std::chrono::milliseconds getRunningTimeMS() const;
     [[nodiscard]] f32 getRunningTimeFloat() const;
     void execAsync(std::function<void()>&& func);
+    auto& rng() { return rng_; }
 
   private:
     void update();
@@ -65,6 +67,7 @@ class Impl {
 
     detail::ThreadPool thread_pool_;
 
+    std::mt19937_64 rng_{std::random_device{}()};
 
     CI::App app_;
 };
@@ -353,5 +356,34 @@ void unrecoverable(const std::string& msg) {
 void execAsync(std::function<void()>&& func) {
     MLE_ASSERT(i_);
     i_->execAsync(std::move(func));
+}
+
+std::mt19937_64& rng() {
+    MLE_ASSERT(i_);
+    return i_->rng();
+}
+
+i64 rngi(i64 max, i64 min) {
+    MLE_ASSERT(i_);
+    std::uniform_int_distribution<i64> dist(min, max);
+    return dist(i_->rng());
+}
+
+u64 rngu(u64 max, u64 min) {
+    MLE_ASSERT(i_);
+    std::uniform_int_distribution<u64> dist(min, max);
+    return dist(i_->rng());
+}
+
+f32 rngf(f32 max, f32 min) {
+    MLE_ASSERT(i_);
+    std::uniform_real_distribution<f32> dist(min, max);
+    return dist(i_->rng());
+}
+
+bool maybe(f32 chance) {
+    MLE_ASSERT(i_);
+    std::bernoulli_distribution dist(chance);
+    return dist(i_->rng());
 }
 }  // namespace mle::core

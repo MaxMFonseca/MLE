@@ -30,6 +30,7 @@
 
 #include <chrono>
 #include <functional>
+#include <random>
 
 #include "mle/common/Result.h"
 // #include "mle/ui/Types.h"
@@ -109,6 +110,22 @@ f32 getRunningTimeF32();
 
 /// Adds a duration value to the given KPI for the current second.
 void accumulateKPI(SecondKPIType kpi_type, std::chrono::nanoseconds value);
+
+/// Returns the core instance of mt19937_64
+std::mt19937_64& rng();
+
+/// Returns a random i64 number in the range [min, max).
+i64 rngi(i64 max = mle::max<i64>(), i64 min = mle::min<i64>());
+
+/// Returns a random u64 number in the range [min, max).
+u64 rngu(u64 max = mle::max<u64>(), u64 min = mle::min<u64>());
+
+/// Returns a random floating-point number in the range [min, max).
+f32 rngf(f32 max = 1.0F, f32 min = 0.F);
+
+/// Returns true with the given chance (default 50%).
+bool maybe(f32 chance = 0.5);
+
 }  // namespace mle::core
 
 namespace fmt {
