@@ -16,6 +16,7 @@
 #include "mle/renderer/RenderingThread.h"
 #include "mle/renderer/Types.h"
 #include "mle/renderer/Utils.h"
+#include "mle/ui/Events.h"
 #include "mle/ui/Types.h"
 #include "mle/ui/element/Base.h"
 #include "mle/ui/element/Collidable.h"
@@ -42,6 +43,8 @@ class Impl {
     [[nodiscard]] auto getRootSize() const { return root_size_; }
     void setNextRoot(const sol::table& next_root) { next_root_ = next_root; }
 
+    auto& getED() { return ed_; }
+
     ID addListener(const std::string& event_name, std::function<void()>&& callback);
     void removeListener(const std::string& event_name, ID id);
     void dispatchEvent(const std::string& event_name);
@@ -52,6 +55,8 @@ class Impl {
     void nextRoot();
 
   private:
+    ED ed_;
+
     entt::registry registry_;
     entt::entity root_ = entt::null;
     detail::FontCache font_cache_;
@@ -165,6 +170,8 @@ void Impl::nextRoot() {
     MLE_ASSERT_LOG(registry_.try_get<element::comp::RootImage>(root_), "The root element must have the root_image field set.");
 
     MLE_I("New root element created.");
+
+    ed_.dispatch(events::RootCreated{});
 }
 
 renderer::ImageRef Impl::render() {
@@ -298,4 +305,11 @@ entt::entity getElement(const std::string& name) {
     MLE_E("Element with name '{}' not found", name);
     return entt::null;
 }
+
+namespace detail {
+ED& getED() {
+    MLE_ASSERT(i_);
+    return i_->getED();
+}
+}  // namespace detail
 }  // namespace mle::ui

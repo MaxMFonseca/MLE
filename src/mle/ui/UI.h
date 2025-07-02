@@ -5,6 +5,7 @@
 #include "Types.h"
 #include "mle/renderer/RenderingThread.h"
 #include "mle/renderer/Types.h"
+#include "mle/ui/Events.h"
 #include "mle/ui/detail/FontCache.h"
 #include "mle/ui/element/Base.h"
 
@@ -30,6 +31,16 @@ void removeListener(const std::string& event_name, ID id);
 entt::entity getElement(const std::string& name);
 
 namespace detail {
-FontCache& getFontCache();
+ED& getED();
 }  // namespace detail
+
+template <typename Event>
+ED::ListenerHnd<Event> listen(std::function<void(const Event&)>&& callback) {
+    return detail::getED().makeEventListener(std::move(callback));
+}
+
+template <typename Event>
+void dispatch(const Event& event) {
+    detail::getED().dispatch(event);
+}
 }  // namespace mle::ui
