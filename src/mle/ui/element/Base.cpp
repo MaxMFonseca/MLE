@@ -19,6 +19,12 @@
 
 namespace mle::ui::element {  // NOLINT
 namespace comp {
+void Name::apply(entt::entity self, const sol::object& o) {
+    name = lua::as<std::string>(o);
+
+    ui::namedElementCreated(name, self);
+}
+
 void RootImage::apply(entt::entity /*unused*/, const sol::object& o) {
     auto table = lua::as<sol::table>(o);
 

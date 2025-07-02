@@ -23,10 +23,8 @@ vec2u getRootSize();
 
 void setNextRoot(const sol::table& next_root);
 
-// TODO: create a wrapper
-void dispatchEvent(const std::string& event_name);
-ID addListener(const std::string& event_name, std::function<void()>&& callback);
-void removeListener(const std::string& event_name, ID id);
+void namedElementCreated(const std::string& name, entt::entity element);
+void listenNamedElementCreated(const std::string& name, std::function<void(entt::entity)>&& callback);
 
 entt::entity getElement(const std::string& name);
 

@@ -24,11 +24,12 @@ void name(entt::entity self, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
     auto& reg = getRegistry();
 
-    if (obj.is<std::string>()) {
-        reg.emplace_or_replace<comp::Name>(self, obj.as<std::string>());
-    } else {
-        MLE_UNREACHABLE_LOG("Unexpected obj type for Name: {}", obj.get_type());
+    auto* comp = reg.try_get<comp::Name>(self);
+    if (!comp) {
+        comp = &reg.emplace<comp::Name>(self);
     }
+
+    comp->apply(self, obj);
 }
 
 void rootImage(entt::entity self, const sol::object& obj) {
@@ -338,10 +339,6 @@ void EntityWrapper::apply(const std::string& key, const sol::object& obj) const 
     fn_r.value()(o, obj);
 }
 
-void EntityWrapper::dispatchEvent(const std::string& event_name) {
-    ui::dispatchEvent(event_name);
-}
-
 #define MLE_ASSERT_HAS(T) MLE_ASSERT_LOG(getRegistry().all_of<T>(o), "Entity does not have component {}", #T)
 
 sol::table EntityWrapper::getTable() const {
@@ -353,7 +350,6 @@ void addEngineLuaKeyHandlers() {
     auto ut = lua::newUsertype<EntityWrapper>("entt");
     ut["apply"] = &EntityWrapper::apply;
     ut["getTable"] = &EntityWrapper::getTable;
-    ut["dispatchEvent"] = &EntityWrapper::dispatchEvent;
 
     addLuaKeyHandler("name", name);
     addLuaKeyHandler("size", size);

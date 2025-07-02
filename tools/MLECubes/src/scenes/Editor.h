@@ -2,6 +2,7 @@
 
 #include "mle/common/Utils.h"
 #include "mle/core/Scene.h"
+#include "mle/ui/Types.h"
 
 namespace mle_cubes {
 using namespace mle;  // NOLINT
@@ -15,7 +16,7 @@ class Editor : public core::Scene {
     void init() override;
 
   private:
-    void editorViewCreated();
+    static void editorViewCreated(entt::entity e);
 
   private:
     mle::ID editor_view_created_id_ = mle::max<mle::u64>();

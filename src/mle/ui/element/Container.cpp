@@ -250,11 +250,11 @@ void Container::addChildren(entt::entity self, const sol::table& table) {
 
 void Container::addChild(entt::entity self, const sol::table& table, [[maybe_unused]] usize pos) {
     auto& reg = getRegistry();
+
     auto child = reg.create();
 
-    std::string name;
-    if (lua::tryGetIdx(table, 1, name)) {
-        reg.emplace_or_replace<comp::Name>(child, std::move(name));
+    if (const auto name_r = table[1]; name_r.valid()) {
+        reg.emplace<Name>(child).apply(child, name_r);
     }
 
     reg.emplace<comp::Bounds>(child);

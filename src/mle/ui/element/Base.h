@@ -22,9 +22,13 @@ struct Parent {
     entt::entity parent = entt::null;
     static Container& container(entt::entity self);
 };
+
 struct Name {
     std::string name;
+
+    void apply(entt::entity self, const sol::object& o);
 };
+
 struct RootImage {
     renderer::ImageHnd image_handle{};
     Color clear_color{};
