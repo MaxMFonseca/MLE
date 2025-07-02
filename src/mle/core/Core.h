@@ -19,7 +19,6 @@
  * mle::core::CI info = {
  *     .app_name = "My App",
  *     .registerLuaTypes = [] { registerMyLuaTypes(); },
- *     .init_controller = makeMyController()
  * };
  *
  * mle::core::init(info);
@@ -32,19 +31,26 @@
 #include <chrono>
 #include <functional>
 
-#include "App.h"
 #include "mle/common/Result.h"
 // #include "mle/ui/Types.h"
 #include "mle/common/Utils.h"
 
 namespace mle::core {
-/// Configuration info for initializing the core engine.
-using AppHnd = std::unique_ptr<App>;
 
+/// Callbacks for the app
+struct App {};
+
+/// Configuration info for initializing the core engine.
 struct CreateInfo {
     std::string app_name;                    ///< Application name
-    std::function<void()> registerLuaTypes;  ///< Callback to register Lua bindings before controller init.
-    AppHnd app;                              ///< Application instance to use.
+    std::function<void()> registerLuaTypes;  ///< Callback to register Lua bindings
+
+    struct App {
+        void (*init)(){};
+        void (*shutdown)(){};
+        void (*update)(){};
+        void (*render)(){};
+    } app;
 };
 using CI = CreateInfo;  ///< Alias for CreateInfo
 

@@ -65,7 +65,8 @@ class Impl {
 
     detail::ThreadPool thread_pool_;
 
-    AppHnd app_;
+
+    CI::App app_;
 };
 
 void Impl::updateSecondTimes(std::chrono::seconds current) {
@@ -98,7 +99,7 @@ void Impl::update() {
     renderer::update();
     audio::update();
 
-    app_->update();
+    app_.update();
 
     window::lateUpdate();
 
@@ -117,7 +118,7 @@ void Impl::render() {
         return;
     }
 
-    app_->render();
+    app_.render();
 
     renderer::endFrame(ui::render());
 
@@ -173,7 +174,7 @@ void Impl::shutdown() {
 
     renderer::detail::waitIdle();
 
-    app_->shutdown();
+    app_.shutdown();
 
     audio::shutdown();
     ui::shutdown();
@@ -246,11 +247,8 @@ void Impl::init(CI ci) {  // NOLINT
     audio::init();
 
     MLE_T("App");
-    if (!ci.app) {
-        core::unrecoverable("App field of the core CI is nullptr!");
-    }
-    app_ = std::move(ci.app);
-    app_->init();
+    app_ = ci.app;
+    app_.init();
 
     state_ = State::INITIALIZED;
     MLE_I("Core initialized successfully!");
