@@ -48,4 +48,19 @@ BoxFace pointFace(const Boxf& box, vec3f point, f32 epsilon) {
     }
     MLE_UNREACHABLE_LOG("Point is not on any face of the box");
 }
+
+std::optional<f32> Plane::intersect(const Ray3f& ray) const {
+    const f32 denom = glm::dot(normal_, ray.direction());
+    if (feq(denom, 0.0F, 1e-6F)) {
+        return std::nullopt;
+    }
+
+    const f32 t = glm::dot(point_ - ray.origin(), normal_) / denom;
+    if (t < 0.0F) {
+        return std::nullopt;
+    }
+
+    return t;
+}
+
 }  // namespace mle
