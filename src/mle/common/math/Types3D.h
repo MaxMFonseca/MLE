@@ -272,6 +272,84 @@ class Plane {
     vec3f point_{};   ///< A point on the plane.
     vec3f normal_{};  ///< Normal vector of the plane.
 };
+
+/**
+ * @brief A finite rectangular plane in 3D space.
+ * @ingroup MathTypes
+ */
+class RectPlane {
+  public:
+    RectPlane() = default;  ///< Default constructor.
+
+    /// Construct a rectangular plane from center, normal, width, and height.
+    RectPlane(vec3f center, vec3f normal, f32 width, f32 height) :
+        center_(center),
+        normal_(glm::normalize(normal)),
+        width_(width),
+        height_(height) {
+        recomputeBasis();
+    }
+
+    /// Returns the center of the plane.
+    [[nodiscard]] auto center() const { return center_; }
+
+    /// Returns the normal vector (normalized).
+    [[nodiscard]] auto normal() const { return normal_; }
+
+    /// Returns the tangent (local X axis).
+    [[nodiscard]] auto tangent() const { return tangent_; }
+
+    /// Returns the bitangent (local Y axis).
+    [[nodiscard]] auto bitangent() const { return bitangent_; }
+
+    /// Returns the width of the rectangle.
+    [[nodiscard]] auto width() const { return width_; }
+
+    /// Returns the height of the rectangle.
+    [[nodiscard]] auto height() const { return height_; }
+
+    /// Sets the center of the rectangle.
+    void setCenter(vec3f center) { center_ = center; }
+
+    /// Sets and normalizes the normal, then recomputes tangent/bitangent.
+    void setNormal(vec3f normal) {
+        normal_ = glm::normalize(normal);
+        recomputeBasis();
+    }
+
+    /// Sets the width of the rectangle.
+    void setWidth(f32 width) { width_ = width; }
+
+    /// Sets the height of the rectangle.
+    void setHeight(f32 height) { height_ = height; }
+
+    /// Sets both width and height.
+    void setSize(f32 width, f32 height) {
+        width_ = width;
+        height_ = height;
+    }
+
+    [[nodiscard]] std::array<vec3f, 4> getEdges() const;
+
+    /**
+     * @brief Computes intersection with a ray, if inside bounds.
+     *
+     * @param ray Ray to test.
+     * @return Distance from ray origin to intersection point, or nullopt if no intersection or outside bounds.
+     */
+    [[nodiscard]] std::optional<f32> intersect(const Ray3f& ray) const;
+
+  private:
+    /// Recomputes tangent and bitangent from the current normal.
+    void recomputeBasis();
+
+    vec3f center_{};     ///< Center of the rectangular plane.
+    vec3f normal_{};     ///< Normal vector (unit length).
+    vec3f tangent_{};    ///< Local X axis (width direction).
+    vec3f bitangent_{};  ///< Local Y axis (height direction).
+    f32 width_{};        ///< Width along tangent.
+    f32 height_{};       ///< Height along bitangent.
+};
 }  // namespace mle
 
 namespace fmt {
@@ -312,6 +390,14 @@ struct formatter<mle::NearFar> : formatter<std::string> {
     template <typename FormatContext>
     constexpr auto format(const mle::NearFar& nf, FormatContext& ctx) const {
         return format_to(ctx.out(), "[near:{}, far:{}]", nf.near, nf.far);
+    }
+};
+
+template <>
+struct formatter<mle::RectPlane> : formatter<std::string> {
+    template <typename FormatContext>
+    constexpr auto format(const mle::RectPlane& rp, FormatContext& ctx) const {
+        return format_to(ctx.out(), "[center:{}, normal:{}, width:{}, height:{}]", rp.center(), rp.normal(), rp.width(), rp.height());
     }
 };
 }  // namespace fmt

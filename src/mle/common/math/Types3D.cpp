@@ -63,4 +63,41 @@ std::optional<f32> Plane::intersect(const Ray3f& ray) const {
     return t;
 }
 
+std::optional<f32> RectPlane::intersect(const Ray3f& ray) const {
+    Plane infinite_plane(center_, normal_);
+    auto t = infinite_plane.intersect(ray);
+    if (!t) {
+        return std::nullopt;
+    }
+
+    vec3f hit_pos = ray.pointAt(t.value());
+
+    vec3f to_hit = hit_pos - center_;
+    f32 u = glm::dot(to_hit, tangent_);
+    f32 v = glm::dot(to_hit, bitangent_);
+
+    if (std::abs(u) > width_ * 0.5F || std::abs(v) > height_ * 0.5F) {
+        return std::nullopt;
+    }
+
+    return t;
+}
+
+void RectPlane::recomputeBasis() {
+    vec3f up = (std::abs(normal_.y) < 0.99F) ? vec3f{0, 1, 0} : vec3f{1, 0, 0};
+    tangent_ = glm::normalize(glm::cross(up, normal_));
+    bitangent_ = glm::normalize(glm::cross(normal_, tangent_));
+}
+
+std::array<vec3f, 4> RectPlane::getEdges() const {
+    const vec3f half_tangent = tangent_ * (width_ * 0.5F);
+    const vec3f half_bitangent = bitangent_ * (height_ * 0.5F);
+
+    const vec3f top_left = center_ - half_tangent + half_bitangent;
+    const vec3f top_right = center_ + half_tangent + half_bitangent;
+    const vec3f bottom_right = center_ + half_tangent - half_bitangent;
+    const vec3f bottom_left = center_ - half_tangent - half_bitangent;
+
+    return {top_left, top_right, bottom_right, bottom_left};
+}
 }  // namespace mle
