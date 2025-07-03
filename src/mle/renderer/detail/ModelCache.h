@@ -21,6 +21,7 @@ class ModelCache {
 
     Expected<Model> get(const std::string& name);
     Result loadModel(const std::string& name, std::function<void(Model)>&& callback = {});
+    Result add(const std::string& name, const PCNMeshData& vertex_data, std::function<void(Model)>&& callback = {});
 
     void addCallbackToUploaded(const std::string& name, std::function<void(Model)>&& callback);
 

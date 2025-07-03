@@ -70,6 +70,9 @@ Expected<Model> getModel(const std::string& name);  ///< Returns a model referen
 
 void loadModel(const std::string& name, std::function<void(Model)>&& callback = {});  ///< Requests loading a model by name.
 
+void addModel(const std::string& name, const PCNMeshData& vertex_data,
+              std::function<void(Model)>&& callback = {});  ///< Adds a model to the cache with given vertex data.
+
 void enqueueTextureUpdateJob(TextureUpdateJobData&& data);
 
 vk::DescriptorSetLayout getTexturesDescriptorSetLayout();  ///< Returns the descriptor set layout used for textures.

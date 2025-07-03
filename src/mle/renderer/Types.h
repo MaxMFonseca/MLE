@@ -91,6 +91,11 @@ struct VertexPCN {
     vec3f normal{0.0F};
 };
 
+struct PCNMeshData {
+    std::vector<VertexPCN> vertices;
+    std::vector<u32> indices;
+};
+
 struct TextureUpdateJobData {
     BufferHnd buffer;
     Rectu area;

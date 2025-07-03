@@ -252,6 +252,13 @@ void loadModel(const std::string& name, std::function<void(Model)>&& callback) {
     }
 }
 
+void addModel(const std::string& name, const PCNMeshData& vertex_data, std::function<void(Model)>&& callback) {
+    MLE_ASSERT(i_);
+    if (i_->getModelCache().add(name, vertex_data, std::move(callback)) != Result::OK) {
+        core::unrecoverable("Failed to add model: {}", name);
+    }
+}
+
 vk::CommandBuffer getOTSCmd(CmdType type) {
     MLE_ASSERT(i_);
     return i_->getOTSCmd(type);

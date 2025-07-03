@@ -14,9 +14,7 @@
 
 namespace mle::renderer::detail {
 namespace {
-std::vector<VertexPCN> loadVertices(const tinygltf::Model& model, const tinygltf::Primitive& primitive) {
-    std::vector<VertexPCN> vertices;
-
+void loadVertices(const tinygltf::Model& model, const tinygltf::Primitive& primitive, std::vector<VertexPCN>& vertices) {
     auto read_attribute = [&](const std::string& attr_name) -> const float* {
         if (!primitive.attributes.contains(attr_name)) {
             return nullptr;
@@ -35,6 +33,7 @@ std::vector<VertexPCN> loadVertices(const tinygltf::Model& model, const tinygltf
 
     const auto& accessor = model.accessors[primitive.attributes.at("POSITION")];
     const size_t count = accessor.count;
+    vertices.reserve(count);
 
     for (size_t i = 0; i < count; ++i) {
         VertexPCN v{};
@@ -56,13 +55,9 @@ std::vector<VertexPCN> loadVertices(const tinygltf::Model& model, const tinygltf
 
         vertices.push_back(v);
     }
-
-    return vertices;
 }
 
-std::vector<u32> loadIndices(const tinygltf::Model& model, const tinygltf::Primitive& primitive) {
-    std::vector<u32> indices;
-
+void loadIndices(const tinygltf::Model& model, const tinygltf::Primitive& primitive, std::vector<u32>& indices) {
     const auto& accessor = model.accessors[primitive.indices];
     const auto& view = model.bufferViews[accessor.bufferView];
     const auto& buffer = model.buffers[view.buffer];
@@ -84,8 +79,6 @@ std::vector<u32> loadIndices(const tinygltf::Model& model, const tinygltf::Primi
                 MLE_UNREACHABLE_LOG("Unsupported index type");
         }
     }
-
-    return indices;
 }
 }  // namespace
 
@@ -128,17 +121,6 @@ Expected<Model> ModelCache::get(const std::string& name) {
 Result ModelCache::loadModel(const std::string& name, std::function<void(Model)>&& callback) {
     MLE_D("Loading model: {}", name);
 
-    auto up_it = std::ranges::find_if(uploading_, [name](const auto& u) { return u.name == name; });
-    if (up_it == uploading_.end()) {
-        uploading_.emplace_back(name);
-        up_it = std::prev(uploading_.end());
-    }
-    auto& uploading_data = *up_it;
-
-    if (callback) {
-        uploading_data.callbacks.push_back(std::move(callback));
-    }
-
     tinygltf::Model model;
     tinygltf::TinyGLTF loader;
     std::string err, warn;
@@ -168,15 +150,34 @@ Result ModelCache::loadModel(const std::string& name, std::function<void(Model)>
     MLE_ASSERT_LOG(model.meshes.size() == 1, "Model '{}' should have exactly one mesh, found: {}", name, model.meshes.size());
     MLE_ASSERT_LOG(model.meshes[0].primitives.size() == 1, "Model '{}' should have exactly one primitive, found: {}", name, model.meshes[0].primitives.size());
 
+    PCNMeshData vertex_data;
+    loadVertices(model, model.meshes[0].primitives[0], vertex_data.vertices);
+    loadIndices(model, model.meshes[0].primitives[0], vertex_data.indices);
+
+    return add(name, vertex_data, std::move(callback));
+}
+
+Result ModelCache::add(const std::string& name, const PCNMeshData& vertex_data, std::function<void(Model)>&& callback) {
+    const auto& vertices = vertex_data.vertices;
+    const auto& indices = vertex_data.indices;
+
+    auto up_it = std::ranges::find_if(uploading_, [name](const auto& u) { return u.name == name; });
+    if (up_it == uploading_.end()) {
+        uploading_.emplace_back(name);
+        up_it = std::prev(uploading_.end());
+    }
+    auto& uploading_data = *up_it;
+
+    if (callback) {
+        uploading_data.callbacks.push_back(std::move(callback));
+    }
+
     auto& model_data = models_[name];
     if (model_data.state == ModelData::State::UPLOADING) {
         MLE_UNREACHABLE_LOG("Model '{}' is already loading", name);
         return Result::OK;
     }
     MLE_ASSERT_LOG(model_data.state != ModelData::State::OK, "Somehow load model was called for model '{}' that is already loaded.", name);
-
-    auto vertices = loadVertices(model, model.meshes[0].primitives[0]);
-    auto indices = loadIndices(model, model.meshes[0].primitives[0]);
 
     model_data.index_count = static_cast<int>(indices.size());
 
