@@ -66,12 +66,11 @@ Texture addTexture(const std::string& name, ImageHnd&& img);  ///< Gives an imag
 
 Texture getTexture(const std::string& name);  ///< Returns a texture reference by name, loading it if necessary.
 
-Expected<Model> getModel(const std::string& name);  ///< Returns a model reference by name, loading it if necessary.
+ModelRef getModel(const std::string& name);  ///< Returns a model reference by name, loading it if necessary.
 
-void loadModel(const std::string& name, std::function<void(Model)>&& callback = {});  ///< Requests loading a model by name.
+ModelRef loadModel(const std::string& name);  ///< Requests loading a model by name.
 
-void addModel(const std::string& name, const PCNMeshData& vertex_data,
-              std::function<void(Model)>&& callback = {});  ///< Adds a model to the cache with given vertex data.
+ModelRef addModel(const std::string& name, const UploadModelData& upload_data);  ///< Adds a model to the cache with the given name and upload data.
 
 void enqueueTextureUpdateJob(TextureUpdateJobData&& data);
 

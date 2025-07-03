@@ -1,5 +1,6 @@
 #pragma once
 
+#include <variant>
 #define VULKAN_HPP_ASSERT(expr) ((void)0)
 #define VULKAN_HPP_DISPATCH_LOADER_DYNAMIC 1
 
@@ -79,21 +80,49 @@ struct Texture {
     bool ready = false;
 };
 
-struct Model {
-    BufferRef vertex_buffer{};
-    BufferRef index_buffer{};
-    int index_count = 0;
-};
-
-struct VertexPCN {
+struct PCNVertex {
     vec3f pos{0.0F};
     vec3f color{1.0F};
     vec3f normal{0.0F};
 };
 
-struct PCNMeshData {
-    std::vector<VertexPCN> vertices;
+struct TexVertex {
+    vec3f pos{0.0F};
+    vec2f uv{0.0F};
+};
+
+struct UploadVoxMeshData {
+    std::vector<PCNVertex> vertices;
     std::vector<u32> indices;
+    f32 metalness = 0.0F;
+    f32 roughness = 0.0F;
+    f32 emissive = 0.0F;
+};
+
+using UploadMeshData = std::variant<UploadVoxMeshData>;
+
+enum class UploadState : u8 { OK, UPLOADING, OUT };
+
+struct Model {
+    struct Mesh {
+        BufferHnd vertex_buffer;
+        BufferHnd index_buffer;
+        int index_count = 0;
+        f32 metalness = 0.0F;
+        f32 roughness = 0.0F;
+        f32 emissive = 0.0F;
+
+        enum class Type : u8 { VOX };
+        Type type = Mesh::Type::VOX;
+    };
+    std::vector<Mesh> meshes;
+    UploadState state = UploadState::OUT;
+};
+using ModelHnd = std::unique_ptr<Model>;
+using ModelRef = Model*;
+
+struct UploadModelData {
+    std::vector<UploadMeshData> meshes;
 };
 
 struct TextureUpdateJobData {

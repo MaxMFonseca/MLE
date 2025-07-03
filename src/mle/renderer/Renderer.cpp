@@ -240,23 +240,19 @@ Texture getTexture(const std::string& name) {
     return i_->getTextureCache().get(name);
 }
 
-Expected<Model> getModel(const std::string& name) {
+ModelRef getModel(const std::string& name) {
     MLE_ASSERT(i_);
     return i_->getModelCache().get(name);
 }
 
-void loadModel(const std::string& name, std::function<void(Model)>&& callback) {
+ModelRef loadModel(const std::string& name) {
     MLE_ASSERT(i_);
-    if (i_->getModelCache().loadModel(name, std::move(callback)) != Result::OK) {
-        core::unrecoverable("Failed to load model: {}", name);
-    }
+    return i_->getModelCache().loadModel(name);
 }
 
-void addModel(const std::string& name, const PCNMeshData& vertex_data, std::function<void(Model)>&& callback) {
+ModelRef addModel(const std::string& name, const UploadModelData& upload_data) {
     MLE_ASSERT(i_);
-    if (i_->getModelCache().add(name, vertex_data, std::move(callback)) != Result::OK) {
-        core::unrecoverable("Failed to add model: {}", name);
-    }
+    return i_->getModelCache().add(name, upload_data);
 }
 
 vk::CommandBuffer getOTSCmd(CmdType type) {
