@@ -117,7 +117,7 @@ function mle_run() {
   mkdir -p "build/${build_type}/bin/res"
   cd "build/${build_type}/bin/res"
 
-  local arr=("lua" "textures" "shaders" "fonts" "sounds")
+  local arr=("lua" "textures" "shaders" "fonts" "sounds" "models")
   for i in "${arr[@]}"; do
     mkdir -p "${i}"
     cd "${i}"
