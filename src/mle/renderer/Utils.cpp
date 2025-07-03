@@ -109,20 +109,26 @@ const char* toGlslString(DataType type) {
     }
 }
 
-std::vector<vk::PipelineColorBlendAttachmentState> makeDefaultBlendAttachmentStates(usize count) {
-    std::vector<vk::PipelineColorBlendAttachmentState> ret;
-    ret.resize(count);
+std::vector<vk::PipelineColorBlendAttachmentState> makeDefaultBlendAttachmentStates(usize count, bool alpha) {
+    std::vector<vk::PipelineColorBlendAttachmentState> ret(count);
+
     for (auto& attachment : ret) {
-        attachment.blendEnable = vk::True;
+        if (alpha) {
+            attachment.blendEnable = vk::True;
+            attachment.srcColorBlendFactor = vk::BlendFactor::eSrcAlpha;
+            attachment.dstColorBlendFactor = vk::BlendFactor::eOneMinusSrcAlpha;
+            attachment.colorBlendOp = vk::BlendOp::eAdd;
+            attachment.srcAlphaBlendFactor = vk::BlendFactor::eSrcAlpha;
+            attachment.dstAlphaBlendFactor = vk::BlendFactor::eDstAlpha;
+            attachment.alphaBlendOp = vk::BlendOp::eMax;
+        } else {
+            attachment.blendEnable = vk::False;
+        }
+
         attachment.colorWriteMask =
             vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
-        attachment.srcColorBlendFactor = vk::BlendFactor::eSrcAlpha;
-        attachment.dstColorBlendFactor = vk::BlendFactor::eOneMinusSrcAlpha;
-        attachment.colorBlendOp = vk::BlendOp::eAdd;
-        attachment.srcAlphaBlendFactor = vk::BlendFactor::eSrcAlpha;
-        attachment.dstAlphaBlendFactor = vk::BlendFactor::eDstAlpha;
-        attachment.alphaBlendOp = vk::BlendOp::eMax;
     }
+
     return ret;
 }
 }  // namespace mle::renderer

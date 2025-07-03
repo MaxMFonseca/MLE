@@ -26,7 +26,7 @@ inline vk::ClearColorValue toVkClearColor(const Color& color) {
     return ret;
 }
 
-std::vector<vk::PipelineColorBlendAttachmentState> makeDefaultBlendAttachmentStates(usize count);
+std::vector<vk::PipelineColorBlendAttachmentState> makeDefaultBlendAttachmentStates(usize count, bool alpha = true);
 
 inline bool isVkError(vk::Result result) {
     return as<i64>(result) < 0;
