@@ -1,0 +1,19 @@
+#version 450
+
+const vec2 vertices[] = {
+    vec2(0.0, 0.0),
+    vec2(1.0, 0.0),
+    vec2(0.0, 1.0),
+    vec2(1.0, 1.0)
+};
+
+layout(push_constant) uniform PushConstants {
+    mat4 vp;
+    vec2 left_bottom;
+    vec2 plane_size;
+} pc;
+
+void main() {
+    vec2 world_pos = pc.left_bottom + (vertices[gl_VertexIndex] * pc.plane_size);
+    gl_Position = pc.vp * vec4(world_pos.x, 0, world_pos.y, 1.0);
+}
