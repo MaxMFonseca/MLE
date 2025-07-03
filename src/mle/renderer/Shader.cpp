@@ -156,8 +156,8 @@ void Shader::reflect(const Bytes& spv_data) {
     if (!push_constants.empty()) {
         auto& push_constant = *push_constants[0];
         pc_range_.stageFlags = stage_;
-        pc_range_.size = push_constant.size;
         pc_range_.offset = push_constant.offset;
+        pc_range_.size = push_constant.size - push_constant.offset;
         MLE_T("Push constant block: size: {}", pc_range_.size);
         MLE_T("Push constant block: offset: {}", pc_range_.offset);
         for (u32 i = 0; i < push_constant.member_count; ++i) {
