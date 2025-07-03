@@ -14,6 +14,8 @@ class Blit : public RenderableImpl {
 
     void render(const RenderContext& ctx) const override;
 
+    void apply(entt::entity self, const sol::object& o) override;
+
     [[nodiscard]] vec2i getSize() const override { return image_->getExtent(); }
 
   private:

@@ -441,6 +441,13 @@ void Image::transitionState(vk::CommandBuffer cmd, State state) {
                     info.dst_stage_mask = vk::PipelineStageFlagBits2::eNone;
                     info.dst_access_mask = {};
                 } break;
+                case State::COLOR_ATT: {
+                    info.new_layout = vk::ImageLayout::eAttachmentOptimal;
+                    info.src_stage_mask = vk::PipelineStageFlagBits2::eTransfer;
+                    info.src_access_mask = vk::AccessFlagBits2::eTransferWrite;
+                    info.dst_stage_mask = vk::PipelineStageFlagBits2::eColorAttachmentOutput;
+                    info.dst_access_mask = vk::AccessFlagBits2::eColorAttachmentWrite;
+                } break;
                 case State::SHADER_READ: {
                     info.new_layout = vk::ImageLayout::eReadOnlyOptimal;
                     info.src_stage_mask = vk::PipelineStageFlagBits2::eTransfer;
@@ -461,6 +468,13 @@ void Image::transitionState(vk::CommandBuffer cmd, State state) {
                     info.src_access_mask = vk::AccessFlagBits2::eColorAttachmentWrite;
                     info.dst_stage_mask = vk::PipelineStageFlagBits2::eTransfer;
                     info.dst_access_mask = vk::AccessFlagBits2::eTransferRead;
+                } break;
+                case State::TRANSFER_DST: {
+                    info.new_layout = vk::ImageLayout::eTransferDstOptimal;
+                    info.src_stage_mask = vk::PipelineStageFlagBits2::eColorAttachmentOutput;
+                    info.src_access_mask = vk::AccessFlagBits2::eColorAttachmentWrite;
+                    info.dst_stage_mask = vk::PipelineStageFlagBits2::eTransfer;
+                    info.dst_access_mask = vk::AccessFlagBits2::eTransferWrite;
                 } break;
                 case State::SHADER_READ: {
                     info.new_layout = vk::ImageLayout::eReadOnlyOptimal;

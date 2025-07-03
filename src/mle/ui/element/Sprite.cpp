@@ -14,6 +14,7 @@
 #include "sol/forward.hpp"
 
 namespace mle::ui::element {
+// TODO: remove this
 namespace {
 vk::DescriptorSetLayout dsl_sampler_;  // NOLINT
 vk::DescriptorPool dpool_sampler_;     // NOLINT
