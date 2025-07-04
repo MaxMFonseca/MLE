@@ -165,10 +165,6 @@ class UserInputManager {
     /// Removes a text input listener by ID.
     void removeTextListener(ID id);
 
-    /// Creates a key listener handle.
-    static KeyListenerHnd makeKeyListener(UserPtr user_ptr, KeyListener::CallbackFunction&& callback, Key key, KeyState state = KeyState::PRESSED,
-                                          KeyModFlags mods = KeyModFlagBits::NONE, int priority = 0);
-
   private:
     /// Sets the state of a key.
     void setKeyState(Key key, KeyState state);
