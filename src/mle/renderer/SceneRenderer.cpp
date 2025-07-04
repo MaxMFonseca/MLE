@@ -28,17 +28,17 @@ void SceneRenderer::shutdown() {
     g_.depth.reset();
 }
 
-void SceneRenderer::init(vec2i extent) {
-    MLE_D("Initializing scene renderer with extent: {}", extent);
+void SceneRenderer::init(const CI& ci) {
+    MLE_D("Initializing scene renderer with image_extent: {}, chunk_count: {}, chunk_size: {}", ci.image_extent, ci.chunk_count, ci.chunk_size);
 
-    camera_.setAspect(static_cast<f32>(extent.x) / static_cast<f32>(extent.y));
+    camera_.setAspect(static_cast<f32>(ci.image_extent.x) / static_cast<f32>(ci.image_extent.y));
     camera_.setFov(60.0F);
     camera_.setNear(0.1F);
     camera_.setFar(1000.0F);
 
     MLE_D("Creating images");
     Image::CI image_ci{};
-    image_ci.extent = extent;
+    image_ci.extent = ci.image_extent;
     image_ci.usage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled;
     image_ci.format = vk::Format::eR8G8B8A8Unorm;
     g_.albedo = Image::createHnd(image_ci);
@@ -54,9 +54,18 @@ void SceneRenderer::init(vec2i extent) {
 
     MLE_D("Creating Pipelines");
     createGPipeline();
-    // createPlanePipeline();
+    createPlanePipeline();
     createLightingPipeline();
     createWDS();
+
+    chunk_size_ = ci.chunk_size;
+
+    chunks_.resize(ci.chunk_count.x);
+    for (auto& chunk_row : chunks_) {
+        chunk_row.resize(ci.chunk_count.y);
+    }
+
+    chunk_size_ = ci.chunk_size;
 
     MLE_D("Scene renderer initialized");
 }
@@ -75,6 +84,23 @@ void SceneRenderer::createGPipeline() {
     pipeline_ci.topology = vk::PrimitiveTopology::eTriangleList;
 
     g_pipeline_ = Pipeline::createHnd(pipeline_ci);
+}
+
+void SceneRenderer::createPlanePipeline() {
+    MLE_D("Creating plane pipeline");
+
+    Pipeline::CI pipeline_ci;
+    pipeline_ci.vertex_shader = getShader("mle/scene/plane.vert");
+    pipeline_ci.fragment_shader = getShader("mle/scene/plane.frag");
+    pipeline_ci.depth = true;
+    pipeline_ci.color_attachment_formats.emplace_back(vk::Format::eR8G8B8A8Unorm);
+    pipeline_ci.color_attachment_formats.emplace_back(vk::Format::eR8G8B8A8Unorm);
+    pipeline_ci.color_attachment_formats.emplace_back(vk::Format::eR8G8B8A8Unorm);
+    pipeline_ci.cull_mode = vk::CullModeFlagBits::eNone;
+    pipeline_ci.blend_attachments = makeDefaultBlendAttachmentStates(3, false);
+    pipeline_ci.topology = vk::PrimitiveTopology::eTriangleStrip;
+
+    plane_pipeline_ = Pipeline::createHnd(pipeline_ci);
 }
 
 void SceneRenderer::createLightingPipeline() {
@@ -183,42 +209,84 @@ void SceneRenderer::render() {
     thread.setDepthAttachment(depth_attachment);
 
     thread.beginRendering();
-    thread.setPipeline(g_pipeline_.get());
     thread.setViewport();
 
     auto vp = camera_.getViewProj();
 
-    for (auto& chunk_row : chunks_) {
-        for (auto& chunk : chunk_row) {
-            for (auto& object : chunk.objects) {
-                if (object.model->state == UploadState::OK) {
-                    for (auto& mesh : object.model->meshes) {
-                        if (mesh.index_count == 0) {
-                            continue;
-                        }
+    std::vector<Object> rendered_objects;
+    std::vector<Light> rendered_lights;
+    std::vector<RenderReadyChunk::Plane> rendered_planes;
 
-                        struct {
-                            mat4f mvp;
-                            f32 metalness;
-                            f32 roughness;
-                            f32 emissive;
-                        } pc{};
+    // TODO: MT
+    for (usize i = 0; i < chunks_.size(); i++) {
+        for (usize j = 0; j < chunks_[i].size(); j++) {
+            auto& chunk = chunks_[i][j];
 
-                        pc.mvp = vp * glm::translate(object.transform, {chunk.pos.x, 1, chunk.pos.y});
-                        pc.metalness = mesh.metalness;
-                        pc.roughness = mesh.roughness;
-                        pc.emissive = mesh.emissive;
+            if (!chunk.ready) {
+                continue;
+            }
 
-                        thread.pushConstants(&pc);
-
-                        thread.bindVertexBuffer(mesh.vertex_buffer.get());
-                        thread.bindIndexBuffer(mesh.index_buffer.get());
-
-                        thread.drawIndexed(1, mesh.index_count, 0);
-                    }
-                }
+            auto result = renderChunk({as<i32>(i), as<i32>(j)}, chunk, vp);
+            if (result) {
+                rendered_objects.insert(rendered_objects.end(), result->objects.begin(), result->objects.end());
+                rendered_lights.insert(rendered_lights.end(), result->lights.begin(), result->lights.end());
+                rendered_planes.push_back(result->plane);
             }
         }
+    }
+
+    thread.setPipeline(g_pipeline_.get());
+
+    for (auto& obj : rendered_objects) {
+        auto& model = obj.model;
+
+        struct {
+            mat4f mvp;
+            f32 metalness;
+            f32 roughness;
+            f32 emissive;
+        } pc{};
+
+        pc.mvp = obj.transform;
+
+        for (auto& mesh : obj.model->meshes) {
+            if (model->state != UploadState::OK) {
+                continue;
+            }
+
+            pc.metalness = mesh.metalness;
+            pc.roughness = mesh.roughness;
+            pc.emissive = mesh.emissive;
+
+            thread.pushConstants(&pc);
+
+            thread.bindVertexBuffer(mesh.vertex_buffer.get());
+            thread.bindIndexBuffer(mesh.index_buffer.get());
+
+            thread.drawIndexed(1, mesh.index_count, 0);
+        }
+    }
+
+    // This could be intanced but this is probably temporary and fine for now
+
+    thread.setPipeline(plane_pipeline_.get());
+
+    struct PlanePushConstants {
+        mat4f vp;
+        vec2f left_bottom;
+        vec2f plane_size;
+        vec3f colors;  // NOLINT
+    } plane_pc{};
+    plane_pc.vp = vp;
+    plane_pc.plane_size = chunk_size_;
+
+    for (auto& plane : rendered_planes) {
+        plane_pc.left_bottom = plane.left_bottom;
+        plane_pc.colors = plane.colors[0];
+
+        thread.pushConstants(&plane_pc);
+
+        thread.draw(1, 4);
     }
 
     thread.endRendering();
@@ -250,11 +318,38 @@ void SceneRenderer::render() {
     thread.submit();
 }
 
-void SceneRenderer::setChunk(int x, int y, Chunk&& chunk) {
-    if (x < 0 || x >= static_cast<int>(chunks_.size()) || y < 0 || y >= static_cast<int>(chunks_[0].size())) {
-        MLE_E("Chunk coordinates out of bounds: ({}, {})", x, y);
-        return;
+std::optional<SceneRenderer::RenderReadyChunk> SceneRenderer::renderChunk(vec2i position, Chunk& chunk, const mat4f& vp) const {
+    MLE_D("Rendering chunk {}");
+
+    static f32 rotation = 0.0F;
+    rotation += 0.001F;
+
+    // TODO: frustum the chunk
+
+    vec2f chunk_global_pos{as<f32>(position.x) * chunk_size_.x, as<f32>(position.y) * chunk_size_.y};
+
+    RenderReadyChunk ret{};
+    ret.objects.reserve(chunk.objects.size());
+
+    for (const auto& object : chunk.objects) {
+        if (object.second.model->state == UploadState::OK) {
+            // TODO: frustum the obj
+            // animate
+
+            auto transform = glm::rotate(glm::mat4(1.0F), rotation, {0.0F, 1.0F, 0.0F});
+            transform = glm::translate(object.second.transform, {chunk_global_pos.x, 1.0F, chunk_global_pos.y}) * transform;
+
+            auto& obj = ret.objects.emplace_back(object.second);
+            obj.transform = vp * transform;
+        }
     }
-    chunks_.at(x).at(y) = std::move(chunk);
+
+    ret.objects.shrink_to_fit();
+
+    ret.plane.left_bottom = chunk_global_pos;
+    ret.plane.colors = chunk.colors;
+
+    return ret;
 }
+
 }  // namespace mle::renderer

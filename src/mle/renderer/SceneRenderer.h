@@ -6,7 +6,6 @@
 #include "mle/renderer/Pipeline.h"
 #include "mle/renderer/Types.h"
 namespace mle::renderer {
-
 class SceneRenderer {
   public:
     struct Object {
@@ -21,11 +20,19 @@ class SceneRenderer {
     };
 
     struct Chunk {
-        vec2f pos;
-        Color color;
-        std::vector<Object> objects;
-        std::vector<Light> lights;
+        std::unordered_map<ID, Object> objects;
+        std::unordered_map<ID, Light> lights;
+        Texture texture;
+        std::array<Color, 4> colors;
+        bool ready = false;
     };
+
+    struct CreateInfo {
+        vec2i image_extent;
+        vec2i chunk_count;
+        vec2i chunk_size;
+    };
+    using CI = CreateInfo;
 
   public:
     MLE_NO_COPY_MOVE(SceneRenderer)
@@ -33,7 +40,10 @@ class SceneRenderer {
     SceneRenderer() = default;
     ~SceneRenderer() = default;
 
-    void init(vec2i extent);
+    void init(const CI& ci);
+
+    // TODO: void resizeImages(vec2i new_extent);
+
     void shutdown();
 
     void render();
@@ -42,7 +52,22 @@ class SceneRenderer {
 
     auto& camera() { return camera_; };
 
-    void setChunk(int x, int y, Chunk&& chunk);
+    auto& getChunk(int x, int y) { return chunks_.at(x).at(y); }
+
+  private:
+    struct RenderReadyChunk {
+        std::vector<Object> objects;
+        std::vector<Light> lights;
+
+        struct Plane {
+            std::array<vec2f, 4> uv_coords;
+            std::array<Color, 4> colors;
+            vec2f left_bottom;
+            // Texture texture;
+        } plane;
+    };
+
+    std::optional<RenderReadyChunk> renderChunk(vec2i position, Chunk& chunk, const mat4f& vp) const;
 
   private:
     void createGPipeline();
@@ -53,7 +78,10 @@ class SceneRenderer {
   private:
     Camera camera_;
 
-    std::array<std::array<Chunk, 5>, 5> chunks_;
+    // TODO: make this look less stupid
+    std::vector<std::vector<Chunk>> chunks_;
+
+    vec2f chunk_size_{};
 
     struct Images {
         ImageHnd albedo;
