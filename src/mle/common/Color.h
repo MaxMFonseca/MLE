@@ -114,6 +114,8 @@ struct Color : vec4f {
     /// Mixes two colors linearly based on the given factor.
     static Color mix(const Color& a, const Color& b, f32 factor);
 
+    static std::vector<Color> lerpCount(Color a, Color b, usize count);
+
     /// Registers the color type and utilities to the Lua environment.
     static void registerLuaTypes();
 

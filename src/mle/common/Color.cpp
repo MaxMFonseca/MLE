@@ -200,9 +200,10 @@ Color Color::toLinear() const {
 }
 
 Color Color::mix(const Color& a, const Color& b, f32 factor) {
-    f32 iptr = 0;
-    factor = std::modf(factor, &iptr);
-    return a * (1.0F - factor) + b * factor;
+    MLE_ASSERT_LOG(factor >= 0.0F && factor <= 1.0F, "Factor must be in the range [0, 1]. {}", factor);
+    auto ret = a * (1.0F - factor) + b * factor;
+    ret.a = a.a * (1.0F - factor) + b.a * factor;
+    return ret;
 }
 
 Color Color::fromHSV(vec3f hsv) {
@@ -267,4 +268,21 @@ Color Color::lighten(f32 factor) const {
     return fromHSV(hsv);
 }
 
+std::vector<Color> Color::lerpCount(Color a, Color b, usize count) {
+    std::vector<Color> ret;
+    if (count == 0) {
+        return ret;
+    }
+    if (count == 1) {
+        return {mix(a, b, 0.5F)};
+    }
+
+    ret.reserve(count);
+    for (usize i = 0; i < count; ++i) {
+        f32 t = as<f32>(i) / as<f32>(count - 1);
+        ret.emplace_back(mix(a, b, t));
+    }
+
+    return ret;
+}
 }  // namespace mle
