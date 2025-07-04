@@ -55,7 +55,7 @@ std::optional<f32> Plane::intersect(const Ray3f& ray) const {
         return std::nullopt;
     }
 
-    const f32 t = glm::dot(point_ - ray.origin(), normal_) / denom;
+    const f32 t = glm::dot(origin_ - ray.origin(), normal_) / denom;
     if (t < 0.0F) {
         return std::nullopt;
     }
@@ -99,5 +99,98 @@ std::array<vec3f, 4> RectPlane::getEdges() const {
     const vec3f bottom_left = center_ - half_tangent - half_bitangent;
 
     return {top_left, top_right, bottom_right, bottom_left};
+}
+
+RectPlane RectPlane::fromSquareLBCorner(vec3f corner, vec3f normal, f32 size) {
+    RectPlane plane;
+    plane.normal_ = glm::normalize(normal);
+    plane.width_ = size;
+    plane.height_ = size;
+
+    plane.recomputeBasis();
+
+    plane.center_ = corner + 0.5F * size * (plane.tangent_ + plane.bitangent_);
+
+    return plane;
+}
+
+void Frustum::ABCDPlane::normalize() {
+    f32 len = glm::length(vec3f(a, b, c));
+    if (len > 0.0F) {
+        a /= len;
+        b /= len;
+        c /= len;
+        d /= len;
+    }
+}
+
+Frustum::Frustum(const mat4f& m) :
+    l_(m[0][3] + m[0][0], m[1][3] + m[1][0], m[2][3] + m[2][0], m[3][3] + m[3][0]),
+    r_(m[0][3] - m[0][0], m[1][3] - m[1][0], m[2][3] - m[2][0], m[3][3] - m[3][0]),
+    t_(m[0][3] - m[0][1], m[1][3] - m[1][1], m[2][3] - m[2][1], m[3][3] - m[3][1]),
+    b_(m[0][3] + m[0][1], m[1][3] + m[1][1], m[2][3] + m[2][1], m[3][3] + m[3][1]),
+    n_(m[0][3] + m[0][2], m[1][3] + m[1][2], m[2][3] + m[2][2], m[3][3] + m[3][2]),
+    f_(m[0][3] - m[0][2], m[1][3] - m[1][2], m[2][3] - m[2][2], m[3][3] - m[3][2]) {
+    l_.normalize();
+    r_.normalize();
+    t_.normalize();
+    b_.normalize();
+    n_.normalize();
+    f_.normalize();
+}
+
+f32 Frustum::signedDist(const vec3f& p) const {
+    return std::max({l_.signedDist(p), r_.signedDist(p), b_.signedDist(p), t_.signedDist(p), n_.signedDist(p), f_.signedDist(p)});
+}
+
+bool Frustum::contains(const vec3f& p) const {
+    return l_.signedDist(p) >= 0 && r_.signedDist(p) >= 0 && b_.signedDist(p) >= 0 && t_.signedDist(p) >= 0 && n_.signedDist(p) >= 0 && f_.signedDist(p) >= 0;
+}
+bool Frustum::contains(const RectPlane& plane) const {
+    auto corners = plane.getEdges();
+    for (const ABCDPlane& p : {l_, r_, b_, t_, n_, f_}) {
+        bool all_outside = true;
+        for (const auto& c : corners) {
+            if (p.signedDist(c) >= 0) {
+                all_outside = false;
+                break;
+            }
+        }
+        if (all_outside) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool Frustum::contains(const Sphere& s) const {
+    const vec3f& c = s.center();
+    const f32 r = s.radius();
+
+    return std::ranges::all_of(std::array{l_, r_, b_, t_, n_, f_}, [&](const ABCDPlane& p) { return p.signedDist(c) >= -r; });
+}
+
+bool Frustum::contains(const Box<f32>& box) const {
+    const vec3f min = box.min();
+    const vec3f max = box.max();
+
+    std::array<vec3f, 8> corners = {
+        vec3f{min.x, min.y, min.z}, vec3f{max.x, min.y, min.z}, vec3f{min.x, max.y, min.z}, vec3f{max.x, max.y, min.z},
+        vec3f{min.x, min.y, max.z}, vec3f{max.x, min.y, max.z}, vec3f{min.x, max.y, max.z}, vec3f{max.x, max.y, max.z},
+    };
+
+    for (const ABCDPlane& p : {l_, r_, b_, t_, n_, f_}) {
+        bool all_outside = true;
+        for (const auto& corner : corners) {
+            if (p.signedDist(corner) >= 0) {
+                all_outside = false;
+                break;
+            }
+        }
+        if (all_outside) {
+            return false;
+        }
+    }
+    return true;
 }
 }  // namespace mle

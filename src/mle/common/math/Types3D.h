@@ -109,6 +109,42 @@ using Boxd = Box<f64>;  ///< 3D double-precision box.
 /// @}
 
 /**
+ * @brief A bounding sphere in 3D space.
+ * @ingroup MathTypes
+ */
+class Sphere {
+  public:
+    Sphere() = default;  ///< Default constructor.
+
+    /// Constructs a sphere from center and radius.
+    Sphere(vec3f center, f32 radius) :
+        center_(center),
+        radius_(radius) {}
+
+    /// Returns the center of the sphere.
+    [[nodiscard]] auto center() const { return center_; }
+
+    /// Returns the radius of the sphere.
+    [[nodiscard]] auto radius() const { return radius_; }
+
+    /// Sets the center.
+    void setCenter(vec3f center) { center_ = center; }
+
+    /// Sets the radius.
+    void setRadius(f32 radius) { radius_ = radius; }
+
+    /// Checks whether a point lies inside or on the surface of the sphere.
+    [[nodiscard]] bool contains(vec3f point) const { return glm::distance2(point, center_) <= radius_ * radius_; }
+
+    /// Returns the signed distance from the surface (negative = inside).
+    [[nodiscard]] f32 signedDistance(vec3f point) const { return glm::distance(point, center_) - radius_; }
+
+  private:
+    vec3f center_{0.0F};  ///< Center of the sphere.
+    f32 radius_ = 1.0F;   ///< Radius of the sphere.
+};
+
+/**
  * @brief Identifies which face of a box a point lies on, within a given epsilon tolerance.
  *
  * This function assumes the point is already on the surface of the given box (within numerical error),
@@ -241,18 +277,18 @@ class Plane {
     Plane() = default;  ///< Default constructor.
 
     /// Construct from point and normal.
-    Plane(vec3f point, vec3f normal) :
-        point_(point),
+    Plane(vec3f origin, vec3f normal) :
+        origin_(origin),
         normal_(glm::normalize(normal)) {}
 
     /// Returns the point on the plane.
-    [[nodiscard]] auto point() const { return point_; }
+    [[nodiscard]] auto origin() const { return origin_; }
 
     /// Returns the plane normal (normalized).
     [[nodiscard]] auto normal() const { return normal_; }
 
     /// Sets the point on the plane.
-    void setPoint(vec3f point) { point_ = point; }
+    void setOrigin(vec3f point) { origin_ = point; }
 
     /// Sets and normalizes the normal vector.
     void setNormal(vec3f normal) { normal_ = glm::normalize(normal); }
@@ -269,7 +305,7 @@ class Plane {
     [[nodiscard]] std::optional<f32> intersect(const Ray3f& ray) const;
 
   private:
-    vec3f point_{};   ///< A point on the plane.
+    vec3f origin_{};  ///< A point on the plane.
     vec3f normal_{};  ///< Normal vector of the plane.
 };
 
@@ -280,15 +316,6 @@ class Plane {
 class RectPlane {
   public:
     RectPlane() = default;  ///< Default constructor.
-
-    /// Construct a rectangular plane from center, normal, width, and height.
-    RectPlane(vec3f center, vec3f normal, f32 width, f32 height) :
-        center_(center),
-        normal_(glm::normalize(normal)),
-        width_(width),
-        height_(height) {
-        recomputeBasis();
-    }
 
     /// Returns the center of the plane.
     [[nodiscard]] auto center() const { return center_; }
@@ -339,6 +366,8 @@ class RectPlane {
      */
     [[nodiscard]] std::optional<f32> intersect(const Ray3f& ray) const;
 
+    static RectPlane fromSquareLBCorner(vec3f corner, vec3f normal, f32 size);
+
   private:
     /// Recomputes tangent and bitangent from the current normal.
     void recomputeBasis();
@@ -350,6 +379,44 @@ class RectPlane {
     f32 width_{};        ///< Width along tangent.
     f32 height_{};       ///< Height along bitangent.
 };
+
+/// A view frustum defined by six planes in world space.
+class Frustum {
+  public:
+    Frustum() = default;
+
+    /// Constructs a frustum by extracting planes from a combined projection-view matrix.
+    explicit Frustum(const mat4f& m);
+
+    /// Computes the signed distance from the point to the nearest plane.
+    [[nodiscard]] f32 signedDist(const vec3f& p) const;
+
+    /// Returns true if the point is inside the frustum.
+    [[nodiscard]] bool contains(const vec3f& p) const;
+
+    /// Returns true if all four corners of the RectPlane are inside or intersect the frustum.
+    [[nodiscard]] bool contains(const RectPlane& plane) const;
+
+    /// Returns true if the sphere is partially or fully inside the frustum.
+    [[nodiscard]] bool contains(const Sphere& s) const;
+
+    /// Returns true if the AABB is partially or fully inside the frustum.
+    [[nodiscard]] bool contains(const Box<f32>& box) const;
+
+  private:
+    struct ABCDPlane {
+        f32 a, b, c, d;
+
+        /// Normalizes the plane coefficients.
+        void normalize();
+
+        /// Computes the signed distance from a point to this plane.
+        [[nodiscard]] f32 signedDist(const vec3f& p) const { return (a * p.x) + (b * p.y) + (c * p.z) + d; }
+    };
+    ABCDPlane l_, r_, t_, b_, n_, f_;  ///< Left, right, top, bottom, near, far planes
+};
+
+/// A plane in 3D space represented by the equation ax + by + cz + d = 0.
 }  // namespace mle
 
 namespace fmt {
@@ -381,7 +448,7 @@ template <>
 struct formatter<mle::Plane> : formatter<std::string> {
     template <typename FormatContext>
     constexpr auto format(const mle::Plane& p, FormatContext& ctx) const {
-        return format_to(ctx.out(), "[point:{}, normal:{}]", p.point(), p.normal());
+        return format_to(ctx.out(), "[origin:{}, normal:{}]", p.origin(), p.normal());
     }
 };
 
@@ -397,7 +464,9 @@ template <>
 struct formatter<mle::RectPlane> : formatter<std::string> {
     template <typename FormatContext>
     constexpr auto format(const mle::RectPlane& rp, FormatContext& ctx) const {
-        return format_to(ctx.out(), "[center:{}, normal:{}, width:{}, height:{}]", rp.center(), rp.normal(), rp.width(), rp.height());
+        auto corners = rp.getEdges();
+        return format_to(ctx.out(), "[center:{}, normal:{}, width:{}, height:{}, corners: [{}, {}, {}, {}]]", rp.center(), rp.normal(), rp.width(), rp.height(),
+                         corners.at(0), corners.at(1), corners.at(2), corners.at(3));
     }
 };
 }  // namespace fmt
