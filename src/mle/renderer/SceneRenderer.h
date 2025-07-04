@@ -67,7 +67,7 @@ class SceneRenderer {
         } plane;
     };
 
-    std::optional<RenderReadyChunk> renderChunk(vec2i position, Chunk& chunk, const mat4f& vp) const;
+    std::optional<RenderReadyChunk> renderChunk(vec2i position, Chunk& chunk, const mat4f& vp, const Frustum& frustum) const;
 
   private:
     void createGPipeline();

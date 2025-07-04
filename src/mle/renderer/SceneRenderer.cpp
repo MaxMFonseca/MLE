@@ -4,6 +4,7 @@
 #include <vulkan/vulkan_enums.hpp>
 #include <vulkan/vulkan_structs.hpp>
 
+#include "mle/common/Logger.h"
 #include "mle/renderer/Image.h"
 #include "mle/renderer/Pipeline.h"
 #include "mle/renderer/Renderer.h"
@@ -210,6 +211,7 @@ void SceneRenderer::render() {
     thread.setViewport();
 
     auto vp = camera_.getViewProj();
+    auto frustum = camera_.getFrustum();
 
     std::vector<Object> rendered_objects;
     std::vector<Light> rendered_lights;
@@ -224,72 +226,81 @@ void SceneRenderer::render() {
                 continue;
             }
 
-            auto result = renderChunk({as<i32>(i), as<i32>(j)}, chunk, vp);
+            auto result = renderChunk({as<i32>(i), as<i32>(j)}, chunk, vp, frustum);
             if (result) {
                 rendered_objects.insert(rendered_objects.end(), result->objects.begin(), result->objects.end());
                 rendered_lights.insert(rendered_lights.end(), result->lights.begin(), result->lights.end());
                 rendered_planes.push_back(result->plane);
+            } else {
+                // MLE_C("Chunk at ({}, {}) is not in frustum", i, j);
             }
         }
     }
 
-    thread.setPipeline(g_pipeline_.get());
+    if (!rendered_objects.empty()) {
+        MLE_C("Rendering {} objects", rendered_objects.size());
+        thread.setPipeline(g_pipeline_.get());
 
-    for (auto& obj : rendered_objects) {
-        auto& model = obj.model;
+        for (auto& obj : rendered_objects) {
+            auto& model = obj.model;
 
-        struct {
-            mat4f mvp;
-            f32 metalness;
-            f32 roughness;
-            f32 emissive;
-        } pc{};
+            struct {
+                mat4f mvp;
+                f32 metalness;
+                f32 roughness;
+                f32 emissive;
+            } pc{};
 
-        pc.mvp = obj.transform;
+            pc.mvp = obj.transform;
 
-        for (auto& mesh : obj.model->meshes) {
-            if (model->state != UploadState::OK) {
-                continue;
+            for (auto& mesh : obj.model->meshes) {
+                if (model->state != UploadState::OK) {
+                    continue;
+                }
+
+                pc.metalness = mesh.metalness;
+                pc.roughness = mesh.roughness;
+                pc.emissive = mesh.emissive;
+
+                thread.pushConstants(&pc);
+
+                thread.bindVertexBuffer(mesh.vertex_buffer.get());
+                thread.bindIndexBuffer(mesh.index_buffer.get());
+
+                thread.drawIndexed(1, mesh.index_count, 0);
             }
-
-            pc.metalness = mesh.metalness;
-            pc.roughness = mesh.roughness;
-            pc.emissive = mesh.emissive;
-
-            thread.pushConstants(&pc);
-
-            thread.bindVertexBuffer(mesh.vertex_buffer.get());
-            thread.bindIndexBuffer(mesh.index_buffer.get());
-
-            thread.drawIndexed(1, mesh.index_count, 0);
         }
+
+        // This could be intanced but this is probably temporary and fine for now
     }
 
-    // This could be intanced but this is probably temporary and fine for now
+    if (!rendered_planes.empty()) {
+        MLE_C("Rendering {} planes", rendered_planes.size());
 
-    thread.setPipeline(plane_pipeline_.get());
+        thread.setPipeline(plane_pipeline_.get());
 
-    struct PlanePushConstants {
-        mat4f vp;
-        vec2f left_bottom;
-        vec2f plane_size;
-        vec3f color1;
-        f32 _pad1;
-        vec3f color2;
-        int divisions;
-    } plane_pc{};
-    plane_pc.vp = vp;
-    plane_pc.plane_size = {chunk_size_, chunk_size_};
-    plane_pc.divisions = as<int>(chunk_size_) * 10;
+        struct PlanePushConstants {
+            mat4f vp;
+            vec2f left_bottom;
+            vec2f plane_size;
+            vec3f color1;
+            f32 _pad1;
+            vec3f color2;
+            int divisions;
+        } plane_pc{};
+        plane_pc.vp = vp;
+        plane_pc.plane_size = {chunk_size_, chunk_size_};
+        plane_pc.divisions = as<int>(chunk_size_) * 10;
 
-    for (auto& plane : rendered_planes) {
-        plane_pc.left_bottom = plane.left_bottom;
-        plane_pc.color1 = plane.colors[0];
-        plane_pc.color2 = plane.colors[1];
+        for (auto& plane : rendered_planes) {
+            plane_pc.left_bottom = plane.left_bottom;
+            plane_pc.color1 = plane.colors[0];
+            plane_pc.color2 = plane.colors[1];
 
-        thread.pushConstants(&plane_pc);
+            thread.pushConstants(&plane_pc);
 
-        thread.draw(1, 4);
+            thread.draw(1, 4);
+        }
     }
 
     thread.endRendering();
@@ -321,15 +332,20 @@ void SceneRenderer::render() {
     thread.submit();
 }
 
-std::optional<SceneRenderer::RenderReadyChunk> SceneRenderer::renderChunk(vec2i position, Chunk& chunk, const mat4f& vp) const {
+std::optional<SceneRenderer::RenderReadyChunk> SceneRenderer::renderChunk(vec2i position, Chunk& chunk, const mat4f& vp, const Frustum& frustum) const {
     MLE_D("Rendering chunk {}");
 
     static f32 rotation = 0.0F;
     // rotation += 0.001F;
 
-    // TODO: frustum the chunk
-
     vec2f chunk_global_pos{as<f32>(position.x) * chunk_size_, as<f32>(position.y) * chunk_size_};
+
+    auto chunk_plane = RectPlane::fromSquareLBCorner({chunk_global_pos.x, 0, chunk_global_pos.y}, {0.0F, 1.0F, 0.0F}, chunk_size_);
+
+    auto plane_in_frustum = frustum.contains(chunk_plane);
+    if (!plane_in_frustum) {
+        return std::nullopt;
+    }
 
     RenderReadyChunk ret{};
     ret.objects.reserve(chunk.objects.size());
