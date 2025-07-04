@@ -96,7 +96,6 @@ void SceneRenderer::createPlanePipeline() {
     pipeline_ci.color_attachment_formats.emplace_back(vk::Format::eR8G8B8A8Unorm);
     pipeline_ci.color_attachment_formats.emplace_back(vk::Format::eR8G8B8A8Unorm);
     pipeline_ci.color_attachment_formats.emplace_back(vk::Format::eR8G8B8A8Unorm);
-    pipeline_ci.cull_mode = vk::CullModeFlagBits::eNone;
     pipeline_ci.blend_attachments = makeDefaultBlendAttachmentStates(3, false);
     pipeline_ci.topology = vk::PrimitiveTopology::eTriangleStrip;
 
