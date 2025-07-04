@@ -30,7 +30,7 @@ class SceneRenderer {
     struct CreateInfo {
         vec2i image_extent;
         vec2i chunk_count;
-        vec2i chunk_size;
+        int chunk_size;
     };
     using CI = CreateInfo;
 
@@ -81,7 +81,7 @@ class SceneRenderer {
     // TODO: make this look less stupid
     std::vector<std::vector<Chunk>> chunks_;
 
-    vec2f chunk_size_{};
+    f32 chunk_size_{};
 
     struct Images {
         ImageHnd albedo;

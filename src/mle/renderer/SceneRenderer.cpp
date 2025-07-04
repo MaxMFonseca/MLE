@@ -1,5 +1,6 @@
 #include "SceneRenderer.h"
 
+#include <cstddef>
 #include <vulkan/vulkan_enums.hpp>
 #include <vulkan/vulkan_structs.hpp>
 
@@ -58,14 +59,12 @@ void SceneRenderer::init(const CI& ci) {
     createLightingPipeline();
     createWDS();
 
-    chunk_size_ = ci.chunk_size;
+    chunk_size_ = as<f32>(ci.chunk_size);
 
     chunks_.resize(ci.chunk_count.x);
     for (auto& chunk_row : chunks_) {
         chunk_row.resize(ci.chunk_count.y);
     }
-
-    chunk_size_ = ci.chunk_size;
 
     MLE_D("Scene renderer initialized");
 }
@@ -274,14 +273,19 @@ void SceneRenderer::render() {
         mat4f vp;
         vec2f left_bottom;
         vec2f plane_size;
-        vec3f colors;  // NOLINT
+        vec3f color1;
+        f32 _pad1;
+        vec3f color2;
+        int divisions;
     } plane_pc{};
     plane_pc.vp = vp;
-    plane_pc.plane_size = chunk_size_;
+    plane_pc.plane_size = {chunk_size_, chunk_size_};
+    plane_pc.divisions = as<int>(chunk_size_) * 10;
 
     for (auto& plane : rendered_planes) {
         plane_pc.left_bottom = plane.left_bottom;
-        plane_pc.colors = plane.colors[0];
+        plane_pc.color1 = plane.colors[0];
+        plane_pc.color2 = plane.colors[1];
 
         thread.pushConstants(&plane_pc);
 
@@ -321,11 +325,11 @@ std::optional<SceneRenderer::RenderReadyChunk> SceneRenderer::renderChunk(vec2i 
     MLE_D("Rendering chunk {}");
 
     static f32 rotation = 0.0F;
-    rotation += 0.001F;
+    // rotation += 0.001F;
 
     // TODO: frustum the chunk
 
-    vec2f chunk_global_pos{as<f32>(position.x) * chunk_size_.x, as<f32>(position.y) * chunk_size_.y};
+    vec2f chunk_global_pos{as<f32>(position.x) * chunk_size_, as<f32>(position.y) * chunk_size_};
 
     RenderReadyChunk ret{};
     ret.objects.reserve(chunk.objects.size());
@@ -336,7 +340,7 @@ std::optional<SceneRenderer::RenderReadyChunk> SceneRenderer::renderChunk(vec2i 
             // animate
 
             auto transform = glm::rotate(glm::mat4(1.0F), rotation, {0.0F, 1.0F, 0.0F});
-            transform = glm::translate(object.second.transform, {chunk_global_pos.x, 1.0F, chunk_global_pos.y}) * transform;
+            transform = glm::translate(object.second.transform, {chunk_global_pos.x, 0.0F, chunk_global_pos.y}) * transform;
 
             auto& obj = ret.objects.emplace_back(object.second);
             obj.transform = vp * transform;

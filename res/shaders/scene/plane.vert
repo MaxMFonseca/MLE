@@ -13,7 +13,10 @@ layout(push_constant) uniform PushConstants {
     vec2 plane_size;
 } pc;
 
+layout(location = 0) out vec2 out_uv;
+
 void main() {
     vec2 world_pos = pc.left_bottom + (vertices[gl_VertexIndex] * pc.plane_size);
     gl_Position = pc.vp * vec4(world_pos.x, 0, world_pos.y, 1.0);
+    out_uv = vertices[gl_VertexIndex];
 }
