@@ -137,4 +137,17 @@ void Camera::updateViewProj() {
     view_proj_ = getProj() * getView();
     view_proj_dirty_ = false;
 }
+void Camera::walk(const vec3f& offset) {
+    const vec3f forward = glm::normalize(target_ - eye_);
+    const vec3f right = glm::normalize(glm::cross(forward, up_));
+    const vec3f up = glm::normalize(glm::cross(right, forward));
+
+    const vec3f world_offset = offset.x * right + offset.y * up + offset.z * forward;
+
+    eye_ += world_offset;
+    target_ += world_offset;
+
+    view_dirty_ = true;
+    view_proj_dirty_ = true;
+}
 }  // namespace mle::renderer

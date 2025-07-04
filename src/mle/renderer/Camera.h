@@ -23,6 +23,8 @@ class Camera {
     void lookAtDir(const vec3f& dir);
     void move(const vec3f& offset);
 
+    void walk(const vec3f& offset);
+
     void rotateAroundTarget(f32 yaw_rad, f32 pitch_rad);
 
     void setFov(f32 fov_deg);
