@@ -1,6 +1,7 @@
 #pragma once
 
 #include "mle/common/math/Types.h"
+#include "mle/common/math/Types3D.h"
 namespace mle::renderer {
 class Camera {
   public:
@@ -43,7 +44,7 @@ class Camera {
     mat4f getProj();
     mat4f getViewProj();
 
-    // TODO: Frustum getFrustum() const;
+    Frustum getFrustum() { return Frustum{getViewProj()}; }
 
   private:
     void updateView();

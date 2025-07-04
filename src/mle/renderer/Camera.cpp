@@ -137,6 +137,7 @@ void Camera::updateViewProj() {
     view_proj_ = getProj() * getView();
     view_proj_dirty_ = false;
 }
+
 void Camera::walk(const vec3f& offset) {
     const vec3f forward = glm::normalize(target_ - eye_);
     const vec3f right = glm::normalize(glm::cross(forward, up_));
@@ -150,4 +151,5 @@ void Camera::walk(const vec3f& offset) {
     view_dirty_ = true;
     view_proj_dirty_ = true;
 }
+
 }  // namespace mle::renderer
