@@ -1,5 +1,7 @@
 #include "Types3D.h"
 
+#include <numeric>
+
 #include "mle/common/Assert.h"
 #include "mle/common/Utils.h"
 
@@ -192,5 +194,75 @@ bool Frustum::contains(const Box<f32>& box) const {
         }
     }
     return true;
+}
+
+std::vector<vec3f> Frustum::intersectWithY0() const {
+    std::array<vec3f, 8> c = {ABCDPlane::intersect(n_, l_, t_), ABCDPlane::intersect(n_, r_, t_), ABCDPlane::intersect(n_, r_, b_),
+                              ABCDPlane::intersect(n_, l_, b_), ABCDPlane::intersect(f_, l_, t_), ABCDPlane::intersect(f_, r_, t_),
+                              ABCDPlane::intersect(f_, r_, b_), ABCDPlane::intersect(f_, l_, b_)};
+
+    std::vector<vec3f> raw;
+
+    auto try_intersect_edge = [](const vec3f& a, const vec3f& b, std::vector<vec3f>& out) {
+        if ((a.y > 0.0F && b.y < 0.0F) || (a.y < 0.0F && b.y > 0.0F)) {
+            f32 t = a.y / (a.y - b.y);
+            out.push_back(a + t * (b - a));
+        }
+    };
+
+    auto edge = [&](int i, int j) { try_intersect_edge(c.at(i), c.at(j), raw); };
+    edge(0, 1);
+    edge(1, 2);
+    edge(2, 3);
+    edge(3, 0);
+    edge(4, 5);
+    edge(5, 6);
+    edge(6, 7);
+    edge(7, 4);
+    edge(0, 4);
+    edge(1, 5);
+    edge(2, 6);
+    edge(3, 7);
+
+    if (raw.size() < 3) {
+        return {};
+    }
+
+    vec2f center = {};
+    for (const auto& p : raw) {
+        center += vec2f{p.x, p.z};
+    }
+    center /= as<f32>(raw.size());
+
+    std::ranges::sort(raw, [&](const vec3f& a, const vec3f& b) {
+        vec2f da{a.x - center.x, a.z - center.y};
+        vec2f db{b.x - center.x, b.z - center.y};
+        return std::atan2(da.y, da.x) < std::atan2(db.y, db.x);
+    });
+
+    // TODO: extract this and create a polygon class
+    std::vector<vec3f> strip;
+    strip.reserve(raw.size());
+    size_t n = raw.size();
+    for (size_t i = 0; i < n; ++i) {
+        strip.push_back(i % 2 == 0 ? raw[i / 2] : raw[n - 1 - (i / 2)]);
+    }
+
+    return strip;
+}
+
+vec3f Frustum::ABCDPlane::intersect(const Frustum::ABCDPlane& p1, const Frustum::ABCDPlane& p2, const Frustum::ABCDPlane& p3) {
+    vec3f n1{p1.a, p1.b, p1.c};
+    vec3f n2{p2.a, p2.b, p2.c};
+    vec3f n3{p3.a, p3.b, p3.c};
+
+    f32 det = dot(n1, cross(n2, n3));
+    MLE_ASSERT_LOG(std::abs(det) > 1e-6F, "Planes do not intersect at a point");
+
+    vec3f c1 = cross(n2, n3) * -p1.d;
+    vec3f c2 = cross(n3, n1) * -p2.d;
+    vec3f c3 = cross(n1, n2) * -p3.d;
+
+    return (c1 + c2 + c3) / det;
 }
 }  // namespace mle

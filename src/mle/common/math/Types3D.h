@@ -8,6 +8,7 @@
 #include <optional>
 
 #include "Types.h"
+#include "mle/common/Assert.h"
 
 namespace mle {
 /**
@@ -396,12 +397,14 @@ class Frustum {
 
     /// Returns true if all four corners of the RectPlane are inside or intersect the frustum.
     [[nodiscard]] bool contains(const RectPlane& plane) const;
-
     /// Returns true if the sphere is partially or fully inside the frustum.
     [[nodiscard]] bool contains(const Sphere& s) const;
 
     /// Returns true if the AABB is partially or fully inside the frustum.
     [[nodiscard]] bool contains(const Box<f32>& box) const;
+
+    /// Returns a polygon that represents the intersection of the frustum with the Y=0 plane.
+    [[nodiscard]] std::vector<vec3f> intersectWithY0() const;
 
   private:
     struct ABCDPlane {
@@ -412,7 +415,12 @@ class Frustum {
 
         /// Computes the signed distance from a point to this plane.
         [[nodiscard]] f32 signedDist(const vec3f& p) const { return (a * p.x) + (b * p.y) + (c * p.z) + d; }
+
+        /// Computes the intersection point of 3 planes using Cramer's rule.
+        static vec3f intersect(const Frustum::ABCDPlane& p1, const Frustum::ABCDPlane& p2, const Frustum::ABCDPlane& p3);
     };
+
+  private:
     ABCDPlane l_, r_, t_, b_, n_, f_;  ///< Left, right, top, bottom, near, far planes
 };
 
