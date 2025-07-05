@@ -30,6 +30,7 @@ void SceneRenderer::shutdown() {
     g_.material.reset();
     g_.depth.reset();
     cube_map_.shutdown();
+    debug_.polygon_pipeline.reset();
 }
 
 void SceneRenderer::init(const CI& ci) {
@@ -44,7 +45,7 @@ void SceneRenderer::init(const CI& ci) {
     Image::CI image_ci{};
     image_ci.extent = ci.image_extent;
     image_ci.usage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled;
-    image_ci.format = vk::Format::eR8G8B8A8Unorm;
+    image_ci.format = getDefaultColorFormat();
     g_.albedo = Image::createHnd(image_ci);
     g_.normal = Image::createHnd(image_ci);
     g_.material = Image::createHnd(image_ci);
@@ -53,14 +54,16 @@ void SceneRenderer::init(const CI& ci) {
     g_.depth = Image::createHnd(image_ci);
 
     image_ci.usage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransferSrc;
-    image_ci.format = vk::Format::eR8G8B8A8Unorm;
+    image_ci.format = getDefaultColorFormat();
     target_image_ = Image::createHnd(image_ci);
 
     MLE_D("Creating Pipelines");
+    // createSun();
     createGPipeline();
     createPlanePipeline();
     createLightingPipeline();
     createWDS();
+    createDebug();
 
     createCubeMap(ci.cube_map);
 
@@ -73,6 +76,14 @@ void SceneRenderer::init(const CI& ci) {
 
     MLE_D("Scene renderer initialized");
 }
+
+// void SceneRenderer::createSun() {
+//     MLE_D("Creating sun light");
+//
+//     Light sun{};
+//     sun.color = {1.0F, 1.0F, 1.0F};
+//     sun.intensity = 1.0F;
+// }
 
 void SceneRenderer::createCubeMap(const std::string& name) {
     if (name.empty()) {
@@ -91,9 +102,9 @@ void SceneRenderer::createGPipeline() {
     pipeline_ci.vertex_shader = getShader("mle/scene/vox.vert");
     pipeline_ci.fragment_shader = getShader("mle/scene/vox.frag");
     pipeline_ci.depth = true;
-    pipeline_ci.color_attachment_formats.emplace_back(vk::Format::eR8G8B8A8Unorm);
-    pipeline_ci.color_attachment_formats.emplace_back(vk::Format::eR8G8B8A8Unorm);
-    pipeline_ci.color_attachment_formats.emplace_back(vk::Format::eR8G8B8A8Unorm);
+    pipeline_ci.color_attachment_formats.emplace_back(g_.albedo->getFormat());
+    pipeline_ci.color_attachment_formats.emplace_back(g_.normal->getFormat());
+    pipeline_ci.color_attachment_formats.emplace_back(g_.material->getFormat());
     pipeline_ci.blend_attachments = makeDefaultBlendAttachmentStates(3, false);
     pipeline_ci.topology = vk::PrimitiveTopology::eTriangleList;
 
@@ -107,9 +118,9 @@ void SceneRenderer::createPlanePipeline() {
     pipeline_ci.vertex_shader = getShader("mle/scene/plane.vert");
     pipeline_ci.fragment_shader = getShader("mle/scene/plane.frag");
     pipeline_ci.depth = true;
-    pipeline_ci.color_attachment_formats.emplace_back(vk::Format::eR8G8B8A8Unorm);
-    pipeline_ci.color_attachment_formats.emplace_back(vk::Format::eR8G8B8A8Unorm);
-    pipeline_ci.color_attachment_formats.emplace_back(vk::Format::eR8G8B8A8Unorm);
+    pipeline_ci.color_attachment_formats.emplace_back(g_.albedo->getFormat());
+    pipeline_ci.color_attachment_formats.emplace_back(g_.normal->getFormat());
+    pipeline_ci.color_attachment_formats.emplace_back(g_.material->getFormat());
     pipeline_ci.blend_attachments = makeDefaultBlendAttachmentStates(3, false);
     pipeline_ci.topology = vk::PrimitiveTopology::eTriangleStrip;
 
@@ -150,7 +161,7 @@ void SceneRenderer::createLightingPipeline() {
     pipeline_ci.vertex_shader = getShader("mle/fs_triangle.vert");
     pipeline_ci.fragment_shader = getShader("mle/scene/light.frag");
     pipeline_ci.depth = true;
-    pipeline_ci.color_attachment_formats.emplace_back(vk::Format::eR8G8B8A8Unorm);
+    pipeline_ci.color_attachment_formats.emplace_back(target_image_->getFormat());
     pipeline_ci.blend_attachments = makeDefaultBlendAttachmentStates(1);
     pipeline_ci.topology = vk::PrimitiveTopology::eTriangleList;
     pipeline_ci.descriptor_set_layouts.emplace_back(lighting_dsl_);
@@ -226,6 +237,20 @@ void SceneRenderer::render() {
 
     auto vp = camera_.getViewProj();
     auto frustum = camera_.getFrustum();
+
+    // Debug
+    if (true) {
+        auto inter = frustum.intersectWithY0();
+
+        MLE_VC(inter.size());
+        if (inter.size() != 0) {
+            debug_.polygons.emplace_back(inter);
+
+            for (auto p : inter) {
+                MLE_C("Frustum intersection point: {}", p);
+            }
+        }
+    }
 
     std::vector<Object> rendered_objects;
     std::vector<Light> rendered_lights;
@@ -348,6 +373,8 @@ void SceneRenderer::render() {
 
     renderCubeMap(thread);
 
+    renderDebug(thread, vp);
+
     thread.submit();
 }
 
@@ -439,4 +466,62 @@ std::optional<SceneRenderer::RenderReadyChunk> SceneRenderer::renderChunk(vec2i 
     return ret;
 }
 
+void SceneRenderer::createDebug() {
+    MLE_D("Creating debug renderer");
+
+    Pipeline::CI pipeline_ci;
+    pipeline_ci.vertex_shader = getShader("mle/scene/debug/polygon.vert");
+    pipeline_ci.fragment_shader = getShader("mle/scene/debug/polygon.frag");
+    pipeline_ci.color_attachment_formats.emplace_back(getDefaultColorFormat());
+    pipeline_ci.blend_attachments = makeDefaultBlendAttachmentStates(1);
+    pipeline_ci.topology = vk::PrimitiveTopology::eTriangleStrip;
+    pipeline_ci.cull_mode = vk::CullModeFlagBits::eNone;
+
+    debug_.polygon_pipeline = Pipeline::createHnd(pipeline_ci);
+}
+
+void SceneRenderer::renderDebug(RenderingThread& thread, const mat4f& vp) {
+    if (!debug_.polygons.empty()) {
+        std::vector<AttachmentInfo> attachments;
+        auto& c0 = attachments.emplace_back();
+        c0.image = target_image_.get();
+        c0.load = vk::AttachmentLoadOp::eLoad;
+        c0.store = vk::AttachmentStoreOp::eStore;
+        thread.setColorAttachments(std::move(attachments));
+        thread.setDepthAttachment({});
+
+        thread.beginRendering();
+
+        thread.setViewport();
+
+        thread.setPipeline(debug_.polygon_pipeline.get());
+
+        for (const auto& pol : debug_.polygons) {
+            struct PushConstants {
+                mat4f vp;
+                vec4f color;
+            } pc{};
+
+            pc.vp = vp;
+            pc.color = pol.color;
+
+            Buffer::CI vertex_buffer_ci = {};
+            vertex_buffer_ci.size = sizeof(vec3f) * pol.points.size();
+            vertex_buffer_ci.usage = vk::BufferUsageFlagBits::eVertexBuffer;
+            vertex_buffer_ci.allocation_type = Buffer::CI::AllocationType::GPU_ONLY_HOST_WRITE_SEQ;
+            auto buffer = Buffer::createHnd(vertex_buffer_ci);
+
+            buffer->update(pol.points.data());
+
+            thread.pushConstants(&pc);
+            thread.bindVertexBuffer(buffer.get());
+            thread.draw(1, as<int>(pol.points.size()));
+
+            deleteAfterFrame(std::move(buffer));
+        }
+        thread.endRendering();
+
+        debug_.polygons.clear();
+    }
+}
 }  // namespace mle::renderer

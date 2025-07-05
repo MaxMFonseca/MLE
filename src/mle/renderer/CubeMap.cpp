@@ -261,7 +261,7 @@ PipelineRef CubeMap::getPipeline() {
         pipeline_ci.fragment_shader = getShader("mle/scene/skybox.frag");
         pipeline_ci.depth = true;
         pipeline_ci.depth_write = true;
-        pipeline_ci.color_attachment_formats.emplace_back(vk::Format::eR8G8B8A8Unorm);
+        pipeline_ci.color_attachment_formats.emplace_back(getDefaultColorFormat());
         pipeline_ci.blend_attachments = makeDefaultBlendAttachmentStates(1, false);
         pipeline_ci.topology = vk::PrimitiveTopology::eTriangleList;
         pipeline_ci.descriptor_set_layouts.emplace_back(getDescriptorSetLayout());
