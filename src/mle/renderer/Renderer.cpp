@@ -300,6 +300,11 @@ void submitJobOnFrame(vk::CommandBuffer cmd) {
     i_->getFrameRenderer().submitJob(cmd);
 }
 
+vk::Sampler getDefaultSampler() {
+    MLE_ASSERT(i_);
+    return i_->getTextureCache().getDefaultSampler();
+}
+
 namespace detail {
 ED& getED() {
     MLE_ASSERT(i_);

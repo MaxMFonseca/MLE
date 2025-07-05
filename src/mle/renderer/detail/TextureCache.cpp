@@ -11,6 +11,8 @@ namespace mle::renderer::detail {
 void TextureCache::init() {  // NOLINT
     MLE_I("Initializing texture cache");
 
+    createDefaultSampler();
+
     vk::DescriptorSetLayoutBinding binding{};
     binding.binding = 0;
     binding.descriptorType = vk::DescriptorType::eSampledImage;
@@ -59,9 +61,26 @@ void TextureCache::reset() {
     textures_.clear();
     getDevice().destroy(descriptor_pool_);
     getDevice().destroy(descriptor_set_layout_);
+    getDevice().destroy(default_sampler_);
     dset_ = nullptr;
     descriptor_pool_ = nullptr;
     descriptor_set_layout_ = nullptr;
+}
+
+void TextureCache::createDefaultSampler() {
+    vk::SamplerCreateInfo sampler_ci{};
+    sampler_ci.magFilter = vk::Filter::eLinear;
+    sampler_ci.minFilter = vk::Filter::eLinear;
+    sampler_ci.mipmapMode = vk::SamplerMipmapMode::eLinear;
+    sampler_ci.addressModeU = vk::SamplerAddressMode::eClampToEdge;
+    sampler_ci.addressModeV = vk::SamplerAddressMode::eClampToEdge;
+    sampler_ci.addressModeW = vk::SamplerAddressMode::eClampToEdge;
+    sampler_ci.anisotropyEnable = VK_FALSE;
+    sampler_ci.maxAnisotropy = 1.0F;
+    sampler_ci.borderColor = vk::BorderColor::eIntOpaqueBlack;
+    sampler_ci.unnormalizedCoordinates = VK_FALSE;
+
+    default_sampler_ = renderer::unwrap(renderer::detail::getDevice().createSampler(sampler_ci));
 }
 
 void TextureCache::updateImagesOnFrame() {

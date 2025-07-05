@@ -27,6 +27,8 @@ class TextureCache final {
     Texture get(const std::string& name);
     Texture add(const std::string& name, ImageHnd&& img);
 
+    auto getDefaultSampler() const { return default_sampler_; }
+
     ImageRef getImage(u32 idx);
 
     void bindTexturesDSet(RenderingThread& thread);
@@ -45,6 +47,8 @@ class TextureCache final {
     void finishedUpload(u32 idx);
     void updateImagesOnFrame();
     void write(u32 idx);
+
+    void createDefaultSampler();
 
   private:
     struct TextureData {
@@ -65,6 +69,8 @@ class TextureCache final {
     vk::DescriptorSetLayout descriptor_set_layout_;
     vk::DescriptorPool descriptor_pool_;
     vk::DescriptorSet dset_;
+
+    vk::Sampler default_sampler_;
 
     std::vector<TextureUpdateJobData> update_images_on_frame_;
 };
