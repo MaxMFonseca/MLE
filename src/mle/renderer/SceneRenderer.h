@@ -3,6 +3,7 @@
 #include "mle/common/Color.h"
 #include "mle/common/Utils.h"
 #include "mle/renderer/Camera.h"
+#include "mle/renderer/CubeMap.h"
 #include "mle/renderer/Pipeline.h"
 #include "mle/renderer/Types.h"
 namespace mle::renderer {
@@ -31,6 +32,7 @@ class SceneRenderer {
         vec2i image_extent;
         vec2i chunk_count;
         int chunk_size;
+        std::string cube_map;
     };
     using CI = CreateInfo;
 
@@ -75,6 +77,10 @@ class SceneRenderer {
     void createLightingPipeline();
     void createWDS();
 
+    void createCubeMap(const std::string& name);
+
+    void renderCubeMap(RenderingThread& thread);
+
   private:
     Camera camera_;
 
@@ -100,5 +106,7 @@ class SceneRenderer {
 
     std::array<vk::DescriptorImageInfo, 3> lighting_dii_;
     std::vector<vk::WriteDescriptorSet> lighting_wds_;
+
+    CubeMap cube_map_;
 };
 }  // namespace mle::renderer

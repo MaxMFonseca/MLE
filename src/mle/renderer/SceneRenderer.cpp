@@ -5,6 +5,7 @@
 #include <vulkan/vulkan_structs.hpp>
 
 #include "mle/common/Logger.h"
+#include "mle/common/math/Types.h"
 #include "mle/renderer/Image.h"
 #include "mle/renderer/Pipeline.h"
 #include "mle/renderer/Renderer.h"
@@ -28,6 +29,7 @@ void SceneRenderer::shutdown() {
     g_.normal.reset();
     g_.material.reset();
     g_.depth.reset();
+    cube_map_.shutdown();
 }
 
 void SceneRenderer::init(const CI& ci) {
@@ -60,6 +62,8 @@ void SceneRenderer::init(const CI& ci) {
     createLightingPipeline();
     createWDS();
 
+    createCubeMap(ci.cube_map);
+
     chunk_size_ = as<f32>(ci.chunk_size);
 
     chunks_.resize(ci.chunk_count.x);
@@ -68,6 +72,16 @@ void SceneRenderer::init(const CI& ci) {
     }
 
     MLE_D("Scene renderer initialized");
+}
+
+void SceneRenderer::createCubeMap(const std::string& name) {
+    if (name.empty()) {
+        return;
+    }
+
+    MLE_D("Creating cube map");
+
+    cube_map_.init(name);
 }
 
 void SceneRenderer::createGPipeline() {
@@ -238,7 +252,7 @@ void SceneRenderer::render() {
     }
 
     if (!rendered_objects.empty()) {
-        MLE_C("Rendering {} objects", rendered_objects.size());
+        MLE_T("Rendering {} objects", rendered_objects.size());
         thread.setPipeline(g_pipeline_.get());
 
         for (auto& obj : rendered_objects) {
@@ -275,7 +289,7 @@ void SceneRenderer::render() {
     }
 
     if (!rendered_planes.empty()) {
-        MLE_C("Rendering {} planes", rendered_planes.size());
+        MLE_T("Rendering {} planes", rendered_planes.size());
 
         thread.setPipeline(plane_pipeline_.get());
 
@@ -317,6 +331,7 @@ void SceneRenderer::render() {
         c0.load = vk::AttachmentLoadOp::eClear;
         c0.store = vk::AttachmentStoreOp::eStore;
         thread.setColorAttachments(std::move(attachments));
+        thread.setDepthAttachment({});
     }
 
     thread.beginRendering();
@@ -329,7 +344,60 @@ void SceneRenderer::render() {
 
     thread.draw(1, 3);
 
+    thread.endRendering();
+
+    renderCubeMap(thread);
+
     thread.submit();
+}
+
+void SceneRenderer::renderCubeMap(RenderingThread& thread) {
+    if (!cube_map_.ready()) {
+        return;
+    }
+
+    std::vector<AttachmentInfo> attachments;
+    auto& c0 = attachments.emplace_back();
+    c0.image = target_image_.get();
+    c0.load = vk::AttachmentLoadOp::eLoad;
+    c0.store = vk::AttachmentStoreOp::eStore;
+    thread.setColorAttachments(std::move(attachments));
+
+    AttachmentInfo depth_attachment{};
+    depth_attachment.image = g_.depth.get();
+    depth_attachment.load = vk::AttachmentLoadOp::eLoad;
+    depth_attachment.store = vk::AttachmentStoreOp::eStore;
+    thread.setDepthAttachment(depth_attachment);
+
+    thread.beginRendering({});
+
+    thread.setViewport();
+
+    thread.setPipeline(CubeMap::getPipeline());
+
+    vk::DescriptorImageInfo ii;
+    ii.setImageView(cube_map_.getView());
+    ii.setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
+
+    vk::WriteDescriptorSet wds;
+    wds.setImageInfo(ii);
+    wds.setDstBinding(0);
+    wds.setDescriptorType(vk::DescriptorType::eCombinedImageSampler);
+    wds.setDstArrayElement(0);
+    wds.setDescriptorCount(1);
+
+    thread.pushDescriptor(0, {wds});
+
+    thread.bindIndexBuffer(CubeMap::getIndexBuffer());
+
+    struct PushConstants {
+        mat4f view;
+        mat4f proj;
+    } pc{.view = camera_.getView(), .proj = camera_.getProj()};
+
+    thread.pushConstants(&pc);
+
+    thread.drawIndexed(1, CubeMap::getIndexCount(), 0);
 }
 
 std::optional<SceneRenderer::RenderReadyChunk> SceneRenderer::renderChunk(vec2i position, Chunk& chunk, const mat4f& vp, const Frustum& frustum) const {
