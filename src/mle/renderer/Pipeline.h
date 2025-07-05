@@ -35,6 +35,7 @@ class Pipeline final : public LiveCounter<Pipeline> {
         std::vector<vk::DynamicState> dynamic_states = {vk::DynamicState::eViewport, vk::DynamicState::eScissor};  ///< Enabled dynamic states.
         std::vector<vk::DescriptorSetLayout> descriptor_set_layouts;  ///< Descriptor set layouts used by the pipeline.
         bool depth = false;                                           ///< Whether depth testing is enabled.
+        bool depth_write = true;                                      ///< Whether depth writes are enabled.
     };
 
     using CI = CreateInfo;  ///< Alias for CreateInfo.

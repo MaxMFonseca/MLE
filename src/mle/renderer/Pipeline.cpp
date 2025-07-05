@@ -101,8 +101,8 @@ void Pipeline::initGraphicsPipeline(const CI& ci) {
 
     vk::PipelineDepthStencilStateCreateInfo depth_stencil_state_ci;
     depth_stencil_state_ci.depthTestEnable = ci.depth ? vk::True : vk::False;
-    depth_stencil_state_ci.depthWriteEnable = vk::True;
-    depth_stencil_state_ci.depthCompareOp = vk::CompareOp::eLess;
+    depth_stencil_state_ci.depthWriteEnable = ci.depth_write ? vk::True : vk::False;
+    depth_stencil_state_ci.depthCompareOp = vk::CompareOp::eLessOrEqual;
     depth_stencil_state_ci.depthBoundsTestEnable = vk::False;
     depth_stencil_state_ci.stencilTestEnable = vk::False;
     depth_stencil_state_ci.minDepthBounds = 0.0F;
