@@ -1,11 +1,13 @@
 #include "SceneRenderer.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <vulkan/vulkan_enums.hpp>
 #include <vulkan/vulkan_structs.hpp>
 
 #include "mle/common/Logger.h"
 #include "mle/common/math/Types.h"
+#include "mle/common/math/Types3D.h"
 #include "mle/renderer/Image.h"
 #include "mle/renderer/Pipeline.h"
 #include "mle/renderer/Renderer.h"
@@ -58,7 +60,7 @@ void SceneRenderer::init(const CI& ci) {
     target_image_ = Image::createHnd(image_ci);
 
     MLE_D("Creating Pipelines");
-    // createSun();
+    createSun();
     createGPipeline();
     createPlanePipeline();
     createLightingPipeline();
@@ -77,13 +79,23 @@ void SceneRenderer::init(const CI& ci) {
     MLE_D("Scene renderer initialized");
 }
 
-// void SceneRenderer::createSun() {
-//     MLE_D("Creating sun light");
-//
-//     Light sun{};
-//     sun.color = {1.0F, 1.0F, 1.0F};
-//     sun.intensity = 1.0F;
-// }
+void SceneRenderer::createSun() {
+    MLE_D("Creating sun data");
+
+    Image::CI image_ci{};
+    image_ci.extent = {1024, 1024};
+    image_ci.usage = vk::ImageUsageFlagBits::eDepthStencilAttachment | vk::ImageUsageFlagBits::eSampled;
+    image_ci.format = getDepthFormat();
+    sun_.image = Image::createHnd(image_ci);
+
+    sun_.color = Color::WHITE;
+
+    Pipeline::CI pipeline_ci;
+    pipeline_ci.vertex_shader = getShader("mle/scene/sun.vert");
+    pipeline_ci.depth = true;
+
+    sun_.pipeline = Pipeline::createHnd(pipeline_ci);
+}
 
 void SceneRenderer::createCubeMap(const std::string& name) {
     if (name.empty()) {
@@ -201,6 +213,11 @@ void SceneRenderer::render() {
     RenderingThread thread;
     thread.init();
 
+    auto vp = camera_.getViewProj();
+    auto frustum = camera_.getFrustum();
+
+    renderSun(thread, frustum);
+
     g_.albedo->transitionState(thread.cmd(), Image::State::COLOR_ATT);
     g_.normal->transitionState(thread.cmd(), Image::State::COLOR_ATT);
     g_.material->transitionState(thread.cmd(), Image::State::COLOR_ATT);
@@ -234,23 +251,6 @@ void SceneRenderer::render() {
 
     thread.beginRendering();
     thread.setViewport();
-
-    auto vp = camera_.getViewProj();
-    auto frustum = camera_.getFrustum();
-
-    // Debug
-    if (true) {
-        auto inter = frustum.intersectWithY0();
-
-        MLE_VC(inter.size());
-        if (inter.size() != 0) {
-            debug_.polygons.emplace_back(inter);
-
-            for (auto p : inter) {
-                MLE_C("Frustum intersection point: {}", p);
-            }
-        }
-    }
 
     std::vector<Object> rendered_objects;
     std::vector<Light> rendered_lights;
@@ -474,7 +474,7 @@ void SceneRenderer::createDebug() {
     pipeline_ci.fragment_shader = getShader("mle/scene/debug/polygon.frag");
     pipeline_ci.color_attachment_formats.emplace_back(getDefaultColorFormat());
     pipeline_ci.blend_attachments = makeDefaultBlendAttachmentStates(1);
-    pipeline_ci.topology = vk::PrimitiveTopology::eTriangleStrip;
+    pipeline_ci.topology = vk::PrimitiveTopology::eTriangleFan;
     pipeline_ci.cull_mode = vk::CullModeFlagBits::eNone;
 
     debug_.polygon_pipeline = Pipeline::createHnd(pipeline_ci);
@@ -503,19 +503,21 @@ void SceneRenderer::renderDebug(RenderingThread& thread, const mat4f& vp) {
             } pc{};
 
             pc.vp = vp;
-            pc.color = pol.color;
+            pc.color = pol.second;
+
+            auto vertices = pol.first.vertices();
 
             Buffer::CI vertex_buffer_ci = {};
-            vertex_buffer_ci.size = sizeof(vec3f) * pol.points.size();
+            vertex_buffer_ci.size = sizeof(vec3f) * vertices.size();
             vertex_buffer_ci.usage = vk::BufferUsageFlagBits::eVertexBuffer;
             vertex_buffer_ci.allocation_type = Buffer::CI::AllocationType::GPU_ONLY_HOST_WRITE_SEQ;
             auto buffer = Buffer::createHnd(vertex_buffer_ci);
 
-            buffer->update(pol.points.data());
+            buffer->update(vertices.data());
 
             thread.pushConstants(&pc);
             thread.bindVertexBuffer(buffer.get());
-            thread.draw(1, as<int>(pol.points.size()));
+            thread.draw(1, as<int>(vertices.size()));
 
             deleteAfterFrame(std::move(buffer));
         }
@@ -523,5 +525,113 @@ void SceneRenderer::renderDebug(RenderingThread& thread, const mat4f& vp) {
 
         debug_.polygons.clear();
     }
+}
+
+void SceneRenderer::renderSun(RenderingThread& thread, const Frustum& camera_frustum) {
+    auto camera_frustum_inter_y0 = camera_frustum.intersectWithY0();
+    auto camera_frustum_inter_y0_xz = camera_frustum_inter_y0.xz();
+
+    // Debug
+    if (IS_DEBUG_BUILD) {
+        MLE_VC(camera_frustum_inter_y0.vertCount());
+        if (camera_frustum_inter_y0.vertCount() != 0) {
+            debug_.polygons.emplace_back(camera_frustum_inter_y0, Color::RED.withA(0.3));
+
+            for (auto p : camera_frustum_inter_y0.vertices()) {
+                MLE_C("Frustum intersection point: {}", p);
+            }
+        }
+    }
+
+    Camera sun_camera;
+    sun_camera.setProjType(Camera::ProjType::ORTH);
+    sun_camera.setTarget(camera_frustum_inter_y0.center());
+    sun_camera.setPosition(camera_frustum_inter_y0.center() - sun_.direction * 50.0F);
+    sun_camera.setUp({0.0F, -1.0F, 0.0F});
+    sun_camera.setNear(0.1);
+    sun_camera.setFar(200.0F);
+    auto sun_size = 50.0F;
+    sun_camera.setRect(sun_size);
+
+    Polygon3D sun_frustum_inter_y0;
+    auto sun_frustum_inter_y0_xz = sun_frustum_inter_y0.xz();
+
+    int max_iterations = 100;
+    while (!isInside(sun_frustum_inter_y0_xz, camera_frustum_inter_y0_xz) && max_iterations-- > 0) {
+        sun_size *= 1.1F;
+        sun_camera.setRect(sun_size);
+        sun_frustum_inter_y0 = sun_camera.getFrustum().intersectWithY0();
+        sun_frustum_inter_y0_xz = sun_frustum_inter_y0.xz();
+    }
+    MLE_T("Final: {}", sun_size);
+    MLE_ASSERT_LOG(sun_frustum_inter_y0_xz.size() == 4, "Check this");
+
+    mat4f sun_vp = sun_camera.getViewProj();
+
+    ///
+
+    std::vector<Object> objects;
+
+    // cull all chunks that the sun cant see
+    for (usize i = 0; i < chunks_.size(); ++i) {
+        for (usize j = 0; j < chunks_[i].size(); ++j) {
+            auto& chunk = chunks_[i][j];
+            if (!chunk.ready) {
+                continue;
+            }
+
+            vec2f world_pos00{as<f32>(i) * chunk_size_, as<f32>(j) * chunk_size_};
+            vec2f world_pos10{world_pos00.x + chunk_size_, world_pos00.y};
+            vec2f world_pos11{world_pos00.x + chunk_size_, world_pos00.y + chunk_size_};
+            vec2f world_pos01{world_pos00.x, world_pos00.y + chunk_size_};
+            auto world_pos = std::array{world_pos00, world_pos10, world_pos11, world_pos01};
+
+            if (std::ranges::any_of(world_pos,
+                                    [&sun_frustum_inter_y0_xz](const vec2f& world_pos) { return isPointInsidePolygon(world_pos, sun_frustum_inter_y0_xz); })) {
+                for (const auto& object : chunk.objects) {
+                    if (object.second.model->state == UploadState::OK) {
+                        auto transform = glm::translate(object.second.transform, {world_pos00.x, 0.0F, world_pos00.y});
+
+                        auto& obj = objects.emplace_back(object.second);
+                        obj.transform = sun_vp * transform;
+                    }
+                }
+            }
+        }
+    }
+
+    ///
+
+    AttachmentInfo sun_depth_attachment{};
+    sun_depth_attachment.image = sun_.image.get();
+    sun_depth_attachment.load = vk::AttachmentLoadOp::eClear;
+    sun_depth_attachment.store = vk::AttachmentStoreOp::eStore;
+    sun_depth_attachment.clear_value.setDepthStencil({1.0F, 0});
+    thread.setDepthAttachment(sun_depth_attachment);
+    thread.setColorAttachments({});
+
+    thread.beginRendering({});
+
+    thread.setViewport();
+    thread.setPipeline(sun_.pipeline.get());
+
+    for (const auto& obj : objects) {
+        struct {
+            mat4f mvp;
+        } pc{};
+
+        pc.mvp = obj.transform;
+
+        thread.pushConstants(&pc);
+
+        for (const auto& mesh : obj.model->meshes) {
+            thread.bindVertexBuffer(mesh.vertex_buffer.get());
+            thread.bindIndexBuffer(mesh.index_buffer.get());
+
+            thread.drawIndexed(1, mesh.index_count);
+        }
+    }
+
+    thread.endRendering();
 }
 }  // namespace mle::renderer

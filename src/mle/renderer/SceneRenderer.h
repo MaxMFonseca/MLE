@@ -83,6 +83,7 @@ class SceneRenderer {
     void createCubeMap(const std::string& name);
 
     void renderCubeMap(RenderingThread& thread);
+    void renderSun(RenderingThread& thread, const Frustum& camera_frustum);
 
   private:
     Camera camera_;
@@ -117,17 +118,11 @@ class SceneRenderer {
         ImageHnd image;
         Color color;
         f32 intensity{1.0F};
-        vec3f position;
         vec3f direction = glm::normalize(vec3f(0.1F, -1.0F, 0.1F));
-    } the_sun_;
+    } sun_;
 
     struct {
-        struct Polygon {
-            std::vector<vec3f> points;
-            Color color = Color{1.F, 0, 0, 0.1};
-        };
-
-        std::vector<Polygon> polygons;
+        std::vector<std::pair<Polygon3D, Color>> polygons;
         PipelineHnd polygon_pipeline;
 
     } debug_;
