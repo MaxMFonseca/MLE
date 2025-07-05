@@ -196,21 +196,21 @@ bool Frustum::contains(const Box<f32>& box) const {
     return true;
 }
 
-std::vector<vec3f> Frustum::intersectWithY0() const {
+Polygon3D Frustum::intersectWithY0() const {
     std::array<vec3f, 8> c = {ABCDPlane::intersect(n_, l_, t_), ABCDPlane::intersect(n_, r_, t_), ABCDPlane::intersect(n_, r_, b_),
                               ABCDPlane::intersect(n_, l_, b_), ABCDPlane::intersect(f_, l_, t_), ABCDPlane::intersect(f_, r_, t_),
                               ABCDPlane::intersect(f_, r_, b_), ABCDPlane::intersect(f_, l_, b_)};
 
-    std::vector<vec3f> raw;
+    Polygon3D ret;
 
-    auto try_intersect_edge = [](const vec3f& a, const vec3f& b, std::vector<vec3f>& out) {
+    auto try_intersect_edge = [](const vec3f& a, const vec3f& b, Polygon3D& out) {
         if ((a.y > 0.0F && b.y < 0.0F) || (a.y < 0.0F && b.y > 0.0F)) {
             f32 t = a.y / (a.y - b.y);
-            out.push_back(a + t * (b - a));
+            out.addVert(a + t * (b - a));
         }
     };
 
-    auto edge = [&](int i, int j) { try_intersect_edge(c.at(i), c.at(j), raw); };
+    auto edge = [&](int i, int j) { try_intersect_edge(c.at(i), c.at(j), ret); };
     edge(0, 1);
     edge(1, 2);
     edge(2, 3);
@@ -224,31 +224,12 @@ std::vector<vec3f> Frustum::intersectWithY0() const {
     edge(2, 6);
     edge(3, 7);
 
-    if (raw.size() < 3) {
+    if (ret.vertCount() < 3) {
         return {};
     }
 
-    vec2f center = {};
-    for (const auto& p : raw) {
-        center += vec2f{p.x, p.z};
-    }
-    center /= as<f32>(raw.size());
-
-    std::ranges::sort(raw, [&](const vec3f& a, const vec3f& b) {
-        vec2f da{a.x - center.x, a.z - center.y};
-        vec2f db{b.x - center.x, b.z - center.y};
-        return std::atan2(da.y, da.x) < std::atan2(db.y, db.x);
-    });
-
-    // TODO: extract this and create a polygon class
-    std::vector<vec3f> strip;
-    strip.reserve(raw.size());
-    size_t n = raw.size();
-    for (size_t i = 0; i < n; ++i) {
-        strip.push_back(i % 2 == 0 ? raw[i / 2] : raw[n - 1 - (i / 2)]);
-    }
-
-    return strip;
+    ret.sortCCW();
+    return ret;
 }
 
 vec3f Frustum::ABCDPlane::intersect(const Frustum::ABCDPlane& p1, const Frustum::ABCDPlane& p2, const Frustum::ABCDPlane& p3) {
@@ -264,5 +245,68 @@ vec3f Frustum::ABCDPlane::intersect(const Frustum::ABCDPlane& p1, const Frustum:
     vec3f c3 = cross(n1, n2) * -p3.d;
 
     return (c1 + c2 + c3) / det;
+}
+
+Polygon3D::Polygon3D(std::vector<vec3f> verts) :
+    verts_(std::move(verts)) {
+}
+
+vec3f Polygon3D::center() const {
+    vec3f sum{0.0F};
+    for (const auto& v : verts_) {
+        sum += v;
+    }
+    return verts_.empty() ? vec3f{0.0F} : sum / static_cast<f32>(verts_.size());
+}
+
+vec3f Polygon3D::normal() const {
+    if (verts_.size() < 3) {
+        return vec3f{0.0F};
+    }
+
+    vec3f ret{0.0F};
+    for (usize i = 0; i < verts_.size(); ++i) {
+        const vec3f& cur = verts_[i];
+        const vec3f& next = verts_[(i + 1) % verts_.size()];
+        ret.x += (cur.y - next.y) * (cur.z + next.z);
+        ret.y += (cur.z - next.z) * (cur.x + next.x);
+        ret.z += (cur.x - next.x) * (cur.y + next.y);
+    }
+
+    return normalize(ret);
+}
+
+void Polygon3D::sortCCW() {
+    if (verts_.size() < 3) {
+        return;
+    }
+
+    vec3f c = center();
+    vec3f n = normal();
+
+    vec3f u = normalize(anyPerpendicular(n));
+    vec3f v = normalize(cross(n, u));
+
+    std::ranges::sort(verts_, [&](const vec3f& a, const vec3f& b) {
+        vec2f da(dot(a - c, u), dot(a - c, v));
+        vec2f db(dot(b - c, u), dot(b - c, v));
+        return std::atan2(da.y, da.x) < std::atan2(db.y, db.x);
+    });
+}
+
+vec3f Polygon3D::anyPerpendicular(vec3f v) {
+    if (std::abs(v.x) < 0.9F) {
+        return normalize(cross(v, vec3f(1, 0, 0)));
+    }
+    return normalize(cross(v, vec3f(0, 1, 0)));
+}
+
+std::vector<vec2f> Polygon3D::xz() {
+    std::vector<vec2f> ret;
+    ret.reserve(verts_.size());
+    for (const auto& v : verts_) {
+        ret.emplace_back(v.x, v.z);
+    }
+    return ret;
 }
 }  // namespace mle

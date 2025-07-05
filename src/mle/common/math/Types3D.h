@@ -381,6 +381,42 @@ class RectPlane {
     f32 height_{};       ///< Height along bitangent.
 };
 
+/// A simple 3D polygon represented a list of 3D vertices.
+class Polygon3D {
+  public:
+    /// Constructs an empty polygon.
+    Polygon3D() = default;
+
+    /// Constructs a polygon from a list of 3D points.
+    explicit Polygon3D(std::vector<vec3f> verts);
+
+    void addVert(vec3f v) { verts_.emplace_back(v); }  ///< Adds a vertex to the polygon.
+
+    /// Returns the vertices.
+    [[nodiscard]] const std::vector<vec3f>& vertices() const { return verts_; }
+
+    /// Returns the number of vertices.
+    [[nodiscard]] usize vertCount() const { return verts_.size(); }
+
+    /// Returns the centroid of the polygon.
+    [[nodiscard]] vec3f center() const;
+
+    /// Returns the normal of the polygon using Newell.
+    [[nodiscard]] vec3f normal() const;
+
+    /// Sorts the vertices in counter-clockwise order.
+    void sortCCW();
+
+    /// Returns a random vector that is perpendicular.
+    [[nodiscard]] static vec3f anyPerpendicular(vec3f v);
+
+    /// Returns the polygon on plane y [x, 0, z]
+    std::vector<vec2f> xz();
+
+  private:
+    std::vector<vec3f> verts_;  ///< List of vertices
+};
+
 /// A view frustum defined by six planes in world space.
 class Frustum {
   public:
@@ -404,7 +440,7 @@ class Frustum {
     [[nodiscard]] bool contains(const Box<f32>& box) const;
 
     /// Returns a polygon that represents the intersection of the frustum with the Y=0 plane.
-    [[nodiscard]] std::vector<vec3f> intersectWithY0() const;
+    [[nodiscard]] Polygon3D intersectWithY0() const;
 
   private:
     struct ABCDPlane {
@@ -423,7 +459,6 @@ class Frustum {
   private:
     ABCDPlane l_, r_, t_, b_, n_, f_;  ///< Left, right, top, bottom, near, far planes
 };
-
 /// A plane in 3D space represented by the equation ax + by + cz + d = 0.
 }  // namespace mle
 
