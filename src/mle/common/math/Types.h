@@ -88,6 +88,11 @@ using mat2 = glm::mat<2, 2, T>;  ///< 2x2 matrix
 using mat2f = mat2<f32>;  ///< 2x2 matrix of f32
 
 template <typename T>
+using mat3 = glm::mat<3, 3, T>;  ///< 3x3 matrix
+
+using mat3f = mat3<f32>;  ///< 3x3 matrix of f32
+
+template <typename T>
 using mat4 = glm::mat<4, 4, T>;  ///< 4x4 matrix
 
 using mat4f = mat4<f32>;  ///< 4x4 matrix of f32
@@ -237,6 +242,14 @@ struct formatter<mle::mat2<T>> : formatter<std::string> {
     template <typename FormatContext>
     constexpr auto format(const mle::mat2<T>& v, FormatContext& ctx) const {
         return format_to(ctx.out(), "[{}, {}]", v[0], v[1]);
+    }
+};
+
+template <class T>
+struct formatter<mle::mat3<T>> : formatter<std::string> {
+    template <typename FormatContext>
+    constexpr auto format(const mle::mat3<T>& v, FormatContext& ctx) const {
+        return format_to(ctx.out(), "[{}, {}, {}]", v[0], v[1], v[2]);
     }
 };
 
