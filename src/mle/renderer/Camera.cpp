@@ -152,4 +152,22 @@ void Camera::walk(const vec3f& offset) {
     view_proj_dirty_ = true;
 }
 
+void Camera::lookUpDown(f32 angle_rad) {
+    vec3f forward = glm::normalize(target_ - eye_);
+    vec3f right = glm::normalize(glm::cross(forward, up_));
+
+    mat4f rot = glm::rotate(mat4f(1.0F), angle_rad, right);
+    vec3f new_forward = glm::normalize(vec3f(rot * vec4f(forward, 0.0F)));
+
+    const f32 epsilon = 0.001F;
+    if (std::abs(glm::dot(new_forward, up_)) > 1.0F - epsilon) {
+        return;
+    }
+
+    target_ = eye_ + new_forward;
+    up_ = glm::normalize(glm::cross(right, new_forward));
+
+    view_dirty_ = true;
+    view_proj_dirty_ = true;
+}
 }  // namespace mle::renderer
