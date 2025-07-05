@@ -170,4 +170,10 @@ void Camera::lookUpDown(f32 angle_rad) {
     view_dirty_ = true;
     view_proj_dirty_ = true;
 }
+void Camera::setRect(f32 left, f32 right, f32 bottom, f32 top) {
+    setLeft(left);
+    setRight(right);
+    setBottom(bottom);
+    setTop(top);
+}
 }  // namespace mle::renderer

@@ -39,6 +39,11 @@ class Camera {
     void setBottom(f32 bottom);
     void setTop(f32 top);
 
+    void setRect(f32 left, f32 right, f32 bottom, f32 top);
+    void setRect(f32 v) { setRect(-v, v, -v, v); }
+
+    [[nodiscard]] ProjType getProjType() const { return proj_type_; }
+
     void setProjType(ProjType type);
 
     mat4f getView();
