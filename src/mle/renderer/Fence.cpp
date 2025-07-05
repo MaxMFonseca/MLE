@@ -1,5 +1,7 @@
 #include "Fence.h"
 
+#include <functional>
+
 #include "Renderer.h"
 #include "detail/FencePool.h"
 #include "mle/common/Assert.h"
@@ -42,7 +44,7 @@ void Fence::wait(u64 timeout_ns) const {
     }
 }
 
-void Fence::waitAsync(std::function<void(void)>&& callback) {
+void Fence::waitAsync(std::move_only_function<void(void)>&& callback) {
     detail::getFencePool().waitAsync(o_, std::move(callback));
     o_ = nullptr;
 }

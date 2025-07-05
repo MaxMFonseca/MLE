@@ -48,10 +48,9 @@ class Impl {
     CommandPool& getOTSPool(CmdType type);
     vk::CommandBuffer getOTSCmd(CmdType type);
     void submitOTSWait(CmdType cmd_type, vk::CommandBuffer cmd);
-    void submitOTSAsync(CmdType cmd_type, vk::CommandBuffer cmd, std::function<void(void)>&& callback);
-    void submitOTSAsync(CmdType cmd_type, vk::SubmitInfo2 submit_info, std::function<void(void)>&& callback = nullptr);
+    void submitOTSAsync(CmdType cmd_type, vk::CommandBuffer cmd, std::move_only_function<void(void)>&& callback);
+    void submitOTSAsync(CmdType cmd_type, vk::SubmitInfo2 submit_info, std::move_only_function<void(void)>&& callback = nullptr);
 
-  private:
   private:
     ED ed_;
 
@@ -158,13 +157,14 @@ void Impl::submitOTSWait(CmdType cmd_type, vk::CommandBuffer cmd) {
     getOTSPool(cmd_type).submitWait(cmd);
 }
 
-void Impl::submitOTSAsync(CmdType cmd_type, vk::CommandBuffer cmd, std::function<void(void)>&& callback) {
+void Impl::submitOTSAsync(CmdType cmd_type, vk::CommandBuffer cmd, std::move_only_function<void(void)>&& callback) {
     getOTSPool(cmd_type).submitAsync(cmd, std::move(callback));
 }
 
-void Impl::submitOTSAsync(CmdType cmd_type, vk::SubmitInfo2 submit_info, std::function<void(void)>&& callback) {
+void Impl::submitOTSAsync(CmdType cmd_type, vk::SubmitInfo2 submit_info, std::move_only_function<void(void)>&& callback) {
     getOTSPool(cmd_type).submitAsync(submit_info, std::move(callback));
 }
+
 }  // namespace
 
 void init([[maybe_unused]] const CI& ci) {
@@ -265,12 +265,12 @@ void submitOTSWait(CmdType cmd_type, vk::CommandBuffer cmd) {
     i_->submitOTSWait(cmd_type, cmd);
 }
 
-void submitOTSAsync(CmdType cmd_type, vk::CommandBuffer cmd, std::function<void(void)>&& callback) {
+void submitOTSAsync(CmdType cmd_type, vk::CommandBuffer cmd, std::move_only_function<void(void)>&& callback) {
     MLE_ASSERT(i_);
     i_->submitOTSAsync(cmd_type, cmd, std::move(callback));
 }
 
-void submitOTSAsync(CmdType cmd_type, vk::SubmitInfo2 submit_info, std::function<void(void)>&& callback) {
+void submitOTSAsync(CmdType cmd_type, vk::SubmitInfo2 submit_info, std::move_only_function<void(void)>&& callback) {
     MLE_ASSERT(i_);
     i_->submitOTSAsync(cmd_type, submit_info, std::move(callback));
 }

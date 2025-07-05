@@ -25,8 +25,8 @@ class CommandPool final {
     vk::CommandBuffer getCmd();
 
     void submitWait(vk::CommandBuffer cmd);
-    void submitAsync(vk::CommandBuffer cmd, std::function<void(void)>&& callback);
-    void submitAsync(vk::SubmitInfo2 submit_info, std::function<void(void)>&& callback = {});
+    void submitAsync(vk::CommandBuffer cmd, std::move_only_function<void(void)>&& callback);
+    void submitAsync(vk::SubmitInfo2 submit_info, std::move_only_function<void(void)>&& callback = {});
 
   private:
     void releaseCmdBuffer(vk::CommandBuffer cmd);

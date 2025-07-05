@@ -264,6 +264,7 @@ Image::RawData Image::readFile(const std::string& path, int target_channel_count
     ret.channels = target_channel_count == 0 ? channels_in_file : target_channel_count;
     ret.extent = {width, height};
 
+    // FIXME: THIS... this is stupid
     if (ret.channels == 3) {
         ret.channels = 4;
         ret.pixels.resize(width * height * 4);  // NOLINT

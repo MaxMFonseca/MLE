@@ -4,6 +4,8 @@
  */
 #pragma once
 
+#include <functional>
+
 #include "Types.h"
 #include "mle/common/Result.h"
 
@@ -36,7 +38,7 @@ class Fence final {
      * @brief Asynchronously waits for the fence to become signaled.
      * @param callback The function to call when the fence is signaled.
      */
-    void waitAsync(std::function<void(void)>&& callback = {});
+    void waitAsync(std::move_only_function<void(void)>&& callback = {});
 
     // void waitAsync(std::function<void(void)>&& callback, u64 timeout_ns = 1'000'000'000) const;
 

@@ -66,7 +66,7 @@ vk::Fence FencePool::get() {
     return ret;
 }
 
-void FencePool::waitAsync(vk::Fence fence, std::function<void(void)>&& callback) {
+void FencePool::waitAsync(vk::Fence fence, std::move_only_function<void(void)>&& callback) {
     std::scoped_lock lock(available_fences_mutex_);
     async_fences_.emplace_back(fence, std::move(callback));
 }

@@ -20,12 +20,12 @@ class FencePool final {
     vk::Fence get();
     void release(vk::Fence fence);
 
-    void waitAsync(vk::Fence fence, std::function<void(void)>&& callback = {});
+    void waitAsync(vk::Fence fence, std::move_only_function<void(void)>&& callback = {});
 
   private:
     std::mutex available_fences_mutex_;
     std::vector<vk::Fence> available_fences_;
 
-    std::vector<std::pair<vk::Fence, std::function<void(void)>>> async_fences_;
+    std::vector<std::pair<vk::Fence, std::move_only_function<void(void)>>> async_fences_;
 };
 }  // namespace mle::renderer::detail

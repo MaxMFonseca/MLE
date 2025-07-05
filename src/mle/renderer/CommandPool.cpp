@@ -59,14 +59,14 @@ void CommandPool::submitWait(vk::CommandBuffer cmd) {
     releaseCmdBuffer(cmd);
 }
 
-void CommandPool::submitAsync(vk::SubmitInfo2 submit_info, std::function<void(void)>&& callback) {
+void CommandPool::submitAsync(vk::SubmitInfo2 submit_info, std::move_only_function<void(void)>&& callback) {
     auto cmd = submit_info.pCommandBufferInfos[0].commandBuffer;  // NOLINT
 
     check(cmd.end());
 
     auto fence = detail::getCommandPoolManager().submit(type_, submit_info);
 
-    fence.waitAsync([callback = std::move(callback), this, cmd]() {
+    fence.waitAsync([callback = std::move(callback), this, cmd]() mutable {
         releaseCmdBuffer(cmd);
         if (callback) {
             callback();
@@ -74,7 +74,7 @@ void CommandPool::submitAsync(vk::SubmitInfo2 submit_info, std::function<void(vo
     });
 }
 
-void CommandPool::submitAsync(vk::CommandBuffer cmd, std::function<void(void)>&& callback) {
+void CommandPool::submitAsync(vk::CommandBuffer cmd, std::move_only_function<void(void)>&& callback) {
     vk::CommandBufferSubmitInfo cmd_info;
     cmd_info.setCommandBuffer(cmd);
 
