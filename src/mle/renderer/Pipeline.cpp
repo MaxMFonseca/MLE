@@ -33,8 +33,8 @@ void Pipeline::init(const CI& ci) {
 
 void Pipeline::initGraphicsPipeline(const CI& ci) {
     MLE_ASSERT_LOG(ci.vertex_shader, "Vertex shader must be set");
-    MLE_ASSERT_LOG(ci.fragment_shader, "Fragment shader must be set");
-    MLE_ASSERT_LOG(ci.color_attachment_formats.size() > 0, "At least one color attachment format must be set");
+    // MLE_ASSERT_LOG(ci.fragment_shader, "Fragment shader must be set");
+    // MLE_ASSERT_LOG(ci.color_attachment_formats.size() > 0, "At least one color attachment format must be set");
     MLE_ASSERT_LOG(ci.blend_attachments.size() == ci.color_attachment_formats.size(),
                    "Number of blend attachments must match the number of color attachment formats");
 
@@ -44,9 +44,14 @@ void Pipeline::initGraphicsPipeline(const CI& ci) {
 
     MLE_T("Shader stages");
     ci.vertex_shader->logID("VertexShader");
-    ci.fragment_shader->logID("FragmentShader");
+    if (ci.fragment_shader) {
+        ci.fragment_shader->logID("FragmentShader");
+    }
 
-    std::array stages = {ci.vertex_shader->getPipelineShaderStageCreateInfo(), ci.fragment_shader->getPipelineShaderStageCreateInfo()};
+    std::vector stages = {ci.vertex_shader->getPipelineShaderStageCreateInfo()};
+    if (ci.fragment_shader) {
+        stages.push_back(ci.fragment_shader->getPipelineShaderStageCreateInfo());
+    }
     pipeline_ci.setStages(stages);
 
     MLE_T("Vertex input state");
@@ -86,6 +91,8 @@ void Pipeline::initGraphicsPipeline(const CI& ci) {
     rasterization_state_ci.cullMode = ci.cull_mode;
     rasterization_state_ci.frontFace = ci.front_face;
     rasterization_state_ci.lineWidth = 1.0F;
+    rasterization_state_ci.depthClampEnable = vk::False;
+    rasterization_state_ci.rasterizerDiscardEnable = vk::False;
     pipeline_ci.setPRasterizationState(&rasterization_state_ci);
 
     MLE_T("Multisample state");
@@ -155,10 +162,12 @@ void Pipeline::initGraphicsPipeline(const CI& ci) {
 
     MLE_T("Rendering");
     vk::PipelineRenderingCreateInfo pipeline_rendering_ci;
-    MLE_ASSERT(!ci.color_attachment_formats.empty());
-    pipeline_rendering_ci.setColorAttachmentFormats(ci.color_attachment_formats);
-    for (const auto& format : ci.color_attachment_formats) {
-        MLE_T("Color attachment format: {}", vk::to_string(format));
+    if (ci.fragment_shader) {
+        MLE_ASSERT(!ci.color_attachment_formats.empty());
+        pipeline_rendering_ci.setColorAttachmentFormats(ci.color_attachment_formats);
+        for (const auto& format : ci.color_attachment_formats) {
+            MLE_T("Color attachment format: {}", vk::to_string(format));
+        }
     }
     if (ci.depth) {
         pipeline_rendering_ci.setDepthAttachmentFormat(detail::getVk().getDepthFormat());

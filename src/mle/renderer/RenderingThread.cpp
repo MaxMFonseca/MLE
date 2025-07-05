@@ -58,11 +58,19 @@ void RenderingThread::pushDescriptor(u32 set, const std::vector<vk::WriteDescrip
 }
 
 void RenderingThread::beginRendering(Recti render_area, bool can_clear) {
+    vec2i max_extent{0};
+    if (color_attachments_.empty()) {
+        MLE_ASSERT_LOG(depth_attachment_.image, "No color attachments set and no depth attachment provided");
+        max_extent = depth_attachment_.image->getExtent();
+    } else {
+        max_extent = color_attachments_.at(0).image->getExtent();
+    }
+
     if (render_area.size.x == 0) {
-        render_area.size.x = color_attachments_.at(0).image->getExtent().x - render_area.pos.x;
+        render_area.size.x = max_extent.x - render_area.pos.x;
     }
     if (render_area.size.y == 0) {
-        render_area.size.y = color_attachments_.at(0).image->getExtent().y - render_area.pos.y;
+        render_area.size.y = max_extent.y - render_area.pos.y;
     }
 
     if (in_rendering_) {
