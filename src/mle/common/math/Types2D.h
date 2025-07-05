@@ -269,6 +269,13 @@ class Ray2D {
     vec2f origin_;
     vec2f direction_;
 };
+
+/// Returns true if the point is inside the polygon (using winding number test).
+bool isPointInsidePolygon(vec2f p, const std::vector<vec2f>& poly);
+
+/// Returns true if polygon a is entirely inside polygon b.
+bool isInside(const std::vector<vec2f>& a, const std::vector<vec2f>& b);
+
 }  // namespace mle
 
 namespace fmt {
