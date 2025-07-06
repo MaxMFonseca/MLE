@@ -3,6 +3,7 @@
 #include <stb_image.h>
 #include <vulkan/vulkan_core.h>
 
+#include <typeinfo>
 #include <vulkan/vulkan_enums.hpp>
 #include <vulkan/vulkan_handles.hpp>
 #include <vulkan/vulkan_structs.hpp>
@@ -505,6 +506,13 @@ void Image::transitionState(vk::CommandBuffer cmd, State state) {
         } break;
         case State::DEPTH_ATT: {
             switch (state) {
+                case State::SHADER_READ: {
+                    info.new_layout = vk::ImageLayout::eReadOnlyOptimal;
+                    info.src_stage_mask = vk::PipelineStageFlagBits2::eEarlyFragmentTests;
+                    info.src_access_mask = vk::AccessFlagBits2::eDepthStencilAttachmentWrite;
+                    info.dst_stage_mask = vk::PipelineStageFlagBits2::eFragmentShader;
+                    info.dst_access_mask = vk::AccessFlagBits2::eShaderRead;
+                } break;
                 default: {
                     MLE_UNREACHABLE_LOG("Invalid state transition from DEPTH_ATT to {}", state);
                 } break;
@@ -553,6 +561,13 @@ void Image::transitionState(vk::CommandBuffer cmd, State state) {
                     info.src_access_mask = vk::AccessFlagBits2::eShaderRead;
                     info.dst_stage_mask = vk::PipelineStageFlagBits2::eComputeShader;
                     info.dst_access_mask = vk::AccessFlagBits2::eShaderRead | vk::AccessFlagBits2::eShaderWrite;
+                } break;
+                case State::DEPTH_ATT: {
+                    info.new_layout = vk::ImageLayout::eAttachmentOptimal;
+                    info.src_stage_mask = vk::PipelineStageFlagBits2::eFragmentShader;
+                    info.src_access_mask = vk::AccessFlagBits2::eShaderRead;
+                    info.dst_stage_mask = vk::PipelineStageFlagBits2::eEarlyFragmentTests;
+                    info.dst_access_mask = vk::AccessFlagBits2::eDepthStencilAttachmentWrite;
                 } break;
                 default: {
                     MLE_UNREACHABLE_LOG("Invalid state transition from SHADER_READ to {}", state);
