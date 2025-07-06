@@ -38,6 +38,16 @@ class SceneRenderer {
     };
     using CI = CreateInfo;
 
+    struct LightingGlobalUniforms {
+        mat4f view;
+        mat4f proj;
+        mat4f view_proj;
+        mat4f inv_view_proj;
+        mat4f sun_light_matrix;
+        vec3f sun_direction;
+        vec3f sun_color;
+    };
+
   public:
     MLE_NO_COPY_MOVE(SceneRenderer)
 
@@ -78,12 +88,13 @@ class SceneRenderer {
     void createGPipeline();
     void createPlanePipeline();
     void createLightingPipeline();
-    void createWDS();
 
     void createCubeMap(const std::string& name);
 
-    void renderCubeMap(RenderingThread& thread);
     void renderSun(RenderingThread& thread, const Frustum& camera_frustum);
+    // void renderGBuffer(RenderingThread& thread);
+    void renderLighting(RenderingThread& thread);
+    void renderCubeMap(RenderingThread& thread);
 
   private:
     Camera camera_;
@@ -93,7 +104,7 @@ class SceneRenderer {
 
     f32 chunk_size_{};
 
-    struct Images {
+    struct {
         ImageHnd albedo;
         ImageHnd normal;
         ImageHnd material;
@@ -104,12 +115,11 @@ class SceneRenderer {
 
     PipelineHnd g_pipeline_;
     PipelineHnd plane_pipeline_;
-    PipelineHnd lighting_pipeline_;
-    vk::Sampler sampler_;
-    vk::DescriptorSetLayout lighting_dsl_;
 
-    std::array<vk::DescriptorImageInfo, 3> lighting_dii_;
-    std::vector<vk::WriteDescriptorSet> lighting_wds_;
+    struct {
+        vk::DescriptorSetLayout dsl;
+        PipelineHnd pipeline;
+    } lighting_;
 
     CubeMap cube_map_;
 
@@ -118,13 +128,13 @@ class SceneRenderer {
         ImageHnd image;
         Color color;
         f32 intensity{1.0F};
-        vec3f direction = glm::normalize(vec3f(0.1F, -1.0F, 0.1F));
+        vec3f direction = glm::normalize(vec3f(0.5F, -1.0F, -0.5F));
+        mat4f matrix{0};
     } sun_;
 
     struct {
         std::vector<std::pair<Polygon3D, Color>> polygons;
         PipelineHnd polygon_pipeline;
-
     } debug_;
 
     void createDebug();

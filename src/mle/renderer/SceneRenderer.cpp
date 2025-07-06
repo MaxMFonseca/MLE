@@ -21,11 +21,10 @@ void SceneRenderer::shutdown() {
 
     detail::waitIdle();
 
-    detail::getDevice().destroy(sampler_);
-    detail::getDevice().destroy(lighting_dsl_);
+    detail::getDevice().destroy(lighting_.dsl);
     g_pipeline_.reset();
     plane_pipeline_.reset();
-    lighting_pipeline_.reset();
+    lighting_.pipeline.reset();
     target_image_.reset();
     g_.albedo.reset();
     g_.normal.reset();
@@ -51,7 +50,7 @@ void SceneRenderer::init(const CI& ci) {
     g_.albedo = Image::createHnd(image_ci);
     g_.normal = Image::createHnd(image_ci);
     g_.material = Image::createHnd(image_ci);
-    image_ci.usage = vk::ImageUsageFlagBits::eDepthStencilAttachment;
+    image_ci.usage = vk::ImageUsageFlagBits::eDepthStencilAttachment | vk::ImageUsageFlagBits::eSampled;
     image_ci.format = getDepthFormat();
     g_.depth = Image::createHnd(image_ci);
 
@@ -64,7 +63,6 @@ void SceneRenderer::init(const CI& ci) {
     createGPipeline();
     createPlanePipeline();
     createLightingPipeline();
-    createWDS();
     createDebug();
 
     createCubeMap(ci.cube_map);
@@ -83,7 +81,7 @@ void SceneRenderer::createSun() {
     MLE_D("Creating sun data");
 
     Image::CI image_ci{};
-    image_ci.extent = {1024, 1024};
+    image_ci.extent = {2048, 2048};
     image_ci.usage = vk::ImageUsageFlagBits::eDepthStencilAttachment | vk::ImageUsageFlagBits::eSampled;
     image_ci.format = getDepthFormat();
     sun_.image = Image::createHnd(image_ci);
@@ -143,8 +141,6 @@ void SceneRenderer::createLightingPipeline() {
     MLE_D("Creating lighting pipeline");
 
     vk::SamplerCreateInfo sampler_ci;
-
-    sampler_ = unwrap(detail::getDevice().createSampler(sampler_ci));
     sampler_ci.magFilter = vk::Filter::eLinear;
     sampler_ci.minFilter = vk::Filter::eLinear;
     sampler_ci.mipmapMode = vk::SamplerMipmapMode::eLinear;
@@ -154,20 +150,64 @@ void SceneRenderer::createLightingPipeline() {
     sampler_ci.maxLod = VK_LOD_CLAMP_NONE;
 
     std::vector<vk::DescriptorSetLayoutBinding> bindings;
-    bindings.resize(3);
-    for (usize i = 0; i < bindings.size(); ++i) {
-        bindings[i].setBinding(i);
-        bindings[i].setDescriptorType(vk::DescriptorType::eCombinedImageSampler);
-        bindings[i].setDescriptorCount(1);
-        bindings[i].setStageFlags(vk::ShaderStageFlagBits::eFragment);
-        bindings[i].setImmutableSamplers(sampler_);
-    }
+    bindings.reserve(6);
+
+    auto linear_sampler = getLinearSampler();
+    // auto nearest_sampler = getNearestSampler();
+    auto shadow_sampler = getShadowSampler();
+
+    // layout(set = 0, binding = 0) uniform sampler2D in_albedo;
+    auto& s00 = bindings.emplace_back();
+    s00.binding = 0;
+    s00.descriptorType = vk::DescriptorType::eCombinedImageSampler;
+    s00.descriptorCount = 1;
+    s00.stageFlags = vk::ShaderStageFlagBits::eFragment;
+    s00.setImmutableSamplers(linear_sampler);
+
+    // layout(set = 0, binding = 1) uniform sampler2D in_normal;
+    auto& s01 = bindings.emplace_back();
+    s01.binding = 1;
+    s01.descriptorType = vk::DescriptorType::eCombinedImageSampler;
+    s01.descriptorCount = 1;
+    s01.stageFlags = vk::ShaderStageFlagBits::eFragment;
+    s01.setImmutableSamplers(linear_sampler);
+
+    // layout(set = 0, binding = 2) uniform sampler2D in_material;
+    auto& s02 = bindings.emplace_back();
+    s02.binding = 2;
+    s02.descriptorType = vk::DescriptorType::eCombinedImageSampler;
+    s02.descriptorCount = 1;
+    s02.stageFlags = vk::ShaderStageFlagBits::eFragment;
+    s02.setImmutableSamplers(linear_sampler);
+
+    // layout(set = 0, binding = 3) uniform sampler2D in_depth;
+    auto& s03 = bindings.emplace_back();
+    s03.binding = 3;
+    s03.descriptorType = vk::DescriptorType::eCombinedImageSampler;
+    s03.descriptorCount = 1;
+    s03.stageFlags = vk::ShaderStageFlagBits::eFragment;
+    s03.setImmutableSamplers(linear_sampler);
+
+    // layout(set = 0, binding = 4) uniform GlobalUniforms globals;
+    auto& s04 = bindings.emplace_back();
+    s04.binding = 4;
+    s04.descriptorType = vk::DescriptorType::eUniformBuffer;
+    s04.descriptorCount = 1;
+    s04.stageFlags = vk::ShaderStageFlagBits::eFragment;
+
+    // layout(set = 0, binding = 5) uniform sampler2DShadow sun_shadow_map;
+    auto& s05 = bindings.emplace_back();
+    s05.binding = 5;
+    s05.descriptorType = vk::DescriptorType::eCombinedImageSampler;
+    s05.descriptorCount = 1;
+    s05.stageFlags = vk::ShaderStageFlagBits::eFragment;
+    s05.setImmutableSamplers(shadow_sampler);
 
     vk::DescriptorSetLayoutCreateInfo dsl_ci;
     dsl_ci.setBindings(bindings);
     dsl_ci.setFlags(vk::DescriptorSetLayoutCreateFlagBits::ePushDescriptorKHR);
 
-    lighting_dsl_ = unwrap(detail::getDevice().createDescriptorSetLayout(dsl_ci));
+    lighting_.dsl = unwrap(detail::getDevice().createDescriptorSetLayout(dsl_ci));
 
     Pipeline::CI pipeline_ci;
     pipeline_ci.vertex_shader = getShader("mle/fs_triangle.vert");
@@ -176,37 +216,10 @@ void SceneRenderer::createLightingPipeline() {
     pipeline_ci.color_attachment_formats.emplace_back(target_image_->getFormat());
     pipeline_ci.blend_attachments = makeDefaultBlendAttachmentStates(1);
     pipeline_ci.topology = vk::PrimitiveTopology::eTriangleList;
-    pipeline_ci.descriptor_set_layouts.emplace_back(lighting_dsl_);
+    pipeline_ci.descriptor_set_layouts.emplace_back(lighting_.dsl);
+    pipeline_ci.depth_bias = true;
 
-    lighting_pipeline_ = Pipeline::createHnd(pipeline_ci);
-}
-
-void SceneRenderer::createWDS() {
-    MLE_D("Creating write descriptor sets for G-Buffer");
-
-    auto& albedo_info = lighting_dii_[0];
-    auto& normal_info = lighting_dii_[1];
-    auto& material_info = lighting_dii_[2];
-
-    albedo_info.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
-    albedo_info.imageView = g_.albedo->getView();
-    normal_info.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
-    normal_info.imageView = g_.normal->getView();
-    material_info.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
-    material_info.imageView = g_.material->getView();
-
-    auto& b0 = lighting_wds_.emplace_back();
-    b0.setImageInfo(lighting_dii_[0]);
-    b0.setDstBinding(0);
-    b0.setDescriptorType(vk::DescriptorType::eCombinedImageSampler);
-    auto& b1 = lighting_wds_.emplace_back();
-    b1.setImageInfo(lighting_dii_[1]);
-    b1.setDstBinding(1);
-    b1.setDescriptorType(vk::DescriptorType::eCombinedImageSampler);
-    auto& b2 = lighting_wds_.emplace_back();
-    b2.setImageInfo(lighting_dii_[2]);
-    b2.setDstBinding(2);
-    b2.setDescriptorType(vk::DescriptorType::eCombinedImageSampler);
+    lighting_.pipeline = Pipeline::createHnd(pipeline_ci);
 }
 
 void SceneRenderer::render() {
@@ -344,36 +357,11 @@ void SceneRenderer::render() {
 
     thread.endRendering();
 
-    g_.albedo->transitionState(thread.cmd(), Image::State::SHADER_READ);
-    g_.normal->transitionState(thread.cmd(), Image::State::SHADER_READ);
-    g_.material->transitionState(thread.cmd(), Image::State::SHADER_READ);
-    target_image_->transitionState(thread.cmd(), Image::State::COLOR_ATT);
-
-    {
-        std::vector<AttachmentInfo> attachments;
-        auto& c0 = attachments.emplace_back();
-        c0.image = target_image_.get();
-        c0.load = vk::AttachmentLoadOp::eClear;
-        c0.store = vk::AttachmentStoreOp::eStore;
-        thread.setColorAttachments(std::move(attachments));
-        thread.setDepthAttachment({});
-    }
-
-    thread.beginRendering();
-
-    thread.setViewport();
-
-    thread.setPipeline(lighting_pipeline_.get());
-
-    thread.pushDescriptor(0, lighting_wds_);
-
-    thread.draw(1, 3);
-
-    thread.endRendering();
+    renderLighting(thread);
 
     renderCubeMap(thread);
 
-    renderDebug(thread, vp);
+    // renderDebug(thread, vp);
 
     thread.submit();
 }
@@ -527,13 +515,124 @@ void SceneRenderer::renderDebug(RenderingThread& thread, const mat4f& vp) {
     }
 }
 
+void SceneRenderer::renderLighting(RenderingThread& thread) {
+    // TODO: FIND A WAY TO MAKE THIS AUTO
+
+    std::vector<vk::WriteDescriptorSet> writes;
+
+    // layout(set = 0, binding = 0) uniform sampler2D in_albedo;
+    g_.albedo->transitionState(thread.cmd(), Image::State::SHADER_READ);
+    vk::DescriptorImageInfo albedo_info;
+    albedo_info.setImageView(g_.albedo->getView());
+    albedo_info.setImageLayout(g_.albedo->getCurrentLayout());
+    auto& b0 = writes.emplace_back();
+    b0.dstBinding = 0;
+    b0.dstArrayElement = 0;
+    b0.descriptorCount = 1;
+    b0.descriptorType = vk::DescriptorType::eCombinedImageSampler;
+    b0.pImageInfo = &albedo_info;
+
+    // layout(set = 0, binding = 1) uniform sampler2D in_normal;
+    g_.normal->transitionState(thread.cmd(), Image::State::SHADER_READ);
+    vk::DescriptorImageInfo normal_info;
+    normal_info.setImageView(g_.normal->getView());
+    normal_info.setImageLayout(g_.normal->getCurrentLayout());
+    auto& b1 = writes.emplace_back();
+    b1.dstBinding = 1;
+    b1.dstArrayElement = 0;
+    b1.descriptorCount = 1;
+    b1.descriptorType = vk::DescriptorType::eCombinedImageSampler;
+    b1.pImageInfo = &normal_info;
+
+    // layout(set = 0, binding = 2) uniform sampler2D in_material;
+    g_.material->transitionState(thread.cmd(), Image::State::SHADER_READ);
+    vk::DescriptorImageInfo material_info;
+    material_info.setImageView(g_.material->getView());
+    material_info.setImageLayout(g_.material->getCurrentLayout());
+    auto& b2 = writes.emplace_back();
+    b2.dstBinding = 2;
+    b2.dstArrayElement = 0;
+    b2.descriptorCount = 1;
+    b2.descriptorType = vk::DescriptorType::eCombinedImageSampler;
+    b2.pImageInfo = &material_info;
+
+    // layout(set = 0, binding = 3) uniform sampler2D in_depth;
+    g_.depth->transitionState(thread.cmd(), Image::State::SHADER_READ);
+    vk::DescriptorImageInfo depth_info;
+    depth_info.setImageView(g_.depth->getView());
+    depth_info.setImageLayout(g_.depth->getCurrentLayout());
+    auto& b3 = writes.emplace_back();
+    b3.dstBinding = 3;
+    b3.dstArrayElement = 0;
+    b3.descriptorCount = 1;
+    b3.descriptorType = vk::DescriptorType::eCombinedImageSampler;
+    b3.pImageInfo = &depth_info;
+
+    // layout(set = 0, binding = 4) uniform GlobalUniforms globals;
+    LightingGlobalUniforms globals{};
+    globals.view = camera_.getView();
+    globals.proj = camera_.getProj();
+    globals.view_proj = camera_.getViewProj();
+    globals.inv_view_proj = glm::inverse(globals.view_proj);
+    globals.sun_light_matrix = sun_.matrix;
+    globals.sun_direction = sun_.direction;
+    globals.sun_color = sun_.color;
+    auto buffer_slice = getHostVisibleBuffer(sizeof(LightingGlobalUniforms), vk::BufferUsageFlagBits::eUniformBuffer);
+    buffer_slice.buffer->update(&globals, buffer_slice.size, buffer_slice.offset);
+    vk::DescriptorBufferInfo globals_info;
+    globals_info.setBuffer(buffer_slice.buffer->getVkHnd());
+    globals_info.setOffset(buffer_slice.offset);
+    globals_info.setRange(buffer_slice.size);
+    auto& b4 = writes.emplace_back();
+    b4.dstBinding = 4;
+    b4.dstArrayElement = 0;
+    b4.descriptorCount = 1;
+    b4.descriptorType = vk::DescriptorType::eUniformBuffer;
+    b4.pBufferInfo = &globals_info;
+
+    // layout(set = 0, binding = 5) uniform sampler2DShadow sun_shadow_map;
+    sun_.image->transitionState(thread.cmd(), Image::State::SHADER_READ);
+    vk::DescriptorImageInfo sun_shadow_info;
+    sun_shadow_info.setImageView(sun_.image->getView());
+    sun_shadow_info.setImageLayout(sun_.image->getCurrentLayout());
+    auto& b5 = writes.emplace_back();
+    b5.dstBinding = 5;
+    b5.dstArrayElement = 0;
+    b5.descriptorCount = 1;
+    b5.descriptorType = vk::DescriptorType::eCombinedImageSampler;
+    b5.pImageInfo = &sun_shadow_info;
+
+    target_image_->transitionState(thread.cmd(), Image::State::COLOR_ATT);
+
+    {
+        std::vector<AttachmentInfo> attachments;
+        auto& c0 = attachments.emplace_back();
+        c0.image = target_image_.get();
+        c0.load = vk::AttachmentLoadOp::eClear;
+        c0.store = vk::AttachmentStoreOp::eStore;
+        thread.setColorAttachments(std::move(attachments));
+        thread.setDepthAttachment({});
+    }
+
+    thread.beginRendering();
+
+    thread.setViewport();
+
+    thread.setPipeline(lighting_.pipeline.get());
+
+    thread.pushDescriptor(0, writes);
+
+    thread.draw(1, 3);
+
+    thread.endRendering();
+}
+
 void SceneRenderer::renderSun(RenderingThread& thread, const Frustum& camera_frustum) {
     auto camera_frustum_inter_y0 = camera_frustum.intersectWithY0();
     auto camera_frustum_inter_y0_xz = camera_frustum_inter_y0.xz();
 
     // Debug
     if (IS_DEBUG_BUILD) {
-        MLE_VC(camera_frustum_inter_y0.vertCount());
         if (camera_frustum_inter_y0.vertCount() != 0) {
             debug_.polygons.emplace_back(camera_frustum_inter_y0, Color::RED.withA(0.3));
 
@@ -564,13 +663,15 @@ void SceneRenderer::renderSun(RenderingThread& thread, const Frustum& camera_fru
         sun_frustum_inter_y0_xz = sun_frustum_inter_y0.xz();
     }
     MLE_T("Final: {}", sun_size);
-    MLE_ASSERT_LOG(sun_frustum_inter_y0_xz.size() == 4, "Check this");
+    MLE_C("Sun position: {}", sun_camera.getPos());
 
     mat4f sun_vp = sun_camera.getViewProj();
+    sun_.matrix = sun_vp;
 
     ///
 
     std::vector<Object> objects;
+    std::vector<std::array<vec2f, 4>> planes;
 
     // cull all chunks that the sun cant see
     for (usize i = 0; i < chunks_.size(); ++i) {
@@ -588,6 +689,7 @@ void SceneRenderer::renderSun(RenderingThread& thread, const Frustum& camera_fru
 
             if (std::ranges::any_of(world_pos,
                                     [&sun_frustum_inter_y0_xz](const vec2f& world_pos) { return isPointInsidePolygon(world_pos, sun_frustum_inter_y0_xz); })) {
+                planes.emplace_back(world_pos);
                 for (const auto& object : chunk.objects) {
                     if (object.second.model->state == UploadState::OK) {
                         auto transform = glm::translate(object.second.transform, {world_pos00.x, 0.0F, world_pos00.y});
@@ -600,6 +702,18 @@ void SceneRenderer::renderSun(RenderingThread& thread, const Frustum& camera_fru
         }
     }
 
+    std::array plane_indices = {0, 1, 2, 0, 2, 3};
+    std::array<PCNVertex, 4> plane_vertices;
+    plane_vertices[0] = {.pos = vec3f{0.0F, 0.0F, 0.0F}, .color = Color::WHITE, .normal = vec3f{0.0F, 1.0F, 0.0F}};
+    plane_vertices[1] = {.pos = vec3f{0.0F, 0.0F, chunk_size_}, .color = Color::WHITE, .normal = vec3f{0.0F, 1.0F, 0.0F}};
+    plane_vertices[2] = {.pos = vec3f{chunk_size_, 0.0F, chunk_size_}, .color = Color::WHITE, .normal = vec3f{0.0F, 1.0F, 0.0F}};
+    plane_vertices[3] = {.pos = vec3f{chunk_size_, 0.0F, 0.0F}, .color = Color::WHITE, .normal = vec3f{0.0F, 1.0F, 0.0F}};
+
+    BufferSlice plane_index_buffer = getHostVisibleBuffer(sizeof(plane_indices), vk::BufferUsageFlagBits::eIndexBuffer);
+    plane_index_buffer.buffer->update(plane_indices.data(), plane_index_buffer.size, plane_index_buffer.offset);
+    BufferSlice plane_vertex_buffer = getHostVisibleBuffer(sizeof(PCNVertex) * 4, vk::BufferUsageFlagBits::eVertexBuffer);
+    plane_vertex_buffer.buffer->update(plane_vertices.data(), plane_vertex_buffer.size, plane_vertex_buffer.offset);
+
     ///
 
     AttachmentInfo sun_depth_attachment{};
@@ -607,6 +721,7 @@ void SceneRenderer::renderSun(RenderingThread& thread, const Frustum& camera_fru
     sun_depth_attachment.load = vk::AttachmentLoadOp::eClear;
     sun_depth_attachment.store = vk::AttachmentStoreOp::eStore;
     sun_depth_attachment.clear_value.setDepthStencil({1.0F, 0});
+    sun_.image->transitionState(thread.cmd(), Image::State::DEPTH_ATT);
     thread.setDepthAttachment(sun_depth_attachment);
     thread.setColorAttachments({});
 
@@ -630,6 +745,21 @@ void SceneRenderer::renderSun(RenderingThread& thread, const Frustum& camera_fru
 
             thread.drawIndexed(1, mesh.index_count);
         }
+    }
+
+    thread.bindVertexBuffer(plane_vertex_buffer.buffer, plane_vertex_buffer.offset);
+    thread.bindIndexBuffer(plane_index_buffer.buffer, plane_index_buffer.offset);
+
+    for (const auto& plane : planes) {
+        struct {
+            mat4f mvp;
+        } pc{};
+
+        pc.mvp = sun_vp;
+        pc.mvp = glm::translate(pc.mvp, {plane[0].x, 0.0F, plane[0].y});
+
+        thread.pushConstants(&pc);
+        thread.drawIndexed(1, 6, 0);
     }
 
     thread.endRendering();
