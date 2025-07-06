@@ -70,4 +70,7 @@ constexpr u64 sizeOf(DataType t) {
     MLE_UNREACHABLE_LOG("Unsuported sizeof data type {}", t);
 }
 
+constexpr u64 alignUp(u64 value, u64 alignment) {
+    return (value + alignment - 1) & ~(alignment - 1);
+}
 }  // namespace mle::renderer

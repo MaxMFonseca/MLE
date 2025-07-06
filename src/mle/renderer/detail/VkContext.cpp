@@ -492,4 +492,17 @@ void VkContext::logDevice() {
     }
 }
 
+u64 VkContext::getAlignForBufferUsage(vk::BufferUsageFlags flags) const {
+    const auto& limits = p_device_.properties.limits;
+
+    if (flags & vk::BufferUsageFlagBits::eUniformBuffer) {
+        return limits.minUniformBufferOffsetAlignment;
+    }
+
+    if (flags & vk::BufferUsageFlagBits::eStorageBuffer) {
+        return limits.minStorageBufferOffsetAlignment;
+    }
+
+    return 1;
+}
 }  // namespace mle::renderer::detail

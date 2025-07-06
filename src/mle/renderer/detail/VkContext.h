@@ -36,6 +36,9 @@ class VkContext {
     [[nodiscard]] auto getColorFormat() const { return color_format_; }        ///< Returns the color format used by the renderer.
     [[nodiscard]] auto getDepthFormat() const { return depth_format_; }        ///< Returns the depth format used by the renderer.
 
+    /// Returns the minimum align for buffers
+    [[nodiscard]] u64 getAlignForBufferUsage(vk::BufferUsageFlags flags) const;
+
     /// Returns the timestamp period of the physical device.
     [[nodiscard]] auto getTimestampPeriod() const { return p_device_.properties.limits.timestampPeriod; }
 
