@@ -36,6 +36,7 @@ class Pipeline final : public LiveCounter<Pipeline> {
         std::vector<vk::DescriptorSetLayout> descriptor_set_layouts;  ///< Descriptor set layouts used by the pipeline.
         bool depth = false;                                           ///< Whether depth testing is enabled.
         bool depth_write = true;                                      ///< Whether depth writes are enabled.
+        bool depth_bias = false;
     };
 
     using CI = CreateInfo;  ///< Alias for CreateInfo.

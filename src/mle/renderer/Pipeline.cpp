@@ -93,6 +93,10 @@ void Pipeline::initGraphicsPipeline(const CI& ci) {
     rasterization_state_ci.lineWidth = 1.0F;
     rasterization_state_ci.depthClampEnable = vk::False;
     rasterization_state_ci.rasterizerDiscardEnable = vk::False;
+    rasterization_state_ci.depthBiasEnable = ci.depth_bias ? vk::True : vk::False;
+    rasterization_state_ci.depthBiasConstantFactor = 1.25F;
+    rasterization_state_ci.depthBiasSlopeFactor = 1.75F;
+    rasterization_state_ci.depthBiasClamp = 0.0F;
     pipeline_ci.setPRasterizationState(&rasterization_state_ci);
 
     MLE_T("Multisample state");
