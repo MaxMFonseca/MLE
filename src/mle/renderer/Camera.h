@@ -50,6 +50,8 @@ class Camera {
     mat4f getProj();
     mat4f getViewProj();
 
+    auto getPos() { return eye_; }
+
     Frustum getFrustum() { return Frustum{getViewProj()}; }
 
   private:
