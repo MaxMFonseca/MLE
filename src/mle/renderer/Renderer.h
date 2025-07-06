@@ -78,8 +78,6 @@ vk::DescriptorSetLayout getTexturesDescriptorSetLayout();  ///< Returns the desc
 
 void bindTexturesDSet(RenderingThread& thread);
 
-vk::Sampler getDefaultSampler();
-
 vk::CommandBuffer getOTSCmd(CmdType cmd_type);
 void submitOTSWait(CmdType cmd_type, vk::CommandBuffer cmd);
 void submitOTSAsync(CmdType cmd_type, vk::CommandBuffer cmd, std::move_only_function<void(void)>&& callback = {});
@@ -87,6 +85,10 @@ void submitOTSAsync(CmdType cmd_type, vk::SubmitInfo2 submit_info, std::move_onl
 
 vk::CommandBuffer getFrameSecondaryCmd();
 void submitJobOnFrame(vk::CommandBuffer cmd);
+
+vk::Sampler getLinearSampler();   ///< Returns the linear sampler used by the renderer.
+vk::Sampler getNearestSampler();  ///< Returns the nearest sampler used by the renderer.
+vk::Sampler getShadowSampler();   ///< Returns the shadow sampler used by the renderer.
 
 namespace detail {
 ED& getED();                                  ///< Returns the event dispatcher instance for the renderer.

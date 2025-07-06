@@ -240,7 +240,7 @@ vk::DescriptorSetLayout CubeMap::getDescriptorSetLayout() {
         binding.setDescriptorType(vk::DescriptorType::eCombinedImageSampler);
         binding.setDescriptorCount(1);
         binding.setStageFlags(vk::ShaderStageFlagBits::eFragment);
-        auto sampler = renderer::getDefaultSampler();
+        auto sampler = getLinearSampler();
         binding.setImmutableSamplers(sampler);
 
         vk::DescriptorSetLayoutCreateInfo dsl_ci = {};

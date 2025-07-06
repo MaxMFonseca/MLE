@@ -20,12 +20,14 @@
 #include "mle/renderer/detail/ShaderCache.h"
 #include "mle/renderer/detail/TextureCache.h"
 #include "mle/window/Window.h"
+#include "sol/stack_core.hpp"
 
 namespace mle::renderer {
 namespace {
 class Impl {
   public:
     inline void init();
+    void createSamplers();  ///< Creates default samplers for the renderer.
     inline void shutdown();
     void addOnShutdown(std::function<void(void)>&& func);
 
@@ -44,6 +46,9 @@ class Impl {
     auto& getShaderCache() { return shader_cache_; }                 ///< Returns the shader cache for managing shaders.
     auto& getTextureCache() { return texture_cache_; }               ///< Returns the texture cache for managing textures.
     auto& getModelCache() { return model_cache_; }                   ///< Returns the model cache for managing 3D models.
+    auto getNearesSample() { return nearest_sampler_; }
+    auto getLinearSampler() { return linear_sampler_; }
+    auto getShadowSampler() { return shadow_sampler_; }
 
     CommandPool& getOTSPool(CmdType type);
     vk::CommandBuffer getOTSCmd(CmdType type);
@@ -65,6 +70,10 @@ class Impl {
     detail::ModelCache model_cache_;
 
     std::vector<std::function<void(void)>> shutdown_delete_stack_;
+
+    vk::Sampler linear_sampler_{};
+    vk::Sampler nearest_sampler_{};
+    vk::Sampler shadow_sampler_{};
 };
 std::unique_ptr<Impl> i_;  // NOLINT
 
@@ -97,7 +106,68 @@ void Impl::init() {
 
     shutdown_delete_stack_.emplace_back([this]() { fence_pool_.reset(); });
 
+    createSamplers();
+
     MLE_I("Renderer initialized successfully!");
+}
+
+void Impl::createSamplers() {
+    MLE_I("Creating default samplers");
+
+    vk::SamplerCreateInfo linear_sampler_ci{};
+    linear_sampler_ci.magFilter = vk::Filter::eLinear;
+    linear_sampler_ci.minFilter = vk::Filter::eLinear;
+    linear_sampler_ci.mipmapMode = vk::SamplerMipmapMode::eLinear;
+    linear_sampler_ci.addressModeU = vk::SamplerAddressMode::eRepeat;
+    linear_sampler_ci.addressModeV = vk::SamplerAddressMode::eRepeat;
+    linear_sampler_ci.addressModeW = vk::SamplerAddressMode::eRepeat;
+    linear_sampler_ci.anisotropyEnable = vk::False;
+    linear_sampler_ci.borderColor = vk::BorderColor::eFloatOpaqueWhite;
+    linear_sampler_ci.compareEnable = vk::False;
+    linear_sampler_ci.maxLod = VK_LOD_CLAMP_NONE;
+    linear_sampler_ci.maxAnisotropy = 1.0F;
+
+    MLE_T("Creating linear sampler");
+    linear_sampler_ = unwrap(getDevice().createSampler(linear_sampler_ci));
+
+    vk::SamplerCreateInfo nearest_sampler_ci{};
+    nearest_sampler_ci.magFilter = vk::Filter::eNearest;
+    nearest_sampler_ci.minFilter = vk::Filter::eNearest;
+    nearest_sampler_ci.mipmapMode = vk::SamplerMipmapMode::eNearest;
+    nearest_sampler_ci.addressModeU = vk::SamplerAddressMode::eRepeat;
+    nearest_sampler_ci.addressModeV = vk::SamplerAddressMode::eRepeat;
+    nearest_sampler_ci.addressModeW = vk::SamplerAddressMode::eRepeat;
+    nearest_sampler_ci.anisotropyEnable = vk::False;
+    nearest_sampler_ci.borderColor = vk::BorderColor::eFloatOpaqueWhite;
+    nearest_sampler_ci.compareEnable = vk::False;
+    nearest_sampler_ci.maxLod = VK_LOD_CLAMP_NONE;
+    nearest_sampler_ci.maxAnisotropy = 1.0F;
+
+    MLE_T("Creating nearest sampler");
+    nearest_sampler_ = unwrap(getDevice().createSampler(nearest_sampler_ci));
+
+    vk::SamplerCreateInfo shadow_sampler_ci{};
+    shadow_sampler_ci.magFilter = vk::Filter::eLinear;
+    shadow_sampler_ci.minFilter = vk::Filter::eLinear;
+    shadow_sampler_ci.mipmapMode = vk::SamplerMipmapMode::eLinear;
+    shadow_sampler_ci.addressModeU = vk::SamplerAddressMode::eClampToBorder;
+    shadow_sampler_ci.addressModeV = vk::SamplerAddressMode::eClampToBorder;
+    shadow_sampler_ci.addressModeW = vk::SamplerAddressMode::eClampToBorder;
+    shadow_sampler_ci.anisotropyEnable = vk::False;
+    shadow_sampler_ci.borderColor = vk::BorderColor::eFloatOpaqueBlack;
+    shadow_sampler_ci.compareEnable = vk::True;
+    shadow_sampler_ci.compareOp = vk::CompareOp::eLessOrEqual;
+    shadow_sampler_ci.maxLod = VK_LOD_CLAMP_NONE;
+    shadow_sampler_ci.maxAnisotropy = 1.0F;
+
+    MLE_T("Creating shadow sampler");
+    shadow_sampler_ = unwrap(getDevice().createSampler(shadow_sampler_ci));
+
+    addOnShutdown([this]() {
+        getDevice().destroy(linear_sampler_);
+        getDevice().destroy(nearest_sampler_);
+        getDevice().destroy(shadow_sampler_);
+    });
 }
 
 void Impl::shutdown() {
@@ -300,11 +370,20 @@ void submitJobOnFrame(vk::CommandBuffer cmd) {
     i_->getFrameRenderer().submitJob(cmd);
 }
 
-vk::Sampler getDefaultSampler() {
+vk::Sampler getLinearSampler() {
     MLE_ASSERT(i_);
-    return i_->getTextureCache().getDefaultSampler();
+    return i_->getLinearSampler();
 }
 
+vk::Sampler getNearestSampler() {
+    MLE_ASSERT(i_);
+    return i_->getNearesSample();
+}
+
+vk::Sampler getShadowSampler() {
+    MLE_ASSERT(i_);
+    return i_->getShadowSampler();
+}
 namespace detail {
 ED& getED() {
     MLE_ASSERT(i_);
