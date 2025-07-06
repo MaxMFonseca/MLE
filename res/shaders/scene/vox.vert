@@ -14,5 +14,5 @@ layout(push_constant) uniform PushConstants {
 void main() {
     gl_Position = pc.mvp * vec4(in_position, 1.0);
     out_color = in_color;
-    out_normal = in_normal;
+    out_normal = (in_normal + 1) / 2;
 }
