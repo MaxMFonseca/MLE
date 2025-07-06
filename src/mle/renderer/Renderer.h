@@ -6,6 +6,7 @@
 #pragma once
 
 #include "Events.h"
+#include "Pipeline.h"
 #include "Types.h"
 #include "mle/common/Result.h"
 #include "mle/renderer/detail/TextureCache.h"
@@ -92,6 +93,12 @@ vk::Sampler getShadowSampler();   ///< Returns the shadow sampler used by the re
 
 BufferSlice getHostVisibleBuffer(usize size, vk::BufferUsageFlags usage);  ///< Gets a slice of a host-visible buffer for the current frame.
 
+/// Add a named pipeline to the renderer.
+PipelineRef setPipeline(const std::string& name, const Pipeline::CI& pipeline_ci);
+
+/// Returns a named pipelne
+PipelineRef getPipeline(const std::string& name);
+
 namespace detail {
 ED& getED();                                  ///< Returns the event dispatcher instance for the renderer.
 VkContext& getVk();                           ///< Returns the Vulkan context instance.
@@ -108,4 +115,12 @@ template <typename T>
 void destroy(T t) {
     detail::getDevice().destroy(t);
 }
+
+template <typename T>
+void destroyVkObjOnFrameEnd(T t) {
+    if (t != nullptr) {
+        addToCallOnFrameEnd([t]() { destroy(t); });
+    }
+}
+
 }  // namespace mle::renderer

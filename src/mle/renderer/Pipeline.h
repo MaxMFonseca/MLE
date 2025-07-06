@@ -67,6 +67,9 @@ class Pipeline final : public LiveCounter<Pipeline> {
      */
     void init(const CI& ci);
 
+    /// Resets the pipeline to an uninitialized state.
+    void reset();
+
     /// Returns the Vulkan pipeline object.
     [[nodiscard]] auto get() const { return o_; }
     /// Returns the Vulkan pipeline object.

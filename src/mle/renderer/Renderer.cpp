@@ -1,7 +1,5 @@
 #include "Renderer.h"
 
-#include <vulkan/vk_enum_string_helper.h>
-
 #include <ranges>
 #include <vulkan/vulkan_handles.hpp>
 
@@ -17,6 +15,7 @@
 #include "mle/renderer/detail/CommandPoolManager.h"
 #include "mle/renderer/detail/FrameRenderer.h"
 #include "mle/renderer/detail/ModelCache.h"
+#include "mle/renderer/detail/PipelineCache.h"
 #include "mle/renderer/detail/ShaderCache.h"
 #include "mle/renderer/detail/TextureCache.h"
 #include "mle/window/Window.h"
@@ -46,6 +45,7 @@ class Impl {
     auto& getShaderCache() { return shader_cache_; }                 ///< Returns the shader cache for managing shaders.
     auto& getTextureCache() { return texture_cache_; }               ///< Returns the texture cache for managing textures.
     auto& getModelCache() { return model_cache_; }                   ///< Returns the model cache for managing 3D models.
+    auto& getPipelineCache() { return pipeline_cache_; }
     auto getNearesSample() { return nearest_sampler_; }
     auto getLinearSampler() { return linear_sampler_; }
     auto getShadowSampler() { return shadow_sampler_; }
@@ -68,6 +68,7 @@ class Impl {
     detail::ShaderCache shader_cache_;
     detail::TextureCache texture_cache_;
     detail::ModelCache model_cache_;
+    detail::PipelineCache pipeline_cache_;
 
     std::vector<std::function<void(void)>> shutdown_delete_stack_;
 
@@ -103,6 +104,9 @@ void Impl::init() {
 
     model_cache_.init();
     shutdown_delete_stack_.emplace_back([this]() { model_cache_.reset(); });
+
+    pipeline_cache_.init();
+    shutdown_delete_stack_.emplace_back([this]() { pipeline_cache_.shutdown(); });
 
     shutdown_delete_stack_.emplace_back([this]() { fence_pool_.reset(); });
 
@@ -234,7 +238,6 @@ void Impl::submitOTSAsync(CmdType cmd_type, vk::CommandBuffer cmd, std::move_onl
 void Impl::submitOTSAsync(CmdType cmd_type, vk::SubmitInfo2 submit_info, std::move_only_function<void(void)>&& callback) {
     getOTSPool(cmd_type).submitAsync(submit_info, std::move(callback));
 }
-
 }  // namespace
 
 void init([[maybe_unused]] const CI& ci) {
@@ -388,6 +391,16 @@ vk::Sampler getShadowSampler() {
 BufferSlice getHostVisibleBuffer(usize size, vk::BufferUsageFlags usage) {
     MLE_ASSERT(i_);
     return i_->getFrameRenderer().getHostVisibleBuffer(size, usage);
+}
+
+PipelineRef setPipeline(const std::string& name, const Pipeline::CI& pipeline_ci) {
+    MLE_ASSERT(i_);
+    return i_->getPipelineCache().setPipeline(name, pipeline_ci);
+}
+
+PipelineRef getPipeline(const std::string& name) {
+    MLE_ASSERT(i_);
+    return i_->getPipelineCache().getPipeline(name);
 }
 
 namespace detail {

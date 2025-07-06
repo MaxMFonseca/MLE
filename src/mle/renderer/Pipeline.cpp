@@ -18,6 +18,10 @@ PipelineHnd Pipeline::createHnd(const CI& ci) {
 }
 
 void Pipeline::init(const CI& ci) {
+    if (o_) {
+        reset();
+    }
+
     MLE_D("Building pipeline");
 
     MLE_ASSERT(ci.vertex_shader || ci.fragment_shader || ci.compute_shader);
@@ -203,13 +207,23 @@ void Pipeline::initComputePipeline(const CI& ci) {
     MLE_T("Compute pipeline created successfully");
 }
 
+void Pipeline::reset() {
+    destroyVkObjOnFrameEnd(o_);
+    destroyVkObjOnFrameEnd(pipeline_layout_);
+    o_ = nullptr;
+    pipeline_layout_ = nullptr;
+
+    first_instance_binding_ = max<u8>();
+    pc_size_ = 0;
+    pc_frag_offset_ = max<u8>();
+    pc_fields_.clear();
+    compute_ = false;
+
+    MLE_T("Pipeline reset successfully");
+}
+
 Pipeline::~Pipeline() {
-    if (pipeline_layout_) {
-        detail::getDevice().destroy(pipeline_layout_);
-    }
-    if (o_) {
-        detail::getDevice().destroy(o_);
-    }
+    reset();
 }
 
 void Pipeline::createPipelineLayout(const CI& ci) {
