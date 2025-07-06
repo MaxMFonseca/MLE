@@ -90,6 +90,8 @@ vk::Sampler getLinearSampler();   ///< Returns the linear sampler used by the re
 vk::Sampler getNearestSampler();  ///< Returns the nearest sampler used by the renderer.
 vk::Sampler getShadowSampler();   ///< Returns the shadow sampler used by the renderer.
 
+BufferSlice getHostVisibleBuffer(usize size, vk::BufferUsageFlags usage);  ///< Gets a slice of a host-visible buffer for the current frame.
+
 namespace detail {
 ED& getED();                                  ///< Returns the event dispatcher instance for the renderer.
 VkContext& getVk();                           ///< Returns the Vulkan context instance.

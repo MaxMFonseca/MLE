@@ -284,6 +284,7 @@ Result FrameRenderer::beginFrame() {
 
     next_frame.delete_buffers.clear();
     next_frame.delete_images.clear();
+    next_frame.host_visible_buffers.clear();
 
     for (auto& it : std::ranges::reverse_view(next_frame.delete_stack)) {
         it();
@@ -411,5 +412,28 @@ vk::CommandBuffer FrameRenderer::getCmdSecondary() {
     f.secondary_cmds.push_back(cmd);
     f.secondary_cmds_idx++;
     return cmd;
+}
+
+BufferSlice FrameRenderer::getHostVisibleBuffer(usize size, vk::BufferUsageFlags usage) {
+    auto& f = getCurrentFrame();
+    usage |= vk::BufferUsageFlagBits::eTransferSrc | vk::BufferUsageFlagBits::eTransferDst;
+    auto& buffers = f.host_visible_buffers[usage];
+
+    usize alignment = detail::getVk().getAlignForBufferUsage(usage);
+
+    for (auto& buffer : buffers) {
+        if (buffer.second + size <= buffer.first->getSize()) {
+            BufferSlice ret{.buffer = buffer.first.get(), .size = size, .offset = buffer.second};
+            buffer.second = alignUp(buffer.second + size, alignment);
+            return ret;
+        }
+    }
+
+    Buffer::CI buffer_ci{};
+    buffer_ci.size = std::max(size, MIN_FRAME_HOST_VISIBLE_SIZE);
+    buffer_ci.usage = usage;
+    buffer_ci.allocation_type = Buffer::CI::AllocationType::GPU_ONLY_HOST_WRITE_SEQ;
+    auto& er = buffers.emplace_back(Buffer::createHnd(buffer_ci), alignUp(size, alignment));
+    return BufferSlice{.buffer = er.first.get(), .size = size, .offset = 0};
 }
 }  // namespace mle::renderer::detail

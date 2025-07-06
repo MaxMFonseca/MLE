@@ -46,6 +46,12 @@ class Buffer;
 using BufferHnd = std::unique_ptr<Buffer>;
 using BufferRef = Buffer*;
 
+struct BufferSlice {
+    BufferRef buffer{};
+    vk::DeviceSize size = 0;
+    vk::DeviceSize offset = 0;
+};
+
 class Image;
 using ImageHnd = std::unique_ptr<Image>;
 using ImageRef = Image*;

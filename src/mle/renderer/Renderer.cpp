@@ -384,6 +384,12 @@ vk::Sampler getShadowSampler() {
     MLE_ASSERT(i_);
     return i_->getShadowSampler();
 }
+
+BufferSlice getHostVisibleBuffer(usize size, vk::BufferUsageFlags usage) {
+    MLE_ASSERT(i_);
+    return i_->getFrameRenderer().getHostVisibleBuffer(size, usage);
+}
+
 namespace detail {
 ED& getED() {
     MLE_ASSERT(i_);

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <map>
+
 #include "mle/renderer/Buffer.h"
 #include "mle/renderer/Consts.h"
 #include "mle/renderer/Image.h"
@@ -22,6 +24,7 @@ struct FrameData {
     std::vector<std::function<void(void)>> delete_stack;  ///< Functions to call at the end of the frame to clean up resources.
     std::vector<BufferHnd> delete_buffers{};              ///< Buffers to delete at the end of the frame.
     std::vector<ImageHnd> delete_images{};                ///< Images to delete at the end of the frame.
+    std::map<vk::BufferUsageFlags, std::vector<std::pair<BufferHnd, usize>>> host_visible_buffers;  ///< Host-visible buffers allocated for this frame.
 };
 
 class FrameRenderer final {
@@ -47,6 +50,8 @@ class FrameRenderer final {
     void addToCallOnFrameEnd(std::function<void(void)>&& func) { getCurrentFrame().delete_stack.emplace_back(std::move(func)); }
     void deleteAfterFrame(BufferHnd&& buffer) { getCurrentFrame().delete_buffers.emplace_back(std::move(buffer)); }
     void deleteAfterFrame(ImageHnd&& image) { getCurrentFrame().delete_images.emplace_back(std::move(image)); }
+
+    BufferSlice getHostVisibleBuffer(usize size, vk::BufferUsageFlags usage);
 
   private:
     void initFramesData();
