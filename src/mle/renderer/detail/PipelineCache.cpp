@@ -51,7 +51,7 @@ Pipeline::CI sceneLightingCI() {
     ci.color_attachment_formats.emplace_back(getDefaultColorFormat());
     ci.blend_attachments = makeDefaultBlendAttachmentStates(1);
     ci.topology = vk::PrimitiveTopology::eTriangleList;
-    ci.depth_bias = true;
+    // ci.depth_bias = true;
     ci.cull_mode = vk::CullModeFlagBits::eNone;
     return ci;
 }

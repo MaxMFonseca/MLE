@@ -39,7 +39,9 @@ class SceneRenderer {
         mat4f inv_view_proj;
         mat4f sun_light_mtx;
         vec3f sun_dir;
+        f32 pad0{0.123};
         vec3f sun_color;
+        f32 sun_intensity{1.0F};
     };
 
     struct Chunk {
@@ -62,8 +64,8 @@ class SceneRenderer {
 
     struct Dimension {
         std::array<WorldView, MAX_LOADED_WORLD_VIEWS> world_views;  // ring buffer
-        Color plane_color{0U, 1, 0};
-        Color sun_color{1U, 1, 1};
+        vec3f plane_color{0U, 1, 0};
+        vec3f sun_color{1U, 1, 1};
         f32 sun_intensity{1.0F};
         vec3f sun_dir{1.F, -1.0F, -1.F};
     };

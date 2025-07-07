@@ -30,14 +30,15 @@ void SceneRenderer::init(const CI& ci) {
     camera_.setProjType(Camera::ProjType::PERSPECTIVE);
     camera_.setAspect(static_cast<f32>(ci.image_extent.x) / static_cast<f32>(ci.image_extent.y));
     camera_.setFov(60.0F);
-    camera_.setNear(0.1F);
-    camera_.setFar(100.0F);
+    camera_.setNear(1.F);
+    camera_.setFar(200.0F);
     camera_.setEye({0.0F, 5.0F, -5.0F});
     camera_.setTarget({0.0F, 0.0F, 0.0F});
     camera_.setUp({0, 1, 0});
 
     initSun();
     initG(ci);
+    initPlane();
     initSun();
     initLighting(ci);
     initCubeMap(ci);
@@ -262,14 +263,14 @@ void SceneRenderer::renderSun(RenderingData& rdata) {  // NOLINT
 
         rdata.thread.pushConstants(&pc);
 
-        int transforms_offset = 0;
+        usize transforms_offset = transforms_buffer.offset;
         for (const auto& model_type : rdata.rendered_objs) {
             if (model_type.first->state != UploadState::OK) {
                 continue;
             }
 
-            rdata.thread.bindInstanceBuffer(transforms_buffer.buffer, transforms_buffer.offset + transforms_offset);
-            transforms_offset += static_cast<int>(sizeof(mat4f) * model_type.second.size());
+            rdata.thread.bindInstanceBuffer(transforms_buffer.buffer, transforms_offset);
+            transforms_offset += sizeof(mat4f) * model_type.second.size();
 
             for (const auto& mesh : model_type.first->meshes) {
                 rdata.thread.bindVertexBuffer(mesh.vertex_buffer.get());
@@ -328,14 +329,14 @@ void SceneRenderer::renderGBuffer(RenderingData& rdata) {
 
         rdata.thread.pushConstants(&pc);
 
-        int transforms_offset = 0;
+        usize transforms_offset = transforms_buffer.offset;
         for (auto& model_type : rdata.rendered_objs) {
             if (model_type.first->state != UploadState::OK) {
                 continue;
             }
 
-            rdata.thread.bindInstanceBuffer(transforms_buffer.buffer, transforms_buffer.offset + transforms_offset);
-            transforms_offset += static_cast<int>(sizeof(mat4f) * model_type.second.size());
+            rdata.thread.bindInstanceBuffer(transforms_buffer.buffer, transforms_offset);
+            transforms_offset += sizeof(mat4f) * model_type.second.size();
 
             for (const auto& mesh : model_type.first->meshes) {
                 rdata.thread.bindVertexBuffer(mesh.vertex_buffer.get());
@@ -343,6 +344,30 @@ void SceneRenderer::renderGBuffer(RenderingData& rdata) {
 
                 rdata.thread.drawIndexed(as<int>(model_type.second.size()), mesh.index_count, 0);
             }
+        }
+    }
+
+    if (!rdata.rendered_planes.empty()) {
+        rdata.thread.setPipeline(pipelines_.plane);
+
+        struct {
+            mat4f vp;
+            vec2f grid_pos;
+            vec2f plane_size{CHUNK_SIZE};
+            vec3f color = {0, 1, 0};
+            int plane_divisions = 10;
+        } pc{};
+        pc.vp = rdata.view_proj;
+        pc.color = rdata.dim.plane_color;
+        pc.plane_divisions = CHUNK_SIZE * 10;
+
+        for (auto& p : rdata.rendered_planes) {
+            pc.grid_pos.x = as<f32>(p.x);
+            pc.grid_pos.y = as<f32>(p.y);
+            pc.grid_pos *= CHUNK_SIZE;
+
+            rdata.thread.pushConstants(&pc);
+            rdata.thread.draw(1, 4);
         }
     }
 
@@ -626,6 +651,7 @@ void SceneRenderer::renderLighting(RenderingData& rdata) {
     globals.sun_light_mtx = rdata.sun_vp;
     globals.sun_dir = rdata.dim.sun_dir;
     globals.sun_color = rdata.dim.sun_color;
+    globals.sun_intensity = rdata.dim.sun_intensity;
     auto buffer_slice = getHostVisibleBuffer(sizeof(LightingUBO), vk::BufferUsageFlagBits::eUniformBuffer);
     buffer_slice.buffer->update(&globals, buffer_slice.size, buffer_slice.offset);
     vk::DescriptorBufferInfo globals_info;

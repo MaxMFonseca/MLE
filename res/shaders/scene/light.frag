@@ -15,6 +15,7 @@ layout(set = 0, binding = 4) uniform GlobalUniforms {
     mat4 sun_light_matrix;
     vec3 sun_direction;
     vec3 sun_color;
+    float sun_intensity;
 } globals;
 
 layout(set = 0, binding = 5) uniform sampler2DShadow in_sun_shadow_map;
@@ -33,14 +34,27 @@ vec3 computeShadowUV(vec3 world_pos) {
 
     vec3 shadow_uv;
     shadow_uv.xy = ndc.xy * 0.5 + 0.5;
-    shadow_uv.z = ndc.z - 0.003; 
+    shadow_uv.z = ndc.z;
     return shadow_uv;
+}
+
+float shadowPCF(vec3 shadow_uv, float bias) {
+    float shadow = 0.0;
+
+    int kernel_size = 5;
+    int half_kernel = kernel_size / 2;
+
+    vec2 texel_size = 1.0 / textureSize(in_sun_shadow_map, 0);
+    for (int x = -half_kernel; x <= half_kernel; ++x)
+        for (int y = -half_kernel; y <= half_kernel; ++y) {
+            vec2 offset = vec2(x, y) * texel_size;
+            shadow += texture(in_sun_shadow_map, vec3(shadow_uv.xy + offset, shadow_uv.z - bias));
+        }
+    return shadow / (kernel_size * kernel_size);
 }
 
 void main() {
     vec3 albedo = texture(in_albedo, in_uv).rgb;
-    out_color = vec4(albedo, 1.0);
-    return;
     vec3 normal = normalize(texture(in_normal, in_uv).xyz * 2.0 - 1.0);
     float depth = texture(in_depth, in_uv).r;
 
@@ -51,9 +65,9 @@ void main() {
     float shadow = 1.0;
     if (all(greaterThanEqual(shadow_uv.xy, vec2(0.0))) &&
         all(lessThanEqual(shadow_uv.xy, vec2(1.0)))) {
-        shadow = texture(in_sun_shadow_map, shadow_uv);
+        shadow = shadowPCF(shadow_uv, 0.0017);
     }
 
-    vec3 lighting = albedo * max(globals.sun_color * shadow, vec3(0.05, 0.05, 0.05));
+    vec3 lighting = albedo * globals.sun_color * max(globals.sun_intensity * shadow, 0.03);
     out_color = vec4(lighting, 1.0);
 }

@@ -9,7 +9,6 @@ layout(location = 2) out vec4 out_material;
 layout(push_constant) uniform PushConstants {
     layout(offset = 80)
     vec3 color;
-    vec3 color2;
     int plane_divisions;
 } pc;
 
@@ -22,10 +21,9 @@ float N21(vec2 p) {
 
 void main() {
     vec2 plane_divisions = floor(in_uv * pc.plane_divisions) / pc.plane_divisions;
-    float fcolor = N21(plane_divisions) * 0.3 + 0.7;
-    vec3 color = mix(pc.color, pc.color2, in_uv.y);
+    float fcolor = N21(plane_divisions) * 0.5 + 0.5;
 
-    out_albedo = vec4(fcolor * color, 1.0);
+    out_albedo = vec4(fcolor * pc.color, 1.0);
     out_normal = vec4(0.0, 1.0, 0.0, 0.0);
     out_material = vec4(0.0, 0.0, 0.0, 1.0);
 }
