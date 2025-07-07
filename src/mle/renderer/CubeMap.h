@@ -22,7 +22,6 @@ class CubeMap {
     static BufferRef getIndexBuffer();
     static int getIndexCount();
     static vk::DescriptorSetLayout getDescriptorSetLayout();
-    static PipelineRef getPipeline();
 
   private:
     vk::Image o_;

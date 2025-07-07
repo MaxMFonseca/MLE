@@ -13,7 +13,7 @@ class PipelineCache final {
     ~PipelineCache() = default;
 
     void init();
-    void shutdown() { pipelines_.clear(); }
+    void shutdown();
 
     PipelineRef setPipeline(const std::string& name, const Pipeline::CI& pipeline_ci);
     PipelineRef getPipeline(const std::string& name);

@@ -236,8 +236,6 @@ ModelRef ModelCache::add(const std::string& name, const UploadModelData& model_d
 
         Buffer::CI vertex_ci{};
         vertex_ci.size = vertices.size() * sizeof(PCNVertex);
-        MLE_VC(vertices.size());
-        MLE_VC(vertex_ci.size);
         vertex_ci.usage = vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst;
         vertex_ci.allocation_type = Buffer::CI::AllocationType::GPU_ONLY;
         model_mesh.vertex_buffer = Buffer::createHnd(vertex_ci);

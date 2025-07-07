@@ -253,22 +253,4 @@ vk::DescriptorSetLayout CubeMap::getDescriptorSetLayout() {
     return dsl;
 }
 
-PipelineRef CubeMap::getPipeline() {
-    static PipelineHnd pipeline = nullptr;
-    if (!pipeline) {
-        Pipeline::CI pipeline_ci;
-        pipeline_ci.vertex_shader = getShader("mle/scene/skybox.vert");
-        pipeline_ci.fragment_shader = getShader("mle/scene/skybox.frag");
-        pipeline_ci.depth = true;
-        pipeline_ci.depth_write = true;
-        pipeline_ci.color_attachment_formats.emplace_back(getDefaultColorFormat());
-        pipeline_ci.blend_attachments = makeDefaultBlendAttachmentStates(1, false);
-        pipeline_ci.topology = vk::PrimitiveTopology::eTriangleList;
-        pipeline_ci.descriptor_set_layouts.emplace_back(getDescriptorSetLayout());
-        pipeline_ci.cull_mode = vk::CullModeFlagBits::eNone;
-        pipeline = Pipeline::createHnd(pipeline_ci);
-        renderer::addOnShutdown([&]() { pipeline.reset(); });
-    }
-    return pipeline.get();
-}
 }  // namespace mle::renderer

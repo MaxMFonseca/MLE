@@ -11,6 +11,8 @@ Pipeline::CI sceneVoxCI() {
     ci.fragment_shader = getShader("mle/scene/vox.frag");
     ci.depth = true;
     ci.color_attachment_formats = {getDefaultColorFormat(), getDefaultColorFormat(), getDefaultColorFormat()};
+    ci.color_attachment_formats = {getDefaultColorFormat(), getDefaultColorFormat(), getDefaultColorFormat()};
+    ci.color_attachment_formats = {getDefaultColorFormat(), getDefaultColorFormat(), getDefaultColorFormat()};
     ci.blend_attachments = makeDefaultBlendAttachmentStates(3, false);
     ci.topology = vk::PrimitiveTopology::eTriangleList;
     return ci;
@@ -21,8 +23,42 @@ Pipeline::CI scenePlaneCI() {
     ci.vertex_shader = getShader("mle/scene/plane.vert");
     ci.fragment_shader = getShader("mle/scene/plane.frag");
     ci.depth = true;
-    ci.color_attachment_formats = {getDefaultColorFormat(), getDefaultColorFormat(), getDefaultColorFormat()};
+    ci.color_attachment_formats.emplace_back(getDefaultColorFormat());
+    ci.color_attachment_formats.emplace_back(getDefaultColorFormat());
+    ci.color_attachment_formats.emplace_back(getDefaultColorFormat());
     ci.blend_attachments = makeDefaultBlendAttachmentStates(3, false);
+    ci.topology = vk::PrimitiveTopology::eTriangleStrip;
+    return ci;
+}
+
+Pipeline::CI sceneCubeMapCI() {
+    Pipeline::CI ci;
+    ci.vertex_shader = getShader("mle/scene/skybox.vert");
+    ci.fragment_shader = getShader("mle/scene/skybox.frag");
+    ci.depth = true;
+    ci.depth_write = true;
+    ci.color_attachment_formats.emplace_back(getDefaultColorFormat());
+    ci.blend_attachments = makeDefaultBlendAttachmentStates(1, false);
+    ci.topology = vk::PrimitiveTopology::eTriangleList;
+    ci.cull_mode = vk::CullModeFlagBits::eNone;
+    return ci;
+}
+Pipeline::CI sceneLightingCI() {
+    Pipeline::CI ci;
+    ci.vertex_shader = getShader("mle/fs_triangle.vert");
+    ci.fragment_shader = getShader("mle/scene/light.frag");
+    ci.depth = true;
+    ci.color_attachment_formats.emplace_back(getDefaultColorFormat());
+    ci.blend_attachments = makeDefaultBlendAttachmentStates(1);
+    ci.topology = vk::PrimitiveTopology::eTriangleList;
+    ci.depth_bias = true;
+    return ci;
+}
+
+Pipeline::CI sceneSunCI() {
+    Pipeline::CI ci;
+    ci.vertex_shader = getShader("mle/scene/sun.vert");
+    ci.depth = true;
     return ci;
 }
 }  // namespace
@@ -32,6 +68,9 @@ void PipelineCache::init() {
 
     setPipeline("mle/scene/vox", sceneVoxCI());
     setPipeline("mle/scene/plane", scenePlaneCI());
+    setPipeline("mle/scene/cube_map", sceneCubeMapCI());
+    setPipeline("mle/scene/sun", sceneSunCI());
+    setPipeline("mle/scene/lighting", sceneLightingCI());
 }
 
 PipelineRef PipelineCache::setPipeline(const std::string& name, const Pipeline::CI& pipeline_ci) {
@@ -62,4 +101,8 @@ PipelineRef PipelineCache::getPipeline(const std::string& name) {
     return nullptr;
 }
 
+void PipelineCache::shutdown() {
+    MLE_I("Shutting down PipelineCache");
+    pipelines_.clear();
+}
 }  // namespace mle::renderer::detail
