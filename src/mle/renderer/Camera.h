@@ -112,12 +112,13 @@ struct formatter<mle::renderer::Camera> : formatter<std::string> {
     template <typename FormatContext>
     constexpr auto format(const mle::renderer::Camera& cam, FormatContext& ctx) const {
         if (cam.getProjType() == mle::renderer::Camera::ProjType::PERSPECTIVE) {
-            return format_to(ctx.out(), "Camera[{}] (Perspective, FOV: {:.2f}, Aspect: {:.2f}, Near: {:.2f}, Far: {:.2f})", cam.getPos(), cam.getFov(),
-                             cam.getAspect(), cam.getNear(), cam.getFar());
+            return format_to(ctx.out(), "Camera[pos: {} target: {}] (Perspective, FOV: {:.2f}, Aspect: {:.2f}, Near: {:.2f}, Far: {:.2f})", cam.getPos(),
+                             cam.getTarget(), cam.getFov(), cam.getAspect(), cam.getNear(), cam.getFar());
         }
 
-        return format_to(ctx.out(), "Camera[{}] (Orthographic, Left: {:.2f}, Right: {:.2f}, Bottom: {:.2f}, Top: {:.2f})", cam.getPos(), cam.getLeft(),
-                         cam.getRight(), cam.getBottom(), cam.getTop());
+        return format_to(ctx.out(),
+                         "Camera[pos: {} target: {}] (Orthographic, Left: {:.2f}, Right: {:.2f}, Bottom: {:.2f}, Top: {:.2f}, Near: {:.2f}, Far: {:.2f})",
+                         cam.getPos(), cam.getTarget(), cam.getLeft(), cam.getRight(), cam.getBottom(), cam.getTop(), cam.getNear(), cam.getFar());
     }
 };
 }  // namespace fmt
