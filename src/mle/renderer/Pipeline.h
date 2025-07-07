@@ -28,7 +28,7 @@ class Pipeline final : public LiveCounter<Pipeline> {
         vk::PrimitiveTopology topology = vk::PrimitiveTopology::eTriangleList;                                     ///< Primitive topology.
         vk::PolygonMode polygon_mode = vk::PolygonMode::eFill;                                                     ///< Polygon rasterization mode.
         vk::CullModeFlags cull_mode = vk::CullModeFlagBits::eBack;                                                 ///< Face culling mode.
-        vk::FrontFace front_face = vk::FrontFace::eClockwise;                                                      ///< Vertex winding order.
+        vk::FrontFace front_face = vk::FrontFace::eCounterClockwise;                                               ///< Vertex winding order.
         bool line_width_dynamic = false;                                                                           ///< Whether line width is dynamic.
         std::vector<vk::Format> color_attachment_formats;                                                          ///< Color attachment formats.
         std::vector<vk::PipelineColorBlendAttachmentState> blend_attachments;                                      ///< Blend states per attachment.
