@@ -3,6 +3,7 @@
 #include <spirv_reflect.h>
 
 #include "Renderer.h"
+#include "mle/common/Logger.h"
 #include "mle/renderer/Utils.h"
 
 namespace mle::renderer {
@@ -112,35 +113,39 @@ void Shader::reflect(const Bytes& spv_data) {
         }
     }
 
-    // TODO: make this work
-    // std::vector<SpvReflectDescriptorSet*> sets;
-    // count = 0;
-    // if (reflection.EnumerateDescriptorSets(&count, nullptr) != SPV_REFLECT_RESULT_SUCCESS) {
-    //     core::unrecoverable("Failed to enumerate descriptor sets");
-    // }
-    // sets.resize(count);
-    // if (reflection.EnumerateDescriptorSets(&count, sets.data()) != SPV_REFLECT_RESULT_SUCCESS) {
-    //     core::unrecoverable("Failed to enumerate descriptor sets");
-    // }
-    //
-    // for (auto& set : sets) {
-    //     MLE_T("Descriptor set: {}, binding_count: {}", set->set, set->binding_count);
-    //     MLE_ASSERT_LOG(set->set == 0, "Only one descriptor set is supported (push descriptors)");
-    //     for (u32 i = 0; i < set->binding_count; ++i) {
-    //         auto& binding = *set->bindings[i];  // NOLINT
-    //         auto& descriptor = descriptors_.emplace_back();
-    //         descriptor.binding = binding.binding;
-    //         descriptor.descriptorType = static_cast<vk::DescriptorType>(binding.descriptor_type);
-    //         descriptor.descriptorCount = binding.count;
-    //         descriptor.stageFlags = stage_;
-    //         descriptor.pImmutableSamplers = nullptr;
-    //     }
-    // }
-    // std::ranges::sort(descriptors_, [](const vk::DescriptorSetLayoutBinding& a, const vk::DescriptorSetLayoutBinding& b) { return a.binding < b.binding; });
-    // for (const auto& descriptor : descriptors_) {
-    //     MLE_T("  Binding: {}, Descriptor type: {}, Descriptor count: {}, Stage flags: {}", descriptor.binding, vk::to_string(descriptor.descriptorType),
-    //           descriptor.descriptorCount, vk::to_string(descriptor.stageFlags));
-    // }
+    count = 0;
+    if (reflection.EnumerateDescriptorSets(&count, nullptr) != SPV_REFLECT_RESULT_SUCCESS) {
+        core::unrecoverable("Failed to enumerate descriptor sets");
+    }
+    if (count > 0) {
+        std::vector<SpvReflectDescriptorSet*> sets;
+        sets.resize(count);
+        if (reflection.EnumerateDescriptorSets(&count, sets.data()) != SPV_REFLECT_RESULT_SUCCESS) {
+            core::unrecoverable("Failed to enumerate descriptor sets");
+        }
+        for (auto& set : sets) {
+            auto& dsl = dsls_.emplace_back();
+            dsl.set = set->set;
+
+            MLE_T("Descriptor set: {}, binding_count: {}", set->set, set->binding_count);
+
+            for (usize i = 0; i < set->binding_count; ++i) {
+                auto& spvbinding = *set->bindings[i];  // NOLINT
+                auto& b = dsl.bindings.emplace_back();
+                b.binding = spvbinding.binding;
+                b.descriptorType = as<vk::DescriptorType>(spvbinding.descriptor_type);
+                b.descriptorCount = spvbinding.count;
+                b.stageFlags = stage_;
+                b.pImmutableSamplers = nullptr;
+                MLE_T("Descriptor set: {}, binding: {}, type: {}, count: {}", dsl.set, b.binding, vk::to_string(b.descriptorType), b.descriptorCount);
+            }
+
+            std::ranges::sort(dsl.bindings,
+                              [](const vk::DescriptorSetLayoutBinding& a, const vk::DescriptorSetLayoutBinding& b) { return a.binding < b.binding; });
+        }
+
+        std::ranges::sort(dsls_, [](const DSL& a, const DSL& b) { return a.set < b.set; });
+    }
 
     std::vector<SpvReflectBlockVariable*> push_constants;
     count = 0;
@@ -222,32 +227,38 @@ vk::PipelineShaderStageCreateInfo Shader::getPipelineShaderStageCreateInfo() con
     return ret;
 }
 
-std::vector<vk::DescriptorSetLayoutBinding> Shader::mergeDescriptors(const std::vector<vk::DescriptorSetLayoutBinding>& a,
-                                                                     const std::vector<vk::DescriptorSetLayoutBinding>& b) {
-    if (a.empty()) {
-        return b;
-    }
-    if (b.empty()) {
-        return a;
-    }
+void Shader::mergeDSLs(std::vector<DSL>& a, const std::vector<DSL>& b) {
+    for (const auto& dsl : b) {
+        auto found = std::ranges::find_if(a, [&](const DSL& existing) { return existing.set == dsl.set; });
 
-    std::vector<vk::DescriptorSetLayoutBinding> ret = a;
-
-    for (const auto& b_binding : b) {
-        auto it = std::ranges::find_if(ret, [&b_binding](const vk::DescriptorSetLayoutBinding& a_binding) { return a_binding.binding == b_binding.binding; });
-        if (it != ret.end()) {
-            MLE_ASSERT_LOG(it->descriptorType == b_binding.descriptorType, "Descriptor type mismatch");
-            MLE_ASSERT_LOG(it->descriptorCount == b_binding.descriptorCount, "Descriptor count mismatch");
-            it->stageFlags |= b_binding.stageFlags;
+        if (found != a.end()) {
+            mergeDSL(*found, dsl);
         } else {
-            ret.push_back(b_binding);
+            a.push_back(dsl);
         }
     }
-    std::ranges::sort(ret, [](const vk::DescriptorSetLayoutBinding& a, const vk::DescriptorSetLayoutBinding& b) { return a.binding < b.binding; });
 
-    return ret;
+    std::ranges::sort(a, [](const DSL& a, const DSL& b) { return a.set < b.set; });
 }
 
+void Shader::mergeDSL(DSL& a, const DSL& b) {
+    MLE_ASSERT(a.set == b.set);
+
+    for (const auto& b_binding : b.bindings) {
+        auto it = std::ranges::find_if(a.bindings, [&](const vk::DescriptorSetLayoutBinding& a_binding) { return a_binding.binding == b_binding.binding; });
+
+        if (it != a.bindings.end()) {
+            MLE_ASSERT_LOG(it->descriptorType == b_binding.descriptorType, "Descriptor type mismatch on binding {}.{}, a: {}, b: {}", a.set, it->binding,
+                           vk::to_string(it->descriptorType), vk::to_string(b_binding.descriptorType));
+            MLE_ASSERT_LOG(it->descriptorCount == b_binding.descriptorCount, "Descriptor count mismatch on binding {}.{}, a: {}, b: {}", a.set, it->binding,
+                           it->descriptorCount, b_binding.descriptorCount);
+
+            it->stageFlags |= b_binding.stageFlags;
+        } else {
+            a.bindings.push_back(b_binding);
+        }
+    }
+}
 }  // namespace mle::renderer
 
 // TODO: maybe reimplement glslang shader compilation here and allow the engine user to opt-in to it.

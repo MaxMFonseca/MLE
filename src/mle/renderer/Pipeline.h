@@ -111,5 +111,7 @@ class Pipeline final : public LiveCounter<Pipeline> {
     u8 pc_frag_offset_ = max<u8>();             ///< Offset to fragment-stage constants (if any).
     u8 first_instance_binding_ = max<u8>();     ///< First instance binding index.
     bool compute_ = false;                      ///< True if this is a compute pipeline.
+
+    std::vector<vk::DescriptorSetLayout> owned_dsls_;
 };
 }  // namespace mle::renderer

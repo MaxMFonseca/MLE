@@ -1,10 +1,18 @@
 #pragma once
 
+#include <map>
+
 #include "Types.h"
 #include "mle/common/LiveCounter.h"
 
 namespace mle::renderer {
 class Shader : public LiveCounter<Shader> {
+  public:
+    struct DSL {
+        std::vector<vk::DescriptorSetLayoutBinding> bindings;
+        u32 set;
+    };
+
   public:
     Shader(const Shader&) = delete;
     Shader(Shader&&) = delete;
@@ -17,15 +25,15 @@ class Shader : public LiveCounter<Shader> {
     [[nodiscard]] vk::ShaderStageFlagBits getStage() const { return stage_; }
     [[nodiscard]] u32 getFirstInstanceAttributeLocation() const { return first_instance_attribute_location_; }
     [[nodiscard]] const std::vector<vk::VertexInputAttributeDescription>& getVertexAttributes() const { return vertex_attributes_; }
-    [[nodiscard]] const std::vector<vk::DescriptorSetLayoutBinding>& getDescriptors() const { return descriptors_; }
+    [[nodiscard]] const auto& getDSLs() { return dsls_; };
     [[nodiscard]] vk::PushConstantRange getPushConstantRange() const { return pc_range_; }
     [[nodiscard]] const std::vector<PushConstantField>& getPushConstantFields() const { return pc_fields_; }
 
     [[nodiscard]] vk::PipelineShaderStageCreateInfo getPipelineShaderStageCreateInfo() const;
     [[nodiscard]] PipelineVertexInputState makePipelineVertexInputStateCreateInfo() const;
 
-    [[nodiscard]] static std::vector<vk::DescriptorSetLayoutBinding> mergeDescriptors(const std::vector<vk::DescriptorSetLayoutBinding>& a,
-                                                                                      const std::vector<vk::DescriptorSetLayoutBinding>& b);
+    static void mergeDSL(DSL& a, const DSL& b);
+    static void mergeDSLs(std::vector<DSL>& a, const std::vector<DSL>& b);
 
     void reflect(const Bytes& spv_data);
 
@@ -40,8 +48,9 @@ class Shader : public LiveCounter<Shader> {
     vk::ShaderStageFlagBits stage_{};
     u32 first_instance_attribute_location_ = max<u32>();
     std::vector<vk::VertexInputAttributeDescription> vertex_attributes_;
-    std::vector<vk::DescriptorSetLayoutBinding> descriptors_;
     vk::PushConstantRange pc_range_;
     std::vector<PushConstantField> pc_fields_;
+
+    std::vector<DSL> dsls_;
 };
 }  // namespace mle::renderer

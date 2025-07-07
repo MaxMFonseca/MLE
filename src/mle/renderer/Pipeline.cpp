@@ -59,8 +59,15 @@ void Pipeline::initGraphicsPipeline(const CI& ci) {
     pipeline_ci.setStages(stages);
 
     MLE_T("Vertex input state");
-
     auto vertex_input_state = ci.vertex_shader->makePipelineVertexInputStateCreateInfo();
+
+    for (auto vi : vertex_input_state.attribute_descriptions) {
+        MLE_T("Vertex input attribute: location = {}, binding = {}, format = {}, offset = {}", vi.location, vi.binding, vk::to_string(vi.format), vi.offset);
+    }
+    for (auto binding : vertex_input_state.binding_descriptions) {
+        MLE_T("Vertex input binding: binding = {}, stride = {}, input rate = {}", binding.binding, binding.stride, vk::to_string(binding.inputRate));
+    }
+
     pipeline_ci.setPVertexInputState(&vertex_input_state.ci);
 
     MLE_T("Input assembly state");
@@ -208,9 +215,15 @@ void Pipeline::initComputePipeline(const CI& ci) {
 }
 
 void Pipeline::reset() {
+    for (auto& dsl : owned_dsls_) {
+        destroyVkObjOnFrameEnd(dsl);
+    }
+    owned_dsls_.clear();
+
     destroyVkObjOnFrameEnd(o_);
-    destroyVkObjOnFrameEnd(pipeline_layout_);
     o_ = nullptr;
+
+    destroyVkObjOnFrameEnd(pipeline_layout_);
     pipeline_layout_ = nullptr;
 
     first_instance_binding_ = max<u8>();
@@ -231,7 +244,31 @@ void Pipeline::createPipelineLayout(const CI& ci) {
 
     vk::PipelineLayoutCreateInfo pipeline_layout_ci;
 
-    pipeline_layout_ci.setSetLayouts(ci.descriptor_set_layouts);
+    if (!ci.descriptor_set_layouts.empty()) {
+        pipeline_layout_ci.setSetLayouts(ci.descriptor_set_layouts);
+    } else {
+        std::vector<Shader::DSL> dsls;
+        if (ci.vertex_shader) {
+            dsls = ci.vertex_shader->getDSLs();
+        }
+        if (ci.fragment_shader) {
+            Shader::mergeDSLs(dsls, ci.fragment_shader->getDSLs());
+        }
+        if (ci.compute_shader) {
+            dsls = ci.compute_shader->getDSLs();
+        }
+
+        for (auto& dsl : dsls) {
+            vk::DescriptorSetLayoutCreateInfo dsl_ci;
+            dsl_ci.setBindings(dsl.bindings);
+            if (dsl.set == 0) {
+                dsl_ci.setFlags(vk::DescriptorSetLayoutCreateFlagBits::ePushDescriptorKHR);
+            }
+            owned_dsls_.emplace_back(unwrap(detail::getDevice().createDescriptorSetLayout(dsl_ci)));
+        }
+
+        pipeline_layout_ci.setSetLayouts(owned_dsls_);
+    }
 
     // TODO: shared data?
     pc_fields_.clear();
