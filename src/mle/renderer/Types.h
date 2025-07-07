@@ -105,8 +105,7 @@ struct UploadVoxMeshData {
     f32 metalness = 0.0F;
     f32 roughness = 0.0F;
     f32 emissive = 0.0F;
-    vec3f aabb_min{0.0F};
-    vec3f aabb_max{0.0F};
+    AABB aabb;
 };
 
 using UploadMeshData = std::variant<UploadVoxMeshData>;
@@ -125,7 +124,7 @@ struct Model {
         enum class Type : u8 { VOX };
         Type type = Mesh::Type::VOX;
     };
-    Boxf aabb;
+    AABB aabb;
     std::vector<Mesh> meshes;
     UploadState state = UploadState::OUT;
 };

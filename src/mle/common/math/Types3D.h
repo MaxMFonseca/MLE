@@ -30,6 +30,8 @@ using Extent3f = Extent3<f32>;
 using Extent3d = Extent3<f64>;
 /// @}
 
+class Sphere;
+
 /**
  * @brief Structure to represent near and far clipping planes.
  * @ingroup MathTypes
@@ -39,77 +41,89 @@ struct NearFar {
     f32 far;   ///< Far clipping distance.
 };
 
-/**
- * @brief A 3D axis-aligned bounding box (AABB).
- * @ingroup MathTypes
- *
- * @tparam T Scalar type (e.g., f32, i32)
- */
-template <typename T>
-struct Box {
-  private:
-    vec3<T> pos_;      ///< Minimum corner of the box (lower-left-front).
-    Extent3<T> size_;  ///< Extent of the box along each axis.
-
+class AABB {
   public:
-    Box() = default;
+    AABB() = default;  ///< Default constructor.
 
-    /// Constructs a box from raw components.
-    Box(T x, T y, T z, T width, T height, T depth) :
-        pos_(x, y, z),
-        size_(width, height, depth) {}
+    /// Constructs an AABB from min and max points.
+    AABB(vec3f min, vec3f max) :
+        min_(min),
+        max_(max) {}
 
-    /// Constructs a box from a position and size vector.
-    Box(vec3<T> pos, Extent3<T> size) :
-        pos_(pos),
-        size_(size) {}
+    /// Returns the minimum corner of the box.
+    [[nodiscard]] auto min() const { return min_; }
 
-    [[nodiscard]] T left() const { return pos_.x; }             ///< Left edge (x position).
-    [[nodiscard]] T right() const { return pos_.x + size_.x; }  ///< Right edge (x + width)
-    [[nodiscard]] T bottom() const { return pos_.y; }           ///< Bottom edge (y position)
-    [[nodiscard]] T top() const { return pos_.y + size_.y; }    ///< Top edge (y + height)
-    [[nodiscard]] T front() const { return pos_.z; }            ///< Front edge (z position)
-    [[nodiscard]] T back() const { return pos_.z + size_.z; }   ///< Back edge (z + depth)
+    /// Returns the maximum corner of the box.
+    [[nodiscard]] auto max() const { return max_; }
 
-    [[nodiscard]] T width() const { return size_.x; }   ///< size.x
-    [[nodiscard]] T height() const { return size_.y; }  ///< size.y
-    [[nodiscard]] T depth() const { return size_.z; }   ///< size.z
+    [[nodiscard]] auto width() const { return max_.x - min_.x; }  ///< Returns the width of the box.
 
-    [[nodiscard]] vec3<T> min() const { return pos_; }          ///< Minimum corner of the box.
-    [[nodiscard]] vec3<T> max() const { return pos_ + size_; }  ///< Maximum corner of the box.
+    [[nodiscard]] auto height() const { return max_.y - min_.y; }  ///< Returns the height of the box.
 
-    [[nodiscard]] vec3<T> center() const { return pos_ + (size_ / 2); }  ///< Center of the box.
+    [[nodiscard]] auto depth() const { return max_.z - min_.z; }  ///< Returns the depth of the box.
 
-    /// True if width, height, and depth are greater than 0.
-    [[nodiscard]] constexpr bool valid() const { return width() > 0 && height() > 0 && depth() > 0; }
+    [[nodiscard]] auto size() const { return vec3f{width(), height(), depth()}; }  ///< Returns the extents of the box.
 
-    /// Returns true if the point is inside or on the boundary of the box.
-    [[nodiscard]] bool contains(vec3<T> point) const {
-        return point.x >= left() && point.x <= right() && point.y >= bottom() && point.y <= top() && point.z >= front() && point.z <= back();
+    [[nodiscard]] auto halfSize() const { return 0.5F * size(); }  ///< Returns the half extents of the box.
+
+    /// Sets the minimum corner.
+    void setMin(vec3f min) { min_ = min; }
+
+    /// Sets the maximum corner.
+    void setMax(vec3f max) { max_ = max; }
+
+    /// Adds padding to the box by expanding both min and max corners.
+    void addPaddin(vec3f padding) {
+        min_ -= padding;
+        max_ += padding;
     }
 
-    /// Returns true if this box completely contains another box.
-    [[nodiscard]] bool contains(const Box<T>& other) const {
-        return left() <= other.left() && right() >= other.right() && bottom() <= other.bottom() && top() >= other.top() && front() <= other.front() &&
-               back() >= other.back();
+    /// Returns the size of the box (max - min).
+    [[nodiscard]] vec3f extent() const { return max_ - min_; }
+
+    /// Returns the center of the box.
+    [[nodiscard]] vec3f center() const { return 0.5F * (min_ + max_); }
+
+    /// Returns true if the box contains the given point.
+    [[nodiscard]] bool contains(vec3f p) const {
+        return (p.x >= min_.x && p.x <= max_.x) && (p.y >= min_.y && p.y <= max_.y) && (p.z >= min_.z && p.z <= max_.z);
     }
 
-    /// Moves the box by the given offset.
-    void move(vec3<T> offset) { pos_ += offset; }
+    /// Expands this box to include the given point.
+    void expand(vec3f p) {
+        min_ = glm::min(min_, p);
+        max_ = glm::max(max_, p);
+    }
 
-    /// Compares two boxes for exact equality.
-    bool operator==(const Box<T>& other) const { return pos_ == other.pos_ && size_ == other.size_; }
+    /// Expands this box to include another box.
+    void expand(const AABB& other) {
+        min_ = glm::min(min_, other.min_);
+        max_ = glm::max(max_, other.max_);
+    }
+
+    /// Returns true if this box intersects another box.
+    [[nodiscard]] bool intersects(const AABB& other) const {
+        return (min_.x <= other.max_.x && max_.x >= other.min_.x) && (min_.y <= other.max_.y && max_.y >= other.min_.y) &&
+               (min_.z <= other.max_.z && max_.z >= other.min_.z);
+    }
+
+    /// Returns all 8 corners of the box in no specific order.
+    [[nodiscard]] std::array<vec3f, 8> corners() const;
+
+    /**
+     * @brief Checks whether this AABB intersects the given sphere.
+     *
+     * Uses closest-point distance test from the sphere center to the box.
+     *
+     * @param sphere Sphere to test.
+     * @return True if the sphere intersects or touches the box.
+     */
+    [[nodiscard]] bool intersects(const Sphere& sphere) const;
+
+  private:
+    vec3f min_{0.0F};  ///< Minimum corner of the box.
+    vec3f max_{0.0F};  ///< Maximum corner of the box.
 };
-
-/**
- * @ingroup MathTypes
- * @{
- */
-using Boxu = Box<u32>;  ///< 3D unsigned integer box.
-using Boxi = Box<i32>;  ///< 3D signed integer box.
-using Boxf = Box<f32>;  ///< 3D floating-point box.
-using Boxd = Box<f64>;  ///< 3D double-precision box.
-/// @}
 
 /**
  * @brief A bounding sphere in 3D space.
@@ -147,22 +161,22 @@ class Sphere {
     f32 radius_ = 1.0F;   ///< Radius of the sphere.
 };
 
-/**
- * @brief Identifies which face of a box a point lies on, within a given epsilon tolerance.
- *
- * This function assumes the point is already on the surface of the given box (within numerical error),
- * and returns the face it belongs to. It compares the point’s coordinates against the six box faces
- * using `feq` with the provided `epsilon` value.
- *
- * This function is intended for use in contexts where the point is guaranteed to lie on the box surface.
- * Failure to match any face is considered unreachable and should never occur in correct usage.
- *
- * @param box The box whose face is being queried.
- * @param point A point on the surface of the box.
- * @param epsilon Tolerance for floating-point comparisons.
- * @return The specific face of the box the point lies on.
- */
-BoxFace pointFace(const Boxf& box, vec3f point, f32 epsilon);
+// /**
+//  * @brief Identifies which face of a box a point lies on, within a given epsilon tolerance.
+//  *
+//  * This function assumes the point is already on the surface of the given box (within numerical error),
+//  * and returns the face it belongs to. It compares the point’s coordinates against the six box faces
+//  * using `feq` with the provided `epsilon` value.
+//  *
+//  * This function is intended for use in contexts where the point is guaranteed to lie on the box surface.
+//  * Failure to match any face is considered unreachable and should never occur in correct usage.
+//  *
+//  * @param box The box whose face is being queried.
+//  * @param point A point on the surface of the box.
+//  * @param epsilon Tolerance for floating-point comparisons.
+//  * @return The specific face of the box the point lies on.
+//  */
+// BoxFace pointFace(const Boxf& box, vec3f point, f32 epsilon);
 
 /**
  * @brief A 3D ray with origin and normalized direction.
@@ -209,15 +223,23 @@ class Ray3f {
     [[nodiscard]] vec3f pointAt(f32 t) const { return origin_ + direction_ * t; }
 
     /**
-     * @brief Computes the intersection interval between this ray and a box.
+     * @brief Computes the intersection interval between this ray and an AABB.
      *
      * Returns the distances along the ray where it enters and exits the box.
      * If there's no intersection, returns std::nullopt.
      *
-     * @param box Box to test intersection against.
+     * @param box Axis-aligned bounding box to test against.
      * @return Optional NearFar with entry and exit distances.
      */
-    [[nodiscard]] std::optional<NearFar> intersect(const Boxf& box) const;
+    [[nodiscard]] std::optional<NearFar> intersect(const AABB& box) const;
+
+    /**
+     * @brief Tests whether this ray intersects the given sphere.
+     *
+     * @param sphere Sphere to test against.
+     * @return True if the ray intersects the sphere.
+     */
+    [[nodiscard]] bool intersects(const Sphere& sphere) const;
 
   private:
     /// Recomputes the inverse direction vector.
@@ -438,11 +460,22 @@ class Frustum {
     /// Returns true if the sphere is partially or fully inside the frustum.
     [[nodiscard]] bool contains(const Sphere& s) const;
 
-    /// Returns true if the AABB is partially or fully inside the frustum.
-    [[nodiscard]] bool contains(const Box<f32>& box) const;
+    /**
+     * @brief Tests whether the AABB is partially or fully inside the frustum.
+     *
+     * Uses conservative plane-vs-corner test.
+     *
+     * @param box The axis-aligned bounding box to test.
+     * @return True if box is at least partially inside the frustum.
+     */
+    [[nodiscard]] bool contains(const AABB& box) const;
 
     /// Returns a polygon that represents the intersection of the frustum with the Y=0 plane.
     [[nodiscard]] Polygon3D intersectWithY0() const;
+
+    [[nodiscard]] std::array<vec3f, 8> getCorners() const;
+
+    [[nodiscard]] static vec3f calcCenter(const std::array<vec3f, 8>& corners);
 
   private:
     struct ABCDPlane {
@@ -465,11 +498,11 @@ class Frustum {
 }  // namespace mle
 
 namespace fmt {
-template <typename T>
-struct formatter<mle::Box<T>> : formatter<std::string> {
+template <>
+struct formatter<mle::AABB> : formatter<std::string> {
     template <typename FormatContext>
-    constexpr auto format(const mle::Box<T>& b, FormatContext& ctx) const {
-        return format_to(ctx.out(), "[pos:{}, size:{}]", b.pos_, b.size_);
+    constexpr auto format(const mle::AABB& box, FormatContext& ctx) const {
+        return format_to(ctx.out(), "[min:{}, max:{}]", box.min(), box.max());
     }
 };
 

@@ -49,6 +49,7 @@ class SceneRenderer {
         bool ready = false;
     };
 
+    static constexpr usize SHADOW_RESOLUTION = 4096;
     static constexpr usize CHUNK_SIZE = 32;
     static constexpr usize WORLD_VIEW_SIZE = 5;
     static constexpr usize MAX_LOADED_WORLD_VIEWS = 9;
@@ -114,7 +115,7 @@ class SceneRenderer {
 
         Frustum sun_frustum{};
         Camera sun_cam;
-        mat4f sun_mtx{};
+        mat4f sun_vp{};
 
         vec2f camera_center_y0{};
         std::vector<vec2f> camera_frustum_inter_y0;
@@ -124,6 +125,7 @@ class SceneRenderer {
     };
 
     void renderSun(RenderingData& rdata);
+    static void calcSunCamera(RenderingData& rdata);
     void renderGBuffer(RenderingData& rdata);
     void renderLighting(RenderingData& rdata);
     void renderCubeMap(RenderingData& rdata);

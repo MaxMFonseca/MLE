@@ -4,51 +4,29 @@
 
 #include "mle/common/Assert.h"
 #include "mle/common/Utils.h"
-
 namespace mle {
-// std::optional<NearFar> Ray3f::intersect(const Boxf& box) const {
-//     f32 near = -inf<f32>();
-//     f32 far = inf<f32>();
-//
-//     for (i32 i = 0; i < 3; ++i) {
-//         f32 t1 = (box.pos_[i] - origin_[i]) * inv_direction_[i];
-//         f32 t2 = (box.pos_[i] + box.size_[i] - origin_[i]) * inv_direction_[i];
-//
-//         if (t1 > t2) {
-//             std::swap(t1, t2);
-//         }
-//
-//         near = std::max(near, t1);
-//         far = std::min(far, t2);
-//
-//         if (near > far || far < 0) {
-//             return std::nullopt;
-//         }
-//     }
-//
-//     return NearFar{.near = near < 0 ? 0 : near, .far = far};
-// }
+std::optional<NearFar> Ray3f::intersect(const AABB& box) const {
+    f32 tmin = -inf<f32>();
+    f32 tmax = inf<f32>();
 
-BoxFace pointFace(const Boxf& box, vec3f point, f32 epsilon) {
-    if (feq(point.x, box.left(), epsilon)) {
-        return BoxFace::LEFT;
+    for (int i = 0; i < 3; ++i) {
+        f32 inv_d = inv_direction_[i];
+        f32 t0 = (box.min()[i] - origin_[i]) * inv_d;
+        f32 t1 = (box.max()[i] - origin_[i]) * inv_d;
+
+        if (inv_d < 0.0F) {
+            std::swap(t0, t1);
+        }
+
+        tmin = glm::max(tmin, t0);
+        tmax = glm::min(tmax, t1);
+
+        if (tmax < tmin) {
+            return std::nullopt;
+        }
     }
-    if (feq(point.x, box.right(), epsilon)) {
-        return BoxFace::RIGHT;
-    }
-    if (feq(point.y, box.bottom(), epsilon)) {
-        return BoxFace::BOTTOM;
-    }
-    if (feq(point.y, box.top(), epsilon)) {
-        return BoxFace::TOP;
-    }
-    if (feq(point.z, box.front(), epsilon)) {
-        return BoxFace::FRONT;
-    }
-    if (feq(point.z, box.back(), epsilon)) {
-        return BoxFace::BACK;
-    }
-    MLE_UNREACHABLE_LOG("Point is not on any face of the box");
+
+    return NearFar{.near = tmin, .far = tmax};
 }
 
 std::optional<f32> Plane::intersect(const Ray3f& ray) const {
@@ -172,34 +150,17 @@ bool Frustum::contains(const Sphere& s) const {
     return std::ranges::all_of(std::array{l_, r_, b_, t_, n_, f_}, [&](const ABCDPlane& p) { return p.signedDist(c) >= -r; });
 }
 
-bool Frustum::contains(const Box<f32>& box) const {
-    const vec3f min = box.min();
-    const vec3f max = box.max();
+std::array<vec3f, 8> Frustum::getCorners() const {
+    return {ABCDPlane::intersect(n_, l_, t_), ABCDPlane::intersect(n_, r_, t_), ABCDPlane::intersect(n_, r_, b_), ABCDPlane::intersect(n_, l_, b_),
+            ABCDPlane::intersect(f_, l_, t_), ABCDPlane::intersect(f_, r_, t_), ABCDPlane::intersect(f_, r_, b_), ABCDPlane::intersect(f_, l_, b_)};
+}
 
-    std::array<vec3f, 8> corners = {
-        vec3f{min.x, min.y, min.z}, vec3f{max.x, min.y, min.z}, vec3f{min.x, max.y, min.z}, vec3f{max.x, max.y, min.z},
-        vec3f{min.x, min.y, max.z}, vec3f{max.x, min.y, max.z}, vec3f{min.x, max.y, max.z}, vec3f{max.x, max.y, max.z},
-    };
-
-    for (const ABCDPlane& p : {l_, r_, b_, t_, n_, f_}) {
-        bool all_outside = true;
-        for (const auto& corner : corners) {
-            if (p.signedDist(corner) >= 0) {
-                all_outside = false;
-                break;
-            }
-        }
-        if (all_outside) {
-            return false;
-        }
-    }
-    return true;
+vec3f Frustum::calcCenter(const std::array<vec3f, 8>& corners) {
+    return std::accumulate(corners.begin(), corners.end(), vec3f{0.0F}) / 8.F;  // NOLINT
 }
 
 Polygon3D Frustum::intersectWithY0() const {
-    std::array<vec3f, 8> c = {ABCDPlane::intersect(n_, l_, t_), ABCDPlane::intersect(n_, r_, t_), ABCDPlane::intersect(n_, r_, b_),
-                              ABCDPlane::intersect(n_, l_, b_), ABCDPlane::intersect(f_, l_, t_), ABCDPlane::intersect(f_, r_, t_),
-                              ABCDPlane::intersect(f_, r_, b_), ABCDPlane::intersect(f_, l_, b_)};
+    auto c = getCorners();
 
     Polygon3D ret;
 
@@ -308,5 +269,51 @@ std::vector<vec2f> Polygon3D::xz() {
         ret.emplace_back(v.x, v.z);
     }
     return ret;
+}
+
+std::array<vec3f, 8> AABB::corners() const {
+    return {{
+        {min_.x, min_.y, min_.z},
+        {max_.x, min_.y, min_.z},
+        {min_.x, max_.y, min_.z},
+        {max_.x, max_.y, min_.z},
+        {min_.x, min_.y, max_.z},
+        {max_.x, min_.y, max_.z},
+        {min_.x, max_.y, max_.z},
+        {max_.x, max_.y, max_.z},
+    }};
+}
+
+bool Ray3f::intersects(const Sphere& sphere) const {
+    vec3f oc = origin_ - sphere.center();
+    f32 b = glm::dot(oc, direction_);
+    f32 c = glm::dot(oc, oc) - (sphere.radius() * sphere.radius());
+    f32 disc = (b * b) - c;
+    return disc >= 0.0F;
+}
+
+bool AABB::intersects(const Sphere& sphere) const {
+    vec3f closest = glm::clamp(sphere.center(), min_, max_);
+    f32 dist_sq = glm::distance2(closest, sphere.center());
+    return dist_sq <= sphere.radius() * sphere.radius();
+}
+
+bool Frustum::contains(const AABB& box) const {
+    const auto corners = box.corners();
+
+    for (const auto& plane : {l_, r_, b_, t_, n_, f_}) {
+        bool all_outside = true;
+        for (const auto& corner : corners) {
+            if (plane.signedDist(corner) >= 0.0F) {
+                all_outside = false;
+                break;
+            }
+        }
+        if (all_outside) {
+            return false;
+        }
+    }
+
+    return true;
 }
 }  // namespace mle

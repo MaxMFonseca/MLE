@@ -125,33 +125,10 @@ void SceneRenderer::render() {
 }
 
 void SceneRenderer::renderSun(RenderingData& rdata) {  // NOLINT
-    vec3f camera_target{rdata.camera_center_y0.x, 0.0F, rdata.camera_center_y0.y};
-    f32 sun_size = 50.0F;
+    calcSunCamera(rdata);
 
-    rdata.sun_cam.setProjType(Camera::ProjType::ORTH);
-    rdata.sun_cam.setTarget(camera_target);
-    rdata.sun_cam.setPosition(camera_target - rdata.dim.sun_dir * 40.0F);
-    rdata.sun_cam.setNear(0.1);
-    rdata.sun_cam.setFar(200.0F);
-    rdata.sun_cam.setRect(sun_size);
-
-    Polygon3D sun_frustum_inter_y0;
+    auto sun_frustum_inter_y0 = rdata.sun_frustum.intersectWithY0();
     auto sun_frustum_inter_y0_xz = sun_frustum_inter_y0.xz();
-
-    int max_iterations = 100;
-    while (!isInside(sun_frustum_inter_y0_xz, rdata.camera_frustum_inter_y0) && max_iterations-- > 0) {
-        sun_size *= 1.1F;
-        rdata.sun_cam.setRect(sun_size);
-        rdata.sun_frustum = rdata.sun_cam.getFrustum();
-        sun_frustum_inter_y0 = rdata.sun_frustum.intersectWithY0();
-        sun_frustum_inter_y0_xz = sun_frustum_inter_y0.xz();
-    }
-
-    if (max_iterations <= 0) {
-        MLE_TODO;
-    }
-
-    rdata.sun_mtx = rdata.sun_cam.getViewProj();
 
     int sun_min_x = max<int>();
     int sun_max_x = min<int>();
@@ -236,21 +213,21 @@ void SceneRenderer::renderSun(RenderingData& rdata) {  // NOLINT
 
                     for (const auto& object : chunk.objects) {
                         if (object.second.model->state == UploadState::OK) {
-                            f32 aabb_x0 = object.second.model->aabb.left();
-                            f32 aabb_x1 = object.second.model->aabb.right();
-                            f32 aabb_z0 = object.second.model->aabb.front();
-                            f32 aabb_z1 = object.second.model->aabb.back();
+                            mat4f obj_transform = glm::translate(object.second.transform, chunk_world_pos);
 
-                            bool obj_inside = isPointInsidePolygon({aabb_x0, aabb_z0}, sun_frustum_inter_y0_xz);
-                            obj_inside |= isPointInsidePolygon({aabb_x0, aabb_z1}, sun_frustum_inter_y0_xz);
-                            obj_inside |= isPointInsidePolygon({aabb_x1, aabb_z0}, sun_frustum_inter_y0_xz);
-                            obj_inside |= isPointInsidePolygon({aabb_x1, aabb_z1}, sun_frustum_inter_y0_xz);
+                            vec3f aabb_min = object.second.model->aabb.min();
+                            vec3f aabb_max = object.second.model->aabb.max();
+
+                            vec4f transformed_aabb_min = obj_transform * vec4f{aabb_min, 1.0F};
+                            vec4f transformed_aabb_max = obj_transform * vec4f{aabb_max, 1.0F};
+
+                            bool obj_inside = isPointInsidePolygon({transformed_aabb_min.x, transformed_aabb_min.z}, sun_frustum_inter_y0_xz);
+                            obj_inside |= isPointInsidePolygon({transformed_aabb_min.x, transformed_aabb_max.z}, sun_frustum_inter_y0_xz);
 
                             if (!obj_inside) {
                                 continue;
                             }
 
-                            mat4f obj_transform = glm::translate(object.second.transform, chunk_world_pos);
                             rdata.rendered_objs[object.second.model].emplace_back(obj_transform);
                             obj_count++;
                         }
@@ -259,18 +236,6 @@ void SceneRenderer::renderSun(RenderingData& rdata) {  // NOLINT
             }
         }
     }
-
-    // std::array plane_indices = {0, 1, 2, 0, 2, 3};
-    // std::array<PCNVertex, 4> plane_vertices;
-    // plane_vertices[0] = {.pos = vec3f{0.0F, 0.0F, 0.0F}, .color = Color::WHITE, .normal = vec3f{0.0F, 1.0F, 0.0F}};
-    // plane_vertices[1] = {.pos = vec3f{0.0F, 0.0F, CHUNK_SIZE}, .color = Color::WHITE, .normal = vec3f{0.0F, 1.0F, 0.0F}};
-    // plane_vertices[2] = {.pos = vec3f{CHUNK_SIZE, 0.0F, CHUNK_SIZE}, .color = Color::WHITE, .normal = vec3f{0.0F, 1.0F, 0.0F}};
-    // plane_vertices[3] = {.pos = vec3f{CHUNK_SIZE, 0.0F, 0.0F}, .color = Color::WHITE, .normal = vec3f{0.0F, 1.0F, 0.0F}};
-    //
-    // BufferSlice plane_index_buffer = getHostVisibleBuffer(sizeof(plane_indices), vk::BufferUsageFlagBits::eIndexBuffer);
-    // plane_index_buffer.buffer->update(plane_indices.data(), plane_index_buffer.size, plane_index_buffer.offset);
-    // BufferSlice plane_vertex_buffer = getHostVisibleBuffer(sizeof(PCNVertex) * 4, vk::BufferUsageFlagBits::eVertexBuffer);
-    // plane_vertex_buffer.buffer->update(plane_vertices.data(), plane_vertex_buffer.size, plane_vertex_buffer.offset);
 
     BufferSlice transforms_buffer = getHostVisibleBuffer(obj_count * sizeof(mat4f), vk::BufferUsageFlagBits::eVertexBuffer);
 
@@ -308,7 +273,7 @@ void SceneRenderer::renderSun(RenderingData& rdata) {  // NOLINT
             mat4f vp;
         } pc{};
 
-        pc.vp = rdata.sun_mtx;
+        pc.vp = rdata.sun_vp;
 
         rdata.thread.pushConstants(&pc);
 
@@ -728,5 +693,44 @@ void SceneRenderer::renderLighting(RenderingData& rdata) {
     // thread.draw(1, 3);
 
     rdata.thread.endRendering();
+}
+
+void SceneRenderer::calcSunCamera(RenderingData& rdata) {
+    const auto& sun_dir = glm::normalize(rdata.dim.sun_dir);
+    const Frustum& cam_frustum = rdata.camera_frustum;
+
+    auto cam_frustum_corners = cam_frustum.getCorners();
+    auto cam_frustum_center = Frustum::calcCenter(cam_frustum_corners);
+
+    vec3f sun_eye = cam_frustum_center - sun_dir * 100.0F;
+    vec3f sun_target = cam_frustum_center;
+    vec3f up = glm::abs(glm::dot(sun_dir, vec3f{0, 1, 0})) > 0.99F ? vec3f{0, 0, 1} : vec3f{0, 1, 0};
+    mat4f light_view = glm::lookAt(sun_eye, sun_target, up);
+
+    AABB light_space_bounds;
+    for (const auto& corner : cam_frustum_corners) {
+        vec4f light_space_pos = light_view * vec4f(corner, 1.0F);
+        light_space_bounds.expand(vec3f(light_space_pos));
+    }
+
+    light_space_bounds.addPaddin(vec3f{8});
+
+    vec3f min = light_space_bounds.min();
+    vec3f max = light_space_bounds.max();
+
+    auto& sun_cam = rdata.sun_cam;
+    sun_cam.setProjType(Camera::ProjType::ORTH);
+    sun_cam.setLeft(min.x);
+    sun_cam.setRight(max.x);
+    sun_cam.setBottom(min.y);
+    sun_cam.setTop(max.y);
+    sun_cam.setNear(-max.z);
+    sun_cam.setFar(-min.z);
+    sun_cam.setEye(sun_eye);
+    sun_cam.setTarget(sun_target);
+    sun_cam.setUp(up);
+
+    rdata.sun_frustum = sun_cam.getFrustum();
+    rdata.sun_vp = sun_cam.getViewProj();
 }
 }  // namespace mle::renderer
