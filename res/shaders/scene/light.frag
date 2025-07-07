@@ -39,6 +39,8 @@ vec3 computeShadowUV(vec3 world_pos) {
 
 void main() {
     vec3 albedo = texture(in_albedo, in_uv).rgb;
+    out_color = vec4(albedo, 1.0);
+    return;
     vec3 normal = normalize(texture(in_normal, in_uv).xyz * 2.0 - 1.0);
     float depth = texture(in_depth, in_uv).r;
 

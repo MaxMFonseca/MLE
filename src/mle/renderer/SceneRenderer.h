@@ -122,6 +122,7 @@ class SceneRenderer {
 
         std::map<ModelRef, std::vector<mat4f>> rendered_objs;
         std::vector<vec2i> rendered_planes;
+        BufferSlice rendered_transforms;
     };
 
     void renderSun(RenderingData& rdata);
@@ -135,7 +136,7 @@ class SceneRenderer {
     void cullCamera(RenderingData& rdata);
 
   private:
-    Camera camera_;
+    Camera camera_{};
 
     std::unordered_map<ID, Dimension> dimensions_;
 

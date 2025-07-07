@@ -26,10 +26,16 @@ void SceneRenderer::shutdown() {
 }
 
 void SceneRenderer::init(const CI& ci) {
+    camera_.setProjType(Camera::ProjType::PERSPECTIVE);
     camera_.setAspect(static_cast<f32>(ci.image_extent.x) / static_cast<f32>(ci.image_extent.y));
     camera_.setFov(60.0F);
     camera_.setNear(0.1F);
-    camera_.setFar(1000.0F);
+    camera_.setFar(100.0F);
+    camera_.setEye({0.0F, 5.0F, -5.0F});
+    camera_.setTarget({0.0F, 0.0F, 0.0F});
+    camera_.setUp({0, 1, 0});
+
+    MLE_VC(camera_);
 
     initSun();
     initG(ci);
@@ -111,12 +117,17 @@ void SceneRenderer::render() {
     rdata.inv_view_proj = camera_.getInvViewProj();
     rdata.camera_frustum = camera_.getFrustum();
 
+    MLE_VC(camera_);
+    MLE_VC(rdata.view);
+    MLE_VC(rdata.proj);
+    MLE_VC(rdata.view_proj);
+
     auto camera_frustum_inter_y0 = rdata.camera_frustum.intersectWithY0();
     rdata.camera_center_y0 = camera_frustum_inter_y0.center();
     rdata.camera_frustum_inter_y0 = camera_frustum_inter_y0.xz();
 
     renderSun(rdata);
-    // renderGBuffer(rdata);
+    renderGBuffer(rdata);
     renderLighting(rdata);
     // renderCubeMap(rdata);
     // renderDebug(rdata);
@@ -237,7 +248,8 @@ void SceneRenderer::renderSun(RenderingData& rdata) {  // NOLINT
         }
     }
 
-    BufferSlice transforms_buffer = getHostVisibleBuffer(obj_count * sizeof(mat4f), vk::BufferUsageFlagBits::eVertexBuffer);
+    rdata.rendered_transforms = getHostVisibleBuffer(obj_count * sizeof(mat4f), vk::BufferUsageFlagBits::eVertexBuffer);
+    auto& transforms_buffer = rdata.rendered_transforms;
 
     {
         usize curr_offset = transforms_buffer.offset;
@@ -298,40 +310,78 @@ void SceneRenderer::renderSun(RenderingData& rdata) {  // NOLINT
     rdata.thread.endRendering();
 }
 
-// void SceneRenderer::renderGBuffer(RenderingData& rdata) {
-//     g_.albedo->transitionState(thread.cmd(), Image::State::COLOR_ATT);
-//     g_.normal->transitionState(thread.cmd(), Image::State::COLOR_ATT);
-//     g_.material->transitionState(thread.cmd(), Image::State::COLOR_ATT);
-//     g_.depth->transitionState(thread.cmd(), Image::State::DEPTH_ATT);
-//
-//     {
-//         std::vector<AttachmentInfo> attachments;
-//         auto& albedo_att = attachments.emplace_back();
-//         albedo_att.image = g_.albedo.get();
-//         albedo_att.load = vk::AttachmentLoadOp::eClear;
-//         albedo_att.store = vk::AttachmentStoreOp::eStore;
-//         albedo_att.clear_value.setColor({0.2F, 0.2F, 0.2F, 0.2F});
-//         auto& normal_att = attachments.emplace_back();
-//         normal_att.image = g_.normal.get();
-//         normal_att.load = vk::AttachmentLoadOp::eClear;
-//         normal_att.store = vk::AttachmentStoreOp::eStore;
-//         normal_att.clear_value.setColor({0.3F, 0.3, 0.3, 0.3});
-//         auto& material_att = attachments.emplace_back();
-//         material_att.image = g_.material.get();
-//         material_att.load = vk::AttachmentLoadOp::eClear;
-//         material_att.store = vk::AttachmentStoreOp::eStore;
-//         thread.setColorAttachments(std::move(attachments));
-//     }
-//
-//     AttachmentInfo depth_attachment{};
-//     depth_attachment.image = g_.depth.get();
-//     depth_attachment.load = vk::AttachmentLoadOp::eClear;
-//     depth_attachment.store = vk::AttachmentStoreOp::eStore;
-//     depth_attachment.clear_value.setDepthStencil({1.0F, 0});
-//     thread.setDepthAttachment(depth_attachment);
-//
-//     thread.beginRendering();
-//     thread.setViewport();
+void SceneRenderer::renderGBuffer(RenderingData& rdata) {
+    albedo_img_->transitionState(rdata.thread.cmd(), Image::State::COLOR_ATT);
+    normal_img_->transitionState(rdata.thread.cmd(), Image::State::COLOR_ATT);
+    material_img_->transitionState(rdata.thread.cmd(), Image::State::COLOR_ATT);
+    depth_img_->transitionState(rdata.thread.cmd(), Image::State::DEPTH_ATT);
+
+    std::vector<AttachmentInfo> attachments;
+    auto& albedo_att = attachments.emplace_back();
+    albedo_att.image = albedo_img_.get();
+    albedo_att.load = vk::AttachmentLoadOp::eClear;
+    albedo_att.store = vk::AttachmentStoreOp::eStore;
+    auto& normal_att = attachments.emplace_back();
+    normal_att.image = normal_img_.get();
+    normal_att.load = vk::AttachmentLoadOp::eClear;
+    normal_att.store = vk::AttachmentStoreOp::eStore;
+    auto& material_att = attachments.emplace_back();
+    material_att.image = material_img_.get();
+    material_att.load = vk::AttachmentLoadOp::eClear;
+    material_att.store = vk::AttachmentStoreOp::eStore;
+
+    rdata.thread.setColorAttachments(std::move(attachments));
+
+    AttachmentInfo depth_attachment{};
+    depth_attachment.image = depth_img_.get();
+    depth_attachment.load = vk::AttachmentLoadOp::eClear;
+    depth_attachment.store = vk::AttachmentStoreOp::eStore;
+    depth_attachment.clear_value.setDepthStencil({1.0F, 0});
+    rdata.thread.setDepthAttachment(depth_attachment);
+
+    rdata.thread.beginRendering();
+    rdata.thread.setViewport();
+
+    auto& transforms_buffer = rdata.rendered_transforms;
+
+    if (!rdata.rendered_objs.empty()) {
+        rdata.thread.setPipeline(pipelines_.vox);
+
+        struct {
+            mat4f vp;
+        } pc{};
+
+        pc.vp = rdata.view_proj;
+
+        MLE_VC(camera_.getPos());
+        MLE_VC(camera_.getUp());
+        MLE_VC(camera_.getTarget());
+        MLE_VC(rdata.view_proj);
+
+        rdata.thread.pushConstants(&pc);
+
+        int transforms_offset = 0;
+        for (auto& model_type : rdata.rendered_objs) {
+            if (model_type.first->state != UploadState::OK) {
+                continue;
+            }
+
+            rdata.thread.bindInstanceBuffer(transforms_buffer.buffer, transforms_buffer.offset + transforms_offset);
+            transforms_offset += static_cast<int>(sizeof(mat4f) * model_type.second.size());
+
+            for (const auto& mesh : model_type.first->meshes) {
+                rdata.thread.bindVertexBuffer(mesh.vertex_buffer.get());
+                rdata.thread.bindIndexBuffer(mesh.index_buffer.get());
+
+                rdata.thread.drawIndexed(as<int>(model_type.second.size()), mesh.index_count, 0);
+            }
+        }
+
+        // This could be intanced but this is probably temporary and fine for now
+    }
+
+    rdata.thread.endRendering();
+}
 //
 //     std::vector<Object> rendered_objects;
 //     std::vector<Light> rendered_lights;
@@ -355,43 +405,6 @@ void SceneRenderer::renderSun(RenderingData& rdata) {  // NOLINT
 //                 // MLE_C("Chunk at ({}, {}) is not in frustum", i, j);
 //             }
 //         }
-//     }
-//
-//     if (!rendered_objects.empty()) {
-//         MLE_T("Rendering {} objects", rendered_objects.size());
-//         thread.setPipeline(g_pipeline_.get());
-//
-//         for (auto& obj : rendered_objects) {
-//             auto& model = obj.model;
-//
-//             struct {
-//                 mat4f mvp;
-//                 f32 metalness;
-//                 f32 roughness;
-//                 f32 emissive;
-//             } pc{};
-//
-//             pc.mvp = obj.transform;
-//
-//             for (auto& mesh : obj.model->meshes) {
-//                 if (model->state != UploadState::OK) {
-//                     continue;
-//                 }
-//
-//                 pc.metalness = mesh.metalness;
-//                 pc.roughness = mesh.roughness;
-//                 pc.emissive = mesh.emissive;
-//
-//                 thread.pushConstants(&pc);
-//
-//                 thread.bindVertexBuffer(mesh.vertex_buffer.get());
-//                 thread.bindIndexBuffer(mesh.index_buffer.get());
-//
-//                 thread.drawIndexed(1, mesh.index_count, 0);
-//             }
-//         }
-//
-//         // This could be intanced but this is probably temporary and fine for now
 //     }
 //
 //     if (!rendered_planes.empty()) {
@@ -584,113 +597,112 @@ void SceneRenderer::renderSun(RenderingData& rdata) {  // NOLINT
 // }
 //
 void SceneRenderer::renderLighting(RenderingData& rdata) {
-    // // TODO: FIND A WAY TO MAKE THIS AUTO
-    //
-    // std::vector<vk::WriteDescriptorSet> writes;
-    //
-    // // layout(set = 0, binding = 0) uniform sampler2D in_albedo;
-    // g_.albedo->transitionState(thread.cmd(), Image::State::SHADER_READ);
-    // vk::DescriptorImageInfo albedo_info;
-    // albedo_info.setImageView(g_.albedo->getView());
-    // albedo_info.setImageLayout(g_.albedo->getCurrentLayout());
-    // auto& b0 = writes.emplace_back();
-    // b0.dstBinding = 0;
-    // b0.dstArrayElement = 0;
-    // b0.descriptorCount = 1;
-    // b0.descriptorType = vk::DescriptorType::eCombinedImageSampler;
-    // b0.pImageInfo = &albedo_info;
-    //
-    // // layout(set = 0, binding = 1) uniform sampler2D in_normal;
-    // g_.normal->transitionState(thread.cmd(), Image::State::SHADER_READ);
-    // vk::DescriptorImageInfo normal_info;
-    // normal_info.setImageView(g_.normal->getView());
-    // normal_info.setImageLayout(g_.normal->getCurrentLayout());
-    // auto& b1 = writes.emplace_back();
-    // b1.dstBinding = 1;
-    // b1.dstArrayElement = 0;
-    // b1.descriptorCount = 1;
-    // b1.descriptorType = vk::DescriptorType::eCombinedImageSampler;
-    // b1.pImageInfo = &normal_info;
-    //
-    // // layout(set = 0, binding = 2) uniform sampler2D in_material;
-    // g_.material->transitionState(thread.cmd(), Image::State::SHADER_READ);
-    // vk::DescriptorImageInfo material_info;
-    // material_info.setImageView(g_.material->getView());
-    // material_info.setImageLayout(g_.material->getCurrentLayout());
-    // auto& b2 = writes.emplace_back();
-    // b2.dstBinding = 2;
-    // b2.dstArrayElement = 0;
-    // b2.descriptorCount = 1;
-    // b2.descriptorType = vk::DescriptorType::eCombinedImageSampler;
-    // b2.pImageInfo = &material_info;
-    //
-    // // layout(set = 0, binding = 3) uniform sampler2D in_depth;
-    // g_.depth->transitionState(thread.cmd(), Image::State::SHADER_READ);
-    // vk::DescriptorImageInfo depth_info;
-    // depth_info.setImageView(g_.depth->getView());
-    // depth_info.setImageLayout(g_.depth->getCurrentLayout());
-    // auto& b3 = writes.emplace_back();
-    // b3.dstBinding = 3;
-    // b3.dstArrayElement = 0;
-    // b3.descriptorCount = 1;
-    // b3.descriptorType = vk::DescriptorType::eCombinedImageSampler;
-    // b3.pImageInfo = &depth_info;
-    //
-    // // layout(set = 0, binding = 4) uniform GlobalUniforms globals;
-    // LightingGlobalUniforms globals{};
-    // globals.view = camera_.getView();
-    // globals.proj = camera_.getProj();
-    // globals.view_proj = camera_.getViewProj();
-    // globals.inv_view_proj = glm::inverse(globals.view_proj);
-    // globals.sun_light_matrix = sun_.matrix;
-    // globals.sun_direction = sun_.direction;
-    // globals.sun_color = sun_.color;
-    // auto buffer_slice = getHostVisibleBuffer(sizeof(LightingGlobalUniforms), vk::BufferUsageFlagBits::eUniformBuffer);
-    // buffer_slice.buffer->update(&globals, buffer_slice.size, buffer_slice.offset);
-    // vk::DescriptorBufferInfo globals_info;
-    // globals_info.setBuffer(buffer_slice.buffer->getVkHnd());
-    // globals_info.setOffset(buffer_slice.offset);
-    // globals_info.setRange(buffer_slice.size);
-    // auto& b4 = writes.emplace_back();
-    // b4.dstBinding = 4;
-    // b4.dstArrayElement = 0;
-    // b4.descriptorCount = 1;
-    // b4.descriptorType = vk::DescriptorType::eUniformBuffer;
-    // b4.pBufferInfo = &globals_info;
-    //
-    // // layout(set = 0, binding = 5) uniform sampler2DShadow sun_shadow_map;
-    // sun_.image->transitionState(thread.cmd(), Image::State::SHADER_READ);
-    // vk::DescriptorImageInfo sun_shadow_info;
-    // sun_shadow_info.setImageView(sun_.image->getView());
-    // sun_shadow_info.setImageLayout(sun_.image->getCurrentLayout());
-    // auto& b5 = writes.emplace_back();
-    // b5.dstBinding = 5;
-    // b5.dstArrayElement = 0;
-    // b5.descriptorCount = 1;
-    // b5.descriptorType = vk::DescriptorType::eCombinedImageSampler;
-    // b5.pImageInfo = &sun_shadow_info;
+    std::vector<vk::WriteDescriptorSet> writes;
+
+    // layout(set = 0, binding = 0) uniform sampler2D in_albedo;
+    albedo_img_->transitionState(rdata.thread.cmd(), Image::State::SHADER_READ);
+    vk::DescriptorImageInfo albedo_info;
+    albedo_info.setImageView(albedo_img_->getView());
+    albedo_info.setImageLayout(albedo_img_->getCurrentLayout());
+    albedo_info.setSampler(getNearestSampler());
+    auto& b0 = writes.emplace_back();
+    b0.dstBinding = 0;
+    b0.dstArrayElement = 0;
+    b0.descriptorCount = 1;
+    b0.descriptorType = vk::DescriptorType::eCombinedImageSampler;
+    b0.pImageInfo = &albedo_info;
+
+    // layout(set = 0, binding = 1) uniform sampler2D in_normal;
+    normal_img_->transitionState(rdata.thread.cmd(), Image::State::SHADER_READ);
+    vk::DescriptorImageInfo normal_info;
+    normal_info.setImageView(normal_img_->getView());
+    normal_info.setImageLayout(normal_img_->getCurrentLayout());
+    normal_info.setSampler(getNearestSampler());
+    auto& b1 = writes.emplace_back();
+    b1.dstBinding = 1;
+    b1.dstArrayElement = 0;
+    b1.descriptorCount = 1;
+    b1.descriptorType = vk::DescriptorType::eCombinedImageSampler;
+    b1.pImageInfo = &normal_info;
+
+    // layout(set = 0, binding = 2) uniform sampler2D in_material;
+    material_img_->transitionState(rdata.thread.cmd(), Image::State::SHADER_READ);
+    vk::DescriptorImageInfo material_info;
+    material_info.setImageView(material_img_->getView());
+    material_info.setImageLayout(material_img_->getCurrentLayout());
+    material_info.setSampler(getNearestSampler());
+    auto& b2 = writes.emplace_back();
+    b2.dstBinding = 2;
+    b2.dstArrayElement = 0;
+    b2.descriptorCount = 1;
+    b2.descriptorType = vk::DescriptorType::eCombinedImageSampler;
+    b2.pImageInfo = &material_info;
+
+    // layout(set = 0, binding = 3) uniform sampler2D in_depth;
+    depth_img_->transitionState(rdata.thread.cmd(), Image::State::SHADER_READ);
+    vk::DescriptorImageInfo depth_info;
+    depth_info.setImageView(depth_img_->getView());
+    depth_info.setImageLayout(depth_img_->getCurrentLayout());
+    depth_info.setSampler(getNearestSampler());
+    auto& b3 = writes.emplace_back();
+    b3.dstBinding = 3;
+    b3.dstArrayElement = 0;
+    b3.descriptorCount = 1;
+    b3.descriptorType = vk::DescriptorType::eCombinedImageSampler;
+    b3.pImageInfo = &depth_info;
+
+    // layout(set = 0, binding = 4) uniform GlobalUniforms globals;
+    LightingUBO globals{};
+    globals.view = rdata.view;
+    globals.proj = rdata.proj;
+    globals.view_proj = rdata.view_proj;
+    globals.inv_view_proj = glm::inverse(globals.view_proj);
+    globals.sun_light_mtx = rdata.sun_vp;
+    globals.sun_dir = rdata.dim.sun_dir;
+    globals.sun_color = rdata.dim.sun_color;
+    auto buffer_slice = getHostVisibleBuffer(sizeof(LightingUBO), vk::BufferUsageFlagBits::eUniformBuffer);
+    buffer_slice.buffer->update(&globals, buffer_slice.size, buffer_slice.offset);
+    vk::DescriptorBufferInfo globals_info;
+    globals_info.setBuffer(buffer_slice.buffer->getVkHnd());
+    globals_info.setOffset(buffer_slice.offset);
+    globals_info.setRange(buffer_slice.size);
+    auto& b4 = writes.emplace_back();
+    b4.dstBinding = 4;
+    b4.dstArrayElement = 0;
+    b4.descriptorCount = 1;
+    b4.descriptorType = vk::DescriptorType::eUniformBuffer;
+    b4.pBufferInfo = &globals_info;
+
+    // layout(set = 0, binding = 5) uniform sampler2DShadow sun_shadow_map;
+    shadow_img_->transitionState(rdata.thread.cmd(), Image::State::SHADER_READ);
+    vk::DescriptorImageInfo sun_shadow_info;
+    sun_shadow_info.setImageView(shadow_img_->getView());
+    sun_shadow_info.setImageLayout(shadow_img_->getCurrentLayout());
+    sun_shadow_info.setSampler(getShadowSampler());
+    auto& b5 = writes.emplace_back();
+    b5.dstBinding = 5;
+    b5.dstArrayElement = 0;
+    b5.descriptorCount = 1;
+    b5.descriptorType = vk::DescriptorType::eCombinedImageSampler;
+    b5.pImageInfo = &sun_shadow_info;
 
     target_img_->transitionState(rdata.thread.cmd(), Image::State::COLOR_ATT);
 
-    {
-        std::vector<AttachmentInfo> attachments;
-        auto& c0 = attachments.emplace_back();
-        c0.image = target_img_.get();
-        c0.load = vk::AttachmentLoadOp::eClear;
-        c0.store = vk::AttachmentStoreOp::eStore;
-        rdata.thread.setColorAttachments(std::move(attachments));
-        rdata.thread.setDepthAttachment({});
-    }
+    std::vector<AttachmentInfo> attachments;
+    auto& c0 = attachments.emplace_back();
+    c0.image = target_img_.get();
+    c0.load = vk::AttachmentLoadOp::eClear;
+    c0.store = vk::AttachmentStoreOp::eStore;
+    rdata.thread.setColorAttachments(std::move(attachments));
+    rdata.thread.setDepthAttachment({});
 
     rdata.thread.beginRendering();
 
     rdata.thread.setViewport();
 
-    // thread.setPipeline(lighting_.pipeline.get());
-    //
-    // thread.pushDescriptor(0, writes);
-    //
-    // thread.draw(1, 3);
+    rdata.thread.setPipeline(pipelines_.lighting);
+    rdata.thread.pushDescriptor(0, writes);
+    rdata.thread.draw(1, 3);
 
     rdata.thread.endRendering();
 }
