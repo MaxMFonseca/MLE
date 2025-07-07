@@ -436,4 +436,28 @@ BufferSlice FrameRenderer::getHostVisibleBuffer(usize size, vk::BufferUsageFlags
     auto& er = buffers.emplace_back(Buffer::createHnd(buffer_ci), alignUp(size, alignment));
     return BufferSlice{.buffer = er.first.get(), .size = size, .offset = 0};
 }
+
+void FrameRenderer::deleteAfterFrame(BufferHnd&& buffer) {
+    if (inFrame()) {
+        getCurrentFrame().delete_buffers.emplace_back(std::move(buffer));
+    } else {
+        getNextFrame().delete_buffers.emplace_back(std::move(buffer));
+    }
+}
+
+void FrameRenderer::deleteAfterFrame(ImageHnd&& image) {
+    if (inFrame()) {
+        getCurrentFrame().delete_images.emplace_back(std::move(image));
+    } else {
+        getNextFrame().delete_images.emplace_back(std::move(image));
+    }
+}
+
+void FrameRenderer::addToCallOnFrameEnd(std::function<void(void)>&& func) {
+    if (inFrame()) {
+        getCurrentFrame().delete_stack.emplace_back(std::move(func));
+    } else {
+        getNextFrame().delete_stack.emplace_back(std::move(func));
+    }
+}
 }  // namespace mle::renderer::detail

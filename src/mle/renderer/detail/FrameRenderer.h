@@ -47,11 +47,13 @@ class FrameRenderer final {
     vk::CommandBuffer getCmd();
     vk::CommandBuffer getCmdSecondary();
 
-    void addToCallOnFrameEnd(std::function<void(void)>&& func) { getCurrentFrame().delete_stack.emplace_back(std::move(func)); }
-    void deleteAfterFrame(BufferHnd&& buffer) { getCurrentFrame().delete_buffers.emplace_back(std::move(buffer)); }
-    void deleteAfterFrame(ImageHnd&& image) { getCurrentFrame().delete_images.emplace_back(std::move(image)); }
+    void addToCallOnFrameEnd(std::function<void(void)>&& func);
+    void deleteAfterFrame(BufferHnd&& buffer);
+    void deleteAfterFrame(ImageHnd&& image);
 
     BufferSlice getHostVisibleBuffer(usize size, vk::BufferUsageFlags usage);
+
+    [[nodiscard]] bool inFrame() const { return current_frame_ != NO_FRAME; }
 
   private:
     void initFramesData();
