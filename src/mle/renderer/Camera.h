@@ -3,6 +3,7 @@
 #include "glm/exponential.hpp"
 #include "mle/common/math/Types.h"
 #include "mle/common/math/Types3D.h"
+#include "spdlog/common.h"
 namespace mle::renderer {
 class Camera {
   public:
@@ -52,9 +53,22 @@ class Camera {
     mat4f getViewProj();
     mat4f getInvViewProj() { return glm::inverse(getViewProj()); }
 
-    auto getPos() { return eye_; }
-    auto getTarget() { return target_; }
-    auto getUp() { return up_; }
+    auto getType() { return proj_type_; }
+
+    [[nodiscard]] auto getPos() const { return eye_; }
+    [[nodiscard]] auto getEye() const { return eye_; }
+    [[nodiscard]] auto getTarget() const { return target_; }
+    [[nodiscard]] auto getUp() const { return up_; }
+
+    [[nodiscard]] auto getFov() const { return fov_deg_; }
+    [[nodiscard]] auto getAspect() const { return aspect_; }
+    [[nodiscard]] auto getNear() const { return near_; }
+    [[nodiscard]] auto getFar() const { return far_; }
+
+    [[nodiscard]] auto getLeft() const { return left_; }
+    [[nodiscard]] auto getRight() const { return right_; }
+    [[nodiscard]] auto getBottom() const { return bottom_; }
+    [[nodiscard]] auto getTop() const { return top_; }
 
     Frustum getFrustum() { return Frustum{getViewProj()}; }
 
@@ -87,3 +101,19 @@ class Camera {
     bool view_proj_dirty_ = true;
 };
 }  // namespace mle::renderer
+
+namespace fmt {
+template <>
+struct formatter<mle::renderer::Camera> : formatter<std::string> {
+    template <typename FormatContext>
+    constexpr auto format(const mle::renderer::Camera& cam, FormatContext& ctx) const {
+        if (cam.getProjType() == mle::renderer::Camera::ProjType::PERSPECTIVE) {
+            return format_to(ctx.out(), "Camera[{}] (Perspective, FOV: {:.2f}, Aspect: {:.2f}, Near: {:.2f}, Far: {:.2f})", cam.getPos(), cam.getFov(),
+                             cam.getAspect(), cam.getNear(), cam.getFar());
+        }
+
+        return format_to(ctx.out(), "Camera[{}] (Orthographic, Left: {:.2f}, Right: {:.2f}, Bottom: {:.2f}, Top: {:.2f})", cam.getPos(), cam.getLeft(),
+                         cam.getRight(), cam.getBottom(), cam.getTop());
+    }
+};
+}  // namespace fmt
