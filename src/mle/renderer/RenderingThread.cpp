@@ -190,15 +190,18 @@ void RenderingThread::setViewport(const Rectf& viewport) {
 }
 
 void RenderingThread::bindVertexBuffer(BufferRef buffer, usize offset) const {
+    MLE_ASSERT(buffer);
     MLE_ASSERT(in_rendering_);
     cmd_.bindVertexBuffers(0, buffer->get(), offset);
 }
 
 void RenderingThread::bindInstanceBuffer(BufferRef buffer, usize offset) const {
+    MLE_ASSERT(buffer);
     MLE_ASSERT(in_rendering_);
     MLE_ASSERT(pipeline_);
     MLE_ASSERT(pipeline_->hasInstance());
-    cmd_.bindVertexBuffers(pipeline_->getFirstInstanceBinding(), buffer->get(), offset);
+    int binding = pipeline_->getFirstInstanceBinding() == 0 ? 0 : 1;
+    cmd_.bindVertexBuffers(binding, buffer->get(), offset);
 }
 
 void RenderingThread::bindIndexBuffer(BufferRef buffer, usize offset) const {
