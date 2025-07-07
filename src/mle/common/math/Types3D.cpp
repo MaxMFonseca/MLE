@@ -6,28 +6,28 @@
 #include "mle/common/Utils.h"
 
 namespace mle {
-std::optional<NearFar> Ray3f::intersect(const Boxf& box) const {
-    f32 near = -inf<f32>();
-    f32 far = inf<f32>();
-
-    for (i32 i = 0; i < 3; ++i) {
-        f32 t1 = (box.pos[i] - origin_[i]) * inv_direction_[i];
-        f32 t2 = (box.pos[i] + box.size[i] - origin_[i]) * inv_direction_[i];
-
-        if (t1 > t2) {
-            std::swap(t1, t2);
-        }
-
-        near = std::max(near, t1);
-        far = std::min(far, t2);
-
-        if (near > far || far < 0) {
-            return std::nullopt;
-        }
-    }
-
-    return NearFar{.near = near < 0 ? 0 : near, .far = far};
-}
+// std::optional<NearFar> Ray3f::intersect(const Boxf& box) const {
+//     f32 near = -inf<f32>();
+//     f32 far = inf<f32>();
+//
+//     for (i32 i = 0; i < 3; ++i) {
+//         f32 t1 = (box.pos_[i] - origin_[i]) * inv_direction_[i];
+//         f32 t2 = (box.pos_[i] + box.size_[i] - origin_[i]) * inv_direction_[i];
+//
+//         if (t1 > t2) {
+//             std::swap(t1, t2);
+//         }
+//
+//         near = std::max(near, t1);
+//         far = std::min(far, t2);
+//
+//         if (near > far || far < 0) {
+//             return std::nullopt;
+//         }
+//     }
+//
+//     return NearFar{.near = near < 0 ? 0 : near, .far = far};
+// }
 
 BoxFace pointFace(const Boxf& box, vec3f point, f32 epsilon) {
     if (feq(point.x, box.left(), epsilon)) {

@@ -79,7 +79,7 @@ UploadVoxMeshData loadVoxMesh(const tinygltf::Model& model, const tinygltf::Mesh
         const auto& view = model.bufferViews[accessor.bufferView];
         const auto& buffer = model.buffers[view.buffer];
 
-        return reinterpret_cast<const float*>(buffer.data.data() + view.byteOffset + accessor.byteOffset);  // NOLINT
+        return rAs<const float*>(buffer.data.data() + view.byteOffset + accessor.byteOffset);  // NOLINT
     };
 
     const float* pos_data = read_attribute("POSITION");
@@ -87,7 +87,9 @@ UploadVoxMeshData loadVoxMesh(const tinygltf::Model& model, const tinygltf::Mesh
     const float* color_data = read_attribute("COLOR_0");
 
     const auto& accessor = model.accessors[primitive.attributes.at("POSITION")];
-    const size_t count = accessor.count;
+    const usize count = accessor.count;
+    upload_data.aabb_min = {accessor.minValues[0], accessor.minValues[1], accessor.minValues[2]};
+    upload_data.aabb_max = {accessor.maxValues[0], accessor.maxValues[1], accessor.maxValues[2]};
 
     upload_data.vertices.reserve(count);
 
@@ -208,6 +210,9 @@ ModelRef ModelCache::add(const std::string& name, const UploadModelData& model_d
 
     uploading.semaphore = unwrap(detail::getDevice().createSemaphore({}));
 
+    vec3f aabb_min{max<f32>()};
+    vec3f aabb_max{min<f32>()};
+
     for (const auto& mesh_data : model_data.meshes) {
         auto& model_mesh = model->meshes.emplace_back();
         auto& uploading_mesh = uploading.meshes.emplace_back();
@@ -216,6 +221,9 @@ ModelRef ModelCache::add(const std::string& name, const UploadModelData& model_d
 
         MLE_ASSERT_LOG(std::holds_alternative<UploadVoxMeshData>(mesh_data), "Only UploadVoxMeshData is supported for now");
         const auto& vox_mesh_data = std::get<UploadVoxMeshData>(mesh_data);
+
+        aabb_min = glm::min(aabb_min, vox_mesh_data.aabb_min);
+        aabb_max = glm::max(aabb_max, vox_mesh_data.aabb_max);
 
         model_mesh.metalness = vox_mesh_data.metalness;
         model_mesh.roughness = vox_mesh_data.roughness;
@@ -269,6 +277,10 @@ ModelRef ModelCache::add(const std::string& name, const UploadModelData& model_d
         tcmd.pipelineBarrier2(i_dep_info);
         gcmd.pipelineBarrier2(i_dep_info);
     }
+
+    vec3f box_size = aabb_max - aabb_min;
+    MLE_ASSERT_LOG(box_size.length() > 0 && box_size.length() <= 1000, "Box size is invalid: {}", box_size);
+    model->aabb = Boxf{aabb_min, box_size};
 
     vk::SemaphoreSubmitInfo semaphore_info = {};
     semaphore_info.setSemaphore(uploading.semaphore);

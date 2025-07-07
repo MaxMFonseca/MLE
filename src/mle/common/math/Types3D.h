@@ -47,36 +47,38 @@ struct NearFar {
  */
 template <typename T>
 struct Box {
-    vec3<T> pos;      ///< Minimum corner of the box (lower-left-front).
-    Extent3<T> size;  ///< Extent of the box along each axis.
+  private:
+    vec3<T> pos_;      ///< Minimum corner of the box (lower-left-front).
+    Extent3<T> size_;  ///< Extent of the box along each axis.
 
+  public:
     Box() = default;
 
     /// Constructs a box from raw components.
     Box(T x, T y, T z, T width, T height, T depth) :
-        pos(x, y, z),
-        size(width, height, depth) {}
+        pos_(x, y, z),
+        size_(width, height, depth) {}
 
     /// Constructs a box from a position and size vector.
     Box(vec3<T> pos, Extent3<T> size) :
-        pos(pos),
-        size(size) {}
+        pos_(pos),
+        size_(size) {}
 
-    [[nodiscard]] T left() const { return pos.x; }            ///< Left edge (x position).
-    [[nodiscard]] T right() const { return pos.x + size.x; }  ///< Right edge (x + width)
-    [[nodiscard]] T bottom() const { return pos.y; }          ///< Bottom edge (y position)
-    [[nodiscard]] T top() const { return pos.y + size.y; }    ///< Top edge (y + height)
-    [[nodiscard]] T front() const { return pos.z; }           ///< Front edge (z position)
-    [[nodiscard]] T back() const { return pos.z + size.z; }   ///< Back edge (z + depth)
+    [[nodiscard]] T left() const { return pos_.x; }             ///< Left edge (x position).
+    [[nodiscard]] T right() const { return pos_.x + size_.x; }  ///< Right edge (x + width)
+    [[nodiscard]] T bottom() const { return pos_.y; }           ///< Bottom edge (y position)
+    [[nodiscard]] T top() const { return pos_.y + size_.y; }    ///< Top edge (y + height)
+    [[nodiscard]] T front() const { return pos_.z; }            ///< Front edge (z position)
+    [[nodiscard]] T back() const { return pos_.z + size_.z; }   ///< Back edge (z + depth)
 
-    [[nodiscard]] T width() const { return size.x; }   ///< size.x
-    [[nodiscard]] T height() const { return size.y; }  ///< size.y
-    [[nodiscard]] T depth() const { return size.z; }   ///< size.z
+    [[nodiscard]] T width() const { return size_.x; }   ///< size.x
+    [[nodiscard]] T height() const { return size_.y; }  ///< size.y
+    [[nodiscard]] T depth() const { return size_.z; }   ///< size.z
 
-    [[nodiscard]] vec3<T> min() const { return pos; }         ///< Minimum corner of the box.
-    [[nodiscard]] vec3<T> max() const { return pos + size; }  ///< Maximum corner of the box.
+    [[nodiscard]] vec3<T> min() const { return pos_; }          ///< Minimum corner of the box.
+    [[nodiscard]] vec3<T> max() const { return pos_ + size_; }  ///< Maximum corner of the box.
 
-    [[nodiscard]] vec3<T> center() const { return pos + (size / 2); }  ///< Center of the box.
+    [[nodiscard]] vec3<T> center() const { return pos_ + (size_ / 2); }  ///< Center of the box.
 
     /// True if width, height, and depth are greater than 0.
     [[nodiscard]] constexpr bool valid() const { return width() > 0 && height() > 0 && depth() > 0; }
@@ -93,10 +95,10 @@ struct Box {
     }
 
     /// Moves the box by the given offset.
-    void move(vec3<T> offset) { pos += offset; }
+    void move(vec3<T> offset) { pos_ += offset; }
 
     /// Compares two boxes for exact equality.
-    bool operator==(const Box<T>& other) const { return pos == other.pos && size == other.size; }
+    bool operator==(const Box<T>& other) const { return pos_ == other.pos_ && size_ == other.size_; }
 };
 
 /**
@@ -467,7 +469,7 @@ template <typename T>
 struct formatter<mle::Box<T>> : formatter<std::string> {
     template <typename FormatContext>
     constexpr auto format(const mle::Box<T>& b, FormatContext& ctx) const {
-        return format_to(ctx.out(), "[pos:{}, size:{}]", b.pos, b.size);
+        return format_to(ctx.out(), "[pos:{}, size:{}]", b.pos_, b.size_);
     }
 };
 

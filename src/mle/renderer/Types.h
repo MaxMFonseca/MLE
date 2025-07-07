@@ -1,6 +1,8 @@
 #pragma once
 
 #include <variant>
+
+#include "mle/common/math/Types3D.h"
 #define VULKAN_HPP_ASSERT(expr) ((void)0)
 #define VULKAN_HPP_DISPATCH_LOADER_DYNAMIC 1
 
@@ -103,6 +105,8 @@ struct UploadVoxMeshData {
     f32 metalness = 0.0F;
     f32 roughness = 0.0F;
     f32 emissive = 0.0F;
+    vec3f aabb_min{0.0F};
+    vec3f aabb_max{0.0F};
 };
 
 using UploadMeshData = std::variant<UploadVoxMeshData>;
@@ -121,6 +125,7 @@ struct Model {
         enum class Type : u8 { VOX };
         Type type = Mesh::Type::VOX;
     };
+    Boxf aabb;
     std::vector<Mesh> meshes;
     UploadState state = UploadState::OUT;
 };
