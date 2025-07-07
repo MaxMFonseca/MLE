@@ -190,14 +190,14 @@ vk::PipelineShaderStageCreateInfo Shader::getPipelineShaderStageCreateInfo() con
 
     bool has_instance_attributes = first_instance_attribute_location_ != max<uint>();
     bool has_vertex_attributes = !has_instance_attributes || first_instance_attribute_location_ > 0;
-    u32 last_vertex_attribute = has_instance_attributes ? first_instance_attribute_location_ - 1 : vertex_attributes_.size();
+    u32 last_vertex_attribute = has_instance_attributes ? first_instance_attribute_location_ - 1 : vertex_attributes_.size() - 1;
 
     if (has_vertex_attributes) {
         auto& vertex_binding = ret.binding_descriptions.emplace_back();
         vertex_binding.binding = 0;
         vertex_binding.inputRate = vk::VertexInputRate::eVertex;
         vertex_binding.stride = 0;
-        for (u32 i = 0; i < last_vertex_attribute; ++i) {
+        for (u32 i = 0; i <= last_vertex_attribute; ++i) {
             MLE_T("Vertex attribute {}: location: {}, format: {}", i, vertex_attributes_[i].location, vk::to_string(vertex_attributes_[i].format));
             vertex_binding.stride += typeSize(ret.attribute_descriptions[i].format);
             ret.attribute_descriptions[i].binding = vertex_binding.binding;
