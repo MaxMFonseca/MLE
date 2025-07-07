@@ -1,5 +1,6 @@
 #pragma once
 
+#include "glm/exponential.hpp"
 #include "mle/common/math/Types.h"
 #include "mle/common/math/Types3D.h"
 namespace mle::renderer {
@@ -49,6 +50,7 @@ class Camera {
     mat4f getView();
     mat4f getProj();
     mat4f getViewProj();
+    mat4f getInvViewProj() { return glm::inverse(getViewProj()); }
 
     auto getPos() { return eye_; }
 
