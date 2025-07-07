@@ -129,6 +129,7 @@ void Camera::updateProj() {
     } else {
         proj_ = glm::ortho(left_, right_, bottom_, top_, near_, far_);
     }
+    proj_[1][1] = -proj_[1][1];
     proj_dirty_ = false;
     view_proj_dirty_ = true;
 }

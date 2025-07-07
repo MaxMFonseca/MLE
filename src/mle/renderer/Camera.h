@@ -53,6 +53,8 @@ class Camera {
     mat4f getInvViewProj() { return glm::inverse(getViewProj()); }
 
     auto getPos() { return eye_; }
+    auto getTarget() { return target_; }
+    auto getUp() { return up_; }
 
     Frustum getFrustum() { return Frustum{getViewProj()}; }
 
