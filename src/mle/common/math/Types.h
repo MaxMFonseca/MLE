@@ -11,16 +11,13 @@
 
 #include <spdlog/fmt/fmt.h>
 
+#include <chrono>
 #include <cmath>
 #include <cstdint>
-#include <limits>
-
-#define GLM_FORCE_RADIANS
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
-#include <chrono>
 #include <glm/glm.hpp>
 #include <glm/gtx/intersect.hpp>
 #include <glm/gtx/quaternion.hpp>
+#include <limits>
 
 namespace mle {
 
