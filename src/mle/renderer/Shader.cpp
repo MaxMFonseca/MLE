@@ -196,6 +196,7 @@ vk::PipelineShaderStageCreateInfo Shader::getPipelineShaderStageCreateInfo() con
     bool has_instance_attributes = first_instance_attribute_location_ != max<uint>();
     bool has_vertex_attributes = !has_instance_attributes || first_instance_attribute_location_ > 0;
     u32 last_vertex_attribute = has_instance_attributes ? first_instance_attribute_location_ - 1 : vertex_attributes_.size() - 1;
+    u32 vert_bind_stride = 0;
 
     if (has_vertex_attributes) {
         auto& vertex_binding = ret.binding_descriptions.emplace_back();
@@ -207,6 +208,7 @@ vk::PipelineShaderStageCreateInfo Shader::getPipelineShaderStageCreateInfo() con
             vertex_binding.stride += typeSize(ret.attribute_descriptions[i].format);
             ret.attribute_descriptions[i].binding = vertex_binding.binding;
         }
+        vert_bind_stride = vertex_binding.stride;
     }
 
     if (has_instance_attributes) {
@@ -218,6 +220,7 @@ vk::PipelineShaderStageCreateInfo Shader::getPipelineShaderStageCreateInfo() con
             MLE_T("Instance attribute {}: location: {}, format: {}", i, vertex_attributes_[i].location, vk::to_string(vertex_attributes_[i].format));
             instance_binding.stride += typeSize(ret.attribute_descriptions[i].format);
             ret.attribute_descriptions[i].binding = instance_binding.binding;
+            ret.attribute_descriptions[i].offset -= vert_bind_stride;
         }
     }
 

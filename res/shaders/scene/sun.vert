@@ -21,7 +21,5 @@ void main() {
         ini_model_row3
     );
 
-    model = mat4(1.0);
-    
     gl_Position = pc.vp * model * vec4(in_position, 1.0);
 }

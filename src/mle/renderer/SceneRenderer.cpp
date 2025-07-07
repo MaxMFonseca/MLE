@@ -130,8 +130,7 @@ void SceneRenderer::renderSun(RenderingData& rdata) {  // NOLINT
 
     rdata.sun_cam.setProjType(Camera::ProjType::ORTH);
     rdata.sun_cam.setTarget(camera_target);
-    rdata.sun_cam.setPosition(camera_target - rdata.dim.sun_dir * 50.0F);
-    rdata.sun_cam.setUp({0.0F, -1.0F, 0.0F});
+    rdata.sun_cam.setPosition(camera_target - rdata.dim.sun_dir * 40.0F);
     rdata.sun_cam.setNear(0.1);
     rdata.sun_cam.setFar(200.0F);
     rdata.sun_cam.setRect(sun_size);
@@ -252,7 +251,6 @@ void SceneRenderer::renderSun(RenderingData& rdata) {  // NOLINT
                             }
 
                             mat4f obj_transform = glm::translate(object.second.transform, chunk_world_pos);
-
                             rdata.rendered_objs[object.second.model].emplace_back(obj_transform);
                             obj_count++;
                         }
@@ -277,13 +275,16 @@ void SceneRenderer::renderSun(RenderingData& rdata) {  // NOLINT
     BufferSlice transforms_buffer = getHostVisibleBuffer(obj_count * sizeof(mat4f), vk::BufferUsageFlagBits::eVertexBuffer);
 
     {
-        int curr_offset = 0;
+        usize curr_offset = transforms_buffer.offset;
         for (const auto& model_type : rdata.rendered_objs) {
             if (model_type.second.empty()) {
                 continue;
             }
 
-            transforms_buffer.buffer->update(model_type.second.data(), model_type.second.size() * sizeof(mat4f), transforms_buffer.offset + curr_offset);
+            usize buffer_size = model_type.second.size() * sizeof(mat4f);
+
+            transforms_buffer.buffer->update(model_type.second.data(), buffer_size, curr_offset);
+            curr_offset += buffer_size;
         }
     }
 
