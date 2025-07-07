@@ -35,8 +35,6 @@ void SceneRenderer::init(const CI& ci) {
     camera_.setTarget({0.0F, 0.0F, 0.0F});
     camera_.setUp({0, 1, 0});
 
-    MLE_VC(camera_);
-
     initSun();
     initG(ci);
     initSun();
@@ -116,11 +114,6 @@ void SceneRenderer::render() {
     rdata.view_proj = camera_.getViewProj();
     rdata.inv_view_proj = camera_.getInvViewProj();
     rdata.camera_frustum = camera_.getFrustum();
-
-    MLE_VC(camera_);
-    MLE_VC(rdata.view);
-    MLE_VC(rdata.proj);
-    MLE_VC(rdata.view_proj);
 
     auto camera_frustum_inter_y0 = rdata.camera_frustum.intersectWithY0();
     rdata.camera_center_y0 = camera_frustum_inter_y0.center();
@@ -352,11 +345,6 @@ void SceneRenderer::renderGBuffer(RenderingData& rdata) {
         } pc{};
 
         pc.vp = rdata.view_proj;
-
-        MLE_VC(camera_.getPos());
-        MLE_VC(camera_.getUp());
-        MLE_VC(camera_.getTarget());
-        MLE_VC(rdata.view_proj);
 
         rdata.thread.pushConstants(&pc);
 

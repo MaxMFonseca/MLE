@@ -140,20 +140,14 @@ void Camera::updateViewProj() {
 }
 
 void Camera::walk(const vec3f& offset) {
-    const vec3f forward = glm::normalize(target_ - eye_);
-    const vec3f right = glm::normalize(glm::cross(forward, up_));
-    const vec3f up = glm::normalize(glm::cross(right, forward));
-
-    const vec3f world_offset = offset.x * right + offset.y * up + offset.z * forward;
-
-    eye_ += world_offset;
-    target_ += world_offset;
+    eye_ += offset;
+    target_ += offset;
 
     view_dirty_ = true;
     view_proj_dirty_ = true;
 }
 
-void Camera::lookUpDown(f32 angle_rad) {
+void Camera::lookUp(f32 angle_rad) {
     vec3f forward = glm::normalize(target_ - eye_);
     vec3f right = glm::normalize(glm::cross(forward, up_));
 
@@ -171,10 +165,36 @@ void Camera::lookUpDown(f32 angle_rad) {
     view_dirty_ = true;
     view_proj_dirty_ = true;
 }
+
 void Camera::setRect(f32 left, f32 right, f32 bottom, f32 top) {
     setLeft(left);
     setRight(right);
     setBottom(bottom);
     setTop(top);
+}
+
+void Camera::rotateTargetAroundEye(vec3f v) {
+    vec3f offset = target_ - eye_;
+
+    quat qyaw = glm::angleAxis(v.y, glm::vec3(0, 1, 0));
+    quat qpitch = glm::angleAxis(v.x, glm::vec3(1, 0, 0));
+    quat qroll = glm::angleAxis(v.z, glm::vec3(0, 0, 1));
+    auto rot = qyaw * qpitch * qroll;
+
+    offset = rot * offset;
+
+    target_ = eye_ + offset;
+
+    view_dirty_ = true;
+    view_proj_dirty_ = true;
+}
+
+void Camera::zoom(f32 delta) {
+    vec3f offset = target_ - eye_;
+    f32 distance = glm::max(glm::length(offset) - delta, 0.1F);
+    eye_ = target_ - glm::normalize(offset) * distance;
+
+    view_dirty_ = true;
+    view_proj_dirty_ = true;
 }
 }  // namespace mle::renderer

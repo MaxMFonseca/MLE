@@ -93,6 +93,11 @@ class UserInputManager {
     /// Constructs a new input manager.
     UserInputManager() = default;
 
+    UserInputManager(std::vector<std::pair<Key, KeyState>> active_keys, std::unordered_map<u32, std::vector<KeyListenerRef>> listeners,
+                     IDVec<std::function<void(char32)>> text_listeners) :
+        active_keys_(std::move(active_keys)),
+        listeners_(std::move(listeners)),
+        text_listeners_(std::move(text_listeners)) {}
     /// Destructor.
     ~UserInputManager() = default;
 
@@ -178,9 +183,9 @@ class UserInputManager {
     bool ctrl_ = false;   ///< Current ctrl state.
     bool alt_ = false;    ///< Current alt state.
 
-    vec2f cursor_pos_ = {nan<f32>(), nan<f32>()};        ///< Current cursor position.
-    vec2f cursor_pos_prev_ = {nan<f32>(), nan<f32>()};   ///< Previous cursor position.
-    vec2f cursor_pos_delta_ = {nan<f32>(), nan<f32>()};  ///< Cursor movement delta.
+    vec2f cursor_pos_ = {nan<f32>(), nan<f32>()};       ///< Current cursor position.
+    vec2f cursor_pos_prev_ = {nan<f32>(), nan<f32>()};  ///< Previous cursor position.
+    vec2f cursor_pos_delta_{0};
 
     vec2f cursor_pos_normalized_ = {nan<f32>(), nan<f32>()};        ///< Normalized cursor position.
     vec2f cursor_pos_delta_normalized_ = {nan<f32>(), nan<f32>()};  ///< Normalized cursor delta.

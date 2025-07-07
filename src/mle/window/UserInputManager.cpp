@@ -111,18 +111,22 @@ void UserInputManager::update() {
         it++;
     }
 
-    cursor_pos_delta_ = cursor_pos_ - cursor_pos_prev_;
-    cursor_pos_prev_ = {nan<f32>(), nan<f32>()};
+    if (!std::isnan(cursor_pos_.x) && !std::isnan(cursor_pos_prev_.x)) {
+        cursor_pos_delta_ = cursor_pos_ - cursor_pos_prev_;
+    } else {
+        cursor_pos_delta_ = {0.0, 0.0};
+    }
 
     cursor_pos_normalized_ = cursor_pos_ / vec2f(window::getSize());
     cursor_pos_delta_normalized_ = cursor_pos_delta_ / vec2f(window::getSize());
 
     scroll_offset_ = scroll_offset_next_;
     scroll_offset_next_ = 0.0;
+
+    cursor_pos_prev_ = cursor_pos_;
 }
 
 void UserInputManager::setCursorPos(const vec2d& pos) {
-    cursor_pos_prev_ = cursor_pos_;
     cursor_pos_ = pos;
 }
 
