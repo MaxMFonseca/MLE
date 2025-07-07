@@ -51,7 +51,7 @@ class SceneRenderer {
 
     static constexpr usize SHADOW_RESOLUTION = 4096;
     static constexpr usize CHUNK_SIZE = 32;
-    static constexpr usize WORLD_VIEW_SIZE = 5;
+    static constexpr usize WORLD_VIEW_SIZE = 9;
     static constexpr usize MAX_LOADED_WORLD_VIEWS = 9;
 
     struct WorldView {

@@ -15,6 +15,7 @@
 #include "mle/renderer/RenderingThread.h"
 #include "mle/renderer/Types.h"
 #include "mle/renderer/Utils.h"
+#include "spdlog/details/os.h"
 
 namespace mle::renderer {
 void SceneRenderer::shutdown() {
@@ -132,42 +133,32 @@ void SceneRenderer::renderSun(RenderingData& rdata) {  // NOLINT
     calcSunCamera(rdata);
 
     auto sun_frustum_inter_y0 = rdata.sun_frustum.intersectWithY0();
-    auto sun_frustum_inter_y0_xz = sun_frustum_inter_y0.xz();
+    Polygon2f sun_frustum_polygon(sun_frustum_inter_y0.xz());
+    AABB2D sun_frustum_aabb = sun_frustum_polygon.boundingBox();
 
-    int sun_min_x = max<int>();
-    int sun_max_x = min<int>();
-    int sun_min_z = max<int>();
-    int sun_max_z = min<int>();
+    f32 view_size_world = CHUNK_SIZE * WORLD_VIEW_SIZE;
 
-    for (auto p : sun_frustum_inter_y0_xz) {
-        sun_min_x = std::min(sun_min_x, as<int>(p.x));
-        sun_max_x = std::max(sun_max_x, as<int>(p.x));
-        sun_min_z = std::min(sun_min_z, as<int>(p.y));
-        sun_max_z = std::max(sun_max_z, as<int>(p.y));
-    }
-
-    int wv_size_m = CHUNK_SIZE * WORLD_VIEW_SIZE;
-
-    int sun_min_x_idx_view = sun_min_x / wv_size_m;
-    int sun_max_x_idx_view = sun_max_x / wv_size_m;
-    int sun_min_z_idx_view = sun_min_z / wv_size_m;
-    int sun_max_z_idx_view = sun_max_z / wv_size_m;
+    int sun_aabb_inter_view_range_x0 = as<int>(std::floor(sun_frustum_aabb.min().x / view_size_world));
+    int sun_aabb_inter_view_range_x1 = as<int>(std::ceil(sun_frustum_aabb.max().x / view_size_world));
+    int sun_aabb_inter_view_range_z0 = as<int>(std::floor(sun_frustum_aabb.min().y / view_size_world));
+    int sun_aabb_inter_view_range_z1 = as<int>(std::ceil(sun_frustum_aabb.max().y / view_size_world));
 
     std::vector<usize> sun_views;
 
-    for (int x_idx = sun_min_x_idx_view; x_idx <= sun_max_x_idx_view; ++x_idx) {
-        for (int z_idx = sun_min_z_idx_view; z_idx <= sun_max_z_idx_view; ++z_idx) {
+    for (int x_idx = sun_aabb_inter_view_range_x0; x_idx <= sun_aabb_inter_view_range_x1; ++x_idx) {
+        for (int z_idx = sun_aabb_inter_view_range_z0; z_idx <= sun_aabb_inter_view_range_z1; ++z_idx) {
             int x1 = x_idx * as<int>(WORLD_VIEW_SIZE);
             int x2 = x1 + as<int>(WORLD_VIEW_SIZE);
-            int y1 = z_idx * as<int>(WORLD_VIEW_SIZE);
-            int y2 = y1 + as<int>(WORLD_VIEW_SIZE);
+            int z1 = z_idx * as<int>(WORLD_VIEW_SIZE);
+            int z2 = z1 + as<int>(WORLD_VIEW_SIZE);
+            x1 *= CHUNK_SIZE;
+            x2 *= CHUNK_SIZE;
+            z1 *= CHUNK_SIZE;
+            z2 *= CHUNK_SIZE;
 
-            bool inside = isPointInsidePolygon({x1, y1}, sun_frustum_inter_y0_xz);
-            inside |= isPointInsidePolygon({x1, y2}, sun_frustum_inter_y0_xz);
-            inside |= isPointInsidePolygon({x2, y1}, sun_frustum_inter_y0_xz);
-            inside |= isPointInsidePolygon({x2, y2}, sun_frustum_inter_y0_xz);
+            AABB2D view_aabb{std::array{vec2f{x1, z1}, vec2f{x2, z2}}};
 
-            if (inside) {
+            if (view_aabb.intersects(sun_frustum_aabb)) {
                 const auto* it = std::ranges::find_if(
                     rdata.dim.world_views, [&](const WorldView& view) { return view.valid && view.position.x == x_idx && view.position.y == z_idx; });
                 if (it == rdata.dim.world_views.end()) {
@@ -205,12 +196,9 @@ void SceneRenderer::renderSun(RenderingData& rdata) {  // NOLINT
                 int chunk_z1 = chunk_pos.y * as<int>(CHUNK_SIZE);
                 int chunk_z2 = chunk_z1 + as<int>(CHUNK_SIZE);
 
-                bool inside = isPointInsidePolygon({chunk_x1, chunk_z1}, sun_frustum_inter_y0_xz);
-                inside |= isPointInsidePolygon({chunk_x1, chunk_z2}, sun_frustum_inter_y0_xz);
-                inside |= isPointInsidePolygon({chunk_x2, chunk_z1}, sun_frustum_inter_y0_xz);
-                inside |= isPointInsidePolygon({chunk_x2, chunk_z2}, sun_frustum_inter_y0_xz);
+                AABB2D chunk_aabb{std::array{vec2f{chunk_x1, chunk_z1}, vec2f{chunk_x2, chunk_z2}}};
 
-                if (inside) {
+                if (chunk_aabb.intersects(sun_frustum_aabb)) {
                     rdata.rendered_planes.emplace_back(chunk_pos);
 
                     vec3f chunk_world_pos{as<f32>(chunk_pos.x) * CHUNK_SIZE, 0.0F, as<f32>(chunk_pos.y) * CHUNK_SIZE};
@@ -219,16 +207,9 @@ void SceneRenderer::renderSun(RenderingData& rdata) {  // NOLINT
                         if (object.second.model->state == UploadState::OK) {
                             mat4f obj_transform = glm::translate(object.second.transform, chunk_world_pos);
 
-                            vec3f aabb_min = object.second.model->aabb.min();
-                            vec3f aabb_max = object.second.model->aabb.max();
+                            auto aabb_xz = object.second.model->aabb.translateToXZ(obj_transform);
 
-                            vec4f transformed_aabb_min = obj_transform * vec4f{aabb_min, 1.0F};
-                            vec4f transformed_aabb_max = obj_transform * vec4f{aabb_max, 1.0F};
-
-                            bool obj_inside = isPointInsidePolygon({transformed_aabb_min.x, transformed_aabb_min.z}, sun_frustum_inter_y0_xz);
-                            obj_inside |= isPointInsidePolygon({transformed_aabb_min.x, transformed_aabb_max.z}, sun_frustum_inter_y0_xz);
-
-                            if (!obj_inside) {
+                            if (!aabb_xz.intersects(sun_frustum_aabb)) {
                                 continue;
                             }
 
@@ -271,9 +252,8 @@ void SceneRenderer::renderSun(RenderingData& rdata) {  // NOLINT
 
     rdata.thread.setViewport();
 
-    rdata.thread.setPipeline(pipelines_.sun);
-
-    {
+    if (!rdata.rendered_objs.empty()) {
+        rdata.thread.setPipeline(pipelines_.sun);
         struct {
             mat4f vp;
         } pc{};
@@ -364,8 +344,6 @@ void SceneRenderer::renderGBuffer(RenderingData& rdata) {
                 rdata.thread.drawIndexed(as<int>(model_type.second.size()), mesh.index_count, 0);
             }
         }
-
-        // This could be intanced but this is probably temporary and fine for now
     }
 
     rdata.thread.endRendering();

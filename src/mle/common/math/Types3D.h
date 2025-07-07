@@ -9,6 +9,7 @@
 
 #include "Types.h"
 #include "mle/common/Assert.h"
+#include "mle/common/math/Types2D.h"
 
 namespace mle {
 /**
@@ -119,6 +120,9 @@ class AABB {
      * @return True if the sphere intersects or touches the box.
      */
     [[nodiscard]] bool intersects(const Sphere& sphere) const;
+
+    [[nodiscard]] AABB2D translateToXZ(vec3f v) const;
+    [[nodiscard]] AABB2D translateToXZ(const mat4f& mat) const;  ///< Apply the translation part of the matrix to the AABB and return a 2D AABB.
 
   private:
     vec3f min_{0.0F};  ///< Minimum corner of the box.

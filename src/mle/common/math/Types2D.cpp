@@ -22,27 +22,41 @@ bool Line2D::contains(vec2f point, f32 epsilon) const {
     return mle::feq(glm::distance2(cp, point), 0.0F, epsilon * epsilon);
 }
 
-bool isPointInsidePolygon(vec2f p, const std::vector<vec2f>& poly) {
-    int winding_number = 0;
-    usize n = poly.size();
+f32 Polygon2f::area() const {
+    f32 a = 0.0F;
+    const usize n = verts_.size();
     for (usize i = 0; i < n; ++i) {
-        const auto& v0 = poly[i];
-        const auto& v1 = poly[(i + 1) % n];
+        const auto& p0 = verts_[i];
+        const auto& p1 = verts_[(i + 1) % n];
+        a += (p0.x * p1.y - p1.x * p0.y);
+    }
+    return a * 0.5F;
+}
 
-        if (v0.y <= p.y) {
-            if (v1.y > p.y && glm::cross(vec3f(v1 - v0, 0.0F), vec3f(p - v0, 0.0F)).z > 0.0F) {
-                ++winding_number;
-            }
-        } else {
-            if (v1.y <= p.y && glm::cross(vec3f(v1 - v0, 0.0F), vec3f(p - v0, 0.0F)).z < 0.0F) {
-                --winding_number;
-            }
+vec2f Polygon2f::center() const {
+    vec2f c{0.0F};
+    for (const auto& p : verts_) {
+        c += p;
+    }
+    return c / static_cast<f32>(verts_.size());
+}
+
+bool Polygon2f::contains(vec2f p) const {
+    bool inside = false;
+    const usize n = verts_.size();
+    for (usize i = 0, j = n - 1; i < n; j = i++) {
+        const auto& vi = verts_[i];
+        const auto& vj = verts_[j];
+        if (((vi.y > p.y) != (vj.y > p.y)) && (p.x < (vj.x - vi.x) * (p.y - vi.y) / (vj.y - vi.y + 1e-6F) + vi.x)) {
+            inside = !inside;
         }
     }
-    return winding_number != 0;
+    return inside;
 }
 
-bool isInside(const std::vector<vec2f>& a, const std::vector<vec2f>& b) {
-    return std::ranges::all_of(b, [a](const vec2f& pt) { return isPointInsidePolygon(pt, a); });
+void Polygon2f::sortCCW() {
+    const vec2f c = center();
+    std::ranges::sort(verts_, [c](const vec2f& a, const vec2f& b) { return std::atan2(a.y - c.y, a.x - c.x) < std::atan2(b.y - c.y, b.x - c.x); });
 }
+
 }  // namespace mle

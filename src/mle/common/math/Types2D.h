@@ -4,6 +4,8 @@
  */
 #pragma once
 
+#include <span>
+
 #include "Types.h"
 
 namespace mle {
@@ -145,6 +147,67 @@ using Rectd = Rect<f64>;  ///< 2D double-precision rectangle.
 /// @}
 
 /**
+ * @brief A 2D axis-aligned bounding box.
+ * @ingroup MathTypes
+ */
+class AABB2D {
+  public:
+    AABB2D() = default;
+
+    /// Constructs from min and max points.
+    AABB2D(vec2f min, vec2f max) :
+        min_(min),
+        max_(max) {}
+
+    /// Creates an AABB from a set of points.
+    explicit AABB2D(std::span<const vec2f> points) {
+        min_ = vec2f{mle::max<f32>()};
+        max_ = vec2f{mle::min<f32>()};
+        for (const auto& p : points) {
+            expand(p);
+        }
+    }
+
+    /// Returns the minimum corner.
+    [[nodiscard]] vec2f min() const { return min_; }
+
+    /// Returns the maximum corner.
+    [[nodiscard]] vec2f max() const { return max_; }
+
+    void setMin(vec2f min) { min_ = min; }  ///< Sets the minimum corner.
+    void setMax(vec2f max) { max_ = max; }  ///< Sets the maximum corner.
+
+    /// Returns the center of the box.
+    [[nodiscard]] vec2f center() const { return (min_ + max_) * 0.5F; }
+
+    /// Returns the size (width, height).
+    [[nodiscard]] vec2f size() const { return max_ - min_; }
+
+    /// Returns the HalfSize
+    [[nodiscard]] vec2f halfSize() const { return size() * 0.5F; }
+
+    /// Returns true if the box contains the point.
+    [[nodiscard]] bool contains(vec2f p) const { return p.x >= min_.x && p.x <= max_.x && p.y >= min_.y && p.y <= max_.y; }
+
+    /// Expands the box to include the given point.
+    void expand(vec2f p) {
+        min_.x = std::min(min_.x, p.x);
+        min_.y = std::min(min_.y, p.y);
+        max_.x = std::max(max_.x, p.x);
+        max_.y = std::max(max_.y, p.y);
+    }
+
+    /// Returns true if the box intersects another box.
+    [[nodiscard]] bool intersects(const AABB2D& other) const {
+        return max_.x >= other.min_.x && min_.x <= other.max_.x && max_.y >= other.min_.y && min_.y <= other.max_.y;
+    }
+
+  private:
+    vec2f min_{mle::max<f32>()};  ///< Minimum corner.
+    vec2f max_{mle::min<f32>()};  ///< Maximum corner.
+};
+
+/**
  * @brief Infinite line represented by a point and a normalized direction.
  * @ingroup MathTypes
  */
@@ -270,12 +333,44 @@ class Ray2D {
     vec2f direction_;
 };
 
-/// Returns true if the point is inside the polygon (using winding number test).
-bool isPointInsidePolygon(vec2f p, const std::vector<vec2f>& poly);
+/**
+ * @brief A simple 2D polygon represented by an ordered list of 2D vertices.
+ * @ingroup MathTypes
+ */
+class Polygon2f {
+  public:
+    Polygon2f() = default;  ///< Default constructor.
 
-/// Returns true if polygon a is entirely inside polygon b.
-bool isInside(const std::vector<vec2f>& a, const std::vector<vec2f>& b);
+    /// Constructs a polygon from a list of 2D points.
+    explicit Polygon2f(std::vector<vec2f> verts) :
+        verts_(std::move(verts)) {}
 
+    /// Returns the vertices.
+    [[nodiscard]] const std::vector<vec2f>& vertices() const { return verts_; }
+
+    [[nodiscard]] AABB2D boundingBox() const { return AABB2D{verts_}; }
+
+    /// Returns the number of vertices.
+    [[nodiscard]] u64 vertexCount() const { return verts_.size(); }
+
+    /// Adds a vertex to the polygon.
+    void addVertex(vec2f v) { verts_.emplace_back(v); }
+
+    /// Returns the centroid of the polygon.
+    [[nodiscard]] vec2f center() const;
+
+    /// Returns the signed area of the polygon.
+    [[nodiscard]] f32 area() const;
+
+    /// Returns true if the point is inside the polygon.
+    [[nodiscard]] bool contains(vec2f p) const;
+
+    /// Sorts the vertices counter-clockwise.
+    void sortCCW();
+
+  private:
+    std::vector<vec2f> verts_;  ///< List of vertices.
+};
 }  // namespace mle
 
 namespace fmt {
@@ -304,7 +399,6 @@ struct formatter<mle::LineSegment2D> : formatter<std::string> {
 };
 
 template <>
-
 struct formatter<mle::Ray2D> : formatter<std::string> {
     template <typename FormatContext>
     constexpr auto format(const mle::Ray2D& ray, FormatContext& ctx) const {
@@ -312,4 +406,24 @@ struct formatter<mle::Ray2D> : formatter<std::string> {
     }
 };
 
+template <>
+struct formatter<mle::Polygon2f> : formatter<std::string> {
+    template <typename FormatContext>
+    constexpr auto format(const mle::Polygon2f& polygon, FormatContext& ctx) const {
+        std::string verts_str;
+        for (const auto& v : polygon.vertices()) {
+            verts_str += fmt::format("{} ", v);
+        }
+        verts_str.pop_back();
+        return format_to(ctx.out(), "[vertices:{{{}}}]", verts_str);
+    }
+};
+
+template <>
+struct formatter<mle::AABB2D> : formatter<std::string> {
+    template <typename FormatContext>
+    constexpr auto format(const mle::AABB2D& box, FormatContext& ctx) const {
+        return format_to(ctx.out(), "[min:{}, max:{}]", box.min(), box.max());
+    }
+};
 }  // namespace fmt
