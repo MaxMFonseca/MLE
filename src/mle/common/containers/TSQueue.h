@@ -43,6 +43,7 @@ class TSQueue {
     std::vector<T> popAll() {
         std::scoped_lock lock(mutex_);
         std::vector<T> ret;
+        ret.reserve(queue_.size());
         while (!queue_.empty()) {
             ret.push_back(std::move(queue_.front()));
             queue_.pop();
@@ -64,6 +65,31 @@ class TSQueue {
         queue_.pop();
         return ret;
     }
+
+    void clear() {
+        std::scoped_lock lock(mutex_);
+        queue_.clear();
+    }
+
+    class LockedProxy {
+      public:
+        MLE_NO_COPY(LockedProxy)
+        LockedProxy& operator=(LockedProxy&&) = delete;
+        LockedProxy(LockedProxy&&) = default;
+
+        LockedProxy(std::unique_lock<std::mutex> lock, std::queue<T>& queue) :
+            lock_(std::move(lock)),
+            queue_(queue) {}
+        ~LockedProxy() = default;
+
+        std::queue<T>& get() { return queue_; }
+
+      private:
+        std::unique_lock<std::mutex> lock_;
+        std::queue<T>& queue_;
+    };
+
+    [[nodiscard]] LockedProxy access() { return LockedProxy(std::unique_lock<std::mutex>{mutex_}, queue_); }
 
   private:
     std::mutex mutex_;
