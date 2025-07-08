@@ -249,4 +249,11 @@ class EventDispatcher {
     std::tuple<EventTypeData<EventTypes>...> event_type_data_;  ///< Listener data per event type.
     std::vector<std::variant<EventTypes...>> queued_events_;    ///< Events queued for polling.
 };
+
+template <typename Variant>
+struct EDFromVariant;
+template <typename... Ts>
+struct EDFromVariant<std::variant<Ts...>> {
+    using Type = EventDispatcher<Ts...>;
+};
 }  // namespace mle
