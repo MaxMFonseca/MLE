@@ -196,11 +196,11 @@ void Impl::registerLuaTypes(const CI& ci) {
 void Impl::shutdown() {
     MLE_I("MLE Core shutting down after {}s", seconds_running_.count());
 
-    thread_pool_.shutdown();
-
     renderer::detail::waitIdle();
 
     scene_->shutdown();
+
+    thread_pool_.shutdown();  // TODO: notify this needs to stop and kill it first
 
     audio::shutdown();
     ui::shutdown();
@@ -208,19 +208,25 @@ void Impl::shutdown() {
     window::shutdown();
     lua::shutdown();
 
-    state_ = State::SHUTDOWN;
+    state_ = State::UNINITIALIZED;
     MLE_I("MLE Core shut down successfully");
 }
 
 void Impl::shutdownImediate(const std::string& msg) {
     MLE_C("Unrecoverable error: {}", msg);
     MLE_C("Shutting down MLE Core immediately!");
-    state_ = State::SHUTDOWN;
+    state_ = State::UNINITIALIZED;
     // ui::shutdown();
     // renderer::criticalShutdown();
     // window::criticalShutdown();
     // mle_table_.reset();
     // lua::shutdownImediate(msg);
+
+    MLE_C("PLEASE FIND A WAY TO DO THIS GRACEFULLY!");
+    MLE_C("PLEASE FIND A WAY TO DO THIS GRACEFULLY!");
+    MLE_C("PLEASE FIND A WAY TO DO THIS GRACEFULLY!");
+    MLE_C("PLEASE FIND A WAY TO DO THIS GRACEFULLY!");
+    MLE_C("PLEASE FIND A WAY TO DO THIS GRACEFULLY!");
 
     std::exit(EXIT_FAILURE);  // NOLINT
 }
@@ -297,11 +303,12 @@ void Impl::run() {
             now = sw.elapsed<std::chrono::nanoseconds>();
         }
 
-        f64 now_f32 = as<f64>(sw.elapsed<std::chrono::nanoseconds>().count()) / 1'000'000'000.0;
-        f64 last_f32 = as<f64>(last_render.count()) / 1'000'000'000.0;
-        f64 dt = now_f32 - last_f32;
+        now = sw.elapsed<std::chrono::nanoseconds>();
+        f64 now_f64 = as<f64>(now.count()) * 1e-9;
+        f64 last_f64 = as<f64>(last_render.count()) * 1e-9;
+        f64 dt = now_f64 - last_f64;
+        last_render = now;
         render(dt);
-        last_render = sw.elapsed<std::chrono::nanoseconds>();
 
         auto sec = sw.elapsed<std::chrono::seconds>();
         if (sec > seconds_running_) {
@@ -309,6 +316,7 @@ void Impl::run() {
         }
     }
 
+    state_ = State::SHUTDOWN;
     shutdown();
 }
 

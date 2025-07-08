@@ -71,7 +71,7 @@ void main() {
     float shadow = 1.0;
     if (all(greaterThanEqual(shadow_uv.xy, vec2(0.0))) &&
         all(lessThanEqual(shadow_uv.xy, vec2(1.0)))) {
-        shadow = shadowPCF(shadow_uv, 0.0017);
+        shadow = shadowPCF(shadow_uv, 0.003);
     }
 
     vec3 lighting = albedo * globals.sun_color * max(globals.sun_intensity * shadow, 0.03);
