@@ -1,8 +1,10 @@
 #pragma once
 
+#include <boost/mpl/void_fwd.hpp>
 #include <map>
 
 #include "mle/common/Color.h"
+#include "mle/common/Hash.h"
 #include "mle/common/Utils.h"
 #include "mle/common/math/Types.h"
 #include "mle/renderer/Camera.h"
@@ -47,28 +49,10 @@ class SceneRenderer {
     struct Chunk {
         std::unordered_map<ID, Object> objects;
         std::unordered_map<ID, Light> lights;
-
-        bool ready = false;
     };
 
     static constexpr usize SHADOW_RESOLUTION = 4096;
     static constexpr usize CHUNK_SIZE = 32;
-    static constexpr usize WORLD_VIEW_SIZE = 9;
-    static constexpr usize MAX_LOADED_WORLD_VIEWS = 9;
-
-    struct WorldView {
-        std::array<std::array<Chunk, WORLD_VIEW_SIZE>, WORLD_VIEW_SIZE> chunks{};
-        vec2i position{};
-        bool valid = false;
-    };
-
-    struct Dimension {
-        std::array<WorldView, MAX_LOADED_WORLD_VIEWS> world_views;  // ring buffer
-        vec3f plane_color{0U, 1, 0};
-        vec3f sun_color{1U, 1, 1};
-        f32 sun_intensity{1.0F};
-        vec3f sun_dir{1.F, -1.0F, -1.F};
-    };
 
   public:
     MLE_NO_COPY_MOVE(SceneRenderer)
@@ -88,8 +72,12 @@ class SceneRenderer {
 
     auto& camera() { return camera_; };
 
-    // FIXME: remove this
-    auto& getDimensions() { return dimensions_; }
+    auto& chunk(vec2i pos) { return chunks_[pos]; }
+
+    void setSunDirection(const vec3f& dir) { sun_dir_ = glm::normalize(dir); }
+    void setSunColor(const vec3f& color) { sun_color_ = color; }
+    void setSunIntensity(f32 intensity) { sun_intensity_ = intensity; }
+    void setFloorColor(const vec3f& color) { floor_color_ = color; }
 
   private:
     void initSun();
@@ -100,12 +88,6 @@ class SceneRenderer {
     void initDebug();
 
     struct RenderingData {
-        explicit RenderingData(Dimension& dim) :
-            dim(dim) {};
-
-        const Dimension& dim;
-        ID dim_id{0U};
-
         RenderingThread thread;
 
         mat4f view{};
@@ -128,7 +110,7 @@ class SceneRenderer {
     };
 
     void renderSun(RenderingData& rdata);
-    static void calcSunCamera(RenderingData& rdata);
+    void calcSunCamera(RenderingData& rdata);
     void renderGBuffer(RenderingData& rdata);
     void renderLighting(RenderingData& rdata);
     void renderSkybox(RenderingData& rdata);
@@ -140,7 +122,12 @@ class SceneRenderer {
   private:
     Camera camera_{};
 
-    std::unordered_map<ID, Dimension> dimensions_;
+    std::unordered_map<vec2i, Chunk> chunks_;
+
+    vec3f sun_dir_ = {.1, -1, .1};
+    vec3f sun_color_{1};
+    f32 sun_intensity_ = 1;
+    vec3f floor_color_{.1, .9, .3};
 
     ImageHnd albedo_img_;
     ImageHnd normal_img_;

@@ -31,7 +31,7 @@ void SceneRenderer::init(const CI& ci) {
     camera_.setAspect(static_cast<f32>(ci.image_extent.x) / static_cast<f32>(ci.image_extent.y));
     camera_.setFov(60.0F);
     camera_.setNear(1.F);
-    camera_.setFar(200.0F);
+    camera_.setFar(400.0F);
     camera_.setEye({0.0F, 5.0F, -5.0F});
     camera_.setTarget({0.0F, 0.0F, 0.0F});
     camera_.setUp({0, 1, 0});
@@ -106,8 +106,7 @@ void SceneRenderer::initLighting(const CI& ci) {
 }
 
 void SceneRenderer::render() {
-    RenderingData rdata{dimensions_.at(0)};
-    rdata.dim_id = 0U;
+    RenderingData rdata{};
 
     rdata.thread.init();
 
@@ -137,86 +136,48 @@ void SceneRenderer::renderSun(RenderingData& rdata) {  // NOLINT
     Polygon2f sun_frustum_polygon(sun_frustum_inter_y0.xz());
     AABB2D sun_frustum_aabb = sun_frustum_polygon.boundingBox();
 
-    f32 view_size_world = CHUNK_SIZE * WORLD_VIEW_SIZE;
-
-    int sun_aabb_inter_view_range_x0 = as<int>(std::floor(sun_frustum_aabb.min().x / view_size_world));
-    int sun_aabb_inter_view_range_x1 = as<int>(std::ceil(sun_frustum_aabb.max().x / view_size_world));
-    int sun_aabb_inter_view_range_z0 = as<int>(std::floor(sun_frustum_aabb.min().y / view_size_world));
-    int sun_aabb_inter_view_range_z1 = as<int>(std::ceil(sun_frustum_aabb.max().y / view_size_world));
-
-    std::vector<usize> sun_views;
-
-    for (int x_idx = sun_aabb_inter_view_range_x0; x_idx <= sun_aabb_inter_view_range_x1; ++x_idx) {
-        for (int z_idx = sun_aabb_inter_view_range_z0; z_idx <= sun_aabb_inter_view_range_z1; ++z_idx) {
-            int x1 = x_idx * as<int>(WORLD_VIEW_SIZE);
-            int x2 = x1 + as<int>(WORLD_VIEW_SIZE);
-            int z1 = z_idx * as<int>(WORLD_VIEW_SIZE);
-            int z2 = z1 + as<int>(WORLD_VIEW_SIZE);
-            x1 *= CHUNK_SIZE;
-            x2 *= CHUNK_SIZE;
-            z1 *= CHUNK_SIZE;
-            z2 *= CHUNK_SIZE;
-
-            AABB2D view_aabb{std::array{vec2f{x1, z1}, vec2f{x2, z2}}};
-
-            if (view_aabb.intersects(sun_frustum_aabb)) {
-                const auto* it = std::ranges::find_if(
-                    rdata.dim.world_views, [&](const WorldView& view) { return view.valid && view.position.x == x_idx && view.position.y == z_idx; });
-                if (it == rdata.dim.world_views.end()) {
-                    // TODO: request the view
-                    continue;
-                }
-
-                sun_views.push_back(std::distance(rdata.dim.world_views.begin(), it));
-            }
-        }
-    }
+    int sun_aabb_inter_chunk_range_x0 = as<int>(std::floor(sun_frustum_aabb.min().x / CHUNK_SIZE));
+    int sun_aabb_inter_chunk_range_x1 = as<int>(std::ceil(sun_frustum_aabb.max().x / CHUNK_SIZE));
+    int sun_aabb_inter_chunk_range_z0 = as<int>(std::floor(sun_frustum_aabb.min().y / CHUNK_SIZE));
+    int sun_aabb_inter_chunk_range_z1 = as<int>(std::ceil(sun_frustum_aabb.max().y / CHUNK_SIZE));
 
     usize obj_count = 0;
 
-    for (auto view_idx : sun_views) {
-        const auto& view = rdata.dim.world_views.at(view_idx);
-        if (!view.valid) {
-            continue;
-        }
+    for (int x_idx = sun_aabb_inter_chunk_range_x0; x_idx <= sun_aabb_inter_chunk_range_x1; ++x_idx) {
+        for (int z_idx = sun_aabb_inter_chunk_range_z0; z_idx <= sun_aabb_inter_chunk_range_z1; ++z_idx) {
+            int x1 = x_idx * as<int>(CHUNK_SIZE);
+            int x2 = x1 + as<int>(CHUNK_SIZE);
+            int z1 = z_idx * as<int>(CHUNK_SIZE);
+            int z2 = z1 + as<int>(CHUNK_SIZE);
 
-        vec2i view_base_pos = {view.position.x * WORLD_VIEW_SIZE, view.position.y * WORLD_VIEW_SIZE};
+            AABB2D chunk_aabb{std::array{vec2f{x1, z1}, vec2f{x2, z2}}};
 
-        for (usize c_x = 0; c_x < WORLD_VIEW_SIZE; c_x++) {
-            for (usize c_z = 0; c_z < WORLD_VIEW_SIZE; c_z++) {
-                const auto& chunk = view.chunks.at(c_x).at(c_z);
-
-                if (chunk.ready == false) {
+            if (chunk_aabb.intersects(sun_frustum_aabb)) {
+                auto chunk_it = chunks_.find(vec2i{x_idx, z_idx});
+                if (chunk_it == chunks_.end()) {
                     continue;
                 }
 
-                vec2i chunk_pos = {view_base_pos.x + c_x, view_base_pos.y + c_z};
+                auto& chunk = chunk_it->second;
 
-                int chunk_x1 = chunk_pos.x * as<int>(CHUNK_SIZE);
-                int chunk_x2 = chunk_x1 + as<int>(CHUNK_SIZE);
-                int chunk_z1 = chunk_pos.y * as<int>(CHUNK_SIZE);
-                int chunk_z2 = chunk_z1 + as<int>(CHUNK_SIZE);
+                vec2f chunk_base_pos{x1, z1};
 
-                AABB2D chunk_aabb{std::array{vec2f{chunk_x1, chunk_z1}, vec2f{chunk_x2, chunk_z2}}};
+                rdata.rendered_planes.emplace_back(chunk_base_pos);
 
-                if (chunk_aabb.intersects(sun_frustum_aabb)) {
-                    rdata.rendered_planes.emplace_back(chunk_pos);
+                vec3f chunk_world_pos{chunk_base_pos.x, 0, chunk_base_pos.y};
 
-                    vec3f chunk_world_pos{as<f32>(chunk_pos.x) * CHUNK_SIZE, 0.0F, as<f32>(chunk_pos.y) * CHUNK_SIZE};
+                for (const auto& object : chunk.objects) {
+                    if (object.second.model->state == UploadState::OK) {
+                        mat4f obj_transform = glm::translate(object.second.transform, chunk_world_pos);
 
-                    for (const auto& object : chunk.objects) {
-                        if (object.second.model->state == UploadState::OK) {
-                            mat4f obj_transform = glm::translate(object.second.transform, chunk_world_pos);
+                        auto aabb_xz = object.second.model->aabb.translateToXZ(obj_transform);
 
-                            auto aabb_xz = object.second.model->aabb.translateToXZ(obj_transform);
-
-                            if (!aabb_xz.intersects(sun_frustum_aabb)) {
-                                continue;
-                            }
-
-                            rdata.rendered_objs[object.second.model].emplace_back(obj_transform);
-                            obj_count++;
+                        if (!aabb_xz.intersects(sun_frustum_aabb)) {
+                            continue;
                         }
+
+                        rdata.rendered_objs[object.second.model].emplace_back(obj_transform);
+                        obj_count++;
                     }
                 }
             }
@@ -358,13 +319,12 @@ void SceneRenderer::renderGBuffer(RenderingData& rdata) {
             int plane_divisions = 10;
         } pc{};
         pc.vp = rdata.view_proj;
-        pc.color = rdata.dim.plane_color;
+        pc.color = floor_color_;
         pc.plane_divisions = CHUNK_SIZE * 10;
 
         for (auto& p : rdata.rendered_planes) {
             pc.grid_pos.x = as<f32>(p.x);
             pc.grid_pos.y = as<f32>(p.y);
-            pc.grid_pos *= CHUNK_SIZE;
 
             rdata.thread.pushConstants(&pc);
             rdata.thread.draw(1, 4);
@@ -488,9 +448,9 @@ void SceneRenderer::renderLighting(RenderingData& rdata) {
     globals.view_proj = rdata.view_proj;
     globals.inv_view_proj = glm::inverse(globals.view_proj);
     globals.sun_light_mtx = rdata.sun_vp;
-    globals.sun_dir = rdata.dim.sun_dir;
-    globals.sun_color = rdata.dim.sun_color;
-    globals.sun_intensity = rdata.dim.sun_intensity;
+    globals.sun_dir = sun_dir_;
+    globals.sun_color = sun_color_;
+    globals.sun_intensity = sun_intensity_;
     auto buffer_slice = getHostVisibleBuffer(sizeof(LightingUBO), vk::BufferUsageFlagBits::eUniformBuffer);
     buffer_slice.buffer->update(&globals, buffer_slice.size, buffer_slice.offset);
     vk::DescriptorBufferInfo globals_info;
@@ -539,15 +499,16 @@ void SceneRenderer::renderLighting(RenderingData& rdata) {
 }
 
 void SceneRenderer::calcSunCamera(RenderingData& rdata) {
-    const auto& sun_dir = glm::normalize(rdata.dim.sun_dir);
+    MLE_ASSERT_LOG(feq(glm::length(sun_dir_), 1.0F, 1e-6F), "Sun direction must be normalized, got: {} {}", sun_dir_, glm::length(sun_dir_));
+
     const Frustum& cam_frustum = rdata.camera_frustum;
 
     auto cam_frustum_corners = cam_frustum.getCorners();
     auto cam_frustum_center = Frustum::calcCenter(cam_frustum_corners);
 
-    vec3f sun_eye = cam_frustum_center - sun_dir * 100.0F;
+    vec3f sun_eye = cam_frustum_center - sun_dir_ * 100.0F;
     vec3f sun_target = cam_frustum_center;
-    vec3f up = glm::abs(glm::dot(sun_dir, vec3f{0, 1, 0})) > 0.99F ? vec3f{0, 0, 1} : vec3f{0, 1, 0};
+    vec3f up = glm::abs(glm::dot(sun_dir_, vec3f{0, 1, 0})) > 0.99F ? vec3f{0, 0, 1} : vec3f{0, 1, 0};
     mat4f light_view = glm::lookAt(sun_eye, sun_target, up);
 
     AABB light_space_bounds;
