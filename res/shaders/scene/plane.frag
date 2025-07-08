@@ -21,7 +21,7 @@ float N21(vec2 p) {
 
 void main() {
     vec2 plane_divisions = floor(in_uv * pc.plane_divisions) / pc.plane_divisions;
-    float fcolor = N21(plane_divisions) * 0.5 + 0.5;
+    float fcolor = N21(plane_divisions) * 0.3 + 0.7;
 
     out_albedo = vec4(fcolor * pc.color, 1.0);
     out_normal = vec4(0.0, 1.0, 0.0, 0.0);

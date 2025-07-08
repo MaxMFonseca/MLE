@@ -14,8 +14,14 @@ layout(set = 0, binding = 4) uniform GlobalUniforms {
     mat4 inv_view_proj;
     mat4 sun_light_matrix;
     vec3 sun_direction;
+    float pad0;
     vec3 sun_color;
+    float pad1;
+    vec3 fog_color;
+    float pad2;
     float sun_intensity;
+    float fog_start;
+    float fog_density;
 } globals;
 
 layout(set = 0, binding = 5) uniform sampler2DShadow in_sun_shadow_map;
@@ -69,5 +75,14 @@ void main() {
     }
 
     vec3 lighting = albedo * globals.sun_color * max(globals.sun_intensity * shadow, 0.03);
-    out_color = vec4(lighting, 1.0);
+
+    vec3 camera_pos = vec3(inverse(globals.view)[3]);
+    float camera_depth = length(world_pos - camera_pos);
+
+    float fog_depth = max(camera_depth - globals.fog_start, 0.0);
+    float fog = 1.0 - exp(-fog_depth * globals.fog_density);
+    fog = clamp(fog, 0.0, 1.0);
+
+    vec3 final_color = mix(lighting, globals.fog_color, fog);
+    out_color = vec4(final_color, 1.0);
 }

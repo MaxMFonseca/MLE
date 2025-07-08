@@ -43,7 +43,12 @@ class SceneRenderer {
         vec3f sun_dir;
         f32 pad0{0.123};
         vec3f sun_color;
+        f32 pad1{0.123F};
+        vec3f fog_color{0.01, 0.02, 0.03};
+        f32 pad2{0.123F};
         f32 sun_intensity{1.0F};
+        f32 fog_start{10.0F};
+        f32 fog_density{0.1F};
     };
 
     struct Chunk {
@@ -124,10 +129,14 @@ class SceneRenderer {
 
     std::unordered_map<vec2i, Chunk> chunks_;
 
+    vec3f floor_color_{.1, .9, .3};
+
     vec3f sun_dir_ = {.1, -1, .1};
     vec3f sun_color_{1};
     f32 sun_intensity_ = 1;
-    vec3f floor_color_{.1, .9, .3};
+    vec3f fog_color_ = {.005, .01, .02};
+    f32 fog_start_ = 100.0F;
+    f32 fog_density_ = 0.01F;
 
     ImageHnd albedo_img_;
     ImageHnd normal_img_;

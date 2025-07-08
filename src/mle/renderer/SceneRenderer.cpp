@@ -451,6 +451,9 @@ void SceneRenderer::renderLighting(RenderingData& rdata) {
     globals.sun_dir = sun_dir_;
     globals.sun_color = sun_color_;
     globals.sun_intensity = sun_intensity_;
+    globals.fog_color = fog_color_;
+    globals.fog_start = fog_start_;
+    globals.fog_density = fog_density_;
     auto buffer_slice = getHostVisibleBuffer(sizeof(LightingUBO), vk::BufferUsageFlagBits::eUniformBuffer);
     buffer_slice.buffer->update(&globals, buffer_slice.size, buffer_slice.offset);
     vk::DescriptorBufferInfo globals_info;
