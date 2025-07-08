@@ -28,7 +28,7 @@ class SceneRenderer {
 
     struct CreateInfo {
         vec2i image_extent;
-        std::string cube_map;
+        std::string skybox;
     };
     using CI = CreateInfo;
 
@@ -96,7 +96,7 @@ class SceneRenderer {
     void initG(const CI& ci);
     void initPlane();
     void initLighting(const CI& ci);
-    void initCubeMap(const CI& ci);
+    void initSkybox(const CI& ci);
     void initDebug();
 
     struct RenderingData {
@@ -131,7 +131,7 @@ class SceneRenderer {
     static void calcSunCamera(RenderingData& rdata);
     void renderGBuffer(RenderingData& rdata);
     void renderLighting(RenderingData& rdata);
-    void renderCubeMap(RenderingData& rdata);
+    void renderSkybox(RenderingData& rdata);
     void renderDebug(RenderingData& rdata);
 
     void cullSun(RenderingData& rdata);
@@ -148,13 +148,13 @@ class SceneRenderer {
     ImageHnd depth_img_;
     ImageHnd target_img_;
     ImageHnd shadow_img_;
-    CubeMap cube_map_;
+    CubeMap skybox_;
 
     struct {
         PipelineRef vox;  // TODO: This should not be here, the objects should be rendered with the model pipeline
         PipelineRef plane;
         PipelineRef lighting;
-        PipelineRef cube_map;
+        PipelineRef skybox;
         PipelineRef polygon;
         PipelineRef sun;
     } pipelines_{};

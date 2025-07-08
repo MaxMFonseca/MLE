@@ -41,7 +41,7 @@ void SceneRenderer::init(const CI& ci) {
     initPlane();
     initSun();
     initLighting(ci);
-    initCubeMap(ci);
+    initSkybox(ci);
     // initDebug();
 
     MLE_D("Scene renderer initialized");
@@ -59,15 +59,15 @@ void SceneRenderer::initSun() {
     pipelines_.sun = getPipeline("mle/scene/sun");
 }
 
-void SceneRenderer::initCubeMap(const CI& ci) {
-    if (ci.cube_map.empty()) {
+void SceneRenderer::initSkybox(const CI& ci) {
+    if (ci.skybox.empty()) {
         return;
     }
 
     MLE_D("Creating cube map");
 
-    pipelines_.cube_map = getPipeline("mle/scene/cube_map");
-    cube_map_.init(ci.cube_map);
+    pipelines_.skybox = getPipeline("mle/scene/cube_map");
+    skybox_.init(ci.skybox);
 }
 
 void SceneRenderer::initG(const CI& ci) {
@@ -124,7 +124,7 @@ void SceneRenderer::render() {
     renderSun(rdata);
     renderGBuffer(rdata);
     renderLighting(rdata);
-    // renderCubeMap(rdata);
+    renderSkybox(rdata);
     // renderDebug(rdata);
 
     rdata.thread.submit();
@@ -373,220 +373,59 @@ void SceneRenderer::renderGBuffer(RenderingData& rdata) {
 
     rdata.thread.endRendering();
 }
-//
-//     std::vector<Object> rendered_objects;
-//     std::vector<Light> rendered_lights;
-//     std::vector<RenderReadyChunk::Plane> rendered_planes;
-//
-//     // TODO: MT
-//     for (usize i = 0; i < chunks_.size(); i++) {
-//         for (usize j = 0; j < chunks_[i].size(); j++) {
-//             auto& chunk = chunks_[i][j];
-//
-//             if (!chunk.ready) {
-//                 continue;
-//             }
-//
-//             auto result = renderChunk({as<i32>(i), as<i32>(j)}, chunk, vp, frustum);
-//             if (result) {
-//                 rendered_objects.insert(rendered_objects.end(), result->objects.begin(), result->objects.end());
-//                 rendered_lights.insert(rendered_lights.end(), result->lights.begin(), result->lights.end());
-//                 rendered_planes.push_back(result->plane);
-//             } else {
-//                 // MLE_C("Chunk at ({}, {}) is not in frustum", i, j);
-//             }
-//         }
-//     }
-//
-//     if (!rendered_planes.empty()) {
-//         MLE_T("Rendering {} planes", rendered_planes.size());
-//
-//         thread.setPipeline(plane_pipeline_.get());
-//
-//         struct PlanePushConstants {
-//             mat4f vp;
-//             vec2f left_bottom;
-//             vec2f plane_size;
-//             vec3f color1;
-//             f32 _pad1;
-//             vec3f color2;
-//             int divisions;
-//         } plane_pc{};
-//         plane_pc.vp = vp;
-//         plane_pc.plane_size = {CHUNK_SIZE, CHUNK_SIZE};
-//         plane_pc.divisions = as<int>(CHUNK_SIZE) * 10;
-//
-//         for (auto& plane : rendered_planes) {
-//             plane_pc.left_bottom = plane.left_bottom;
-//             plane_pc.color1 = plane.colors[0];
-//             plane_pc.color2 = plane.colors[1];
-//
-//             thread.pushConstants(&plane_pc);
-//
-//             thread.draw(1, 4);
-//         }
-//     }
-//
-//     thread.endRendering();
-//
-//     renderLighting(thread);
-//
-//     renderCubeMap(thread);
-//
-//     // renderDebug(thread, vp);
 
-// thread.submit();
-// }
+void SceneRenderer::renderSkybox(RenderingData& rdata) {
+    if (!skybox_.ready()) {
+        return;
+    }
 
-// void SceneRenderer::renderCubeMap(RenderingThread& thread) {
-//     if (!cube_map_.ready()) {
-//         return;
-//     }
-//
-//     std::vector<AttachmentInfo> attachments;
-//     auto& c0 = attachments.emplace_back();
-//     c0.image = target_image_.get();
-//     c0.load = vk::AttachmentLoadOp::eLoad;
-//     c0.store = vk::AttachmentStoreOp::eStore;
-//     thread.setColorAttachments(std::move(attachments));
-//
-//     AttachmentInfo depth_attachment{};
-//     depth_attachment.image = g_.depth.get();
-//     depth_attachment.load = vk::AttachmentLoadOp::eLoad;
-//     depth_attachment.store = vk::AttachmentStoreOp::eStore;
-//     thread.setDepthAttachment(depth_attachment);
-//
-//     thread.beginRendering({});
-//
-//     thread.setViewport();
-//
-//     thread.setPipeline(CubeMap::getPipeline());
-//
-//     vk::DescriptorImageInfo ii;
-//     ii.setImageView(cube_map_.getView());
-//     ii.setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
-//
-//     vk::WriteDescriptorSet wds;
-//     wds.setImageInfo(ii);
-//     wds.setDstBinding(0);
-//     wds.setDescriptorType(vk::DescriptorType::eCombinedImageSampler);
-//     wds.setDstArrayElement(0);
-//     wds.setDescriptorCount(1);
-//
-//     thread.pushDescriptor(0, {wds});
-//
-//     thread.bindIndexBuffer(CubeMap::getIndexBuffer());
-//
-//     struct PushConstants {
-//         mat4f view;
-//         mat4f proj;
-//     } pc{.view = camera_.getView(), .proj = camera_.getProj()};
-//
-//     thread.pushConstants(&pc);
-//
-//     thread.drawIndexed(1, CubeMap::getIndexCount(), 0);
-// }
-//
-// std::optional<SceneRenderer::RenderReadyChunk> SceneRenderer::renderChunk(vec2i position, Chunk& chunk, const mat4f& vp, const Frustum& frustum) const {
-//     MLE_D("Rendering chunk {}");
-//
-//     static f32 rotation = 0.0F;
-//     // rotation += 0.001F;
-//
-//     vec2f chunk_global_pos{as<f32>(position.x) * CHUNK_SIZE, as<f32>(position.y) * CHUNK_SIZE};
-//
-//     auto chunk_plane = RectPlane::fromSquareLBCorner({chunk_global_pos.x, 0, chunk_global_pos.y}, {0.0F, 1.0F, 0.0F}, CHUNK_SIZE);
-//
-//     auto plane_in_frustum = frustum.contains(chunk_plane);
-//     if (!plane_in_frustum) {
-//         return std::nullopt;
-//     }
-//
-//     RenderReadyChunk ret{};
-//     ret.objects.reserve(chunk.objects.size());
-//
-//     for (const auto& object : chunk.objects) {
-//         if (object.second.model->state == UploadState::OK) {
-//             // TODO: frustum the obj
-//             // animate
-//
-//             auto transform = glm::rotate(glm::mat4(1.0F), rotation, {0.0F, 1.0F, 0.0F});
-//             transform = glm::translate(object.second.transform, {chunk_global_pos.x, 0.0F, chunk_global_pos.y}) * transform;
-//
-//             auto& obj = ret.objects.emplace_back(object.second);
-//             obj.transform = vp * transform;
-//         }
-//     }
-//
-//     ret.objects.shrink_to_fit();
-//
-//     ret.plane.left_bottom = chunk_global_pos;
-//     ret.plane.colors = chunk.colors;
-//
-//     return ret;
-// }
-//
-// void SceneRenderer::createDebug() {
-//     MLE_D("Creating debug renderer");
-//
-//     Pipeline::CI pipeline_ci;
-//     pipeline_ci.vertex_shader = getShader("mle/scene/debug/polygon.vert");
-//     pipeline_ci.fragment_shader = getShader("mle/scene/debug/polygon.frag");
-//     pipeline_ci.color_attachment_formats.emplace_back(getDefaultColorFormat());
-//     pipeline_ci.blend_attachments = makeDefaultBlendAttachmentStates(1);
-//     pipeline_ci.topology = vk::PrimitiveTopology::eTriangleFan;
-//     pipeline_ci.cull_mode = vk::CullModeFlagBits::eNone;
-//
-//     debug_.polygon_pipeline = Pipeline::createHnd(pipeline_ci);
-// }
-//
-// void SceneRenderer::renderDebug(RenderingThread& thread, const mat4f& vp) {
-//     if (!debug_.polygons.empty()) {
-//         std::vector<AttachmentInfo> attachments;
-//         auto& c0 = attachments.emplace_back();
-//         c0.image = target_image_.get();
-//         c0.load = vk::AttachmentLoadOp::eLoad;
-//         c0.store = vk::AttachmentStoreOp::eStore;
-//         thread.setColorAttachments(std::move(attachments));
-//         thread.setDepthAttachment({});
-//
-//         thread.beginRendering();
-//
-//         thread.setViewport();
-//
-//         thread.setPipeline(debug_.polygon_pipeline.get());
-//
-//         for (const auto& pol : debug_.polygons) {
-//             struct PushConstants {
-//                 mat4f vp;
-//                 vec4f color;
-//             } pc{};
-//
-//             pc.vp = vp;
-//             pc.color = pol.second;
-//
-//             auto vertices = pol.first.vertices();
-//
-//             Buffer::CI vertex_buffer_ci = {};
-//             vertex_buffer_ci.size = sizeof(vec3f) * vertices.size();
-//             vertex_buffer_ci.usage = vk::BufferUsageFlagBits::eVertexBuffer;
-//             vertex_buffer_ci.allocation_type = Buffer::CI::AllocationType::GPU_ONLY_HOST_WRITE_SEQ;
-//             auto buffer = Buffer::createHnd(vertex_buffer_ci);
-//
-//             buffer->update(vertices.data());
-//
-//             thread.pushConstants(&pc);
-//             thread.bindVertexBuffer(buffer.get());
-//             thread.draw(1, as<int>(vertices.size()));
-//
-//             deleteAfterFrame(std::move(buffer));
-//         }
-//         thread.endRendering();
-//
-//         debug_.polygons.clear();
-//     }
-// }
-//
+    std::vector<AttachmentInfo> attachments;
+    auto& c0 = attachments.emplace_back();
+    c0.image = target_img_.get();
+    c0.load = vk::AttachmentLoadOp::eLoad;
+    c0.store = vk::AttachmentStoreOp::eStore;
+    rdata.thread.setColorAttachments(std::move(attachments));
+
+    depth_img_->transitionState(rdata.thread.cmd(), Image::State::DEPTH_ATT);
+
+    AttachmentInfo depth_attachment{};
+    depth_attachment.image = depth_img_.get();
+    depth_attachment.load = vk::AttachmentLoadOp::eLoad;
+    depth_attachment.store = vk::AttachmentStoreOp::eStore;
+    rdata.thread.setDepthAttachment(depth_attachment);
+
+    rdata.thread.beginRendering({});
+
+    rdata.thread.setViewport();
+
+    rdata.thread.setPipeline(pipelines_.skybox);
+
+    vk::DescriptorImageInfo ii;
+    ii.setImageView(skybox_.getView());
+    ii.setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
+    ii.setSampler(getNearestSampler());
+
+    vk::WriteDescriptorSet wds;
+    wds.setImageInfo(ii);
+    wds.setDstBinding(0);
+    wds.setDescriptorType(vk::DescriptorType::eCombinedImageSampler);
+    wds.setDstArrayElement(0);
+    wds.setDescriptorCount(1);
+
+    rdata.thread.pushDescriptor(0, {wds});
+
+    rdata.thread.bindIndexBuffer(CubeMap::getIndexBuffer());
+
+    struct PushConstants {
+        mat4f view;
+        mat4f proj;
+    } pc{.view = camera_.getView(), .proj = camera_.getProj()};
+
+    rdata.thread.pushConstants(&pc);
+
+    rdata.thread.drawIndexed(1, CubeMap::getIndexCount(), 0);
+}
+
 void SceneRenderer::renderLighting(RenderingData& rdata) {
     std::vector<vk::WriteDescriptorSet> writes;
 
