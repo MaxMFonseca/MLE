@@ -59,4 +59,17 @@ void Polygon2f::sortCCW() {
     std::ranges::sort(verts_, [c](const vec2f& a, const vec2f& b) { return std::atan2(a.y - c.y, a.x - c.x) < std::atan2(b.y - c.y, b.x - c.x); });
 }
 
+vec2f Circle::closestPoint(vec2f point) const {
+    const vec2f delta = point - center_;
+    const f32 dist = glm::length(delta);
+    if (dist <= radius_ || dist == 0.F) {
+        return center_ + vec2f(radius_, 0.F);
+    }
+    return center_ + delta * (radius_ / dist);
+}
+
+bool Circle::intersects(const Circle& other) const {
+    const f32 r_sum = radius_ + other.radius_;
+    return glm::distance2(center_, other.center_) <= r_sum * r_sum;
+}
 }  // namespace mle

@@ -49,18 +49,20 @@ class Client {
         }
     }
 
-    void enqueueEvent(EventVariantT&& event) { send_queue_.push(std::move(event)); }
+    void enqueueServerEvent(EventVariantT&& event) { send_queue_.push(std::move(event)); }
 
-    void update() {
+    void flushEvents() {
         MLE_ASSERT_LOG(server_ != nullptr, "Server is not initialized!");
 
-        // Send all events to the server
         for (const auto& e : send_queue_.popAll()) {
-            server_->pushEvent(e);
+            server_->pushEventLocal(e);
         }
+    }
 
-        // Receive events from the server
-        auto server_ticks = server_->poolEventsLocal();
+    void poolEvents() {
+        MLE_ASSERT_LOG(server_ != nullptr, "Server is not initialized!");
+
+        auto server_ticks = server_->poolPackagesLocal();
         for (const auto& server_tick : server_ticks) {
             server_out_events::Time time_event{server_tick.time_s};
             server_out_ed_.dispatch(time_event);

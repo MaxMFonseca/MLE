@@ -371,6 +371,56 @@ class Polygon2f {
   private:
     std::vector<vec2f> verts_;  ///< List of vertices.
 };
+
+/**
+ * @brief A 2D circle represented by a center and a radius.
+ * @ingroup MathTypes
+ */
+class Circle {
+  public:
+    Circle() = default;  ///< Default constructor.
+
+    /// Constructs a circle from center and radius.
+    Circle(vec2f center, f32 radius) :
+        center_(center),
+        radius_(radius),
+        radius2_(radius * radius) {}
+
+    /// Returns the center of the circle.
+    [[nodiscard]] auto center() const { return center_; }
+
+    /// Returns the radius of the circle.
+    [[nodiscard]] auto radius() const { return radius_; }
+
+    /// Returns the squared radius of the circle.
+    [[nodiscard]] auto radius2() const { return radius2_; }
+
+    /// Sets the center of the circle.
+    void setCenter(vec2f center) { center_ = center; }
+
+    /// Sets the radius of the circle.
+    void setRadius(f32 radius) {
+        radius_ = radius;
+        radius2_ = radius * radius;
+    }
+
+    /// Returns the signed distance from a point to the circle boundary.
+    [[nodiscard]] f32 signedDistance(vec2f point) const { return glm::length(point - center_) - radius_; }
+
+    /// Returns true if the point is inside or on the circle.
+    [[nodiscard]] bool contains(vec2f point) const { return glm::distance2(point, center_) <= radius2_; }
+
+    /// Returns true if this circle intersects another circle.
+    [[nodiscard]] bool intersects(const Circle& other) const;
+
+    /// Returns the closest point on the circle boundary to the given point.
+    [[nodiscard]] vec2f closestPoint(vec2f point) const;
+
+  private:
+    vec2f center_{};  ///< Center of the circle.
+    f32 radius_{};    ///< Radius of the circle.
+    f32 radius2_{};   ///< Cached squared radius.
+};
 }  // namespace mle
 
 namespace fmt {

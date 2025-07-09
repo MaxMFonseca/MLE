@@ -67,15 +67,19 @@ void DefaultSceneRenderer::init(ServerOutED& server_out_ed) {
             tc->rot = e.rot;
             tc->time = 0;
         } else {
-            auto& t_tc = reg_.emplace_or_replace<TargetTransformComp>(ent);
-            t_tc.pos = e.pos;
-            t_tc.scale = e.scale;
-            t_tc.rot = e.rot;
-            t_tc.time = time_;
-
-            if (tc->time == 0.0F) {
-                tc->time = last_time_;
+            auto* t_tc = reg_.try_get<TargetTransformComp>(ent);
+            if (t_tc) {
+                *tc = *t_tc;
+            } else {
+                t_tc = &reg_.emplace<TargetTransformComp>(ent);
             }
+
+            t_tc->pos = e.pos;
+            t_tc->scale = e.scale;
+            t_tc->rot = e.rot;
+            t_tc->time = time_;
+
+            tc->time = last_time_;
         }
     });
 
@@ -86,7 +90,8 @@ void DefaultSceneRenderer::init(ServerOutED& server_out_ed) {
             return;
         }
 
-        reg_.emplace_or_replace<ModelComp>(ent, e.v);
+        auto& mc = reg_.emplace_or_replace<ModelComp>(ent);
+        mc.v = renderer::getModel(e.model_string);  // FIXME: this is a model string
     });
 
     MLE_D("Scene renderer initialized");
@@ -189,12 +194,6 @@ void DefaultSceneRenderer::updateEntities(RenderingData& rdata) {
     for (auto e : transform_view) {
         auto& t_tc = transform_view.get<TargetTransformComp>(e);
         auto& tc = transform_view.get<TransformComp>(e);
-        MLE_VC("llkadfkjsdk");
-        MLE_VC(t_tc.pos);
-        MLE_VC(t_tc.time);
-
-        MLE_VC(tc.pos);
-        MLE_VC(tc.time);
 
         if (tc.time + dt >= t_tc.time) {
             tc.pos = t_tc.pos;
@@ -202,6 +201,7 @@ void DefaultSceneRenderer::updateEntities(RenderingData& rdata) {
             tc.scale = t_tc.scale;
             tc.time = 0.0F;
             reg_.remove<TargetTransformComp>(e);
+            MLE_VC("Here");
             continue;
         }
 
@@ -257,7 +257,7 @@ void DefaultSceneRenderer::renderSun(RenderingData& rdata) {  // NOLINT
 
         // This is the sun cull and it does have a little of padding on the borders so instead of transforming the model
         // we will cull it based on position only
-        if (!sun_frustum_aabb.contains(tc.pos)) {
+        if (!sun_frustum_aabb.contains({tc.pos.x, tc.pos.z})) {
             continue;
         }
 
@@ -295,6 +295,8 @@ void DefaultSceneRenderer::renderSun(RenderingData& rdata) {  // NOLINT
     rdata.thread.beginRendering({});
 
     rdata.thread.setViewport();
+
+    MLE_ASSERT(!rdata.rendered_objs.empty());
 
     if (!rdata.rendered_objs.empty()) {
         rdata.thread.setPipeline(pipelines_.sun);
