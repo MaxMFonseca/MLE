@@ -40,10 +40,10 @@ class Server {
     Server() = default;
     virtual ~Server() = default;
 
-    void run(const CI& ci) {
-        MLE_I("************** SERVER RUN ***************");
+    virtual entt::entity init(const CI& ci) = 0;
 
-        init(ci);
+    void run() {
+        MLE_I("************** SERVER RUN ***************");
 
         running_stopwatch_.reset();
         auto& sw = running_stopwatch_;
@@ -85,7 +85,6 @@ class Server {
     // TODO: external connections
 
   private:
-    virtual void init(const CI& ci) = 0;
     virtual void update() = 0;
     virtual void shutdown() = 0;
 

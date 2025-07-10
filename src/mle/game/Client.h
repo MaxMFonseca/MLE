@@ -74,10 +74,13 @@ class Client {
 
     auto& getServerEventED() { return server_out_ed_; }
 
+    auto getPlayer() { return player_; }
+
   private:
     void initLocal(const CI& ci) {
         server_ = std::make_unique<ServerT>();
-        core::execAsync([this, ci]() { server_->run(ci.server_ci); });
+        player_ = server_->init(ci.server_ci);
+        core::execAsync([this, ci]() { server_->run(); });
     }
 
     void initHosting(const CI& /*ci*/) { MLE_TODO; }
@@ -91,5 +94,7 @@ class Client {
     TSQueue<EventVariantT> send_queue_{};
 
     ServerOutED server_out_ed_{};
+
+    entt::entity player_{entt::null};
 };
 }  // namespace mle::game
