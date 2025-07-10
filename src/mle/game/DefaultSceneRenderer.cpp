@@ -641,4 +641,20 @@ void DefaultSceneRenderer::calcSunCamera(RenderingData& rdata) {
     rdata.sun_frustum = sun_cam.getFrustum();
     rdata.sun_vp = sun_cam.getViewProj();
 }
+
+void DefaultSceneRenderer::cameraFollow(entt::entity e, vec3f offset) {
+    if (!reg_.valid(e)) {
+        MLE_W("Entity {} is not valid, skipping camera follow", e);  // NOLINT
+        return;
+    }
+
+    auto* tc = reg_.try_get<TransformComp>(e);
+    if (!tc) {
+        MLE_W("Entity {} does not have a TransformComp, skipping camera follow", e);  // NOLINT
+        return;
+    }
+
+    camera_.setEye(tc->pos + offset);
+    camera_.setTarget(tc->pos);
+}
 }  // namespace mle::game

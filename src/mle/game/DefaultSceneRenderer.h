@@ -43,6 +43,7 @@ class DefaultSceneRenderer {
     };
     struct TargetAnimationComp : AnimationComp {};
 
+  public:
     constexpr static f32 CHUNK_SIZE = 32;
 
   public:
@@ -59,6 +60,7 @@ class DefaultSceneRenderer {
 
     [[nodiscard]] renderer::ImageRef getTarget() const { return target_img_.get(); }
 
+    void cameraFollow(entt::entity e, vec3f offset = {-3, 50, -30});
     auto& camera() { return camera_; };
 
     void setSunDirection(const vec3f& dir) { sun_dir_ = glm::normalize(dir); }
@@ -120,7 +122,7 @@ class DefaultSceneRenderer {
 
     vec3f floor_color_{.1, .9, .3};
 
-    vec3f sun_dir_ = {.3, -1, .4};
+    vec3f sun_dir_ = glm::normalize(vec3f{-.3, -1, -.4});
     vec3f sun_color_{1};
     f32 sun_intensity_ = 1;
     vec3f fog_color_ = {.005, .01, .02};

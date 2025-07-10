@@ -47,7 +47,7 @@ vec3 computeShadowUV(vec3 world_pos) {
 float shadowPCF(vec3 shadow_uv, float bias) {
     float shadow = 0.0;
 
-    int kernel_size = 5;
+    int kernel_size = 3;
     int half_kernel = kernel_size / 2;
 
     vec2 texel_size = 1.0 / textureSize(in_sun_shadow_map, 0);
@@ -71,7 +71,7 @@ void main() {
     float shadow = 1.0;
     if (all(greaterThanEqual(shadow_uv.xy, vec2(0.0))) &&
         all(lessThanEqual(shadow_uv.xy, vec2(1.0)))) {
-        shadow = shadowPCF(shadow_uv, 0.003);
+        shadow = shadowPCF(shadow_uv, 0.0017);
     }
 
     vec3 lighting = albedo * globals.sun_color * max(globals.sun_intensity * shadow, 0.03);
