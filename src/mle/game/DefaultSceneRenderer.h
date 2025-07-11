@@ -21,8 +21,8 @@ class DefaultSceneRenderer {
         f32 last_seen{0};
     };
     struct TransformComp {
-        vec3f pos{}, scale{};
-        quat rot{1, 0, 0, 0};
+        vec3f pos{};
+        f32 rot = 0;
         f32 time = 0;
     };
     struct TargetTransformComp : TransformComp {};
@@ -67,6 +67,8 @@ class DefaultSceneRenderer {
     void setSunColor(const vec3f& color) { sun_color_ = color; }
     void setSunIntensity(f32 intensity) { sun_intensity_ = intensity; }
     void setFloorColor(const vec3f& color) { floor_color_ = color; }
+
+    [[nodiscard]] vec2f cursorPosOnWorld(vec2f cursor_pos);
 
   private:
     void initSun();
@@ -118,7 +120,7 @@ class DefaultSceneRenderer {
     entt::registry reg_;
 
     f32 last_time_ = 0.0F;
-    f32 time_ = 0.0F;
+    f32 server_time_ = 0.0F;
 
     vec3f floor_color_{.1, .9, .3};
 
@@ -152,7 +154,8 @@ class DefaultSceneRenderer {
 
     ServerTimeListener server_time_listener_;
     ServerNewEnttListener server_new_entt_listener_;
-    ServerEnttTransformListener server_entt_transform_listener_;
     ServerEnttModelListener server_entt_model_listener_;
+    ServerEnttPositionListener server_entt_position_listener_;
+    ServerEnttRotationListener server_entt_rotation_listener_;
 };
 }  // namespace mle::game

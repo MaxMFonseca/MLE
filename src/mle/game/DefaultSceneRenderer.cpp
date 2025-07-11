@@ -45,42 +45,67 @@ void DefaultSceneRenderer::init(ServerOutED& server_out_ed) {
     // initSkybox(); using fog for now
     // initDebug();
 
-    server_time_listener_ = server_out_ed.makeEventListener<server_out_events::Time>([this](const server_out_events::Time& e) { time_ = e.time_s; });
+    server_time_listener_ = server_out_ed.makeEventListener<server_out_events::Time>([this](const server_out_events::Time& e) { server_time_ = e.time_s; });
 
     server_new_entt_listener_ = server_out_ed.makeEventListener<server_out_events::NewEntt>([this](const server_out_events::NewEntt& e) {
         auto ent = reg_.create(e.e);
         MLE_ASSERT_LOG(ent == e.e, "Entity handle mismatch: created {} but got {}", ent, e.e);  // NOLINT
     });
 
-    server_entt_transform_listener_ = server_out_ed.makeEventListener<server_out_events::EnttTransform>([this](const server_out_events::EnttTransform& e) {
-        auto ent = e.e;
-        if (!reg_.valid(ent)) {
-            MLE_W("Entity {} is not valid, skipping transform update", ent);  // NOLINT
+    server_entt_position_listener_ = server_out_ed.makeEventListener<server_out_events::EnttPosition>([this](const server_out_events::EnttPosition& e) {
+        MLE_ASSERT_LOG(reg_.valid(e.e), "DefaultSceneRenderer received invalid entity! {} is not valid", e.e);  // NOLINT
+
+        auto* tc = reg_.try_get<TransformComp>(e.e);
+        if (!tc) {
+            tc = &reg_.emplace<TransformComp>(e.e);
+            tc->pos = e.pos;
+            tc->time = server_time_;
             return;
         }
 
-        auto* tc = reg_.try_get<TransformComp>(ent);
-        if (!tc) {
-            tc = &reg_.emplace<TransformComp>(ent);
+        if (tc->time == server_time_) {
             tc->pos = e.pos;
-            tc->scale = e.scale;
-            tc->rot = e.rot;
-            tc->time = 0;
-        } else {
-            auto* t_tc = reg_.try_get<TargetTransformComp>(ent);
-            if (t_tc) {
-                *tc = *t_tc;
-            } else {
-                t_tc = &reg_.emplace<TargetTransformComp>(ent);
-            }
-
-            t_tc->pos = e.pos;
-            t_tc->scale = e.scale;
-            t_tc->rot = e.rot;
-            t_tc->time = time_;
-
-            tc->time = last_time_;
+            return;
         }
+
+        auto* t_tc = reg_.try_get<TargetTransformComp>(e.e);
+        if (!t_tc) {
+            t_tc = &reg_.emplace<TargetTransformComp>(e.e);
+        } else if (t_tc->time != server_time_) {
+            *tc = *t_tc;
+        }
+
+        t_tc->time = server_time_;
+        t_tc->pos = e.pos;
+        tc->time = last_time_;
+    });
+
+    server_entt_rotation_listener_ = server_out_ed.makeEventListener<server_out_events::EnttRotation>([this](const server_out_events::EnttRotation& e) {
+        MLE_ASSERT_LOG(reg_.valid(e.e), "DefaultSceneRenderer received invalid entity! {} is not valid", e.e);  // NOLINT
+
+        auto* tc = reg_.try_get<TransformComp>(e.e);
+        if (!tc) {
+            tc = &reg_.emplace<TransformComp>(e.e);
+            tc->rot = e.v;
+            tc->time = server_time_;
+            return;
+        }
+
+        if (tc->time == server_time_) {
+            tc->rot = e.v;
+            return;
+        }
+
+        auto* t_tc = reg_.try_get<TargetTransformComp>(e.e);
+        if (!t_tc) {
+            t_tc = &reg_.emplace<TargetTransformComp>(e.e);
+        } else if (t_tc->time != server_time_) {
+            *tc = *t_tc;
+        }
+
+        t_tc->time = server_time_;
+        t_tc->rot = e.v;
+        tc->time = last_time_;
     });
 
     server_entt_model_listener_ = server_out_ed.makeEventListener<server_out_events::EnttModel>([this](const server_out_events::EnttModel& e) {
@@ -198,7 +223,6 @@ void DefaultSceneRenderer::updateEntities(RenderingData& rdata) {
         if (tc.time + dt >= t_tc.time) {
             tc.pos = t_tc.pos;
             tc.rot = t_tc.rot;
-            tc.scale = t_tc.scale;
             tc.time = 0.0F;
             reg_.remove<TargetTransformComp>(e);
             MLE_VC("Here");
@@ -209,8 +233,7 @@ void DefaultSceneRenderer::updateEntities(RenderingData& rdata) {
         tc.time += dt;
 
         tc.pos = glm::mix(tc.pos, t_tc.pos, alpha);
-        tc.scale = glm::mix(tc.scale, t_tc.scale, alpha);
-        tc.rot = glm::slerp(tc.rot, t_tc.rot, alpha);
+        tc.rot = glm::mix(tc.rot, t_tc.rot, alpha);
     }
 }
 
@@ -261,7 +284,8 @@ void DefaultSceneRenderer::renderSun(RenderingData& rdata) {  // NOLINT
             continue;
         }
 
-        mat4f obj_transform = glm::translate(mat4f{1}, tc.pos) * glm::toMat4(tc.rot) * glm::scale(mat4f{1}, tc.scale);
+        auto rotation = glm::toMat4(glm::angleAxis(tc.rot, vec3f{0, 1, 0}));
+        mat4f obj_transform = glm::translate(mat4f{1}, tc.pos) * rotation;
         rdata.rendered_objs[model_c.v].emplace_back(obj_transform);
         obj_count++;
     }
@@ -657,4 +681,30 @@ void DefaultSceneRenderer::cameraFollow(entt::entity e, vec3f offset) {
     camera_.setEye(tc->pos + offset);
     camera_.setTarget(tc->pos);
 }
+
+vec2f DefaultSceneRenderer::cursorPosOnWorld(vec2f cursor_pos_normalized) {
+    vec2f ndc = cursor_pos_normalized * 2.0F - 1.0F;
+
+    vec4 near_clip = vec4f(ndc.x, ndc.y, 0.0F, 1.0F);
+    vec4 far_clip = vec4f(ndc.x, ndc.y, 1.0F, 1.0F);
+
+    auto inv_view_proj = camera_.getInvViewProj();
+    vec4 near_world = inv_view_proj * near_clip;
+    vec4 far_world = inv_view_proj * far_clip;
+    near_world /= near_world.w;
+    far_world /= far_world.w;
+
+    vec3f origin = vec3f{near_world};
+    vec3f dir = glm::normalize(vec3f{far_world} - origin);
+
+    if (std::abs(dir.y) < 1e-5F) {
+        return {0.0F, 0.0F};
+    }
+
+    f32 t = -origin.y / dir.y;
+    vec3f hit = origin + t * dir;
+
+    return vec2f{hit.x, hit.z};
+}
+
 }  // namespace mle::game

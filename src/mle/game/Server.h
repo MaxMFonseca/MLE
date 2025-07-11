@@ -6,7 +6,6 @@
 #include "mle/common/Utils.h"
 #include "mle/common/containers/TSQueue.h"
 #include "mle/common/math/Types.h"
-#include "mle/game/DefaultSceneRenderer.h"
 #include "mle/game/Types.h"
 
 // Oh my... I will have to deal with encription eventually
@@ -110,10 +109,15 @@ class Server {
 
     entt::registry reg_;
 
-    entt::entity createPlayer() {
+    entt::entity createEntity() {
         auto e = reg_.create();
         reg_.emplace<server_comp::Transform>(e);
         uctx_.events.emplace_back(server_out_events::NewEntt{e});
+        return e;
+    }
+
+    entt::entity createPlayer() {
+        auto e = createEntity();
         players_.emplace_back(Player{e, true});
         return e;
     }
@@ -121,21 +125,39 @@ class Server {
     void moveEntity(entt::entity e, vec3f v) {
         auto& transform = reg_.get<server_comp::Transform>(e);
         transform.pos += v;
-        server_out_events::EnttTransform event;
+        server_out_events::EnttPosition event;
         event.e = e;
         event.pos = transform.pos;
         uctx_.events.emplace_back(event);
     }
 
-    void transformEntity(entt::entity e, vec3f pos, vec3f scale, f32 rot) {
+    void setEntityPosition(entt::entity e, const vec3f& pos) {
         auto& transform = reg_.get<server_comp::Transform>(e);
         transform.pos = pos;
-        transform.scale = scale;
-        transform.rotation = rot;
 
-        server_out_events::EnttTransform event;
+        server_out_events::EnttPosition event;
         event.e = e;
         event.pos = pos;
+        uctx_.events.emplace_back(event);
+    }
+
+    void rotateEntity(entt::entity e, f32 rot) {
+        auto& transform = reg_.get<server_comp::Transform>(e);
+        transform.rotation += rot;
+
+        server_out_events::EnttRotation event;
+        event.e = e;
+        event.v = rot;
+        uctx_.events.emplace_back(event);
+    }
+
+    void setEntityRotation(entt::entity e, f32 rot) {
+        auto& transform = reg_.get<server_comp::Transform>(e);
+        transform.rotation = rot;
+
+        server_out_events::EnttRotation event;
+        event.e = e;
+        event.v = rot;
         uctx_.events.emplace_back(event);
     }
 
