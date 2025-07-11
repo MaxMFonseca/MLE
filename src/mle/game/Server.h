@@ -24,7 +24,7 @@ class Server {
 
     struct UpdateCtx {
         f32 time{};
-        std::vector<server_out_events::Variant> events;
+        std::vector<out_ev::Variant> events;
     };
 
     struct Player {
@@ -83,6 +83,39 @@ class Server {
 
     // TODO: external connections
 
+    void initEnttReactive() {
+        reg_.on_construct<entt::entity>().connect<&Server::enttCreatedListener>(this);
+        reg_.on_destroy<entt::entity>().connect<&Server::enttDestroyedListener>(this);
+
+        reg_.on_construct<secs::Transform>().connect<&Server::enttTransformUpdated>(this);
+        reg_.on_update<secs::Transform>().connect<&Server::enttTransformUpdated>(this);
+
+        reg_.on_construct<secs::Model>().connect<&Server::enttModelUpdated>(this);
+        reg_.on_update<secs::Model>().connect<&Server::enttModelUpdated>(this);
+    }
+
+    void enttCreatedListener(entt::registry& /*unused*/, entt::entity e) {
+        MLE_T("Entity created: ", e);
+        uctx_.events.emplace_back(out_ev::EnttCreated{e});
+    }
+
+    void enttDestroyedListener(entt::registry& /*unused*/, entt::entity e) {
+        MLE_T("Entity destroyed: ", e);
+        uctx_.events.emplace_back(out_ev::EnttDestroyed{e});
+    }
+
+    void enttTransformUpdated(entt::registry& reg, entt::entity e) {
+        MLE_T("Entity transform created: ", e);
+        auto& comp = reg.get<secs::Transform>(e);
+        uctx_.events.emplace_back(out_ev::EnttTransform{.pos = comp.pos, .scale = comp.scale, .rotation = comp.rotation, .e = e});
+    }
+
+    void enttModelUpdated(entt::registry& reg, entt::entity e) {
+        MLE_T("Entity model updated: ", e);
+        auto& comp = reg.get<secs::Model>(e);
+        uctx_.events.emplace_back(out_ev::EnttModel{.e = e, .model_string = comp.model_string});
+    }
+
   private:
     virtual void update() = 0;
     virtual void shutdown() = 0;
@@ -109,67 +142,11 @@ class Server {
 
     entt::registry reg_;
 
-    entt::entity createEntity() {
-        auto e = reg_.create();
-        reg_.emplace<server_comp::Transform>(e);
-        uctx_.events.emplace_back(server_out_events::NewEntt{e});
-        return e;
-    }
-
     entt::entity createPlayer() {
-        auto e = createEntity();
+        auto e = reg_.create();
         players_.emplace_back(Player{e, true});
         return e;
     }
-
-    void moveEntity(entt::entity e, vec3f v) {
-        auto& transform = reg_.get<server_comp::Transform>(e);
-        transform.pos += v;
-        server_out_events::EnttPosition event;
-        event.e = e;
-        event.pos = transform.pos;
-        uctx_.events.emplace_back(event);
-    }
-
-    void setEntityPosition(entt::entity e, const vec3f& pos) {
-        auto& transform = reg_.get<server_comp::Transform>(e);
-        transform.pos = pos;
-
-        server_out_events::EnttPosition event;
-        event.e = e;
-        event.pos = pos;
-        uctx_.events.emplace_back(event);
-    }
-
-    void rotateEntity(entt::entity e, f32 rot) {
-        auto& transform = reg_.get<server_comp::Transform>(e);
-        transform.rotation += rot;
-
-        server_out_events::EnttRotation event;
-        event.e = e;
-        event.v = rot;
-        uctx_.events.emplace_back(event);
-    }
-
-    void setEntityRotation(entt::entity e, f32 rot) {
-        auto& transform = reg_.get<server_comp::Transform>(e);
-        transform.rotation = rot;
-
-        server_out_events::EnttRotation event;
-        event.e = e;
-        event.v = rot;
-        uctx_.events.emplace_back(event);
-    }
-
-    void setEntityModel(entt::entity e, const std::string& model_string) {
-        reg_.emplace_or_replace<server_comp::Model>(e, model_string);
-
-        server_out_events::EnttModel event;
-        event.e = e;
-        event.model_string = model_string;
-        uctx_.events.emplace_back(event);
-    }
-
     std::vector<Player> players_;
 
     TSQueue<ServerOutPackage> local_ready_packages_;

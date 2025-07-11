@@ -7,38 +7,40 @@
 #include "mle/renderer/Types.h"
 
 namespace mle::game {
-namespace server_comp {
+namespace secs {
 struct Transform {
     vec3f pos{0, 0, 0};
     vec3f scale{1, 1, 1};
-    f32 rotation{0};
+    quat rotation{1, 0, 0, 0};
 };
 
 struct Model {
     std::string model_string;  /// The idea here is that this can be anything, ie, "Player;hair:3;skin:1;shirt:2;pants:4;shoes:5"
 };
+
 struct Animation {};
 struct Sound {};
 struct Light {};
-}  // namespace server_comp
+}  // namespace secs
 
-namespace server_out_events {
+namespace out_ev {
 struct Time {
     f32 time_s = 0;
 };
 
-struct NewEntt {
+struct EnttCreated {
     entt::entity e{};
 };
 
-struct EnttPosition {
+struct EnttDestroyed {
     entt::entity e{};
+};
+
+struct EnttTransform {
     vec3f pos{0, 0, 0};
-};
-
-struct EnttRotation {
+    vec3f scale{1, 1, 1};
+    quat rotation{1, 0, 0, 0};
     entt::entity e{};
-    f32 v = 0;
 };
 
 struct EnttModel {
@@ -46,19 +48,19 @@ struct EnttModel {
     std::string model_string;
 };
 
-using Variant = std::variant<Time, EnttPosition, EnttRotation, NewEntt, EnttModel>;
-}  // namespace server_out_events
+using Variant = std::variant<Time, EnttCreated, EnttDestroyed, EnttTransform, EnttModel>;
+}  // namespace out_ev
 
 struct ServerOutPackage {
     f32 time_s;
-    std::vector<server_out_events::Variant> events;
+    std::vector<out_ev::Variant> events;
 };
 
-using ServerOutED = EDFromVariant<server_out_events::Variant>::Type;
+using ServerOutED = EDFromVariant<out_ev::Variant>::Type;
 
-using ServerTimeListener = ServerOutED::ListenerHnd<server_out_events::Time>;
-using ServerNewEnttListener = ServerOutED::ListenerHnd<server_out_events::NewEntt>;
-using ServerEnttModelListener = ServerOutED::ListenerHnd<server_out_events::EnttModel>;
-using ServerEnttPositionListener = ServerOutED::ListenerHnd<server_out_events::EnttPosition>;
-using ServerEnttRotationListener = ServerOutED::ListenerHnd<server_out_events::EnttRotation>;
+using ServerTimeListener = ServerOutED::ListenerHnd<out_ev::Time>;
+using ServerEnttCreatedListener = ServerOutED::ListenerHnd<out_ev::EnttCreated>;
+using ServerEnttDestroyedListener = ServerOutED::ListenerHnd<out_ev::EnttDestroyed>;
+using ServerEnttTransformListener = ServerOutED::ListenerHnd<out_ev::EnttTransform>;
+using ServerEnttModelListener = ServerOutED::ListenerHnd<out_ev::EnttModel>;
 }  // namespace mle::game

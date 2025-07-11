@@ -135,7 +135,7 @@ class UserInputManager {
     [[nodiscard]] vec2f getCursorDelta() const { return cursor_pos_delta_; }
 
     /// Returns the current scroll offset.
-    [[nodiscard]] f64 getScrollOffset() const { return scroll_offset_; }
+    [[nodiscard]] f32 getScrollOffset() const { return scroll_offset_; }
 
     /// Returns true if the key is in the pressed state.
     bool isPressed(Key key) const;
@@ -190,7 +190,7 @@ class UserInputManager {
     vec2f cursor_pos_normalized_ = {nan<f32>(), nan<f32>()};        ///< Normalized cursor position.
     vec2f cursor_pos_delta_normalized_ = {nan<f32>(), nan<f32>()};  ///< Normalized cursor delta.
 
-    f64 scroll_offset_ = 0.0;       ///< Current scroll offset.
-    f64 scroll_offset_next_ = 0.0;  ///< Scroll offset accumulator.
+    f32 scroll_offset_ = 0.0;       ///< Current scroll offset.
+    f32 scroll_offset_next_ = 0.0;  ///< Scroll offset accumulator.
 };
 }  // namespace mle::window

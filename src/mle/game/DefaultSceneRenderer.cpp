@@ -10,6 +10,7 @@
 #include "mle/common/math/Types.h"
 #include "mle/common/math/Types2D.h"
 #include "mle/common/math/Types3D.h"
+#include "mle/game/Types.h"
 #include "mle/renderer/Image.h"
 #include "mle/renderer/Pipeline.h"
 #include "mle/renderer/Renderer.h"
@@ -45,26 +46,35 @@ void DefaultSceneRenderer::init(ServerOutED& server_out_ed) {
     // initSkybox(); using fog for now
     // initDebug();
 
-    server_time_listener_ = server_out_ed.makeEventListener<server_out_events::Time>([this](const server_out_events::Time& e) { server_time_ = e.time_s; });
+    server_time_listener_ = server_out_ed.makeEventListener<out_ev::Time>([this](const auto& e) { server_time_ = e.time_s; });
 
-    server_new_entt_listener_ = server_out_ed.makeEventListener<server_out_events::NewEntt>([this](const server_out_events::NewEntt& e) {
+    server_entt_created_listener_ = server_out_ed.makeEventListener<out_ev::EnttCreated>([this](const auto& e) {
         auto ent = reg_.create(e.e);
         MLE_ASSERT_LOG(ent == e.e, "Entity handle mismatch: created {} but got {}", ent, e.e);  // NOLINT
     });
 
-    server_entt_position_listener_ = server_out_ed.makeEventListener<server_out_events::EnttPosition>([this](const server_out_events::EnttPosition& e) {
+    server_entt_destroyed_listener_ = server_out_ed.makeEventListener<out_ev::EnttDestroyed>([this](const auto& e) {
+        MLE_ASSERT_LOG(reg_.valid(e.e), "DefaultSceneRenderer received invalid entity! {} is not valid", e.e);  // NOLINT
+        reg_.destroy(e.e);
+    });
+
+    server_entt_transform_listener_ = server_out_ed.makeEventListener<out_ev::EnttTransform>([this](const auto& e) {
         MLE_ASSERT_LOG(reg_.valid(e.e), "DefaultSceneRenderer received invalid entity! {} is not valid", e.e);  // NOLINT
 
         auto* tc = reg_.try_get<TransformComp>(e.e);
         if (!tc) {
             tc = &reg_.emplace<TransformComp>(e.e);
             tc->pos = e.pos;
+            tc->scale = e.scale;
+            tc->rot = e.rotation;
             tc->time = server_time_;
             return;
         }
 
         if (tc->time == server_time_) {
             tc->pos = e.pos;
+            tc->scale = e.scale;
+            tc->rot = e.rotation;
             return;
         }
 
@@ -77,38 +87,12 @@ void DefaultSceneRenderer::init(ServerOutED& server_out_ed) {
 
         t_tc->time = server_time_;
         t_tc->pos = e.pos;
+        t_tc->scale = e.scale;
+        t_tc->rot = e.rotation;
         tc->time = last_time_;
     });
 
-    server_entt_rotation_listener_ = server_out_ed.makeEventListener<server_out_events::EnttRotation>([this](const server_out_events::EnttRotation& e) {
-        MLE_ASSERT_LOG(reg_.valid(e.e), "DefaultSceneRenderer received invalid entity! {} is not valid", e.e);  // NOLINT
-
-        auto* tc = reg_.try_get<TransformComp>(e.e);
-        if (!tc) {
-            tc = &reg_.emplace<TransformComp>(e.e);
-            tc->rot = e.v;
-            tc->time = server_time_;
-            return;
-        }
-
-        if (tc->time == server_time_) {
-            tc->rot = e.v;
-            return;
-        }
-
-        auto* t_tc = reg_.try_get<TargetTransformComp>(e.e);
-        if (!t_tc) {
-            t_tc = &reg_.emplace<TargetTransformComp>(e.e);
-        } else if (t_tc->time != server_time_) {
-            *tc = *t_tc;
-        }
-
-        t_tc->time = server_time_;
-        t_tc->rot = e.v;
-        tc->time = last_time_;
-    });
-
-    server_entt_model_listener_ = server_out_ed.makeEventListener<server_out_events::EnttModel>([this](const server_out_events::EnttModel& e) {
+    server_entt_model_listener_ = server_out_ed.makeEventListener<out_ev::EnttModel>([this](const auto& e) {
         auto ent = e.e;
         if (!reg_.valid(ent)) {
             MLE_W("Entity {} is not valid, skipping model update", ent);  // NOLINT
@@ -284,8 +268,7 @@ void DefaultSceneRenderer::renderSun(RenderingData& rdata) {  // NOLINT
             continue;
         }
 
-        auto rotation = glm::toMat4(glm::angleAxis(tc.rot, vec3f{0, 1, 0}));
-        mat4f obj_transform = glm::translate(mat4f{1}, tc.pos) * rotation;
+        mat4f obj_transform = glm::translate(mat4f{1}, tc.pos) * glm::toMat4(tc.rot) * glm::scale(mat4f{1}, tc.scale);
         rdata.rendered_objs[model_c.v].emplace_back(obj_transform);
         obj_count++;
     }
@@ -319,8 +302,6 @@ void DefaultSceneRenderer::renderSun(RenderingData& rdata) {  // NOLINT
     rdata.thread.beginRendering({});
 
     rdata.thread.setViewport();
-
-    MLE_ASSERT(!rdata.rendered_objs.empty());
 
     if (!rdata.rendered_objs.empty()) {
         rdata.thread.setPipeline(pipelines_.sun);
@@ -666,7 +647,7 @@ void DefaultSceneRenderer::calcSunCamera(RenderingData& rdata) {
     rdata.sun_vp = sun_cam.getViewProj();
 }
 
-void DefaultSceneRenderer::cameraFollow(entt::entity e, vec3f offset) {
+void DefaultSceneRenderer::cameraFollow(entt::entity e, vec3f offset, bool y0) {
     if (!reg_.valid(e)) {
         MLE_W("Entity {} is not valid, skipping camera follow", e);  // NOLINT
         return;
@@ -678,8 +659,13 @@ void DefaultSceneRenderer::cameraFollow(entt::entity e, vec3f offset) {
         return;
     }
 
-    camera_.setEye(tc->pos + offset);
-    camera_.setTarget(tc->pos);
+    vec3f target_pos = tc->pos;
+    if (y0) {
+        target_pos.y = 0.0F;
+    }
+
+    camera_.setEye(target_pos + offset);
+    camera_.setTarget(target_pos);
 }
 
 vec2f DefaultSceneRenderer::cursorPosOnWorld(vec2f cursor_pos_normalized) {

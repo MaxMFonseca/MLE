@@ -131,7 +131,7 @@ void UserInputManager::setCursorPos(const vec2d& pos) {
 }
 
 void UserInputManager::setScrollOffset(f64 offset) {
-    scroll_offset_next_ = offset;
+    scroll_offset_next_ = as<f32>(offset);
 }
 
 void UserInputManager::setPressed(Key key) {

@@ -22,7 +22,8 @@ class DefaultSceneRenderer {
     };
     struct TransformComp {
         vec3f pos{};
-        f32 rot = 0;
+        vec3f scale{1, 1, 1};
+        quat rot{1, 0, 0, 0};
         f32 time = 0;
     };
     struct TargetTransformComp : TransformComp {};
@@ -60,7 +61,7 @@ class DefaultSceneRenderer {
 
     [[nodiscard]] renderer::ImageRef getTarget() const { return target_img_.get(); }
 
-    void cameraFollow(entt::entity e, vec3f offset = {-3, 50, -30});
+    void cameraFollow(entt::entity e, vec3f offset = {-3, 50, -30}, bool y0 = false);
     auto& camera() { return camera_; };
 
     void setSunDirection(const vec3f& dir) { sun_dir_ = glm::normalize(dir); }
@@ -153,9 +154,9 @@ class DefaultSceneRenderer {
     } debug_;
 
     ServerTimeListener server_time_listener_;
-    ServerNewEnttListener server_new_entt_listener_;
+    ServerEnttCreatedListener server_entt_created_listener_;
+    ServerEnttDestroyedListener server_entt_destroyed_listener_;
+    ServerEnttTransformListener server_entt_transform_listener_;
     ServerEnttModelListener server_entt_model_listener_;
-    ServerEnttPositionListener server_entt_position_listener_;
-    ServerEnttRotationListener server_entt_rotation_listener_;
 };
 }  // namespace mle::game

@@ -64,7 +64,7 @@ class Client {
 
         auto server_ticks = server_->poolPackagesLocal();
         for (const auto& server_tick : server_ticks) {
-            server_out_events::Time time_event{server_tick.time_s};
+            out_ev::Time time_event{server_tick.time_s};
             server_out_ed_.dispatch(time_event);
             for (const auto& event : server_tick.events) {
                 std::visit([&](const auto& e) { server_out_ed_.dispatch(e); }, event);
