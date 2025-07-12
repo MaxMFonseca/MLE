@@ -32,9 +32,13 @@ class Impl {
     void accumulateKPI(SecondKPIType kpi, std::chrono::nanoseconds value);
     [[nodiscard]] std::chrono::milliseconds getRunningTimeMS() const;
     [[nodiscard]] f32 getRunningTimeFloat() const;
-    auto& rng() { return rng_; }
     void setNextScene(std::unique_ptr<Scene>&& scene) { next_scene_ = std::move(scene); }
     auto& threadPool() { return thread_pool_; }
+
+    i64 rngi(i64 max, i64 min);
+    u64 rngu(u64 max, u64 min);
+    f32 rngf(f32 max, f32 min);
+    bool maybe(f32 chance);
 
   private:
     void update();
@@ -69,11 +73,35 @@ class Impl {
 
     ThreadPool thread_pool_;
 
+    std::mutex rng_mutex_;
     std::mt19937_64 rng_{std::random_device{}()};
 
     std::unique_ptr<Scene> scene_ = nullptr;
     std::unique_ptr<Scene> next_scene_ = nullptr;
 };
+i64 Impl::rngi(i64 max, i64 min) {
+    std::scoped_lock lock(rng_mutex_);
+    std::uniform_int_distribution<i64> dist(min, max);
+    return dist(rng_);
+}
+
+u64 Impl::rngu(u64 max, u64 min) {
+    std::scoped_lock lock(rng_mutex_);
+    std::uniform_int_distribution<u64> dist(min, max);
+    return dist(rng_);
+}
+
+f32 Impl::rngf(f32 max, f32 min) {
+    std::scoped_lock lock(rng_mutex_);
+    std::uniform_real_distribution<f32> dist(min, max);
+    return dist(rng_);
+}
+
+bool Impl::maybe(f32 chance) {
+    std::scoped_lock lock(rng_mutex_);
+    std::bernoulli_distribution dist(chance);
+    return dist(rng_);
+}
 
 void Impl::updateSecondTimes(std::chrono::seconds current) {
     MLE_I("second: {}, ups: {}({:.3f}ms) | fps: {}({:.3f}ms)", seconds_running_.count(), current_second_times_.updates,
@@ -381,33 +409,24 @@ ThreadPool& threadPool() {
     return i_->threadPool();
 }
 
-std::mt19937_64& rng() {
-    MLE_ASSERT(i_);
-    return i_->rng();
-}
-
 i64 rngi(i64 max, i64 min) {
     MLE_ASSERT(i_);
-    std::uniform_int_distribution<i64> dist(min, max);
-    return dist(i_->rng());
+    return i_->rngi(max, min);
 }
 
 u64 rngu(u64 max, u64 min) {
     MLE_ASSERT(i_);
-    std::uniform_int_distribution<u64> dist(min, max);
-    return dist(i_->rng());
+    return i_->rngu(max, min);
 }
 
 f32 rngf(f32 max, f32 min) {
     MLE_ASSERT(i_);
-    std::uniform_real_distribution<f32> dist(min, max);
-    return dist(i_->rng());
+    return i_->rngf(max, min);
 }
 
 bool maybe(f32 chance) {
     MLE_ASSERT(i_);
-    std::bernoulli_distribution dist(chance);
-    return dist(i_->rng());
+    return i_->maybe(chance);
 }
 
 void setNextScene(std::unique_ptr<Scene>&& scene) {

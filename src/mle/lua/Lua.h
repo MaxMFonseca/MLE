@@ -78,6 +78,12 @@ sol::object createObject(T&& t) {
     return sol::make_object(detail::getSol().lua_state(), std::forward<T>(t));
 }
 
+template <class T>
+void setGlobal(const std::string& name, T&& t) {
+    MLE_I("Creating global Lua object: {}", name);
+    detail::getSol().set(name, createObject(std::forward<T>(t)));
+}
+
 /**
  * @brief Registers a new Lua usertype.
  *

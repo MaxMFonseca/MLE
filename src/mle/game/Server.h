@@ -2,6 +2,7 @@
 
 #include <random>
 
+#include "mle/common/Assert.h"
 #include "mle/common/Stopwatch.h"
 #include "mle/common/Utils.h"
 #include "mle/common/containers/TSQueue.h"
@@ -11,7 +12,7 @@
 // Oh my... I will have to deal with encription eventually
 // For now lets be NAIVE intentionally
 namespace mle::game {
-template <typename ServerInEventVariant>
+template <typename ServerInEventVariantT, typename ServerOutEventVariantT>
 class Server {
   public:
     enum class State : u8 { UNINITIALIZED, INITIALIZING, INITIALIZED, RUNNING, STOPPING, STOPPED, SHUTDOWN };
@@ -24,14 +25,16 @@ class Server {
 
     struct UpdateCtx {
         f32 time{};
-        std::vector<out_ev::Variant> events;
+        std::vector<ServerOutEventVariantT> events;
     };
 
-    struct Player {
-        entt::entity entity{};
-        bool is_local = true;
-        // TODO: find a way to not send unecessary/risky information to every player f32 interest_radius = 300.0;
-    };
+    struct ServerOutPackage : UpdateCtx {};
+
+    // struct Player {
+    //     entt::entity entity{};
+    //     conection things
+    //     // TODO: find a way to not send unecessary/risky information to every player like: f32 interest_radius = 300.0; flags...
+    // };
 
   public:
     MLE_NO_COPY_MOVE(Server)
@@ -39,7 +42,7 @@ class Server {
     Server() = default;
     virtual ~Server() = default;
 
-    virtual entt::entity init(const CI& ci) = 0;
+    virtual void init(const CI& ci) = 0;
 
     void run() {
         MLE_I("************** SERVER RUN ***************");
@@ -74,47 +77,16 @@ class Server {
         state_ = State::STOPPING;
     }
 
-    void pushEventLocal(const ServerInEventVariant& event) { local_in_events_.push(event); }
+    void pushEventLocal(const ServerInEventVariantT& event) { local_in_events_.push(event); }
 
     auto poolPackagesLocal() { return local_ready_packages_.popAll(); }
+
+    auto getLocalPlayer() const { return local_player_; }
 
   protected:
     auto poolLocalInEvents() { return local_in_events_.popAll(); }
 
     // TODO: external connections
-
-    void initEnttReactive() {
-        reg_.on_construct<entt::entity>().connect<&Server::enttCreatedListener>(this);
-        reg_.on_destroy<entt::entity>().connect<&Server::enttDestroyedListener>(this);
-
-        reg_.on_construct<secs::Transform>().connect<&Server::enttTransformUpdated>(this);
-        reg_.on_update<secs::Transform>().connect<&Server::enttTransformUpdated>(this);
-
-        reg_.on_construct<secs::Model>().connect<&Server::enttModelUpdated>(this);
-        reg_.on_update<secs::Model>().connect<&Server::enttModelUpdated>(this);
-    }
-
-    void enttCreatedListener(entt::registry& /*unused*/, entt::entity e) {
-        MLE_T("Entity created: ", e);
-        uctx_.events.emplace_back(out_ev::EnttCreated{e});
-    }
-
-    void enttDestroyedListener(entt::registry& /*unused*/, entt::entity e) {
-        MLE_T("Entity destroyed: ", e);
-        uctx_.events.emplace_back(out_ev::EnttDestroyed{e});
-    }
-
-    void enttTransformUpdated(entt::registry& reg, entt::entity e) {
-        MLE_T("Entity transform created: ", e);
-        auto& comp = reg.get<secs::Transform>(e);
-        uctx_.events.emplace_back(out_ev::EnttTransform{.pos = comp.pos, .scale = comp.scale, .rotation = comp.rotation, .e = e});
-    }
-
-    void enttModelUpdated(entt::registry& reg, entt::entity e) {
-        MLE_T("Entity model updated: ", e);
-        auto& comp = reg.get<secs::Model>(e);
-        uctx_.events.emplace_back(out_ev::EnttModel{.e = e, .model_string = comp.model_string});
-    }
 
   private:
     virtual void update() = 0;
@@ -125,35 +97,26 @@ class Server {
     // void flushEventsExternal() {}
 
     void createOutPackages() {
-        for (auto& player : players_) {
-            if (!player.is_local) {
-                MLE_TODO;
-            }
+        ServerOutPackage out_data;
+        out_data.time = uctx_.time;
+        out_data.events = std::move(uctx_.events);
+        local_ready_packages_.push(std::move(out_data));
 
-            ServerOutPackage out_data;
-            out_data.time_s = uctx_.time;
-            out_data.events = std::move(uctx_.events);
-            local_ready_packages_.push(std::move(out_data));
-        }
+        // TODO: for (auto& player : players_) {
+        // }
     }
 
   protected:
     UpdateCtx uctx_;
 
     entt::registry reg_;
-
-    entt::entity createPlayer() {
-        auto e = reg_.create();
-        players_.emplace_back(Player{e, true});
-        return e;
-    }
-    std::vector<Player> players_;
+    entt::entity local_player_{};
 
     TSQueue<ServerOutPackage> local_ready_packages_;
     // map external conections
 
   private:
-    TSQueue<ServerInEventVariant> local_in_events_;
+    TSQueue<ServerInEventVariantT> local_in_events_;
     // TODO: external connections
 
     State state_ = State::UNINITIALIZED;
