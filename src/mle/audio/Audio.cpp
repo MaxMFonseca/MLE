@@ -86,7 +86,7 @@ bool Impl::checkALC() {
 }
 
 void Impl::update() {
-    core::execAsync([this, cmds = command_queue_.popAll()]() {
+    core::threadPool().enqueue([this, cmds = command_queue_.popAll()]() {
         // This will probably cause me soume troubles in the future. But hey... Future me can deal with it.
         std::scoped_lock al_lock{al_mutex_};
         for (const auto& cmd : cmds) {

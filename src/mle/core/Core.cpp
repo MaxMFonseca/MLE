@@ -14,7 +14,6 @@
 // #include "mle/renderer/Renderer.h"
 // #include "mle/ui/Controller.h"
 // #include "mle/ui/UI.h"
-#include "detail/ThreadPool.h"
 #include "mle/audio/Audio.h"
 #include "mle/renderer/Renderer.h"
 #include "mle/ui/UI.h"
@@ -33,9 +32,9 @@ class Impl {
     void accumulateKPI(SecondKPIType kpi, std::chrono::nanoseconds value);
     [[nodiscard]] std::chrono::milliseconds getRunningTimeMS() const;
     [[nodiscard]] f32 getRunningTimeFloat() const;
-    void execAsync(std::function<void()>&& func);
     auto& rng() { return rng_; }
     void setNextScene(std::unique_ptr<Scene>&& scene) { next_scene_ = std::move(scene); }
+    auto& threadPool() { return thread_pool_; }
 
   private:
     void update();
@@ -68,7 +67,7 @@ class Impl {
         std::array<std::chrono::nanoseconds, static_cast<usize>(SecondKPIType::COUNT)> other_kpi = {};
     } current_second_times_;
 
-    detail::ThreadPool thread_pool_;
+    ThreadPool thread_pool_;
 
     std::mt19937_64 rng_{std::random_device{}()};
 
@@ -337,10 +336,6 @@ f32 Impl::getRunningTimeFloat() const {
     return running_time_float_;
 }
 
-void Impl::execAsync(std::function<void()>&& func) {
-    thread_pool_.enqueue(std::move(func));
-}
-
 // TODO: I will probably allocate this at a linear allocator along the other core singletons in the future
 std::unique_ptr<Impl> i_;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 }  // namespace
@@ -381,9 +376,9 @@ void unrecoverable(const std::string& msg) {
     i_->shutdownImediate(msg);
 }
 
-void execAsync(std::function<void()>&& func) {
+ThreadPool& threadPool() {
     MLE_ASSERT(i_);
-    i_->execAsync(std::move(func));
+    return i_->threadPool();
 }
 
 std::mt19937_64& rng() {

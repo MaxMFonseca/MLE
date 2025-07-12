@@ -36,6 +36,7 @@
 // #include "mle/ui/Types.h"
 #include "mle/common/Utils.h"
 #include "mle/core/Scene.h"
+#include "mle/core/ThreadPool.h"
 
 namespace mle::core {
 /// Configuration info for initializing the core engine.
@@ -73,8 +74,8 @@ void run();
 /// Signals the core to stop after the current frame.
 void stop();
 
-/// Enqueue a job for asynchronous execution using a thread pool.
-void execAsync(std::function<void(void)>&& func);
+/// retruns the thread pool instance used by the engine.
+ThreadPool& threadPool();
 
 /**
  * @brief Unrecoverable error handler. Shuts down the engine immediately.

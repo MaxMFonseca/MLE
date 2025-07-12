@@ -80,7 +80,7 @@ class Client {
     void initLocal(const CI& ci) {
         server_ = std::make_unique<ServerT>();
         player_ = server_->init(ci.server_ci);
-        core::execAsync([this, ci]() { server_->run(); });
+        core::threadPool().enqueue([this, ci]() { server_->run(); });
     }
 
     void initHosting(const CI& /*ci*/) { MLE_TODO; }

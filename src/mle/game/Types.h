@@ -3,6 +3,7 @@
 #include <variant>
 
 #include "entt/entt.hpp"
+#include "json.hpp"
 #include "mle/common/EventDispatcher.h"
 #include "mle/renderer/Types.h"
 
@@ -48,7 +49,11 @@ struct EnttModel {
     std::string model_string;
 };
 
-using Variant = std::variant<Time, EnttCreated, EnttDestroyed, EnttTransform, EnttModel>;
+struct Json {
+    nlohmann::json json;
+};
+
+using Variant = std::variant<Time, EnttCreated, EnttDestroyed, EnttTransform, EnttModel, Json>;
 }  // namespace out_ev
 
 struct ServerOutPackage {
@@ -63,4 +68,5 @@ using ServerEnttCreatedListener = ServerOutED::ListenerHnd<out_ev::EnttCreated>;
 using ServerEnttDestroyedListener = ServerOutED::ListenerHnd<out_ev::EnttDestroyed>;
 using ServerEnttTransformListener = ServerOutED::ListenerHnd<out_ev::EnttTransform>;
 using ServerEnttModelListener = ServerOutED::ListenerHnd<out_ev::EnttModel>;
+using ServerJsonListener = ServerOutED::ListenerHnd<out_ev::Json>;
 }  // namespace mle::game
