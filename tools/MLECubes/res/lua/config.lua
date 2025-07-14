@@ -5,5 +5,5 @@ return {
 		title = "MLECubes",
 	},
 
-	colors = require("i/tailwind_colors"),
+	colors = require("mle/tailwind_colors"),
 }
