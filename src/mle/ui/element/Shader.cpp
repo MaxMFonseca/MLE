@@ -62,6 +62,7 @@ void Shader::apply(entt::entity /*self*/, const sol::object& o) {
     pipeline_ci.color_attachment_formats.emplace_back(renderer::getDefaultColorFormat());
     pipeline_ci.blend_attachments = renderer::makeDefaultBlendAttachmentStates(1);
     pipeline_ci.topology = vk::PrimitiveTopology::eTriangleStrip;
+    pipeline_ci.cull_mode = vk::CullModeFlagBits::eNone;
     pipeline_ = renderer::Pipeline::createHnd(pipeline_ci);
 
     fn_ = lua::getKey<sol::function>(table, "fn");

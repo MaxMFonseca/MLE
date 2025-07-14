@@ -257,6 +257,7 @@ renderer::PipelineRef Text::getPipeline() {
         ci.color_attachment_formats = {renderer::getDefaultColorFormat()};
         ci.blend_attachments = renderer::makeDefaultBlendAttachmentStates(1);
         ci.topology = vk::PrimitiveTopology::eTriangleStrip;
+        ci.cull_mode = vk::CullModeFlagBits::eNone;
         ci.descriptor_set_layouts.emplace_back(renderer::getTexturesDescriptorSetLayout());
         ci.descriptor_set_layouts.emplace_back(dsl_sampler_);
         pipeline = renderer::Pipeline::createHnd(ci);

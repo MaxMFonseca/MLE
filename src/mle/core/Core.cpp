@@ -79,6 +79,7 @@ class Impl {
     std::unique_ptr<Scene> scene_ = nullptr;
     std::unique_ptr<Scene> next_scene_ = nullptr;
 };
+
 i64 Impl::rngi(i64 max, i64 min) {
     std::scoped_lock lock(rng_mutex_);
     std::uniform_int_distribution<i64> dist(min, max);

@@ -28,6 +28,10 @@ void listenNamedElementCreated(const std::string& name, std::function<void(entt:
 
 entt::entity getElement(const std::string& name);
 
+ID listenUIEvent(const std::string& name, std::move_only_function<void(const sol::object& o)>&& func, bool once = false);
+void removeUIEventListener(const std::string& name, ID id);
+void dispatchUIEvent(const std::string& name, const sol::object& o);
+
 namespace detail {
 ED& getED();
 }  // namespace detail
