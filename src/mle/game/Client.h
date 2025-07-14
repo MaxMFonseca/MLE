@@ -33,17 +33,22 @@ class Client {
     ~Client() = default;
 
     void init(const CI& ci) {
-        switch (ci.connection_type) {
-            case ConnectionType::LOCAL:
-                initLocal(ci);
-                break;
-            case ConnectionType::HOSTING:
-                initHosting(ci);
-                break;
-            case ConnectionType::RECEIVER:
-                initReceiver(ci);
-                break;
-        }
+        core::threadPool().submitWithCallback(
+            [this, ci]() {
+                switch (ci.connection_type) {
+                    case ConnectionType::LOCAL:
+                        initLocal(ci);
+                        break;
+                    case ConnectionType::HOSTING:
+                        initHosting(ci);
+                        break;
+                    case ConnectionType::RECEIVER:
+                        initReceiver(ci);
+                        break;
+                }
+                std::this_thread::sleep_for(200ms);
+            },
+            [this]() { connected_ = true; });
     }
 
     void shutdown() {
@@ -82,6 +87,8 @@ class Client {
 
     entt::entity getLocalPlayer() { return server_->getLocalPlayer(); }
 
+    [[nodiscard]] bool isConnected() const { return connected_; }
+
   private:
     void initLocal(const CI& ci) {
         server_ = std::make_unique<ServerT>();
@@ -95,6 +102,8 @@ class Client {
     void initReceiver(const CI& /*ci*/) { MLE_TODO; }
 
   private:
+    bool connected_ = false;
+
     std::unique_ptr<ServerT> server_ = nullptr;
     // TODO: external server connection
 
