@@ -339,6 +339,12 @@ void EntityWrapper::apply(const std::string& key, const sol::object& obj) const 
     fn_r.value()(o, obj);
 }
 
+bool EntityWrapper::isHovered() const {
+    auto& reg = getRegistry();
+    auto* comp = reg.try_get<comp::Collidable>(o);
+    return comp ? comp->isHovered() : false;
+}
+
 #define MLE_ASSERT_HAS(T) MLE_ASSERT_LOG(getRegistry().all_of<T>(o), "Entity does not have component {}", #T)
 
 sol::table EntityWrapper::getTable() const {
@@ -350,6 +356,7 @@ void addEngineLuaKeyHandlers() {
     auto ut = lua::newUsertype<EntityWrapper>("entt");
     ut["apply"] = &EntityWrapper::apply;
     ut["getTable"] = &EntityWrapper::getTable;
+    ut["isHovered"] = &EntityWrapper::isHovered;
 
     addLuaKeyHandler("name", name);
     addLuaKeyHandler("size", size);

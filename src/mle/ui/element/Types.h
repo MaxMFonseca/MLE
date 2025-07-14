@@ -12,6 +12,7 @@ struct EntityWrapper {
 
     void apply(const std::string& key, const sol::object& obj) const;
     [[nodiscard]] sol::table getTable() const;
+    [[nodiscard]] bool isHovered() const;
 };
 using EWrap = EntityWrapper;
 

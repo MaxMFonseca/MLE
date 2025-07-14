@@ -34,6 +34,8 @@ struct Collidable {
     void update(entt::entity self);
     bool hovered(entt::entity self);
 
+    [[nodiscard]] bool isHovered() const { return state != State::OUT; };
+
     static void add(entt::entity self);
 
     // TODO: rotations
