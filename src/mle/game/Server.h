@@ -8,6 +8,7 @@
 #include "mle/common/containers/TSQueue.h"
 #include "mle/common/math/Types.h"
 #include "mle/game/Types.h"
+#include "mle/lua/Lua.h"
 
 // Oh my... I will have to deal with encription eventually
 // For now lets be NAIVE intentionally
@@ -107,6 +108,8 @@ class Server {
     }
 
   protected:
+    Lua lua_;
+
     UpdateCtx uctx_;
 
     entt::registry reg_;
