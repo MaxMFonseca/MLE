@@ -37,12 +37,13 @@
 #include "mle/common/Utils.h"
 #include "mle/core/Scene.h"
 #include "mle/core/ThreadPool.h"
+#include "mle/lua/Lua.h"
 
 namespace mle::core {
 /// Configuration info for initializing the core engine.
 struct CreateInfo {
-    std::string app_name;                    ///< Application name
-    std::function<void()> registerLuaTypes;  ///< Callback to register Lua bindings
+    std::string app_name;                                    ///< Application name
+    std::move_only_function<void()> registerClientLuaTypes;  ///< Callback to register Lua bindings
 
     std::unique_ptr<Scene> scene;
 };
@@ -122,6 +123,9 @@ bool maybe(f32 chance = 0.5);
 /// Sets the next scene
 void setNextScene(std::unique_ptr<Scene>&& scene);
 
+Lua& lua();
+
+sol::table& getCTable();
 }  // namespace mle::core
 
 namespace fmt {

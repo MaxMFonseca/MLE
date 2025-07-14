@@ -29,6 +29,8 @@ class Impl {
     static bool checkAL();
     bool checkALC();
 
+    void registerLua();
+
   private:
     ALCdevice* device_ = nullptr;
     ALCcontext* context_ = nullptr;
@@ -67,6 +69,14 @@ class Impl {
     void handleCommand(const Volume& cmd);
 };
 
+void Impl::registerLua() {
+    auto audio_table = core::lua().createTable();
+    audio_table["play"] = [this](const std::string& name) { enqueueCommand(PlaySound{.name = name}); };
+
+    auto client_table = core::getCTable();
+    client_table["audio"] = audio_table;
+}
+
 [[maybe_unused]] bool Impl::checkAL() {
     ALenum error = alGetError();
     if (error != AL_NO_ERROR) {
@@ -98,6 +108,8 @@ void Impl::update() {
 
 void Impl::init() {
     MLE_I("Initializing audio module. OpenAL");
+
+    registerLua();
 
     MLE_T("Init device.");
     device_ = alcOpenDevice(nullptr);
@@ -352,13 +364,4 @@ void enqueueCommand(Command cmd) {
     i_->enqueueCommand(std::move(cmd));
 }
 
-void registerLuaTypes() {
-    MLE_T("Registering audio Lua types");
-
-    auto audio_table = lua::createTable();
-    audio_table["play"] = [](const std::string& name) { enqueueCommand(PlaySound{.name = name}); };
-
-    auto mle_table = lua::getMleTable();
-    mle_table["audio"] = audio_table;
-}
 }  // namespace mle::audio

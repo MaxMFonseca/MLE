@@ -9,7 +9,7 @@ namespace mle_cubes {
 void Init::init() {
     MLE_I("Init scene initializing");
 
-    mle::ui::setNextRoot(mle::lua::require("i/ui/init/layout"));
+    mle::ui::setNextRoot("i/ui/init/layout");
 }
 
 void Init::update() {  // NOLINT

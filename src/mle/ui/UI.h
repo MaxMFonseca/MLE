@@ -22,6 +22,7 @@ void addJobToQueue(vk::CommandBuffer cmd);
 vec2u getRootSize();
 
 void setNextRoot(const sol::table& next_root);
+void setNextRoot(const std::string& path);
 
 void namedElementCreated(const std::string& name, entt::entity element);
 void listenNamedElementCreated(const std::string& name, std::function<void(entt::entity)>&& callback);

@@ -116,7 +116,7 @@ void Impl::init() {
 
     root_size_ = window::getSize();
 
-    element::addEngineLuaKeyHandlers();
+    element::initLua();
 
     font_cache_.init();
 
@@ -125,11 +125,11 @@ void Impl::init() {
     default_font_ci.pre_load_string = U"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+-=[]{}|;':\",.<>?/~`";
     font_cache_.add(std::move(default_font_ci));
 
-    auto ui_table = lua::createTable();
-    ui_table["table"] = lua::createTable();
+    auto ui_table = core::lua().createTable();
+    ui_table["table"] = core::lua().createTable();  // ??
     ui_table["enqueue"] = [this](const std::string& name, const sol::object& obj) { enqueueUIEvent(name, obj); };
 
-    lua::getMleTable()["ui"] = ui_table;
+    core::getCTable()["ui"] = ui_table;
 }
 
 void Impl::shutdown() {
@@ -294,6 +294,16 @@ vec2u getRootSize() {
 
 void setNextRoot(const sol::table& next_root) {
     MLE_ASSERT(i_);
+    i_->setNextRoot(next_root);
+}
+
+void setNextRoot(const std::string& path) {
+    MLE_ASSERT(i_);
+    sol::table next_root = core::lua().require(path);
+    if (!next_root.valid()) {
+        MLE_E("Failed to load UI root from path '{}'", path);
+        return;
+    }
     i_->setNextRoot(next_root);
 }
 

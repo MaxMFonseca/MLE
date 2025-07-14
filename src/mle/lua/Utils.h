@@ -676,5 +676,4 @@ inline bool tryAs(const sol::object& o, mat4f& out) {
     return false;
 }
 
-void merge(sol::table& dst, const sol::table& src);
 }  // namespace mle::lua

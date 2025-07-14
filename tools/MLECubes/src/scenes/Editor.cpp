@@ -7,7 +7,7 @@ namespace mle_cubes {
 void Editor::init() {
     MLE_C("MLECubes App initializing");
 
-    mle::ui::setNextRoot(mle::lua::require("i/ui/editor/layout"));
+    mle::ui::setNextRoot("i/ui/editor/layout");
 
     mle::ui::listenNamedElementCreated("EditorView", [](entt::entity e) { editorViewCreated(e); });
 }

@@ -26,6 +26,4 @@ void init();
 void shutdown();
 void update();
 void enqueueCommand(Command cmd);
-
-void registerLuaTypes();
 }  // namespace mle::audio

@@ -19,135 +19,81 @@
 #include "mle/common/Logger.h"
 #include "mle/common/Result.h"
 #include "mle/common/Types.h"
+#include "mle/common/Utils.h"
 
-namespace mle::lua {
-/// Initializes the Lua state.
-void init();
-/// Shuts down the Lua state.
-void shutdown();
+namespace mle {
+class Lua {
+  public:
+    MLE_NO_COPY_MOVE(Lua)
 
-/**
- * @brief Loads a Lua file.
- *
- * Remeber to add mle/ for engine code, and <mod> for mod code (i for app is std)
- *
- * @param module_name Name of the Lua module.
- * @return The returned object from the required module.
- */
-sol::object require(const std::string& module_name);
+    Lua() = default;
+    ~Lua() = default;
 
-/// Creates a new empty Lua table.
-sol::table createTable();
+    void init();
 
-/**
- * @brief Creates a named table in the global scope.
- * @param table Source Lua table to copy.
- * @param deep Whether to perform a deep copy.
- * @return A new Lua table copy.
- */
-sol::table createTable(const std::string& name);
+    sol::object require(const std::string& module_name);
 
-/**
- * @brief Gets the MLE Lua table containing engine-specific functions and data.
- *
- * @return A reference to the MLE Lua table.
- */
-sol::table getMleTable();
+    sol::table createTable();
+    sol::table createTable(const std::string& name);
+    sol::table createTable(const sol::table& table, bool deep = false);
+    void mergeTables(sol::table& dst, const sol::table& src);
 
-/**
- * @brief Creates a new Lua table based on an existing one.
- * @param table Source Lua table to copy.
- * @param deep Whether to perform a deep copy.
- * @return A new Lua table copy.
- */
-sol::table createTable(const sol::table& table, bool deep = false);
+    sol::table getTable(const std::string& name);
 
-namespace detail {
-/// @brief Returns a reference to the internal Sol2 Lua state. Internal use only.
-sol::state& getSol();
-}  // namespace detail
+  private:
+    sol::state& getSol() { return sol_; };
 
-/**
- * @brief Wraps a C++ object in a Lua object.
- * @tparam T Type of the object.
- * @param t The object to wrap.
- * @return A Lua object representing the C++ value.
- */
-template <class T>
-sol::object createObject(T&& t) {
-    return sol::make_object(detail::getSol().lua_state(), std::forward<T>(t));
-}
+    void registerCommonTypes();
+    void registerCommonTypesColor();
 
-template <class T>
-void setGlobal(const std::string& name, T&& t) {
-    MLE_I("Creating global Lua object: {}", name);
-    detail::getSol().set(name, createObject(std::forward<T>(t)));
-}
+  public:
+    template <class T>
+    sol::object createObject(T&& t) {
+        return sol::make_object(sol_, std::forward<T>(t));
+    }
 
-/**
- * @brief Registers a new Lua usertype.
- *
- * See [Sol2 usertype docs](https://sol2.readthedocs.io/en/latest/api/usertype.html) for details.
- *
- * @tparam T The C++ type to expose.
- * @tparam Args Constructor or member definitions to bind.
- * @param name Name of the usertype in Lua.
- * @param args Binding information (constructors, methods, etc.).
- * @return A reference to the created usertype object.
- */
-template <class T, class... Args>
-auto newUsertype(const std::string& name, Args&&... args) {
-    MLE_T("Adding lua usertype: {}", name);
-    return detail::getSol().new_usertype<T>(name, std::forward<Args>(args)...);
-}
+    template <class T>
+    void setGlobal(const std::string& name, T&& t) {
+        MLE_I("Creating global Lua object: {}", name);
+        sol_.set(name, createObject(std::forward<T>(t)));
+    }
 
-/**
- * @brief Gets an existing Lua usertype by name.
- * @tparam T The expected C++ type.
- * @param name Name of the usertype.
- * @return A reference to the usertype.
- */
-template <class T>
-auto getUserType(const std::string& name) {
-    return detail::getSol().get<sol::usertype<T>>(name);
-}
+    template <class T>
+    auto getGlobal(const std::string& name) {
+        MLE_I("Getting global Lua object: {}", name);
+        return sol_.get<T>(name);
+    }
 
-/**
- * @brief Unregisters a Lua usertype from the global state.
- * @tparam T The type of the usertype.
- * @param name Name of the usertype to remove.
- */
-template <class T>
-auto removeUserType(const std::string& name) {
-    MLE_T("Removing lua usertype: {}", name);
-    getUserType<T>(name).unregister();
-}
+    template <class T, class... Args>
+    auto newUsertype(const std::string& name, Args&&... args) {
+        MLE_I("Adding lua usertype: {}", name);
+        return sol_.new_usertype<T>(name, std::forward<Args>(args)...);
+    }
 
-/**
- * @brief Gets a Lua table by name.
- * @param name Name of the Lua table.
- * @return A reference to the Lua table.
- */
-sol::table getTable(const std::string& name);
+    template <class T>
+    auto getUsertype(const std::string& name) {
+        return sol_.get<sol::usertype<T>>(name);
+    }
 
-/**
- * @brief Registers a new enumeration in Lua.
- * @tparam Args Enum name followed by enum key/value pairs.
- * @param args Enum definition arguments.
- */
-template <class... Args>
-void newEnum(Args&&... args) {
-    detail::getSol().new_enum(std::forward<Args>(args)...);
-}
+    template <class T>
+    auto removeUsertype(const std::string& name) {
+        MLE_I("Removing lua usertype: {}", name);
+        getUsertype<T>(name).unregister();
+    }
 
-/**
- * @brief Adds a free function or callable to the Lua global namespace.
- * @tparam Args Function name followed by the function or callable object.
- * @param args Function binding arguments.
- */
-template <class... Args>
-void addFunction(Args&&... args) {
-    detail::getSol().set_function(std::forward<Args>(args)...);
-}
+    template <class... Args>
+    void newEnum(Args&&... args) {
+        MLE_I("Adding lua enum: {}", std::get<0>(std::forward_as_tuple(args...)));
+        sol_.new_enum(std::forward<Args>(args)...);
+    }
 
-}  // namespace mle::lua
+    template <class... Args>
+    void setFunction(Args&&... args) {
+        MLE_I("Adding lua function: {}", std::get<0>(std::forward_as_tuple(args...)));
+        sol_.set_function(std::forward<Args>(args)...);
+    }
+
+  private:
+    sol::state sol_;
+};
+}  // namespace mle

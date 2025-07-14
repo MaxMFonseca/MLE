@@ -50,6 +50,7 @@ renderer::PipelineRef Background::getPipeline() {
         ci.color_attachment_formats = {renderer::getDefaultColorFormat()};
         ci.blend_attachments = renderer::makeDefaultBlendAttachmentStates(1);
         ci.topology = vk::PrimitiveTopology::eTriangleStrip;
+        ci.cull_mode = vk::CullModeFlagBits::eNone;
         pipeline = renderer::Pipeline::createHnd(ci);
         renderer::addOnShutdown([&]() { pipeline.reset(); });
     }
@@ -156,6 +157,7 @@ std::pair<renderer::PipelineRef, vk::DescriptorSetLayout> Blur::getPipeline() {
         ci.blend_attachments = renderer::makeDefaultBlendAttachmentStates(1);
         ci.topology = vk::PrimitiveTopology::eTriangleStrip;
         ci.descriptor_set_layouts.emplace_back(dsl);
+        ci.cull_mode = vk::CullModeFlagBits::eNone;
         pipeline = renderer::Pipeline::createHnd(ci);
 
         renderer::addOnShutdown([&]() {
@@ -170,9 +172,9 @@ std::pair<renderer::PipelineRef, vk::DescriptorSetLayout> Blur::getPipeline() {
 
 void Table::apply(entt::entity /*unused*/, const sol::table& tbl) {
     if (!v.valid()) {
-        v = lua::createTable(tbl, true);
+        v = core::lua().createTable(tbl, true);
     } else {
-        lua::merge(v, tbl);
+        core::lua().mergeTables(v, tbl);
     }
 }
 }  // namespace comp

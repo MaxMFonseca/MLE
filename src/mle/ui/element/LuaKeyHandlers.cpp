@@ -352,8 +352,8 @@ sol::table EntityWrapper::getTable() const {
     return getRegistry().get<comp::Table>(o).v;
 }
 
-void addEngineLuaKeyHandlers() {
-    auto ut = lua::newUsertype<EntityWrapper>("entt");
+void initLua() {
+    auto ut = core::lua().newUsertype<EntityWrapper>("entt");
     ut["apply"] = &EntityWrapper::apply;
     ut["getTable"] = &EntityWrapper::getTable;
     ut["isHovered"] = &EntityWrapper::isHovered;

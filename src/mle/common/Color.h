@@ -116,9 +116,6 @@ struct Color : vec4f {
 
     static std::vector<Color> lerpCount(Color a, Color b, usize count);
 
-    /// Registers the color type and utilities to the Lua environment.
-    static void registerLuaTypes();
-
     static const Color ZERO;     ///< Fully transparent black.
     static const Color BLACK;    ///< Opaque black.
     static const Color WHITE;    ///< Opaque white.

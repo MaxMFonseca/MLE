@@ -5,7 +5,7 @@ return {
 		print("on_init layout")
 	end,
 	on_update = function(self)
-		color = Color.mix(Color.fromString("red800"), Color.fromString("blue800"), (math.sin(mle.time) + 1) / 2)
+		color = Color.mix(Color.fromString("red800"), Color.fromString("blue800"), (math.sin(C.time) + 1) / 2)
 	end,
 
 	root_image = {
@@ -25,7 +25,7 @@ return {
 						pc = {
 							canvas_size = { 190 * 7, 100 * 7 },
 							color = color,
-							time = mle.time * 1.5,
+							time = C.time * 1.5,
 						},
 					}
 				end,

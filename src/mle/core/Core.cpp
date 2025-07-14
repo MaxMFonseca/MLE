@@ -40,18 +40,21 @@ class Impl {
     f32 rngf(f32 max, f32 min);
     bool maybe(f32 chance);
 
+    auto& getLua() { return lua_; }
+    auto& getCTable() { return c_table_; }
+
   private:
     void update();
     void render(f64 dt);
     void updateSecondTimes(std::chrono::seconds current);
-    static void registerLuaTypes(const CI& ci);
-    static void registerLuaTypesMath();
     static void logInitParams(const CI& ci);
 
     void swapScenes();
 
   private:
     State state_ = State::UNINITIALIZED;
+
+    Lua lua_;
 
     Stopwatch running_stopwatch_;
     f32 running_time_float_ = 0.F;
@@ -78,6 +81,8 @@ class Impl {
 
     std::unique_ptr<Scene> scene_ = nullptr;
     std::unique_ptr<Scene> next_scene_ = nullptr;
+
+    sol::table c_table_;
 };
 
 i64 Impl::rngi(i64 max, i64 min) {
@@ -129,7 +134,7 @@ void Impl::update() {
     update_call_count_++;
     MLE_D("----- UPDATE ({}) -----", update_call_count_);
 
-    lua::getMleTable()["time"] = running_time_float_ = running_stopwatch_.elapsedSecFloat();
+    c_table_["time"] = running_time_float_ = running_stopwatch_.elapsedSecFloat();
 
     window::update();
     ui::update();
@@ -180,47 +185,6 @@ void Impl::render(f64 dt) {
     current_second_times_.time_rendering += sw.elapsed<std::chrono::nanoseconds>();
 }
 
-void Impl::registerLuaTypesMath() {
-    lua::newUsertype<vec2i>("vec2i", sol::constructors<vec2i(i32, i32)>(), "x", &vec2i::x, "y", &vec2i::y);
-    lua::newUsertype<vec3i>("vec3i", sol::constructors<vec3i(i32, i32, i32)>(), "x", &vec3i::x, "y", &vec3i::y, "z", &vec3i::z);
-    lua::newUsertype<vec4i>("vec4i", sol::constructors<vec4i(i32, i32, i32, i32)>(), "x", &vec4i::x, "y", &vec4i::y, "z", &vec4i::z, "w", &vec4i::w);
-
-    lua::newUsertype<vec2f>("vec2f", sol::constructors<vec2f(f32, f32)>(), "x", &vec2f::x, "y", &vec2f::y);
-    lua::newUsertype<vec3f>("vec3f", sol::constructors<vec3f(f32, f32, f32)>(), "x", &vec3f::x, "y", &vec3f::y, "z", &vec3f::z);
-    lua::newUsertype<vec4f>("vec4f", sol::constructors<vec4f(f32, f32, f32, f32)>(), "x", &vec4f::x, "y", &vec4f::y, "z", &vec4f::z, "w", &vec4f::w);
-
-    lua::newUsertype<Rectf>("rectf", sol::constructors<Rectf(f32, f32, f32, f32), Rectf(vec2f, vec2f)>(), "pos", &Rectf::pos, "size", &Rectf::size);
-}
-
-void Impl::registerLuaTypes(const CI& ci) {
-    MLE_I("Registering Lua types");
-    MLE_T("Common");
-    registerLuaTypesMath();
-    Color::registerLuaTypes();
-
-    MLE_T("UI");
-    // ui::registerLuaTypes();
-
-    MLE_T("Audio");
-    audio::registerLuaTypes();
-
-    if (ci.registerLuaTypes) {
-        MLE_T("USER");
-        ci.registerLuaTypes();
-    }
-
-    MLE_T("Core");
-    auto core_table = lua::createTable();
-    core_table["stop"] = []() {
-        MLE_VI("Stop requested from lua.");
-        core::stop();
-    };
-
-    lua::getMleTable()["core"] = core_table;
-
-    MLE_D("MLE table: {}", lua::getMleTable());
-}
-
 void Impl::shutdown() {
     MLE_I("MLE Core shutting down after {}s", seconds_running_.count());
 
@@ -234,7 +198,6 @@ void Impl::shutdown() {
     ui::shutdown();
     renderer::shutdown();
     window::shutdown();
-    lua::shutdown();
 
     state_ = State::UNINITIALIZED;
     MLE_I("MLE Core shut down successfully");
@@ -279,14 +242,24 @@ void Impl::init(CI ci) {  // NOLINT
 
     logInitParams(ci);
     MLE_T("Lua");
-    lua::init();
-    registerLuaTypes(ci);
+    lua_.init();
+
+    if (ci.registerClientLuaTypes) {
+        MLE_T("USER");
+        ci.registerClientLuaTypes();
+    }
+
+    c_table_ = lua_.createTable("C");
+    c_table_["requestCoreStop"] = []() {
+        MLE_VI("Stop requested from lua.");
+        core::stop();
+    };
 
     // TODO: remove this requirement
     if (!fs::exists("res/lua/i/config.lua")) {
         core::unrecoverable("App lua config file not found! Expected at: res/lua/i/config.lua");
     }
-    sol::table init_config = lua::require("i/config");
+    sol::table init_config = lua_.require("i/config");
 
     Color::addEngineDefaultColors();
     if (const auto colors = init_config["colors"]; colors.valid()) {
@@ -433,5 +406,15 @@ bool maybe(f32 chance) {
 void setNextScene(std::unique_ptr<Scene>&& scene) {
     MLE_ASSERT(i_);
     i_->setNextScene(std::move(scene));
+}
+
+Lua& lua() {
+    MLE_ASSERT(i_);
+    return i_->getLua();
+};
+
+sol::table& getCTable() {
+    MLE_ASSERT(i_);
+    return i_->getCTable();
 }
 }  // namespace mle::core

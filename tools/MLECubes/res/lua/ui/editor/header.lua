@@ -27,7 +27,7 @@ return function(extra)
 				self:apply("text", { outline_thickness = 5 })
 			end,
 			on_click = function()
-				mle.audio.play("i/menu_click.flac")
+				C.audio.play("mle/menu_click.flac")
 			end,
 		})
 	end

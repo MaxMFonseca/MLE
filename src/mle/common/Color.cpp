@@ -145,23 +145,6 @@ Color Color::random(u32 alpha) {
     return Color{dist(rng), dist(rng), dist(rng), alpha};
 }
 
-void Color::registerLuaTypes() {
-    auto ut = lua::newUsertype<Color>(
-        "Color", sol::constructors<Color(), Color(vec3f, f32), Color(vec4f), Color(vec4u), Color(f32, f32, f32, f32), Color(u32, u32, u32, u32), Color(u32)>(),
-        sol::base_classes, sol::bases<vec4f>());
-    ut["r"] = &Color::r;
-    ut["g"] = &Color::g;
-    ut["b"] = &Color::b;
-    ut["a"] = &Color::a;
-    ut["fromString"] = &Color::fromString;
-    ut["fromLua"] = &Color::fromLua;
-    ut["addColor"] = &Color::addColor;
-    ut["getColor"] = &Color::getColor;
-    ut["mix"] = &Color::mix;
-    ut["lighten"] = &Color::lighten;
-    ut["withA"] = &Color::withA;
-}
-
 u32 Color::asRGBA() const {
     return static_cast<u32>(r * MAX_U8) << 24U | static_cast<u32>(g * MAX_U8) << 16U | static_cast<u32>(b * MAX_U8) << 8U | static_cast<u32>(a * MAX_U8);
 };
