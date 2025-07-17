@@ -100,8 +100,13 @@ class Server {
     void createOutPackages() {
         ServerOutPackage out_data;
         out_data.time = uctx_.time;
+        if (uctx_.events.empty()) {
+            return;
+        }
         out_data.events = std::move(uctx_.events);
         local_ready_packages_.push(std::move(out_data));
+
+        uctx_ = {};
 
         // TODO: for (auto& player : players_) {
         // }
