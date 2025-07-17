@@ -160,13 +160,7 @@ class AABB2D {
         max_(max) {}
 
     /// Creates an AABB from a set of points.
-    explicit AABB2D(std::span<const vec2f> points) {
-        min_ = vec2f{mle::max<f32>()};
-        max_ = vec2f{mle::min<f32>()};
-        for (const auto& p : points) {
-            expand(p);
-        }
-    }
+    explicit AABB2D(std::span<const vec2f> points);
 
     /// Returns the minimum corner.
     [[nodiscard]] vec2f min() const { return min_; }
@@ -190,12 +184,7 @@ class AABB2D {
     [[nodiscard]] bool contains(vec2f p) const { return p.x >= min_.x && p.x <= max_.x && p.y >= min_.y && p.y <= max_.y; }
 
     /// Expands the box to include the given point.
-    void expand(vec2f p) {
-        min_.x = std::min(min_.x, p.x);
-        min_.y = std::min(min_.y, p.y);
-        max_.x = std::max(max_.x, p.x);
-        max_.y = std::max(max_.y, p.y);
-    }
+    void expand(vec2f p);
 
     /// Returns true if the box intersects another box.
     [[nodiscard]] bool intersects(const AABB2D& other) const {

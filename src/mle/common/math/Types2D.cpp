@@ -72,4 +72,19 @@ bool Circle::intersects(const Circle& other) const {
     const f32 r_sum = radius_ + other.radius_;
     return glm::distance2(center_, other.center_) <= r_sum * r_sum;
 }
+
+AABB2D::AABB2D(std::span<const vec2f> points) {
+    min_ = vec2f{inf<f32>()};
+    max_ = vec2f{-inf<f32>()};
+    for (const auto& p : points) {
+        expand(p);
+    }
+}
+
+void AABB2D::expand(vec2f p) {
+    min_.x = std::min(min_.x, p.x);
+    min_.y = std::min(min_.y, p.y);
+    max_.x = std::max(max_.x, p.x);
+    max_.y = std::max(max_.y, p.y);
+}
 }  // namespace mle
