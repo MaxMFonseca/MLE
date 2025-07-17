@@ -126,6 +126,8 @@ void setNextScene(std::unique_ptr<Scene>&& scene);
 Lua& lua();
 
 sol::table& getCTable();
+
+void callOnShutdown(std::move_only_function<void()> func);
 }  // namespace mle::core
 
 namespace fmt {

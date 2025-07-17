@@ -43,6 +43,8 @@ class Impl {
     auto& getLua() { return lua_; }
     auto& getCTable() { return c_table_; }
 
+    void callOnShutdown(std::move_only_function<void()> func) { on_shutdown_funcs_.emplace_back(std::move(func)); }
+
   private:
     void update();
     void render(f64 dt);
@@ -83,6 +85,8 @@ class Impl {
     std::unique_ptr<Scene> next_scene_ = nullptr;
 
     sol::table c_table_;
+
+    std::vector<std::move_only_function<void()>> on_shutdown_funcs_;
 };
 
 i64 Impl::rngi(i64 max, i64 min) {
@@ -189,6 +193,11 @@ void Impl::shutdown() {
     MLE_I("MLE Core shutting down after {}s", seconds_running_.count());
 
     renderer::detail::waitIdle();
+
+    for (auto& func : on_shutdown_funcs_) {
+        func();
+    }
+    on_shutdown_funcs_.clear();
 
     scene_->shutdown();
 
@@ -416,5 +425,10 @@ Lua& lua() {
 sol::table& getCTable() {
     MLE_ASSERT(i_);
     return i_->getCTable();
+}
+
+void callOnShutdown(std::move_only_function<void()> func) {
+    MLE_ASSERT(i_);
+    i_->callOnShutdown(std::move(func));
 }
 }  // namespace mle::core
