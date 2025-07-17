@@ -245,6 +245,11 @@ class EventDispatcher {
         }
     }
 
+    template <typename EventType>
+    usize listenersSize() {
+        return std::get<EventTypeData<EventType>>(event_type_data_).listeners.size();
+    }
+
   private:
     std::tuple<EventTypeData<EventTypes>...> event_type_data_;  ///< Listener data per event type.
     std::vector<std::variant<EventTypes...>> queued_events_;    ///< Events queued for polling.
