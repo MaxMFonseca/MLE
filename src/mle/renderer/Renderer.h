@@ -79,7 +79,7 @@ vk::DescriptorSetLayout getTexturesDescriptorSetLayout();  ///< Returns the desc
 
 void bindTexturesDSet(RenderingThread& thread);
 
-vk::CommandBuffer getOTSCmd(CmdType cmd_type);
+[[nodiscard]] vk::CommandBuffer getOTSCmd(CmdType cmd_type);
 void submitOTSWait(CmdType cmd_type, vk::CommandBuffer cmd);
 void submitOTSAsync(CmdType cmd_type, vk::CommandBuffer cmd, std::move_only_function<void(void)>&& callback = {});
 void submitOTSAsync(CmdType cmd_type, vk::SubmitInfo2 submit_info, std::move_only_function<void(void)>&& callback = {});

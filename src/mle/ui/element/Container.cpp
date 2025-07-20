@@ -535,10 +535,10 @@ void Container::updateChildrenBounds(entt::entity self, vec2u max_size, bool, bo
                 }
             }
 
-            if (cinfo.bounds.parent_px.size.x == 0) {
+            if (cinfo.bounds.parent_px.size.x == 0 && cinfo.renderable) {
                 cinfo.bounds.parent_px.size.x = cinfo.renderable->getSize().x;
             }
-            if (cinfo.bounds.parent_px.size.y == 0) {
+            if (cinfo.bounds.parent_px.size.y == 0 && cinfo.renderable) {
                 cinfo.bounds.parent_px.size.y = cinfo.renderable->getSize().y;
             }
 
