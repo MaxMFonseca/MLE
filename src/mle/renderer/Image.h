@@ -183,6 +183,7 @@ class Image final : LiveCounter<Image> {
     [[nodiscard]] static BufferHnd createStagingBuffer(const RawData& data) {
         return createStagingBuffer(rAs<const void*>(data.pixels.data()), data.extent, data.channels);
     }
+    static ImageHnd create(const RawData& data, vk::ImageUsageFlags usage, vk::Format format);
 
     [[nodiscard]] usize createView(const ViewCI& ci = ViewCI{});
 

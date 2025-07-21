@@ -299,6 +299,27 @@ BufferHnd Image::createStagingBuffer(const void* data, vec2i extent, int channel
     return staging_buffer;
 }
 
+ImageHnd Image::create(const RawData& data, vk::ImageUsageFlags usage, vk::Format format) {
+    MLE_ASSERT(data.extent.x > 0 && data.extent.y > 0);
+    MLE_ASSERT(data.channels > 0);
+
+    CI ci;
+    ci.extent = data.extent;
+    ci.format = format;
+    ci.usage = usage | vk::ImageUsageFlagBits::eTransferDst;
+
+    auto ret = createHnd(ci);
+
+    auto cmd = getOTSCmd(CmdType::GRAPHICS);
+
+    auto staging_buffer = createStagingBuffer(data);
+    ret->update(cmd, staging_buffer.get());
+
+    submitOTSWait(CmdType::GRAPHICS, cmd);
+
+    return ret;
+}
+
 void Image::transitionLayout(vk::CommandBuffer cmd, TransitionLayoutInfo info) {
     if (current_layout_ == info.new_layout) {
         return;

@@ -35,8 +35,6 @@ Pipeline::CI sceneCubeMapCI() {
     Pipeline::CI ci;
     ci.vertex_shader = getShader("mle/scene/skybox.vert");
     ci.fragment_shader = getShader("mle/scene/skybox.frag");
-    ci.depth = true;
-    ci.depth_write = true;
     ci.color_attachment_formats.emplace_back(getDefaultColorFormat());
     ci.blend_attachments = makeDefaultBlendAttachmentStates(1, false);
     ci.topology = vk::PrimitiveTopology::eTriangleList;

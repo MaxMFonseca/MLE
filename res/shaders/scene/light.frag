@@ -25,6 +25,7 @@ layout(set = 0, binding = 4) uniform GlobalUniforms {
 } globals;
 
 layout(set = 0, binding = 5) uniform sampler2DShadow in_sun_shadow_map;
+layout(set = 0, binding = 6) uniform sampler2D in_map_mask;
 
 layout(location = 0) out vec4 out_color;
 
@@ -65,6 +66,8 @@ void main() {
     float depth = texture(in_depth, in_uv).r;
 
     vec3 world_pos = reconstructWorldPosition(in_uv, depth);
+    ivec2 i_world_pos_xz = ivec2(world_pos.xz);
+
 
     vec3 shadow_uv = computeShadowUV(world_pos);
 
@@ -76,6 +79,10 @@ void main() {
 
     vec3 lighting = albedo * globals.sun_color * max(globals.sun_intensity * shadow, 0.03);
 
+    ivec2 in_map_extent = textureSize(in_map_mask, 0);
+    vec2 in_map_uv = vec2(i_world_pos_xz) / vec2(in_map_extent);
+    float in_map = texture(in_map_mask, in_map_uv).r;
+
     vec3 camera_pos = vec3(inverse(globals.view)[3]);
     float camera_depth = length(world_pos - camera_pos);
 
@@ -83,6 +90,8 @@ void main() {
     float fog = 1.0 - exp(-fog_depth * globals.fog_density);
     fog = clamp(fog, 0.0, 1.0);
 
-    vec3 final_color = mix(lighting, globals.fog_color, fog);
-    out_color = vec4(final_color, 1.0);
+    lighting *= in_map;
+    out_color = vec4(lighting, in_map);
+    // vec3 final_color = mix(lighting, globals.fog_color, fog);
+    // out_color = vec4(final_color, in_map);
 }
