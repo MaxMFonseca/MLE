@@ -9,9 +9,9 @@ layout(location = 2) out vec4 out_material;
 layout(push_constant) uniform PushConstants {
     layout(offset = 80)
     vec3 color;
-    int plane_divisions;
+    float pad0;
+    vec2 plane_divisions;
 } pc;
-
 
 float N21(vec2 p) {
 	  vec3 a = fract(vec3(p.xyx) * vec3(812.532, 234.654, 572.234));

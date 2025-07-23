@@ -99,6 +99,9 @@ PipelineRef setPipeline(const std::string& name, const Pipeline::CI& pipeline_ci
 /// Returns a named pipelne
 PipelineRef getPipeline(const std::string& name);
 
+/// Returns a named pipeline or creates it if it does not exist.
+PipelineRef getPipelineOrSet(const std::string& name, const Pipeline::CI& pipeline_ci);
+
 namespace detail {
 ED& getED();                                  ///< Returns the event dispatcher instance for the renderer.
 VkContext& getVk();                           ///< Returns the Vulkan context instance.

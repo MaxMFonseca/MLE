@@ -403,6 +403,11 @@ PipelineRef getPipeline(const std::string& name) {
     return i_->getPipelineCache().getPipeline(name);
 }
 
+PipelineRef getPipelineOrSet(const std::string& name, const Pipeline::CI& pipeline_ci) {
+    MLE_ASSERT(i_);
+    return i_->getPipelineCache().getPipelineOrSet(name, pipeline_ci);
+};
+
 namespace detail {
 ED& getED() {
     MLE_ASSERT(i_);

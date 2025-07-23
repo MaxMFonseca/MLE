@@ -68,7 +68,6 @@ void main() {
     vec3 world_pos = reconstructWorldPosition(in_uv, depth);
     ivec2 i_world_pos_xz = ivec2(world_pos.xz);
 
-
     vec3 shadow_uv = computeShadowUV(world_pos);
 
     float shadow = 1.0;
@@ -82,6 +81,8 @@ void main() {
     ivec2 in_map_extent = textureSize(in_map_mask, 0);
     vec2 in_map_uv = vec2(i_world_pos_xz) / vec2(in_map_extent);
     float in_map = texture(in_map_mask, in_map_uv).r;
+    float in_map_y = smoothstep(0.0, 5.0, world_pos.y) / 5.0;
+    in_map = max(in_map, in_map_y);
 
     vec3 camera_pos = vec3(inverse(globals.view)[3]);
     float camera_depth = length(world_pos - camera_pos);

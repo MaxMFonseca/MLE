@@ -17,6 +17,7 @@ class PipelineCache final {
 
     PipelineRef setPipeline(const std::string& name, const Pipeline::CI& pipeline_ci);
     PipelineRef getPipeline(const std::string& name);
+    PipelineRef getPipelineOrSet(const std::string& name, const Pipeline::CI& pipeline_ci);
 
   private:
     std::map<std::string, PipelineHnd> pipelines_;

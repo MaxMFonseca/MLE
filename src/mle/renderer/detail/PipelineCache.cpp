@@ -104,4 +104,14 @@ void PipelineCache::shutdown() {
     MLE_I("Shutting down PipelineCache");
     pipelines_.clear();
 }
+
+PipelineRef PipelineCache::getPipelineOrSet(const std::string& name, const Pipeline::CI& pipeline_ci) {
+    auto it = pipelines_.find(name);
+
+    if (it != pipelines_.end()) {
+        return it->second.get();
+    }
+
+    return setPipeline(name, pipeline_ci);
+}
 }  // namespace mle::renderer::detail
