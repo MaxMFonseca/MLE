@@ -76,7 +76,7 @@ void main() {
         shadow = shadowPCF(shadow_uv, 0.0017);
     }
 
-    vec3 lighting = albedo * globals.sun_color * max(globals.sun_intensity * shadow, 0.03);
+    vec3 lighting = albedo * globals.sun_color * max(globals.sun_intensity * shadow, 0.01);
 
     ivec2 in_map_extent = textureSize(in_map_mask, 0);
     vec2 in_map_uv = vec2(i_world_pos_xz) / vec2(in_map_extent);
