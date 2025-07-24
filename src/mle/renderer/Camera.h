@@ -55,6 +55,9 @@ class Camera {
     mat4f getView();
     mat4f getProj();
     mat4f getViewProj();
+
+    mat4f getInvView() { return glm::inverse(getView()); }
+    mat4f getInvProj() { return glm::inverse(getProj()); }
     mat4f getInvViewProj() { return glm::inverse(getViewProj()); }
 
     auto getType() { return proj_type_; }
@@ -75,6 +78,8 @@ class Camera {
     [[nodiscard]] auto getTop() const { return top_; }
 
     Frustum getFrustum() { return Frustum{getViewProj()}; }
+
+    [[nodiscard]] std::vector<AABB> computeViewClusters(u32 tile_size_px, u32 screen_width, u32 screen_height, u32 z_slices) const;
 
   private:
     void updateView();

@@ -1,7 +1,10 @@
 #include "Camera.h"
 
 #include <cmath>
+#include <cstddef>
 #include <glm/gtc/matrix_transform.hpp>
+
+#include "mle/common/Utils.h"
 
 namespace mle::renderer {
 void Camera::setEye(const vec3f& eye) {
@@ -197,4 +200,64 @@ void Camera::zoom(f32 delta) {
     view_dirty_ = true;
     view_proj_dirty_ = true;
 }
+
+std::vector<AABB> Camera::computeViewClusters(u32 tile_size_px, u32 screen_width, u32 screen_height, u32 z_slices) const {
+    std::vector<AABB> clusters;
+
+    if (proj_type_ != ProjType::PERSPECTIVE) {
+        MLE_UNREACHABLE_LOG("computeViewClusters only supports perspective projection for now");
+    }
+
+    const u32 x_tiles = (screen_width + tile_size_px - 1) / tile_size_px;
+    const u32 y_tiles = (screen_height + tile_size_px - 1) / tile_size_px;
+
+    clusters.reserve(as<usize>(x_tiles * y_tiles * z_slices));
+
+    const f32 fov_rad = glm::radians(fov_deg_);
+    const f32 tan_half_fov = std::tan(fov_rad * 0.5F);
+
+    const f32 log_near = std::log(near_ + 1.0F);
+    const f32 log_far = std::log(far_ + 1.0F);
+    const f32 log_range = log_far - log_near;
+
+    for (u32 z = 0; z < z_slices; ++z) {
+        const f32 zf = as<f32>(z) / as<f32>(z_slices);
+        const f32 zn = as<f32>(z + 1) / as<f32>(z_slices);
+
+        const f32 z_near = std::exp(log_near + (log_range * zf)) - 1.0F;
+        const f32 z_far = std::exp(log_near + (log_range * zn)) - 1.0F;
+
+        for (u32 y = 0; y < y_tiles; ++y) {
+            const f32 y0 = (as<f32>(y) / as<f32>(y_tiles) * 2.0F) - 1.0F;
+            const f32 y1 = (as<f32>(y + 1) / as<f32>(y_tiles) * 2.0F) - 1.0F;
+
+            for (u32 x = 0; x < x_tiles; ++x) {
+                const f32 x0 = (as<f32>(x) / as<f32>(x_tiles) * 2.0F) - 1.0F;
+                const f32 x1 = (as<f32>(x + 1) / as<f32>(x_tiles) * 2.0F) - 1.0F;
+
+                std::array<vec3f, 8> corners{};
+                u32 i = 0;
+                for (f32 ndc_z : {z_near, z_far}) {
+                    for (f32 ndc_y : {y0, y1}) {
+                        for (f32 ndc_x : {x0, x1}) {
+                            const f32 view_x = ndc_x * ndc_z * tan_half_fov * aspect_;
+                            const f32 view_y = ndc_y * ndc_z * tan_half_fov;
+                            const f32 view_z = -ndc_z;
+                            corners.at(i++) = vec3f{view_x, view_y, view_z};
+                        }
+                    }
+                }
+
+                AABB aabb;
+                for (const auto& c : corners) {
+                    aabb.expand(c);
+                }
+
+                clusters.push_back(aabb);
+            }
+        }
+    }
+
+    return clusters;
+};
 }  // namespace mle::renderer
