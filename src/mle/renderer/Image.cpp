@@ -478,6 +478,13 @@ void Image::transitionState(vk::CommandBuffer cmd, State state) {
                     info.dst_stage_mask = vk::PipelineStageFlagBits2::eFragmentShader;
                     info.dst_access_mask = vk::AccessFlagBits2::eShaderRead;
                 } break;
+                case State::COMPUTE_RW: {
+                    info.new_layout = vk::ImageLayout::eGeneral;
+                    info.src_stage_mask = vk::PipelineStageFlagBits2::eTransfer;
+                    info.src_access_mask = vk::AccessFlagBits2::eTransferWrite;
+                    info.dst_stage_mask = vk::PipelineStageFlagBits2::eComputeShader;
+                    info.dst_access_mask = vk::AccessFlagBits2::eShaderRead | vk::AccessFlagBits2::eShaderWrite;
+                } break;
                 default: {
                     MLE_UNREACHABLE_LOG("Invalid state transition from TRANSFER_DST to {}", state);
                 } break;
@@ -644,4 +651,14 @@ u64 Image::getSizeInBytes() const {
     return static_cast<u64>(extent_.x) * extent_.y * getFormatChannelCount(format_);
 }
 
+void Image::clear(vk::CommandBuffer cmd, const vk::ClearColorValue& color) {
+    transitionState(cmd, State::TRANSFER_DST);
+    vk::ImageSubresourceRange range = {};
+    range.aspectMask = vk::ImageAspectFlagBits::eColor;
+    range.baseMipLevel = 0;
+    range.levelCount = 1;
+    range.baseArrayLayer = 0;
+    range.layerCount = 1;
+    cmd.clearColorImage(o_, vk::ImageLayout::eTransferDstOptimal, color, range);
+}
 }  // namespace mle::renderer

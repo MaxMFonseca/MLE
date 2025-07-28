@@ -145,6 +145,9 @@ class Image final : LiveCounter<Image> {
      */
     void changeOwnerQueue(CmdType curr, vk::CommandBuffer curr_cmd, CmdType next, vk::CommandBuffer next_cmd);
 
+    /// Clears the image with a specified color value.
+    void clear(vk::CommandBuffer cmd, const vk::ClearColorValue& color = {0.0F, 0.0F, 0.0F, 1.0F});
+
     [[nodiscard]] auto getVkHnd() const { return o_; }        ///< Returns the Vulkan image handle.
     [[nodiscard]] auto get() const { return getVkHnd(); }     /// Alias for getVkHnd().
     [[nodiscard]] auto getExtent() const { return extent_; }  /// Returns the image size in pixels.
