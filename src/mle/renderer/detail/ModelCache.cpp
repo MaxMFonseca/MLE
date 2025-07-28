@@ -44,20 +44,22 @@ UploadVoxMeshData loadVoxMesh(const tinygltf::Model& model, const tinygltf::Mesh
 
     UploadVoxMeshData upload_data;
 
-    auto split_name = split(mesh.name, ';');
+    auto split_name = split(mesh.name, ':');
     if (split_name.size() > 1) {
         for (usize i = 1; i < split_name.size(); ++i) {
             char type = split_name[i][0];
-            f32 val = std::stof(split_name[i].substr(1));
             switch (type) {
                 case 'm': {
-                    upload_data.metalness = val;
+                    upload_data.metalness = std::stof(split_name[i].substr(1));
                 } break;
                 case 'e': {
-                    upload_data.emissive = val;
+                    upload_data.emissive = std::stof(split_name[i].substr(1));
                 } break;
                 case 'r': {
-                    upload_data.roughness = val;
+                    upload_data.roughness = std::stof(split_name[i].substr(1));
+                } break;
+                case 'c': {
+                    upload_data.recolor = true;
                 } break;
                 default: {
                     MLE_W("Unknown mesh property type: '{}'", type);
@@ -224,6 +226,7 @@ ModelRef ModelCache::add(const std::string& name, const UploadModelData& model_d
         model_mesh.metalness = vox_mesh_data.metalness;
         model_mesh.roughness = vox_mesh_data.roughness;
         model_mesh.emissive = vox_mesh_data.emissive;
+        model_mesh.recolor = vox_mesh_data.recolor;
 
         const auto& vertices = vox_mesh_data.vertices;
         const auto& indices = vox_mesh_data.indices;

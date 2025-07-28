@@ -105,6 +105,7 @@ struct UploadVoxMeshData {
     f32 metalness = 0.0F;
     f32 roughness = 0.0F;
     f32 emissive = 0.0F;
+    bool recolor = false;
     AABB aabb;
 };
 
@@ -120,6 +121,7 @@ struct Model {
         f32 metalness = 0.0F;
         f32 roughness = 0.0F;
         f32 emissive = 0.0F;
+        bool recolor = false;
 
         enum class Type : u8 { VOX };
         Type type = Mesh::Type::VOX;

@@ -18,6 +18,19 @@ Pipeline::CI sceneVoxCI() {
     return ci;
 }
 
+Pipeline::CI sceneVoxRecolorCI() {
+    Pipeline::CI ci;
+    ci.vertex_shader = getShader("mle/scene/vox_recolor.vert");
+    ci.fragment_shader = getShader("mle/scene/vox.frag");
+    ci.depth = true;
+    ci.color_attachment_formats = {getDefaultColorFormat(), getDefaultColorFormat(), getDefaultColorFormat()};
+    ci.color_attachment_formats = {getDefaultColorFormat(), getDefaultColorFormat(), getDefaultColorFormat()};
+    ci.color_attachment_formats = {getDefaultColorFormat(), getDefaultColorFormat(), getDefaultColorFormat()};
+    ci.blend_attachments = makeDefaultBlendAttachmentStates(3, false);
+    ci.topology = vk::PrimitiveTopology::eTriangleList;
+    return ci;
+}
+
 Pipeline::CI scenePlaneCI() {
     Pipeline::CI ci;
     ci.vertex_shader = getShader("mle/scene/plane.vert");
@@ -66,6 +79,7 @@ void PipelineCache::init() {
     MLE_I("Creating builtin pipelines");
 
     setPipeline("mle/scene/vox", sceneVoxCI());
+    setPipeline("mle/scene/vox_recolor", sceneVoxRecolorCI());
     setPipeline("mle/scene/plane", scenePlaneCI());
     setPipeline("mle/scene/cube_map", sceneCubeMapCI());
     setPipeline("mle/scene/sun", sceneSunCI());
