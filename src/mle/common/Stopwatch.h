@@ -38,6 +38,9 @@ class Stopwatch final {
     /// Returns the elapsed time in seconds as a float.
     [[nodiscard]] f32 elapsedSecFloat() const;
 
+    /// Returns the elapsed time in milliseconds as a float.
+    [[nodiscard]] f32 elapsedMSFloat() const;
+
   private:
     std::chrono::steady_clock::time_point start_;  ///< Start time of the stopwatch.
 };

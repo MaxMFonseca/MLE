@@ -1,5 +1,7 @@
 #include "Stopwatch.h"
 
+#include "mle/common/Utils.h"
+
 namespace mle {
 Stopwatch::Stopwatch() {
     reset();
@@ -11,5 +13,8 @@ void Stopwatch::reset() {
 
 f32 Stopwatch::elapsedSecFloat() const {
     return static_cast<f32>(elapsed<std::chrono::milliseconds>().count()) / 1000.F;
+}
+f32 Stopwatch::elapsedMSFloat() const {
+    return as<f32>(elapsed<std::chrono::nanoseconds>().count()) / 1'000'000.0F;
 }
 }  // namespace mle
