@@ -55,15 +55,14 @@ This doc is very incomplete and will be updated as the project evolves. For now,
 
 > **Requirements:**
 >
-> - C++23 compiler (Clang or GCC)
+> - Clang v17+
 > - CMake 3.18+
-> - Vulkan SDK
-> - Git submodules (`git submodule update --init --recursive`)
+> - Vulkan SDK 1.3+
 
-We use a helper script to set up the environment and build the project. It detects the platform and configures everything automatically:
+Then there is a helper script that automates the rest or the process:
 
 ```bash
-. ./scripts/envsetup.sh
+source ./scripts/envsetup.sh
 mle_setup -> Fetches all submodules and set up the environment
 mle_config -> Config cmake and tooling
 mle_build -> Build the engine and tools
