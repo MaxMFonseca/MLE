@@ -25,3 +25,6 @@
 [submodule "external/dr_libs"]
 	path = external/dr_libs
 	url = https://github.com/mackron/dr_libs
+[submodule "external/SDL"]
+	path = external/SDL
+	url = https://github.com/libsdl-org/SDL.git

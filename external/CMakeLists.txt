@@ -4,6 +4,11 @@ target_include_directories(MLE PUBLIC spdlog/include)
 target_link_libraries(MLE spdlog)
 target_compile_definitions(MLE PUBLIC SPDLOG_NO_EXCEPTIONS)
 
+# SDL: Simple DirectMedia Layer for windowing, input, etc.
+add_subdirectory(SDL)
+target_include_directories(MLE PUBLIC SDL/include)
+target_link_libraries(MLE SDL3::SDL3)
+
 # glm: Header-only C++ mathematics library for graphics software
 add_subdirectory(glm)
 target_include_directories(MLE PUBLIC glm)

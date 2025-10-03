@@ -1,8 +1,22 @@
 cmake_minimum_required(VERSION 3.16) # Require at least CMake 3.16
 
+# Prefer clang if available
+if(NOT DEFINED CMAKE_C_COMPILER)
+  find_program(CLANG_PATH clang)
+  if(CLANG_PATH)
+    set(CMAKE_C_COMPILER "${CLANG_PATH}" CACHE STRING "C compiler" FORCE)
+  endif()
+endif()
+if(NOT DEFINED CMAKE_CXX_COMPILER)
+  find_program(CLANGXX_PATH clang++)
+  if(CLANGXX_PATH)
+    set(CMAKE_CXX_COMPILER "${CLANGXX_PATH}" CACHE STRING "C++ compiler" FORCE)
+  endif()
+endif()
+
 # Options to enable/disable features
 option(ENABLE_DOXYGEN "Build Doxygen documentation" OFF)
-option(BUILD_TOOLS "Build the internal tools" OFF)
+option(BUILD_TESTS "Build the internal tests" ON)
 
 project(MLE) # Define the project
 

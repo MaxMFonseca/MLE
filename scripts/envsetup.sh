@@ -2,11 +2,16 @@
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
   echo "This script is intended to be sourced, not executed."
-  echo "Use: source ./scripts/envsetup.sh"
+  echo "Use: source ./scripts/envsetup.sh from project root."
   exit 1
 fi
 
 _MLE_ROOT="$(pwd)"
+
+if [[ ! -f "${_MLE_ROOT}/README.md" ]]; then
+  echo "Error: Please source this script from the project root directory."
+  return 1
+fi
 
 function mle_setup() {
   cd "${_MLE_ROOT}" || return 1
@@ -90,9 +95,9 @@ function mle_build() {
   cmake --build "${_MLE_ROOT}/build/${build_type}" -j "$(nproc --all)" "${args[@]}"
 }
 
-function mle_run_tool() {
+function mle_run_test() {
   local build_type="Debug"
-  local tool_name="MLECubes" # Default tool name for now
+  local test_name="Core"
   local args=()
 
   while [[ $# -gt 0 ]]; do
@@ -102,11 +107,11 @@ function mle_run_tool() {
       shift 2
       ;;
     -n)
-      tool_name="$2"
+      test_name="$2"
       shift 2
       ;;
     -h)
-      echo "Usage: mle_run_tool -n tool_name [-t build_type] -- [extra args to tool]"
+      echo "Usage: mle_run_test [-n test_name] [-t build_type] -- [forward args]"
       return 0
       ;;
     --)
@@ -120,42 +125,42 @@ function mle_run_tool() {
     esac
   done
 
-  if [[ -z "$tool_name" ]]; then
-    echo "Error: tool_name (-n) is required"
+  if [[ -z "$test_name" ]]; then
+    echo "Error: test_name (-n) is required"
     return 1
   fi
 
   cd "${_MLE_ROOT}" || return 1
 
-  rm -rf "build/${build_type}/tools/${tool_name}/res"
-  mkdir -p "build/${build_type}/tools/${tool_name}/res"
+  rm -rf "build/${build_type}/tests/${test_name}/res"
+  mkdir -p "build/${build_type}/tests/${test_name}/res"
   local arr=("lua" "textures" "shaders" "fonts" "sounds" "models")
-  cd "build/${build_type}/tools/${tool_name}/res"
+  cd "build/${build_type}/tests/${test_name}/res"
 
   for i in "${arr[@]}"; do
     mkdir -p "${i}"
     cd "${i}"
 
     ln -s "${_MLE_ROOT}/res/${i}" "mle" 2>/dev/null
-    ln -s "${_MLE_ROOT}/tools/${tool_name}/res/${i}" "i" 2>/dev/null
+    ln -s "${_MLE_ROOT}/tests/${test_name}/res/${i}" "i" 2>/dev/null
     cd ..
   done
 
-  cd "${_MLE_ROOT}/build/${build_type}/tools/${tool_name}" || return 1
-  "./${tool_name}" "${args[@]}"
+  cd "${_MLE_ROOT}/build/${build_type}/tests/${test_name}" || return 1
+  "./${test_name}" "${args[@]}"
   cd "${_MLE_ROOT}"
 
   rm -f latest.log
-  ln -s "${_MLE_ROOT}/build/${build_type}/tools/${tool_name}/logs/latest.log" latest.log 2>/dev/null
+  ln -s "${_MLE_ROOT}/build/${build_type}/tests/${test_name}/logs/latest.log" latest.log 2>/dev/null
   echo "Latest logs in latest.log"
 }
 
-function mle_build_and_run_tool() {
-  mle_build "$@" && mle_run_tool "$@"
+function mle_build_and_run_test() {
+  mle_build "$@" && mle_run_test "$@"
 }
 
 function mle_ber() {
-  mle_build_and_run_tool "$@"
+  mle_build_and_run_test "$@"
 }
 
 function mle_clean() {
@@ -178,7 +183,7 @@ function mle_nvim_dap() {
       shift 2
       ;;
     -h)
-      echo "Usage: mle_nvim_dap -n test_name [-t build_type]"
+      echo "Usage: mle_nvim_dap [-n test_name] [-t build_type]"
       return 0
       ;;
     *)
@@ -233,11 +238,11 @@ function mle_help() {
   echo "  mle_setup"
   echo "  mle_config [-t build_type] [-m max_log_level] [-s stdout_log_level] -- [extra cmake args]"
   echo "  mle_build [-t build_type]"
-  echo "  mle_run_tool -n tool_name [-t build_type] [-a 'args to pass'] -- [extra args to tool]"
-  echo "  mle_build_and_run_tool -n tool_name [-t build_type] -- [extra args]"
-  echo "  mle_ber alias for mle_build_and_run_tool"
+  echo "  mle_run_test -n test_name [-t build_type] [-a 'args to pass'] -- [forward args]"
+  echo "  mle_build_and_run_test -n test_name [-t build_type] -- [extra args]"
+  echo "  mle_ber alias for mle_build_and_run_test"
   echo "  mle_clean"
-  echo "  mle_nvim_dap -n test_name [-t build_type]"
+  echo "  mle_nvim_dap [-n test_name] [-t build_type]"
   echo "  mle_compile_shaders folder_path"
   echo "  mle_gen_docs"
   echo "  mle_help"
