@@ -1,9 +1,8 @@
 #include "Types3D.h"
 
+#include <algorithm>
 #include <numeric>
 
-#include "mle/common/Assert.h"
-#include "mle/common/Utils.h"
 namespace mle {
 std::optional<NearFar> Ray3f::intersect(const AABB& box) const {
     f32 tmin = -inf<f32>();

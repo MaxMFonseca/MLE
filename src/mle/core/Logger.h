@@ -87,63 +87,21 @@
 
 // NOLINTEND
 
-namespace mle::logger {
-/**
- * @brief Initializes the logging system with stdout and file sinks.
- *
- * - Configures log formats.
- * - Sets up log level from runtime config (if available).
- * - Registers change listener for runtime log level adjustment.
- */
-inline void init() {
-    [[maybe_unused]] static bool initialized = false;
-    assert(!initialized && "Logger already initialized");
+namespace mle {
+class Logger {
+    MLE_SINGLETON(Logger);
 
-    std::vector<spdlog::sink_ptr> sinks;
-    auto file_sink = sinks.emplace_back(std::make_shared<spdlog::sinks::basic_file_sink_mt>("logs/latest.log", true));
-    file_sink->set_pattern("[%L][%T.%e][%@][%!] %v");
+  public:
+    void init();
+    void shutdown();
 
-    auto debug_file_sink = sinks.emplace_back(std::make_shared<spdlog::sinks::basic_file_sink_mt>("logs/debug.log", true));
-    debug_file_sink->set_pattern("[%L][%T.%e][%@][%!] %v");
+    std::shared_ptr<spdlog::sinks::sink> getFileSink() { return file_sink_; }
+    std::shared_ptr<spdlog::sinks::sink> getStdOutSink() { return stdout_sink_; }
 
-    LogLevel file_level{};
-#ifdef MLE_RUNTIME_CONFIG_LOG_LEVEL_FILE
-    file_level = runtime_config::getLogLevelFile();
-#else
-    file_level = MAX_LOG_LEVEL;
-#endif
-    debug_file_sink->set_level(static_cast<spdlog::level::level_enum>(file_level));
-
-    // if (MLE_IS_DEBUG_BUILD) {
-    auto stdout_sink = sinks.emplace_back(std::make_shared<spdlog::sinks::stdout_color_sink_mt>());
-    stdout_sink->set_pattern("[%L][%T.%e][%s.%#][%!] %v%$");
-
-    LogLevel stdout_level{};
-#ifdef MLE_RUNTIME_CONFIG_LOG_LEVEL_STDOUT
-    stdout_level = runtime_config::getLogLevelStdout();
-
-    runtime_config::signListenerLogLevelStdout([=](LogLevel level) {
-        MLE_LOG_I("stdout LogLevel changed {}", level);
-        stdout_sink->set_level(static_cast<spdlog::level::level_enum>(level));
-    });
-#else
-    stdout_level = DEFAULT_LOG_LEVEL_STDOUT;
-#endif
-    stdout_sink->set_level(static_cast<spdlog::level::level_enum>(stdout_level));
-    // }
-
-    auto default_logger = std::make_shared<spdlog::logger>("MLELogger", sinks.begin(), sinks.end());
-    default_logger->set_level(static_cast<spdlog::level::level_enum>(MAX_LOG_LEVEL));
-
-    spdlog::set_default_logger(default_logger);
-    spdlog::set_error_handler([](std::string const& msg) { spdlog::error(msg); });
-
-    MLE_I("Logger initialized. MAX_LOG_LEVEL:{} FILE_LOG_LEVEL:{} STDOUT_LOG_LEVEL: {}", MAX_LOG_LEVEL, file_level, stdout_level);
-}
-
-/// Shuts down the logging system and releases any open file handles.
-inline void shutdown() {
-    MLE_I("Shutting down logger.");
-    spdlog::shutdown();
-}
-}  // namespace mle::logger
+  private:
+    std::shared_ptr<spdlog::sinks::sink> file_sink_;
+    std::shared_ptr<spdlog::sinks::sink> stdout_sink_;
+    mle::RuntimeConfigListenerHnd file_level_listener_;
+    mle::RuntimeConfigListenerHnd stdout_level_listener_;
+};
+}  // namespace mle

@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-#include "mle/common/Logger.h"
+#include "mle/utils/Types.h"
 
 namespace mle {
 vec2f LineSegment2D::closestPoint(vec2f point) const {

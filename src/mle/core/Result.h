@@ -11,7 +11,7 @@
 #include <expected>
 #include <utility>
 
-#include "math/Types.h"
+#include "mle/math/Types.h"
 
 namespace mle {
 
@@ -25,6 +25,7 @@ enum class [[nodiscard]] Result : u8 {
 
     NOK,               ///< Generic Error. Try to avoid. Bad practice! Adding new fields here is easy!
     INVALID_ARGUMENT,  ///< Invalid argument provided.
+    OUT_OR_RANGE,      ///< Value out of acceptable range.
     NOT_FOUND,         ///< Requested resource not found.
     FAILED_TO_OPEN,    ///< Failed to open a resource (e.g., file, network).
 };
@@ -43,6 +44,7 @@ static constexpr const char* toString(Result result) {
 
         CASE(NOK);
         CASE(INVALID_ARGUMENT);
+        CASE(OUT_OR_RANGE);
         CASE(NOT_FOUND);
         CASE(FAILED_TO_OPEN);
     }

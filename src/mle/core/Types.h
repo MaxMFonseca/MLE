@@ -5,11 +5,7 @@
 
 #pragma once
 
-#include <filesystem>
-#include <utility>
-#include <vector>
-
-#include "math/Types.h"
+#include "mle/math/Types.h"
 
 using namespace std::chrono_literals;  // NOLINT(google-global-names-in-headers) chrono_literals is fine
 
@@ -24,32 +20,6 @@ enum class LogLevel : i8 {
     CRITICAL,  ///< Unrecoverable errors or fatal faults. Example: out of memory, system init failed.
     OFF        ///< Logging is disabled.
 };
-
-using usize = size_t;     ///< Unsigned size type.
-using isize = ptrdiff_t;  ///< Signed size type.
-using byte = std::byte;   ///< Byte type for raw data.
-using UserPtr = void*;    ///< Generic user pointer.
-using char32 = char32_t;  ///< 32-bit Unicode character type.
-
-using Bytes = std::vector<u8>;            ///< Dynamic byte array.
-using BytesHnd = std::unique_ptr<Bytes>;  ///< Unique handle to a byte buffer.
-using BytesRef = Bytes*;                  ///< Raw pointer to a byte buffer.
-
-class UnicodeBuffer;                      ///< Forward declaration for Unicode-capable buffer class.
-using UnicodeBufferRef = UnicodeBuffer*;  ///< Raw pointer to a UnicodeBuffer instance.
-
-using ID = u64;                                            ///< 64-bit engine-wide identifier type.
-constexpr ID INVALID_ID = std::numeric_limits<ID>::max();  ///< Sentinel value for an invalid ID.
-
-// TODO: Why is this not a class?
-/**
- * @brief A vector of (ID, T) pairs used for indexed collections.
- * Some functionalities on namespace idvec
- */
-template <typename T>
-using IDVec = std::vector<std::pair<ID, T>>;
-
-namespace fs = std::filesystem;  ///< Alias for the filesystem namespace. Remeber to use nothrow overloads!
 }  // namespace mle
 
 namespace fmt {
@@ -77,13 +47,4 @@ struct formatter<mle::LogLevel> : formatter<std::string> {
         }
     }
 };
-
-template <>
-struct formatter<mle::fs::path> : formatter<std::string> {
-    template <typename FormatContext>
-    constexpr auto format(const mle::fs::path& v, FormatContext& ctx) const {
-        return format_to(ctx.out(), "{}", v.generic_string());
-    }
-};
-
 }  // namespace fmt

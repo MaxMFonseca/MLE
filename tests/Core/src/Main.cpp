@@ -1,4 +1,1 @@
-#include "mle/mle.h"
-
-int main() {
-}
+#include "mle/Entry.inl"

@@ -1,6 +1,6 @@
 #include "Utils.h"
 
-#include "mle/common/Utils.h"
+#include "mle/utils/Utils.h"
 
 namespace mle {
 // Rough square root approximation based on IEEE 754 bit hack.

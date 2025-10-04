@@ -8,8 +8,9 @@
 #include <optional>
 
 #include "Types.h"
-#include "mle/common/Assert.h"
-#include "mle/common/math/Types2D.h"
+#include "Types2D.h"
+#include "mle/core/Assert.h"
+#include "mle/utils/Types.h"
 
 namespace mle {
 /**
