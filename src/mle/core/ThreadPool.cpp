@@ -1,6 +1,8 @@
 #include "ThreadPool.h"
 
-namespace mle::core {
+#include "mle/core/Logger.h"
+
+namespace mle {
 void ThreadPool::workerLoop() {
     while (!stop_.load(std::memory_order_relaxed)) {
         auto task_opt = task_queue_.popMove(true);
@@ -33,4 +35,4 @@ void ThreadPool::shutdown() {
     }
     threads_.clear();
 }
-}  // namespace mle::core
+}  // namespace mle

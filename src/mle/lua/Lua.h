@@ -16,10 +16,8 @@
 #include <sol/state.hpp>
 
 #include "Types.h"
-#include "mle/common/Logger.h"
-#include "mle/common/Result.h"
-#include "mle/common/Types.h"
-#include "mle/common/Utils.h"
+#include "mle/core/Logger.h"
+#include "mle/utils/Utils.h"
 
 namespace mle {
 class Lua {
@@ -42,9 +40,6 @@ class Lua {
 
   private:
     sol::state& getSol() { return sol_; };
-
-    void registerCommonTypes();
-    void registerCommonTypesColor();
 
   public:
     template <class T>

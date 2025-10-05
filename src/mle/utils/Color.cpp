@@ -2,8 +2,7 @@
 
 #include <random>
 
-#include "mle/common/Logger.h"
-#include "mle/common/Utils.h"
+#include "mle/core/Logger.h"
 #include "mle/lua/Lua.h"
 #include "mle/lua/Utils.h"
 

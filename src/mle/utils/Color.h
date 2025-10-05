@@ -8,8 +8,8 @@
 #include <sol/forward.hpp>
 #include <unordered_map>
 
-#include "math/Types.h"
-#include "mle/common/Logger.h"
+#include "mle/math/Types.h"
+#include "mle/utils/Types.h"
 
 namespace mle {
 /**
@@ -142,6 +142,7 @@ struct Color : vec4f {
     /// Returns the global named color map.
     static std::unordered_map<std::string, Color>& colors();
 };
+
 }  // namespace mle
 
 namespace fmt {

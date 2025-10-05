@@ -80,5 +80,7 @@ struct ResPath {
     static constexpr auto TEXTURES = "textures";  ///< Path to texture assets.
     static constexpr auto SHADERS = "shaders";    ///< Path to shader files.
     static constexpr auto FONTS = "fonts";        ///< Path to font files.
+    static constexpr auto MODELS = "models";      ///< Path to 3D model files.
+    static constexpr auto AUDIO = "audio";        ///< Path to audio files.
 };
 }  // namespace mle

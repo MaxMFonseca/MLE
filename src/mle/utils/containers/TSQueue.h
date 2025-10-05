@@ -1,8 +1,10 @@
 #pragma once
 
+#include <condition_variable>
+#include <mutex>
 #include <queue>
 
-#include "mle/common/Utils.h"
+#include "mle/utils/Utils.h"
 
 namespace mle {
 template <typename T>
@@ -68,7 +70,7 @@ class TSQueue {
 
     void clear() {
         std::scoped_lock lock(mutex_);
-        queue_.clear();
+        std::queue<T>().swap(queue_);
     }
 
     class LockedProxy {

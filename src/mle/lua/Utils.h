@@ -13,13 +13,10 @@
 #include <sol/sol.hpp>
 
 #include "Types.h"
-#include "mle/common/Assert.h"
-#include "mle/common/Color.h"
-#include "mle/common/Logger.h"
-#include "mle/common/math/Types.h"
-#include "mle/common/math/Types2D.h"
+#include "mle/core/Assert.h"
 #include "mle/core/Core.h"
-#include "sol/forward.hpp"
+#include "mle/math/Types2D.h"
+#include "mle/utils/Color.h"
 
 namespace mle::lua {
 /**
@@ -426,7 +423,7 @@ template <>
 inline Rectf as(const sol::object& o) {
     MLE_ASSERT(o.valid());
 
-    if (o.is<Recti>()) {
+    if (o.is<Rectf>()) {
         return o.as<Rectf>();
     }
     if (o.is<sol::table>()) {
@@ -435,7 +432,7 @@ inline Rectf as(const sol::object& o) {
         return ret;
     }
 
-    MLE_UNREACHABLE_LOG("Cannot convert to Recti from {}", o.get_type());
+    MLE_UNREACHABLE_LOG("Cannot convert to Rectf from {}", o.get_type());
 }
 
 /**

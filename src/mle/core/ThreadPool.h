@@ -1,21 +1,16 @@
 #pragma once
 
-#include <functional>
 #include <future>
 
-#include "mle/common/Utils.h"
-#include "mle/common/containers/TSQueue.h"
+#include "mle/utils/Types.h"
+#include "mle/utils/Utils.h"
+#include "mle/utils/containers/TSQueue.h"
 
 // Very simple thread pool implementation. Should be ok for now, but I want to add more features, like prio.
-// TODO: make this a singleton
-namespace mle::core {
+namespace mle {
 class ThreadPool {
+    MLE_SINGLETON(ThreadPool)
   public:
-    MLE_NO_COPY_MOVE(ThreadPool)
-
-    ThreadPool() = default;
-    ~ThreadPool() = default;
-
     void init(usize thread_count = std::thread::hardware_concurrency());
     void shutdown();
 
@@ -52,6 +47,8 @@ class ThreadPool {
         });
     }
 
+    [[nodiscard]] usize threadCount() const { return threads_.size(); }
+
   private:
     void workerLoop();
 
@@ -59,4 +56,4 @@ class ThreadPool {
     std::atomic<bool> stop_ = false;
     TSQueue<std::move_only_function<void()>> task_queue_;
 };
-}  // namespace mle::core
+}  // namespace mle
