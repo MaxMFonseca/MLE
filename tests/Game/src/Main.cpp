@@ -1,5 +1,3 @@
-#include <gtest/gtest.h>
-
 #include <filesystem>
 
 #include "mle/client/Client.h"
@@ -17,9 +15,8 @@ int main(int argc, char** argv) {
 
     mle::Core::i().init(core_ii);
 
-    ::testing::InitGoogleTest(&argc, argv);
+    mle::Client::i().init();
+    mle::Client::i().run();
 
-    auto test_results = RUN_ALL_TESTS();
     // mle::shutdown();
-    return test_results;
 }

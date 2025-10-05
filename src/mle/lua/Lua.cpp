@@ -15,7 +15,7 @@ inline void atLuaPanic(sol::optional<std::string> maybe_msg) {
     } else if (!maybe_msg) {
         MLE_C("Lua provided no error message.");
     }
-    core::unrecoverable("Lua panic occurred! aborting application.");
+    Core::i().unrecoverable("Lua panic occurred! aborting application.");
 }
 }  // namespace
 
@@ -27,7 +27,7 @@ void Lua::init() {
     sol_.open_libraries(sol::lib::base, sol::lib::package, sol::lib::jit, sol::lib::math, sol::lib::string, sol::lib::table);
 
     if (!sol_["jit"].valid()) {
-        core::unrecoverable("Lua JIT is not available!");
+        Core::i().unrecoverable("Lua JIT is not available!");
     }
 
     auto package_path = sol_["package"]["path"];

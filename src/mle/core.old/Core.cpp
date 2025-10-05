@@ -35,11 +35,6 @@ class Impl {
     void setNextScene(std::unique_ptr<Scene>&& scene) { next_scene_ = std::move(scene); }
     auto& threadPool() { return thread_pool_; }
 
-    i64 rngi(i64 max, i64 min);
-    u64 rngu(u64 max, u64 min);
-    f32 rngf(f32 max, f32 min);
-    bool maybe(f32 chance);
-
     auto& getLua() { return lua_; }
     auto& getCTable() { return c_table_; }
 
@@ -54,81 +49,12 @@ class Impl {
     void swapScenes();
 
   private:
-    State state_ = State::UNINITIALIZED;
-
-    Lua lua_;
-
-    Stopwatch running_stopwatch_;
-    f32 running_time_float_ = 0.F;
-    std::chrono::seconds seconds_running_ = 0s;
-    i32 update_call_count_ = 0;
-    [[maybe_unused]] i32 render_call_count_ = 0;
-
     window::WindowCloseListener window_close_listener_;
-
-    struct {
-        i32 updates = 0;
-        i32 frames = 0;
-
-        std::chrono::nanoseconds time_updating = 0ns;
-        std::chrono::nanoseconds time_rendering = 0ns;
-
-        std::array<std::chrono::nanoseconds, static_cast<usize>(SecondKPIType::COUNT)> other_kpi = {};
-    } current_second_times_;
 
     ThreadPool thread_pool_;
 
-    std::mutex rng_mutex_;
-    std::mt19937_64 rng_{std::random_device{}()};
-
-    std::unique_ptr<Scene> scene_ = nullptr;
-    std::unique_ptr<Scene> next_scene_ = nullptr;
-
-    sol::table c_table_;
-
     std::vector<std::move_only_function<void()>> on_shutdown_funcs_;
 };
-
-i64 Impl::rngi(i64 max, i64 min) {
-    std::scoped_lock lock(rng_mutex_);
-    std::uniform_int_distribution<i64> dist(min, max);
-    return dist(rng_);
-}
-
-u64 Impl::rngu(u64 max, u64 min) {
-    std::scoped_lock lock(rng_mutex_);
-    std::uniform_int_distribution<u64> dist(min, max);
-    return dist(rng_);
-}
-
-f32 Impl::rngf(f32 max, f32 min) {
-    std::scoped_lock lock(rng_mutex_);
-    std::uniform_real_distribution<f32> dist(min, max);
-    return dist(rng_);
-}
-
-bool Impl::maybe(f32 chance) {
-    std::scoped_lock lock(rng_mutex_);
-    std::bernoulli_distribution dist(chance);
-    return dist(rng_);
-}
-
-void Impl::updateSecondTimes(std::chrono::seconds current) {
-    MLE_I("second: {}, ups: {}({:.3f}ms) | fps: {}({:.3f}ms)", seconds_running_.count(), current_second_times_.updates,
-          current_second_times_.time_updating.count() / (f32)current_second_times_.updates / 1'000'000.F, current_second_times_.frames,
-          current_second_times_.time_rendering.count() / (f32)current_second_times_.frames / 1'000'000.F);
-
-    for (int i = 0; i < static_cast<int>(current_second_times_.other_kpi.size()); ++i) {
-        MLE_D("{}: {:.3f}ms", (SecondKPIType)i, current_second_times_.other_kpi.at(i).count() / 1'000'000.F);
-        current_second_times_.other_kpi.at(i) = 0ns;
-    }
-
-    seconds_running_ = current;
-    current_second_times_.updates = 0;
-    current_second_times_.time_updating = 0ns;
-    current_second_times_.frames = 0;
-    current_second_times_.time_rendering = 0ns;
-}
 
 void Impl::update() {
     swapScenes();
@@ -136,8 +62,8 @@ void Impl::update() {
     Stopwatch sw;
 
     update_call_count_++;
-    MLE_D("----- UPDATE ({}) -----", update_call_count_);
 
+    MLE_D("----- UPDATE ({}) -----", update_call_count_);
     c_table_["time"] = running_time_float_ = running_stopwatch_.elapsedSecFloat();
 
     window::update();
@@ -329,106 +255,3 @@ void Impl::run() {
     state_ = State::SHUTDOWN;
     shutdown();
 }
-
-void Impl::stop() {
-    MLE_I("Core Stop called!");
-    state_ = State::STOPPING;
-}
-
-void Impl::accumulateKPI(SecondKPIType kpi, std::chrono::nanoseconds value) {
-    current_second_times_.other_kpi.at(static_cast<u32>(kpi)) += value;
-}
-
-std::chrono::milliseconds Impl::getRunningTimeMS() const {
-    return running_stopwatch_.elapsed<std::chrono::milliseconds>();
-}
-
-f32 Impl::getRunningTimeFloat() const {
-    return running_time_float_;
-}
-
-// TODO: I will probably allocate this at a linear allocator along the other core singletons in the future
-std::unique_ptr<Impl> i_;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
-}  // namespace
-
-void init(CI ci) {
-    MLE_ASSERT(!i_);
-    i_ = std::make_unique<Impl>();
-    i_->init(std::move(ci));
-}
-
-void run() {
-    MLE_ASSERT(i_);
-    i_->run();
-}
-
-void stop() {
-    MLE_ASSERT(i_);
-    i_->stop();
-}
-
-void accumulateKPI(SecondKPIType kpi, std::chrono::nanoseconds value) {
-    MLE_ASSERT(i_);
-    i_->accumulateKPI(kpi, value);
-}
-
-std::chrono::milliseconds getRunningTimeMS() {
-    MLE_ASSERT(i_);
-    return i_->getRunningTimeMS();
-}
-
-f32 getRunningTimeF32() {
-    MLE_ASSERT(i_);
-    return i_->getRunningTimeFloat();
-}
-
-void unrecoverable(const std::string& msg) {
-    MLE_ASSERT(i_);
-    i_->shutdownImediate(msg);
-}
-
-ThreadPool& threadPool() {
-    MLE_ASSERT(i_);
-    return i_->threadPool();
-}
-
-i64 rngi(i64 max, i64 min) {
-    MLE_ASSERT(i_);
-    return i_->rngi(max, min);
-}
-
-u64 rngu(u64 max, u64 min) {
-    MLE_ASSERT(i_);
-    return i_->rngu(max, min);
-}
-
-f32 rngf(f32 max, f32 min) {
-    MLE_ASSERT(i_);
-    return i_->rngf(max, min);
-}
-
-bool maybe(f32 chance) {
-    MLE_ASSERT(i_);
-    return i_->maybe(chance);
-}
-
-void setNextScene(std::unique_ptr<Scene>&& scene) {
-    MLE_ASSERT(i_);
-    i_->setNextScene(std::move(scene));
-}
-
-Lua& lua() {
-    MLE_ASSERT(i_);
-    return i_->getLua();
-};
-
-sol::table& getCTable() {
-    MLE_ASSERT(i_);
-    return i_->getCTable();
-}
-
-void callOnShutdown(std::move_only_function<void()> func) {
-    MLE_ASSERT(i_);
-    i_->callOnShutdown(std::move(func));
-}
-}  // namespace mle::core

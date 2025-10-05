@@ -7,8 +7,6 @@
 
 #include "mle/math/Types.h"
 
-using namespace std::chrono_literals;  // NOLINT(google-global-names-in-headers) chrono_literals is fine
-
 namespace mle {
 /// Severity levels for engine logging.
 enum class LogLevel : i8 {

@@ -8,12 +8,13 @@
 #include <chrono>
 
 #include "mle/math/Types.h"
+#include "mle/utils/Utils.h"
 
 namespace mle {
 /// A high-resolution timer utility class.
 class Stopwatch final {
   public:
-    Stopwatch();
+    Stopwatch() { reset(); }
     ~Stopwatch() = default;
 
     Stopwatch(const Stopwatch&) = delete;
@@ -22,7 +23,7 @@ class Stopwatch final {
     Stopwatch& operator=(Stopwatch&&) = delete;
 
     /// Resets the stopwatch to the current time.
-    void reset();
+    void reset() { start_ = std::chrono::steady_clock::now(); }
 
     /**
      *  @brief Returns the elapsed time since creation or last reset.
@@ -35,11 +36,9 @@ class Stopwatch final {
         return duration_cast<DurationT>(std::chrono::steady_clock::now() - start_);
     }
 
-    /// Returns the elapsed time in seconds as a float.
-    [[nodiscard]] f32 elapsedSecFloat() const;
-
-    /// Returns the elapsed time in milliseconds as a float.
-    [[nodiscard]] f32 elapsedMSFloat() const;
+    [[nodiscard]] int elapsedSecInt() const { return as<int>(elapsed<std::chrono::seconds>().count()); }
+    [[nodiscard]] f32 elapsedSecFloat() const { return as<f32>(elapsed<std::chrono::milliseconds>().count()) / 1'000.F; }
+    [[nodiscard]] f32 elapsedMSFloat() const { return as<f32>(elapsed<std::chrono::nanoseconds>().count()) / 1'000'000.0F; }
 
   private:
     std::chrono::steady_clock::time_point start_;  ///< Start time of the stopwatch.

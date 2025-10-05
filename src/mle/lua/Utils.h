@@ -34,7 +34,7 @@ inline bool valid(const sol::object& obj) {
 template <typename T>
 inline void assertIs(const sol::object& obj) {
     if (!valid<T>(obj)) {
-        core::unrecoverable("Object is not valid or not of type {}", obj.get_type());
+        Core::i().unrecoverable("Object is not valid or not of type {}", obj.get_type());
     }
 }
 
