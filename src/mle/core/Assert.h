@@ -44,6 +44,7 @@
 #else
 #define MLE_UNREACHABLE_LOG(...) std::unreachable();
 #endif
+// TODO: Maybe Core::i().unrecoverable(__VA_ARGS__); This is worse. But better for trace in user builds...
 
 /**
  * @def MLE_UNREACHABLE_TODO

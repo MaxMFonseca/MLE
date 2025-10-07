@@ -9,6 +9,7 @@
 #include "mle/utils/Stopwatch.h"
 #include "mle/utils/SystemState.h"
 #include "mle/utils/Utils.h"
+#include "mle/window/Events.h"
 
 namespace mle {
 class Client final {
@@ -70,6 +71,8 @@ class Client final {
 
     TimeStats time_{};
     Stopwatch running_sw_{};
+
+    window::ev::CloseL window_close_el_;
 };
 }  // namespace mle
 

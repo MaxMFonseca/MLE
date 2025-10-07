@@ -20,37 +20,50 @@
 #pragma once
 
 #include <algorithm>
-#include <chrono>
-#include <expected>
-#include <future>
+#include <cassert>
 #include <memory>
 #include <mutex>
-#include <thread>
 #include <tuple>
 #include <variant>
 #include <vector>
 
-#include "Types.h"
+#include "mle/utils/Types.h"
 
 namespace mle {
+
+namespace ed_policies {
+struct SingleThreaded {
+    struct Mutex {
+        void lock() {}
+        void unlock() {}
+    };
+    using Lock = std::lock_guard<Mutex>;
+    using QMutex = Mutex;
+    using QLock = Lock;
+};
+
+struct ThreadSafe {
+    using Mutex = std::recursive_mutex;
+    using Lock = std::unique_lock<Mutex>;
+    using QMutex = std::mutex;
+    using QLock = std::unique_lock<QMutex>;
+};
+}  // namespace ed_policies
 
 /**
  * @brief A dispatcher that manages listener registration and dispatch for multiple event types.
  *
  * @tparam EventTypes All event types this dispatcher will support.
  */
-template <typename... EventTypes>
+template <typename Policy, typename... EventTypes>
 class EventDispatcher {
   public:
-    using ED = EventDispatcher<EventTypes...>;  ///< Dispatcher type alias.
-    using EDRef = ED*;                          ///< Non-owning dispatcher handle.
-
     /**
      * @brief Pointer to a function handling a specific event type.
      * @tparam EventType The event type the callback handles.
      */
     template <typename EventType>
-    using CallbackFunction = std::function<void(const EventType&)>;
+    using CallbackFunction = std::move_only_function<void(const EventType&)>;
 
     /**
      * @brief RAII object representing a registered listener for a specific event type.
@@ -65,9 +78,10 @@ class EventDispatcher {
         Listener(Listener&&) = delete;
         Listener& operator=(Listener&&) = delete;
 
-        ~Listener() { unsign(); }
+        ~Listener() { unlisten(); }
 
       private:
+        using ED = EventDispatcher<Policy, EventTypes...>;
         friend ED;
         ED& dispatcher_;                        ///< Dispatcher that owns this listener.
         CallbackFunction<EventType> callback_;  ///< Function to call when the event is dispatched.
@@ -83,15 +97,15 @@ class EventDispatcher {
          *
          * @see EventDispatcher::makeEventListener
          */
-        Listener(ED& dispatcher, CallbackFunction<EventType> callback) :
+        Listener(ED& dispatcher, CallbackFunction<EventType>&& callback) :
             dispatcher_(dispatcher),
-            callback_(callback) {}
+            callback_(std::move(callback)) {}
 
         /// Registers the listener with the dispatcher.
-        void sign() { dispatcher_.signEventListener<EventType>(this); }
+        void listen() { dispatcher_.template listen<EventType>(this); }
 
         /// Unregisters the listener from the dispatcher.
-        void unsign() { dispatcher_.unsignEventListener<EventType>(this); }
+        void unlisten() { dispatcher_.template unlisten<EventType>(this); }
 
         /// Invokes the callback for the event.
         void call(const EventType& event) { callback_(event); }
@@ -112,7 +126,7 @@ class EventDispatcher {
     template <typename EventType>
     struct EventTypeData {
         std::vector<ListenerRef<EventType>> listeners;  ///< List of registered listeners.
-        // std::mutex mutex;                               ///< Mutex for synchronizing access to listeners.
+        typename Policy::Mutex mutex;                   ///< Mutex for thread-safe listener access.
     };
 
     /**
@@ -123,13 +137,15 @@ class EventDispatcher {
      * @return An owning handle to the listener.
      */
     template <typename EventType>
-    ListenerHnd<EventType> makeEventListener(CallbackFunction<EventType> callback) {
+    ListenerHnd<EventType> makeListener(CallbackFunction<EventType>&& callback) {
         auto& etd = std::get<EventTypeData<EventType>>(event_type_data_);
         auto& listeners = etd.listeners;
-        // std::lock_guard<std::mutex> lock(etd.mutex);
 
-        ListenerHnd<EventType> hnd{new Listener<EventType>(*this, callback)};  // NOLINT new because of private constructor
+        ListenerHnd<EventType> hnd{new Listener<EventType>(*this, std::move(callback))};  // NOLINT new because of private constructor
+
+        typename Policy::Lock lock{etd.mutex};
         listeners.push_back(hnd.get());
+
         return hnd;
     }
 
@@ -143,7 +159,8 @@ class EventDispatcher {
     template <typename EventType, bool MustBeHandled = false>
     void dispatch(const EventType& event) {
         auto& etd = std::get<EventTypeData<EventType>>(event_type_data_);
-        auto& listeners = etd.listeners;
+        typename Policy::Lock lock{etd.mutex};
+        auto listeners = etd.listeners;
 
         if (listeners.empty()) {
             if constexpr (MustBeHandled) {
@@ -152,39 +169,10 @@ class EventDispatcher {
             return;
         }
 
-        // std::lock_guard<std::mutex> lock(etd.mutex);
-
-        for (auto listener : listeners) {
+        for (auto* listener : listeners) {
             listener->call(event);
         }
     }
-
-    // TODO: this
-    //
-    // template <typename EventType>
-    // void dispatchMT(const EventType& event, bool wait_for_all) {
-    //     auto& etd = std::get<EventTypeData<EventType>>(event_type_data_);
-    //     auto& handlers = etd.handlers;
-    //
-    //     if (handlers.empty()) {
-    //         return;
-    //     }
-    //
-    //     std::lock_guard<std::mutex> lock(etd.mutex);
-    //
-    //     std::vector<std::future<void>> futures;
-    //     futures.reserve(handlers.size());
-    //
-    //     for (auto& [user, callback] : handlers) {
-    //         futures.emplace_back(std::async(std::launch::async, callback, user, event));
-    //     }
-    //
-    //     if (wait_for_all) {
-    //         for (auto& future : futures) {
-    //             future.wait();
-    //         }
-    //     }
-    // }
 
     /**
      * @brief Queues an event for deferred dispatch during `poll()`.
@@ -193,15 +181,20 @@ class EventDispatcher {
      */
     template <typename EventType>
     void queue(const EventType& event) {
+        typename Policy::QLock ql{queue_mtx_};
         queued_events_.emplace_back(event);
     }
 
     /// Dispatches all queued events in FIFO order.
     void poll() {
-        for (auto& event : queued_events_) {
-            std::visit([this](auto&& event) { dispatch(event); }, event);
+        std::vector<std::variant<EventTypes...>> local;
+        {
+            typename Policy::QLock ql{queue_mtx_};
+            local.swap(queued_events_);
         }
-        queued_events_.clear();
+        for (auto& event : local) {
+            std::visit([this](auto&& ev) { this->dispatch(ev); }, event);
+        }
     }
 
   private:
@@ -216,12 +209,12 @@ class EventDispatcher {
      * @see EventListener::sign
      */
     template <typename EventType>
-    void signEventListener(ListenerRef<EventType> listener) {
+    void listen(ListenerRef<EventType> listener) {
         auto& etd = std::get<EventTypeData<EventType>>(event_type_data_);
-        auto& listeners = etd.listeners;
-        std::lock_guard<std::mutex> lock(etd.mutex);
-        if (std::ranges::find(listeners, listener) == listeners.end()) {
-            listeners.push_back(listener);
+        typename Policy::Lock lock{etd.mutex};
+
+        if (std::ranges::find(etd.listeners, listener) == etd.listeners.end()) {
+            etd.listeners.push_back(listener);
         }
     }
 
@@ -236,23 +229,25 @@ class EventDispatcher {
      * @see EventListener::unsign
      */
     template <typename EventType>
-    void unsignEventListener(ListenerRef<EventType> listener) {
+    void unlisten(ListenerRef<EventType> listener) {
         auto& etd = std::get<EventTypeData<EventType>>(event_type_data_);
-        auto& listeners = etd.listeners;
-        // std::lock_guard<std::mutex> lock(etd.mutex);
-        if (auto it = std::ranges::find(listeners, listener); it != listeners.end()) {
-            listeners.erase(it);
+        typename Policy::Lock lock{etd.mutex};
+        if (auto it = std::ranges::find(etd.listeners, listener); it != etd.listeners.end()) {
+            etd.listeners.erase(it);
         }
     }
 
     template <typename EventType>
     usize listenersSize() {
-        return std::get<EventTypeData<EventType>>(event_type_data_).listeners.size();
+        auto& etd = std::get<EventTypeData<EventType>>(event_type_data_);
+        typename Policy::Lock lock{etd.mutex};
+        return etd.listeners.size();
     }
 
   private:
     std::tuple<EventTypeData<EventTypes>...> event_type_data_;  ///< Listener data per event type.
     std::vector<std::variant<EventTypes...>> queued_events_;    ///< Events queued for polling.
+    typename Policy::QMutex queue_mtx_;                         ///< Mutex for thread-safe queue access.
 };
 
 template <typename Variant>
@@ -261,4 +256,10 @@ template <typename... Ts>
 struct EDFromVariant<std::variant<Ts...>> {
     using Type = EventDispatcher<Ts...>;
 };
+
+template <typename... EventTypes>
+using EventDispatcherST = EventDispatcher<ed_policies::SingleThreaded, EventTypes...>;
+
+template <typename... EventTypes>
+using EventDispatcherTS = EventDispatcher<ed_policies::ThreadSafe, EventTypes...>;
 }  // namespace mle

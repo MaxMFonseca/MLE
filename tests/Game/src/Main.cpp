@@ -18,5 +18,7 @@ int main(int argc, char** argv) {
     mle::Client::i().init();
     mle::Client::i().run();
 
-    // mle::shutdown();
+    // TODO: MAYBE: mle::Core::i().shutdown(); // leaking intentionally for now
+
+    std::cout << "/// Bye! ///////////////////////////////////////////////////////////////\n";
 }

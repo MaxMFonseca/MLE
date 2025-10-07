@@ -5,13 +5,23 @@
 #include "mle/core/Assert.h"
 #include "mle/core/Logger.h"
 #include "mle/utils/Stopwatch.h"
+#include "mle/window/Window.h"
 
 namespace mle {
 void Client::init() {
+    static bool initialized = false;
+    MLE_ASSERT_LOG(!initialized, "Client already initialized!");
+    initialized = true;
+
     MLE_I("MLE Client initializing...");
 
     MLE_I("Lua init");
     lua_.init();
+
+    MLE_I("Window init");
+    Window::i().init();
+
+    window_close_el_ = Window::i().getED().makeListener<window::ev::Close>([this](const auto&) { requestStop(); });
 }
 
 void Client::run() {
@@ -60,13 +70,16 @@ void Client::run() {
         }
     }
 
-    MLE_I("Engine stopping...");
+    MLE_I("MLE client stopping...");
     shutdown();
 }
 
 void Client::update() {
     Stopwatch sw;
 
+    Window::i().poolEvents();
+
+    // FIXME: remove this
     std::this_thread::sleep_for(1ms);
 
     time_.current_second.updates++;
