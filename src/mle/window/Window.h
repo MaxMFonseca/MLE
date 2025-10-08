@@ -24,7 +24,7 @@ class Window final {
 
     void poolEvents();
 
-    [[nodiscard]] vec2i queryFramebufferSize() const;
+    [[nodiscard]] vec2i getSize() const;
 
     void setTitle(const char* title);
     void show();

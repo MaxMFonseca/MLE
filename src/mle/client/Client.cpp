@@ -22,6 +22,47 @@ void Client::init() {
     Window::i().init();
 
     window_close_el_ = Window::i().getED().makeListener<window::ev::Close>([this](const auto&) { requestStop(); });
+
+    kl_.at(0) = std::make_unique<KeyListener>([]() { MLE_W("A key pressed"); }, Key::A, KeyState::PRESSED);
+    kl_.at(1) = std::make_unique<KeyListener>([]() { MLE_W("A key released"); }, Key::A, KeyState::RELEASED);
+    kl_.at(2) = std::make_unique<KeyListener>([]() { MLE_W("Mouse Left pressed"); }, Key::MOUSE_LEFT, KeyState::PRESSED);
+    kl_.at(3) = std::make_unique<KeyListener>([]() { MLE_W("D up, NONE"); }, Key::D, KeyState::UP, KeyModFlagBits::NONE);
+    kl_.at(4) = std::make_unique<KeyListener>([]() { MLE_W("E pressed, SHIFT"); }, Key::E, KeyState::PRESSED, KeyModFlagBits::SHIFT);
+    kl_.at(5) = std::make_unique<KeyListener>([]() { MLE_W("F released, CTRL"); }, Key::F, KeyState::RELEASED, KeyModFlagBits::CTRL);
+    kl_.at(6) = std::make_unique<KeyListener>([]() { MLE_W("G down, ALT"); }, Key::G, KeyState::DOWN, KeyModFlagBits::ALT);
+    kl_.at(7) = std::make_unique<KeyListener>([]() { MLE_W("H up, NONE"); }, Key::H, KeyState::UP, KeyModFlagBits::NONE);
+    kl_.at(8) = std::make_unique<KeyListener>([]() { MLE_W("I pressed, SHIFT"); }, Key::I, KeyState::PRESSED, KeyModFlagBits::SHIFT);
+    kl_.at(9) = std::make_unique<KeyListener>([]() { MLE_W("J released, CTRL"); }, Key::J, KeyState::RELEASED, KeyModFlagBits::CTRL);
+    kl_.at(10) = std::make_unique<KeyListener>([]() { MLE_W("K down, ALT"); }, Key::K, KeyState::DOWN, KeyModFlagBits::ALT);
+    kl_.at(11) = std::make_unique<KeyListener>([]() { MLE_W("L up, NONE"); }, Key::L, KeyState::UP, KeyModFlagBits::NONE);
+    kl_.at(12) = std::make_unique<KeyListener>([]() { MLE_W("M pressed, SHIFT"); }, Key::M, KeyState::PRESSED, KeyModFlagBits::SHIFT);
+    kl_.at(13) = std::make_unique<KeyListener>([]() { MLE_W("N released, CTRL"); }, Key::N, KeyState::RELEASED, KeyModFlagBits::CTRL);
+    kl_.at(14) = std::make_unique<KeyListener>([]() { MLE_W("O down, ALT"); }, Key::O, KeyState::DOWN, KeyModFlagBits::ALT);
+    kl_.at(15) = std::make_unique<KeyListener>([]() { MLE_W("P up, NONE"); }, Key::P, KeyState::UP, KeyModFlagBits::NONE);
+    kl_.at(16) = std::make_unique<KeyListener>([]() { MLE_W("Q pressed, SHIFT"); }, Key::Q, KeyState::PRESSED, KeyModFlagBits::SHIFT);
+    kl_.at(17) = std::make_unique<KeyListener>([]() { MLE_W("R released, CTRL"); }, Key::R, KeyState::RELEASED, KeyModFlagBits::CTRL);
+    kl_.at(18) = std::make_unique<KeyListener>([]() { MLE_W("S down, ALT"); }, Key::S, KeyState::DOWN, KeyModFlagBits::ALT);
+    kl_.at(19) = std::make_unique<KeyListener>([]() { MLE_W("T up, NONE"); }, Key::T, KeyState::UP, KeyModFlagBits::NONE);
+    kl_.at(20) = std::make_unique<KeyListener>([]() { MLE_W("U pressed, SHIFT"); }, Key::U, KeyState::PRESSED, KeyModFlagBits::SHIFT);
+    kl_.at(21) = std::make_unique<KeyListener>([]() { MLE_W("V released, CTRL"); }, Key::V, KeyState::RELEASED, KeyModFlagBits::CTRL);
+    kl_.at(22) = std::make_unique<KeyListener>([]() { MLE_W("W down, ALT"); }, Key::W, KeyState::DOWN, KeyModFlagBits::ALT);
+    kl_.at(23) = std::make_unique<KeyListener>([]() { MLE_W("X up, NONE"); }, Key::X, KeyState::UP, KeyModFlagBits::NONE);
+    kl_.at(24) = std::make_unique<KeyListener>([]() { MLE_W("Y pressed, SHIFT"); }, Key::Y, KeyState::PRESSED, KeyModFlagBits::SHIFT);
+    kl_.at(25) = std::make_unique<KeyListener>([]() { MLE_W("Z released, CTRL"); }, Key::Z, KeyState::RELEASED, KeyModFlagBits::CTRL);
+    kl_.at(26) = std::make_unique<KeyListener>([]() { MLE_W("ONE down, ALT"); }, Key::ONE, KeyState::DOWN, KeyModFlagBits::ALT);
+    kl_.at(27) = std::make_unique<KeyListener>([]() { MLE_W("TWO up, NONE"); }, Key::TWO, KeyState::UP, KeyModFlagBits::NONE);
+    kl_.at(28) = std::make_unique<KeyListener>([]() { MLE_W("THREE pressed, SHIFT"); }, Key::THREE, KeyState::PRESSED, KeyModFlagBits::SHIFT);
+    kl_.at(29) = std::make_unique<KeyListener>([]() { MLE_W("FOUR released, CTRL"); }, Key::FOUR, KeyState::RELEASED, KeyModFlagBits::CTRL);
+    kl_.at(30) = std::make_unique<KeyListener>([]() { MLE_W("FIVE down, ALT"); }, Key::FIVE, KeyState::DOWN, KeyModFlagBits::ALT);
+    kl_.at(31) = std::make_unique<KeyListener>([]() { MLE_W("SIX up, NONE"); }, Key::SIX, KeyState::UP, KeyModFlagBits::NONE);
+    kl_.at(32) = std::make_unique<KeyListener>([]() { MLE_W("F1 pressed, SHIFT"); }, Key::F1, KeyState::PRESSED, KeyModFlagBits::SHIFT);
+    kl_.at(33) = std::make_unique<KeyListener>([]() { MLE_W("F2 released, CTRL"); }, Key::F2, KeyState::RELEASED, KeyModFlagBits::CTRL);
+    kl_.at(34) = std::make_unique<KeyListener>([]() { MLE_W("F3 down, ALT"); }, Key::F3, KeyState::DOWN, KeyModFlagBits::ALT);
+    kl_.at(35) = std::make_unique<KeyListener>([]() { MLE_W("F4 up, NONE"); }, Key::F4, KeyState::UP, KeyModFlagBits::NONE);
+    kl_.at(36) = std::make_unique<KeyListener>([]() { MLE_W("MOUSE_LEFT pressed, SHIFT"); }, Key::MOUSE_LEFT, KeyState::PRESSED, KeyModFlagBits::SHIFT);
+    kl_.at(37) = std::make_unique<KeyListener>([]() { MLE_W("MOUSE_RIGHT released, CTRL"); }, Key::MOUSE_RIGHT, KeyState::RELEASED, KeyModFlagBits::CTRL);
+    kl_.at(38) = std::make_unique<KeyListener>([]() { MLE_W("MOUSE_MIDDLE down, ALT"); }, Key::MOUSE_MIDDLE, KeyState::DOWN, KeyModFlagBits::ALT);
+    kl_.at(39) = std::make_unique<KeyListener>([]() { MLE_W("MOUSE_FOUR up, NONE"); }, Key::MOUSE_FOUR, KeyState::UP, KeyModFlagBits::NONE);
 }
 
 void Client::run() {
@@ -78,9 +119,12 @@ void Client::update() {
     Stopwatch sw;
 
     Window::i().poolEvents();
+    UserInputManager::i().update();
 
     // FIXME: remove this
     std::this_thread::sleep_for(1ms);
+
+    UserInputManager::i().lateUpdate();
 
     time_.current_second.updates++;
     time_.current_second.time_updating_ms += sw.elapsedMSFloat();

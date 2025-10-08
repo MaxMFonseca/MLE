@@ -2,9 +2,12 @@
 
 #include <SDL3/SDL.h>
 
+#include "SDL3/SDL_events.h"
 #include "SDL3/SDL_video.h"
 #include "SDL3/SDL_vulkan.h"
+#include "UserInputManager.h"
 #include "mle/core/Assert.h"
+#include "mle/window/KeyUtils.h"
 
 namespace mle {
 void Window::init() {
@@ -48,9 +51,32 @@ void Window::poolEvents() {
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
         switch (event.type) {
-            case SDL_EVENT_QUIT:
+            case SDL_EVENT_QUIT: {
                 ed_.dispatch(window::ev::Close{});
-                break;
+            } break;
+            case SDL_EVENT_KEY_DOWN: {
+                auto key = systemKeyToKey(event.key.scancode);
+                UserInputManager::i().setPressed(key);
+            } break;
+            case SDL_EVENT_KEY_UP: {
+                auto key = systemKeyToKey(event.key.scancode);
+                UserInputManager::i().setReleased(key);
+            } break;
+            case SDL_EVENT_MOUSE_BUTTON_DOWN: {
+                auto key = systemMouseButtonToKey(event.button.button);
+                UserInputManager::i().setPressed(key);
+            } break;
+            case SDL_EVENT_MOUSE_BUTTON_UP: {
+                auto key = systemMouseButtonToKey(event.button.button);
+                UserInputManager::i().setReleased(key);
+            } break;
+            case SDL_EVENT_MOUSE_MOTION: {
+                UserInputManager::i().setCursorPos({event.motion.x, event.motion.y});
+            } break;
+            case SDL_EVENT_MOUSE_WHEEL: {
+                UserInputManager::i().setScrollOffset(event.wheel.y);
+            } break;
+
             default:
                 MLE_NOOP;
                 break;
@@ -82,7 +108,7 @@ VkSurfaceKHR Window::createSurface(VkInstance instance) const {
     return ret;
 }
 
-vec2i Window::queryFramebufferSize() const {
+vec2i Window::getSize() const {
     MLE_ASSERT_LOG(window_, "Window not created.");
     int w = 0, h = 0;
     if (!SDL_GetWindowSizeInPixels(window_, &w, &h)) {

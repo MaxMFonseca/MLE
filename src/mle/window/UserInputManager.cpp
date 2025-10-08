@@ -5,78 +5,69 @@
 #include <algorithm>
 #include <utility>
 
-#include "mle/common/Utils.h"
+#include "mle/window/KeyUtils.h"
 #include "mle/window/Types.h"
 #include "mle/window/Window.h"
 
-namespace mle::window {
+namespace mle {
 namespace {
-bool areModsOk(const KeyModFlags& mods, bool is_pressed, KeyModFlagBits mod_bit, KeyModFlagBits mod_bit_no, KeyModFlagBits mod_bit_any) {
-    if (mods.have(KeyModFlagBits::ANY)) {
-        return true;
+bool isModOk(const KeyModFlags& mods, bool is_pressed, KeyModFlagBits mod_bit, KeyModFlagBits mod_bit_no) {
+    if (mods.have(mod_bit)) {
+        return is_pressed;
     }
-    if (mods.have(KeyModFlagBits::NONE)) {
+    if (mods.have(mod_bit_no) || mods.have(KeyModFlagBits::NONE)) {
         return !is_pressed;
     }
-    if (mods.have(mod_bit) && is_pressed) {
-        return true;
-    }
-    if (mods.have(mod_bit_no) && !is_pressed) {
-        return true;
-    }
-    if (mods.have(mod_bit_any)) {
-        return true;
-    }
-    return false;
+    // Any is default
+    return true;
 }
 }  // namespace
 
 bool KeyListener::checkMods(bool shift, bool ctrl, bool alt) const {
-    bool shift_ok = areModsOk(mods_, shift, KeyModFlagBits::SHIFT, KeyModFlagBits::SHIFT_NO, KeyModFlagBits::SHIFT_ANY);
-    bool ctrl_ok = areModsOk(mods_, ctrl, KeyModFlagBits::CTRL, KeyModFlagBits::CTRL_NO, KeyModFlagBits::CTRL_ANY);
-    bool alt_ok = areModsOk(mods_, alt, KeyModFlagBits::ALT, KeyModFlagBits::ALT_NO, KeyModFlagBits::ALT_ANY);
+    bool shift_ok = isModOk(mods_, shift, KeyModFlagBits::SHIFT, KeyModFlagBits::SHIFT_NO);
+    bool ctrl_ok = isModOk(mods_, ctrl, KeyModFlagBits::CTRL, KeyModFlagBits::CTRL_NO);
+    bool alt_ok = isModOk(mods_, alt, KeyModFlagBits::ALT, KeyModFlagBits::ALT_NO);
     return shift_ok && ctrl_ok && alt_ok;
 }
 
-bool KeyListener::tryCall(bool shift, bool ctrl, bool alt) const {
+bool KeyListener::tryCall(bool shift, bool ctrl, bool alt) {
     if (checkMods(shift, ctrl, alt)) {
-        callback_();
+        call();
         return true;
     }
     return false;
 }
 
-KeyListener& KeyListener::setCallback(CallbackFunction&& callback) {
+KeyListener& KeyListener::setCallback(CallbackFn&& callback) {
     MLE_ASSERT(!signed_);
     callback_ = std::move(callback);
     return *this;
 }
+
 KeyListener& KeyListener::setKey(Key key) {
     MLE_ASSERT(!signed_);
     key_ = key;
     return *this;
 }
+
 KeyListener& KeyListener::setState(KeyState state) {
     MLE_ASSERT(!signed_);
     state_ = state;
     return *this;
 }
+
 KeyListener& KeyListener::setMods(KeyModFlags mods) {
     MLE_ASSERT(!signed_);
     mods_ = mods;
     return *this;
 }
-KeyListener& KeyListener::setPriority(int priority) {
-    MLE_ASSERT(!signed_);
-    priority_ = priority;
-    return *this;
+
+void KeyListener::listen() {
+    UserInputManager::i().listenKey(this);
 }
 
-void KeyListener::sign() {
-    getUIM().signKeylistener(this);
-}
-void KeyListener::unsign() {
-    getUIM().unsignKeylistener(this);
+void KeyListener::unlisten() {
+    UserInputManager::i().unlistenKey(this);
 }
 
 void UserInputManager::lateUpdate() {
@@ -103,7 +94,8 @@ void UserInputManager::update() {
         if (listeners != listeners_.end()) {
             auto reverse_it = listeners->second.rbegin();
             for (; reverse_it != listeners->second.rend(); ++reverse_it) {
-                if ((*reverse_it)->tryCall(shift_, ctrl_, alt_)) {
+                auto& l = **reverse_it;
+                if (l.tryCall(shift_, ctrl_, alt_)) {
                     break;
                 }
             }
@@ -117,8 +109,10 @@ void UserInputManager::update() {
         cursor_pos_delta_ = {0.0, 0.0};
     }
 
-    cursor_pos_normalized_ = cursor_pos_ / vec2f(window::getSize());
-    cursor_pos_delta_normalized_ = cursor_pos_delta_ / vec2f(window::getSize());
+    auto window_size = Window::i().getSize();
+    auto window_size_f = vec2f(window_size);
+    cursor_pos_normalized_ = cursor_pos_ / window_size_f;
+    cursor_pos_delta_normalized_ = cursor_pos_delta_ / window_size_f;
 
     scroll_offset_ = scroll_offset_next_;
     scroll_offset_next_ = 0.0;
@@ -138,7 +132,7 @@ void UserInputManager::setPressed(Key key) {
     auto f = std::ranges::find_if(active_keys_, [&](const auto& p) { return p.first == key; });
     if (f == active_keys_.end()) {
         active_keys_.emplace_back(key, KeyState::PRESSED);
-    } else {
+    } else if (f->second != KeyState::DOWN) {
         f->second = KeyState::PRESSED;
     }
 
@@ -165,12 +159,6 @@ void UserInputManager::setReleased(Key key) {
     }
 }
 
-void UserInputManager::pushChar(char32 codepoint) {
-    for (const auto& fn : text_listeners_) {
-        fn.second(codepoint);
-    }
-}
-
 KeyState UserInputManager::getState(Key key) const {
     for (const auto& [k, state] : active_keys_) {
         if (k == key) {
@@ -190,17 +178,15 @@ void UserInputManager::setKeyState(Key key, KeyState state) {
     active_keys_.emplace_back(key, state);
 }
 
-void UserInputManager::signKeylistener(KeyListenerRef listener) {
+void UserInputManager::listenKey(KeyListenerRef listener) {
     auto& listeners = listeners_[packKeyKeyState(listener->getKey(), listener->getState())];
     MLE_ASSERT(std::ranges::find(listeners, listener) == listeners.end());
     MLE_ASSERT(!listener->isSigned());
-
-    listeners.insert(std::ranges::lower_bound(listeners, listener, [](const auto& lhs, const auto& rhs) { return lhs->getPriority() <= rhs->getPriority(); }),
-                     listener);
+    listeners.push_back(listener);
     listener->setSigned();
 }
 
-void UserInputManager::unsignKeylistener(KeyListenerRef listener) {
+void UserInputManager::unlistenKey(KeyListenerRef listener) {
     auto& listeners = listeners_[packKeyKeyState(listener->getKey(), listener->getState())];
     std::erase(listeners, listener);
     listener->setSigned(false);
@@ -217,4 +203,4 @@ bool UserInputManager::isReleased(Key key) const {
 bool UserInputManager::isDown(Key key) const {
     return getState(key) == KeyState::DOWN;
 }
-}  // namespace mle::window
+}  // namespace mle

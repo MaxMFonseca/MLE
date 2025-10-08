@@ -28,6 +28,7 @@
 #include <vector>
 
 #include "mle/utils/Types.h"
+#include "mle/utils/Utils.h"
 
 namespace mle {
 
@@ -58,6 +59,11 @@ struct ThreadSafe {
 template <typename Policy, typename... EventTypes>
 class EventDispatcher {
   public:
+    MLE_NO_COPY_MOVE(EventDispatcher);
+
+    EventDispatcher() = default;
+    ~EventDispatcher() = default;
+
     /**
      * @brief Pointer to a function handling a specific event type.
      * @tparam EventType The event type the callback handles.
@@ -73,12 +79,15 @@ class EventDispatcher {
     template <typename EventType>
     class Listener final {
       public:
-        Listener(const Listener&) = delete;
-        Listener& operator=(const Listener&) = delete;
-        Listener(Listener&&) = delete;
-        Listener& operator=(Listener&&) = delete;
+        MLE_NO_COPY_MOVE(Listener);
 
         ~Listener() { unlisten(); }
+
+        /// Registers the listener with the dispatcher.
+        void listen() { dispatcher_.template listen<EventType>(this); }
+
+        /// Unregisters the listener from the dispatcher.
+        void unlisten() { dispatcher_.template unlisten<EventType>(this); }
 
       private:
         using ED = EventDispatcher<Policy, EventTypes...>;
@@ -100,12 +109,6 @@ class EventDispatcher {
         Listener(ED& dispatcher, CallbackFunction<EventType>&& callback) :
             dispatcher_(dispatcher),
             callback_(std::move(callback)) {}
-
-        /// Registers the listener with the dispatcher.
-        void listen() { dispatcher_.template listen<EventType>(this); }
-
-        /// Unregisters the listener from the dispatcher.
-        void unlisten() { dispatcher_.template unlisten<EventType>(this); }
 
         /// Invokes the callback for the event.
         void call(const EventType& event) { callback_(event); }

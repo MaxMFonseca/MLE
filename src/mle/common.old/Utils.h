@@ -19,14 +19,6 @@
 #include "mle/common/Logger.h"
 
 namespace mle {
-/**
- * @brief Splits a string by a given delimiter.
- *
- * @param s The input string to split.
- * @param delim The character delimiter to split the string on.
- * @return A vector containing the split substrings.
- */
-[[maybe_unused]] [[nodiscard]] std::vector<std::string> split(const std::string& s, char delim);
 
 /**
  * @brief Extracts a numeric value and its suffix from a string.

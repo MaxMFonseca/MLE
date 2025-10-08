@@ -5,6 +5,7 @@
 #include <utility>
 
 #include "mle/core/Result.h"
+#include "mle/utils/Types.h"
 
 /// Disable copy constructor and assignment operator for a class.
 #define MLE_NO_COPY(Class)        \
@@ -102,5 +103,7 @@ std::expected<T, Result> strTo(const std::string& s) {
 
     return std::unexpected(Result::INVALID_ARGUMENT);
 }
+
+[[nodiscard]] std::vector<std::string_view> split(std::string_view s, char delim, bool keep_empty = true);
 
 }  // namespace mle

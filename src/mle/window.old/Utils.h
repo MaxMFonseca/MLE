@@ -13,7 +13,9 @@ namespace mle::window {
 Key castGlfwKeyToKey(i32 code);
 
 /// Converts a GLFW mouse button index to a Key (MOUSE_*).
-Key castGlfwMouseButtonToKey(i32 code);
+Key castGlfwMouseButtonToKey(i32 code) {
+    return Key(static_cast<i32>(Key::MOUSE_ONE) + code);
+}
 
 /// Packs a key and key state into a u32 value.
 inline u32 packKeyKeyState(Key key, KeyState state) {

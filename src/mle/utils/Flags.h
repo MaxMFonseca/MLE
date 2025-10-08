@@ -35,7 +35,7 @@
 
 #include <type_traits>
 
-#include "mle/common/Assert.h"
+#include "mle/core/Assert.h"
 
 namespace mle {
 

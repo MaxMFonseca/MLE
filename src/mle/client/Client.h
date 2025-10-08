@@ -10,6 +10,7 @@
 #include "mle/utils/SystemState.h"
 #include "mle/utils/Utils.h"
 #include "mle/window/Events.h"
+#include "mle/window/UserInputManager.h"
 
 namespace mle {
 class Client final {
@@ -73,6 +74,8 @@ class Client final {
     Stopwatch running_sw_{};
 
     window::ev::CloseL window_close_el_;
+
+    std::array<KeyListenerHnd, 40> kl_;
 };
 }  // namespace mle
 
