@@ -5,6 +5,7 @@
 #include <utility>
 
 #include "mle/core/Logger.h"
+#include "mle/utils/String.h"
 
 namespace mle {
 void RuntimeConfig::parseArgs(int argc, char** argv) {

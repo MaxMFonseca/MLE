@@ -14,7 +14,16 @@ class KeyListener;
 using KeyListenerHnd = std::unique_ptr<KeyListener>;
 using KeyListenerRef = KeyListener*;
 
-enum class KeyState : u8 { UP, PRESSED, DOWN, RELEASED };
+class TextListener;
+using TextListenerHnd = std::unique_ptr<TextListener>;
+using TextListenerRef = TextListener*;
+
+enum class KeyState : u8 {
+    UP,
+    PRESSED,
+    DOWN,
+    RELEASED,
+};
 
 MLE_FLAGS_BEGIN(KeyMod, u16)
 MLE_FLAG(KeyMod, SHIFT)

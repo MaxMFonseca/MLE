@@ -1,5 +1,7 @@
 #include "Logger.h"
 
+#include "mle/utils/String.h"
+
 namespace mle {
 void Logger::init() {
     static bool initialized = false;

@@ -9,11 +9,13 @@
 
 #pragma once
 
+#include <chrono>
 #include <functional>
 #include <utility>
 
 #include "Types.h"
 #include "mle/math/Types2D.h"
+#include "mle/utils/Stopwatch.h"
 #include "mle/utils/Types.h"
 #include "mle/utils/Utils.h"
 
@@ -25,13 +27,14 @@ class KeyListener final {
   public:
     MLE_NO_COPY_MOVE(KeyListener);
 
-    KeyListener(CallbackFn&& callback, Key key, KeyState state = KeyState::PRESSED, KeyModFlags mods = KeyModFlagBits::NONE) :
+    KeyListener(CallbackFn&& callback, Keybinding kb) :
         callback_(std::move(callback)),
-        key_(key),
-        state_(state),
-        mods_(mods) {
+        kb_(kb) {
         listen();
     }
+
+    KeyListener(CallbackFn&& callback, Key key, KeyState state = KeyState::PRESSED, KeyModFlags mods = KeyModFlagBits::ANY) :
+        KeyListener(std::move(callback), Keybinding{.key = key, .state = state, .mods = mods}) {}
 
     KeyListener() = default;
 
@@ -41,31 +44,57 @@ class KeyListener final {
     KeyListener& setKey(Key key);
     KeyListener& setState(KeyState state);
     KeyListener& setMods(KeyModFlags mods);
+    KeyListener& setKeybinding(Keybinding kb);
 
-    [[nodiscard]] const auto& getCallback() const { return callback_; }
-    [[nodiscard]] auto getKey() const { return key_; }
-    [[nodiscard]] auto getState() const { return state_; }
-    [[nodiscard]] auto getMods() const { return mods_; }
+    [[nodiscard]] auto getKey() const { return kb_.key; }
+    [[nodiscard]] auto getState() const { return kb_.state; }
+    [[nodiscard]] auto getMods() const { return kb_.mods; }
 
-    [[nodiscard]] bool isSigned() const { return signed_; }
+    void listen();
+    void unlisten();
+
+    void setRepeat(bool enable) { repeat_ = enable; }
+
+  private:
+    friend UserInputManager;
+    [[nodiscard]] bool checkMods(bool shift, bool ctrl, bool alt) const;
+    void tryCall(bool shift, bool ctrl, bool alt);
+    void call() { callback_(); }
+
+  private:
+    CallbackFn callback_{};
+    Keybinding kb_{};
+    bool repeat_ = false;
+    bool listening_ = false;
+};
+
+class TextListener final {
+  public:
+    using CallbackFn = std::move_only_function<void(char32)>;
+
+  public:
+    MLE_NO_COPY_MOVE(TextListener);
+
+    explicit TextListener(CallbackFn&& callback) :
+        callback_(std::move(callback)) {
+        listen();
+    }
+
+    TextListener() = default;
+
+    ~TextListener() { unlisten(); }
+
+    TextListener& setCallback(CallbackFn&& callback);
 
     void listen();
     void unlisten();
 
   private:
     friend UserInputManager;
-    void setSigned(bool v = true) { signed_ = v; }
-
-    [[nodiscard]] bool checkMods(bool shift, bool ctrl, bool alt) const;
-    [[nodiscard]] bool tryCall(bool shift, bool ctrl, bool alt);
-    void call() { callback_(); }
+    void call(char32 codepoint) { callback_(codepoint); }
 
   private:
     CallbackFn callback_{};
-    Key key_{};
-    KeyState state_{};
-    KeyModFlags mods_ = KeyModFlagBits::NONE;
-    bool signed_ = false;
 };
 
 class UserInputManager {
@@ -86,9 +115,14 @@ class UserInputManager {
     bool isCursorInside(const Rectf& rect) { return rect.contains(cursor_pos_); }
     bool isCursorInsideNormalized(const Rectf& rect) { return rect.contains(cursor_pos_normalized_); }
 
+    bool isCtrl() const { return ctrl_; }
+    bool isShift() const { return shift_; }
+    bool isAlt() const { return alt_; }
+
   private:
     friend Window;
     friend KeyListener;
+    friend TextListener;
 
     void init();
 
@@ -98,20 +132,18 @@ class UserInputManager {
     void setPressed(Key key);
     void setReleased(Key key);
 
-    void setKeyState(Key key, KeyState state);
-
     void pushChar(char32 codepoint);
 
     void listenKey(KeyListenerRef listener);
     void unlistenKey(KeyListenerRef listener);
 
-    // ID listenText(std::function<void(char32)>&& callback);
-    // void unlistenText(ID id);
+    void listenText(TextListenerRef listener);
+    void unlistenText(TextListenerRef listener);
 
   private:
-    std::vector<std::pair<Key, KeyState>> active_keys_;
+    std::vector<std::tuple<Key, KeyState, Stopwatch>> active_keys_;
     std::unordered_map<u32, std::vector<KeyListenerRef>> listeners_;
-    // IDVec<std::function<void(char32)>> text_listeners_;
+    std::vector<TextListenerRef> text_listeners_;
 
     bool shift_ = false;
     bool ctrl_ = false;
@@ -126,5 +158,7 @@ class UserInputManager {
 
     f32 scroll_offset_ = 0.0;
     f32 scroll_offset_next_ = 0.0;
+
+    f32 key_repeat_delay_s_ = 0.5F;
 };
 }  // namespace mle

@@ -3,6 +3,7 @@
 #include <algorithm>
 
 #include "SDL3/SDL_scancode.h"
+#include "mle/utils/String.h"
 
 namespace mle {
 // clang-format off

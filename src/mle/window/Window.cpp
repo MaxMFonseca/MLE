@@ -2,12 +2,16 @@
 
 #include <SDL3/SDL.h>
 
+#include <iostream>
+
 #include "SDL3/SDL_events.h"
 #include "SDL3/SDL_video.h"
 #include "SDL3/SDL_vulkan.h"
 #include "UserInputManager.h"
 #include "mle/core/Assert.h"
+#include "mle/utils/String.h"
 #include "mle/window/KeyUtils.h"
+#include "utf8/unchecked.h"
 
 namespace mle {
 void Window::init() {
@@ -27,6 +31,8 @@ void Window::init() {
     if (!window_) {
         MLE_UNREACHABLE_LOG("SDL_CreateWindow failed: {}", SDL_GetError());
     }
+    SDL_StartTextInput(window_);
+
     setPosition(100, 100);
 
     log();
@@ -76,7 +82,12 @@ void Window::poolEvents() {
             case SDL_EVENT_MOUSE_WHEEL: {
                 UserInputManager::i().setScrollOffset(event.wheel.y);
             } break;
-
+            case SDL_EVENT_TEXT_INPUT: {
+                std::u32string u32str = toUtf32(std::string(event.text.text));
+                for (auto cp : u32str) {
+                    UserInputManager::i().pushChar(cp);
+                }
+            } break;
             default:
                 MLE_NOOP;
                 break;
@@ -248,4 +259,5 @@ void Window::setSize(int w, int h) const {
     MLE_ASSERT_LOG(window_, "Window not created.");
     SDL_SetWindowSize(window_, w, h);
 }
+
 }  // namespace mle

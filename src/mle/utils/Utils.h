@@ -75,35 +75,4 @@ constexpr T& rVoidAsRef(void* value) {
     return *rAs<T*>(value);
 }
 
-template <typename T>
-std::expected<T, Result> strTo(const std::string& s) {
-    T value{};
-
-    if (s.empty()) {
-        return std::unexpected(Result::INVALID_ARGUMENT);
-    }
-
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic) safe
-    const auto* endptr = s.data() + s.size();
-    auto [ptr, ec] = std::from_chars(s.data(), endptr, value);
-
-    if (ec == std::errc()) {
-        if (ptr == endptr) {
-            return value;
-        }
-        return std::unexpected(Result::INVALID_ARGUMENT);
-    }
-
-    if (ec == std::errc::invalid_argument) {
-        return std::unexpected(Result::INVALID_ARGUMENT);
-    }
-    if (ec == std::errc::result_out_of_range) {
-        return std::unexpected(Result::OUT_OR_RANGE);
-    }
-
-    return std::unexpected(Result::INVALID_ARGUMENT);
-}
-
-[[nodiscard]] std::vector<std::string_view> split(std::string_view s, char delim, bool keep_empty = true);
-
 }  // namespace mle

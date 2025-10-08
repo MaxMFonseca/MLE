@@ -17,10 +17,10 @@ class Stopwatch final {
     Stopwatch() { reset(); }
     ~Stopwatch() = default;
 
-    Stopwatch(const Stopwatch&) = delete;
-    Stopwatch& operator=(const Stopwatch&) = delete;
-    Stopwatch(Stopwatch&&) = delete;
-    Stopwatch& operator=(Stopwatch&&) = delete;
+    Stopwatch(const Stopwatch&) = default;
+    Stopwatch& operator=(const Stopwatch&) = default;
+    Stopwatch(Stopwatch&&) = default;
+    Stopwatch& operator=(Stopwatch&&) = default;
 
     /// Resets the stopwatch to the current time.
     void reset() { start_ = std::chrono::steady_clock::now(); }
