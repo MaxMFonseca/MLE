@@ -10,4 +10,10 @@ template <typename T>
     }
     return std::move(e).value();
 }
+
+inline void check(Result res) {
+    if (isError(res)) {
+        Core::i().unrecoverable("Check error: {}", res);
+    }
+}
 }  // namespace mle

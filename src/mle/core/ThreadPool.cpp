@@ -25,7 +25,7 @@ void ThreadPool::shutdown() {
     MLE_I("Shutting down the ThreadPool");
 
     stop_.store(true, std::memory_order_relaxed);
-    for (size_t i = 0; i < threads_.size(); ++i) {
+    for (usize i = 0; i < threads_.size(); ++i) {
         task_queue_.push([] {});
     }
     for (auto& t : threads_) {

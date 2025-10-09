@@ -107,6 +107,10 @@ void VkCtx::init() {
 }
 
 void VkCtx::shutdown() {
+    if (!vk_instance_) {
+        return;
+    }
+
     MLE_I("Shutting down Vulkan context");
 
     if (device_) {
@@ -341,12 +345,16 @@ void VkCtx::pickQueueIndices() {
     }
 
 #ifdef MLE_IS_CLIENT
-    g_queue_family_index_ = as<int>(g_idx);
+    queue_data_.g_fam_idx = as<int>(g_idx);
 #endif
-    t_queue_family_index_ = as<int>(t_idx);
-    c_queue_family_index_ = as<int>(c_idx);
+    queue_data_.c_fam_idx = as<int>(c_idx);
+    queue_data_.t_fam_idx = as<int>(t_idx);
 
-    MLE_D("Selected families -> G:{} C:{} T:{}", g_queue_family_index_, c_queue_family_index_, t_queue_family_index_);
+    queue_data_.separate_compute = queue_data_.c_fam_idx != queue_data_.g_fam_idx;
+    queue_data_.dedicated_transfer = queue_data_.t_fam_idx != queue_data_.g_fam_idx && queue_data_.t_fam_idx != queue_data_.c_fam_idx;
+
+    MLE_D("Selected families:  G:{} C:{} T:{}, separate_compute={}, dedicated_transfer={}", queue_data_.g_fam_idx, queue_data_.c_fam_idx, queue_data_.t_fam_idx,
+          queue_data_.separate_compute, queue_data_.dedicated_transfer);
 }
 
 namespace {
@@ -477,26 +485,23 @@ void VkCtx::initDevice() {
     std::vector<vk::DeviceQueueCreateInfo> queue_cis;
     std::array queue_priorities = {1.0F};
 
-    separate_compute_queue_ = c_queue_family_index_ != g_queue_family_index_;
-    dedicated_transfer_queue_ = t_queue_family_index_ != g_queue_family_index_ && t_queue_family_index_ != c_queue_family_index_;
-
 #ifdef MLE_IS_CLIENT
     auto& g_queue_ci = queue_cis.emplace_back();
-    g_queue_ci.queueFamilyIndex = as<u32>(g_queue_family_index_);
+    g_queue_ci.queueFamilyIndex = as<u32>(queue_data_.g_fam_idx);
     g_queue_ci.queueCount = 1;
     g_queue_ci.pQueuePriorities = queue_priorities.data();
 #endif
 
-    if (separate_compute_queue_) {
+    if (queue_data_.separate_compute) {
         auto& c_queue_ci = queue_cis.emplace_back();
-        c_queue_ci.queueFamilyIndex = as<u32>(c_queue_family_index_);
+        c_queue_ci.queueFamilyIndex = as<u32>(queue_data_.c_fam_idx);
         c_queue_ci.queueCount = 1;
         c_queue_ci.pQueuePriorities = queue_priorities.data();
     }
 
-    if (dedicated_transfer_queue_) {
+    if (queue_data_.dedicated_transfer) {
         auto& t_queue_ci = queue_cis.emplace_back();
-        t_queue_ci.queueFamilyIndex = as<u32>(t_queue_family_index_);
+        t_queue_ci.queueFamilyIndex = as<u32>(queue_data_.t_fam_idx);
         t_queue_ci.queueCount = 1;
         t_queue_ci.pQueuePriorities = queue_priorities.data();
     }
@@ -552,13 +557,13 @@ void VkCtx::initDevice() {
     device_ = unwrap(p_device_.o.createDevice(device_ci));
 
 #ifdef MLE_IS_CLIENT
-    g_queue_ = device_.getQueue(as<u32>(g_queue_family_index_), 0);
+    queue_data_.g_queue = device_.getQueue(as<u32>(queue_data_.g_fam_idx), 0);
 #endif
-    if (separate_compute_queue_) {
-        c_queue_ = device_.getQueue(as<u32>(c_queue_family_index_), 0);
+    if (queue_data_.separate_compute) {
+        queue_data_.c_queue = device_.getQueue(as<u32>(queue_data_.c_fam_idx), 0);
     }
-    if (dedicated_transfer_queue_) {
-        t_queue_ = device_.getQueue(as<u32>(t_queue_family_index_), 0);
+    if (queue_data_.dedicated_transfer) {
+        queue_data_.t_queue = device_.getQueue(as<u32>(queue_data_.t_fam_idx), 0);
     }
 }
 
@@ -582,7 +587,8 @@ void VkCtx::logDevice() {
           VK_VERSION_PATCH(p_device_.properties.driverVersion));
     MLE_I("Vulkan API version: {}.{}.{}", VK_VERSION_MAJOR(p_device_.properties.apiVersion), VK_VERSION_MINOR(p_device_.properties.apiVersion),
           VK_VERSION_PATCH(p_device_.properties.apiVersion));
-    MLE_I("Queue indices: G:{} C:{} T:{}", g_queue_family_index_, c_queue_family_index_, t_queue_family_index_);
+    MLE_I("Queue families: G:{} C:{} T:{}, separate_compute={}, dedicated_transfer={}", queue_data_.g_fam_idx, queue_data_.c_fam_idx, queue_data_.t_fam_idx,
+          queue_data_.separate_compute, queue_data_.dedicated_transfer);
     MLE_I("Selected formats:");
     MLE_I("  Swapchain: {}", vk::to_string(formats_.swapchain));
     MLE_I("  Depth: {}", vk::to_string(formats_.depth));

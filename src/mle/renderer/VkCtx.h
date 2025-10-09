@@ -1,12 +1,12 @@
 #pragma once
 
+#include <mutex>
+
 #include "Utils.h"
 #include "mle/utils/Utils.h"
 
 namespace mle {
 class VkCtx {
-    MLE_SINGLETON(VkCtx)
-
   public:
     struct PhysicalDeviceInfo {
         vk::PhysicalDevice o;
@@ -16,11 +16,42 @@ class VkCtx {
         std::vector<vk::QueueFamilyProperties> queue_family_properties;
     };
 
+    struct QueueData {
+        static constexpr usize INVALID_FAMILY = max<usize>();
+        usize g_fam_idx = INVALID_FAMILY;
+        usize c_fam_idx = INVALID_FAMILY;
+        usize t_fam_idx = INVALID_FAMILY;
+
+        vk::Queue g_queue;
+        vk::Queue c_queue;
+        vk::Queue t_queue;
+
+        bool separate_compute = false;
+        bool dedicated_transfer = false;
+    };
+
   public:
+    MLE_NO_COPY_MOVE(VkCtx);
+    ~VkCtx() { shutdown(); }
+
     void init();
     void shutdown();
 
     [[nodiscard]] bool isSurfaceUNORM() const;
+
+    const auto& getQueueData() { return queue_data_; }
+
+    auto getDevice() { return device_; }
+    auto dev() { return device_; }
+
+    template <class T>
+    void destroy(T o) {
+        device_.destroy(o);
+    }
+
+  private:
+    friend Renderer;
+    VkCtx() = default;
 
   private:
     inline void initInstance();
@@ -43,7 +74,7 @@ class VkCtx {
     vk::Device device_;
     VmaAllocator vma_{};
 
-    struct RenderFormats {
+    struct {
         vk::Format swapchain;
         vk::Format depth;
         vk::Format texture4u, texture4srgb, texture2u, texture1u;
@@ -53,15 +84,6 @@ class VkCtx {
         vk::Format storage;
     } formats_{};
 
-    int g_queue_family_index_ = -1;
-    int c_queue_family_index_ = -1;
-    int t_queue_family_index_ = -1;
-
-    vk::Queue g_queue_;
-    vk::Queue c_queue_;
-    vk::Queue t_queue_;
-
-    bool separate_compute_queue_ = false;
-    bool dedicated_transfer_queue_ = false;
+    QueueData queue_data_{};
 };
 }  // namespace mle

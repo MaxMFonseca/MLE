@@ -11,6 +11,10 @@
 #include "mle/math/Types.h"
 
 namespace mle {
+class Renderer;
+class VkCtx;
+class RendererCommandManager;
+
 enum class GCmdType : u8 { GRAPHICS = 0, COMPUTE = 1, TRANSFER = 2, G = GRAPHICS, C = COMPUTE, T = TRANSFER };
 }  // namespace mle
 

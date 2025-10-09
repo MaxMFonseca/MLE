@@ -4,10 +4,14 @@
 
 namespace mle {
 void Renderer::init() {
-    VkCtx::i().init();
+    vk_ctx_.init();
+    command_manager_.init();
+    sync_manager_.init();
 }
 
 void Renderer::shutdown() {
-    VkCtx::i().shutdown();
+    sync_manager_.shutdown();
+    command_manager_.shutdown();
+    vk_ctx_.shutdown();
 }
 }  // namespace mle

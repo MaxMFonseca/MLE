@@ -85,6 +85,8 @@ void CommandPool::submitAsync(vk::CommandBuffer cmd, std::move_only_function<voi
 }
 
 vk::CommandBuffer CommandPool::getCmd() {
+    // THis makes no sense, right?
+    // A pool has to be created per thread, so locking here is just dumb
     std::scoped_lock lock(mutex_);
 
     vk::CommandBuffer cmd;
