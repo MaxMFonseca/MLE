@@ -20,6 +20,7 @@ class Core final {
     };
 
     void init(const InitInfo& ii);
+    void shutdown();
 
     void unrecoverable(const std::string& msg);
     template <typename... Args>

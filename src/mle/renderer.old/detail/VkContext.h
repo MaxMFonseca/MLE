@@ -53,7 +53,6 @@ class VkContext {
     inline void initDebugMessenger();
     inline void initSurface();
     inline void initDevice();
-    inline void retrieveDedicatedQueues();
     inline void pickPhysicalDevice();
     inline void pickQueueIndices();
     inline void initVMA();
@@ -64,7 +63,6 @@ class VkContext {
   private:
     vk::Instance vk_instance_;
     vk::DebugUtilsMessengerEXT debug_messenger_;
-    vk::SurfaceKHR surface_;
     PhysicalDeviceInfo p_device_;
     vk::Device device_;
     VmaAllocator vma_ = nullptr;

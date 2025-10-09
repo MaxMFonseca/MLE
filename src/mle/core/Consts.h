@@ -38,6 +38,14 @@ constexpr bool IS_DEBUG_BUILD = true;
 constexpr bool IS_DEBUG_BUILD = false;
 #endif
 
+///< Indicates if this is a client build.
+#if !defined(MLE_NO_CLIENT) || defined(MLE_HAS_CLIENT_BUILD)
+constexpr bool IS_CLIENT = true;
+#define MLE_IS_CLIENT
+#else
+constexpr bool IS_CLIENT = false;
+#endif
+
 /// Maximum log level compiled into the binary.
 constexpr LogLevel MAX_LOG_LEVEL = LogLevel::MLE_MAX_LOG_LEVEL;
 

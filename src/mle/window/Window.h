@@ -38,11 +38,10 @@ class Window final {
     void setPosition(int x, int y) const;
     void setSize(int w, int h) const;
 
+    [[nodiscard]] static std::vector<const char*> getRequiredInstanceExtensions();
     [[nodiscard]] VkSurfaceKHR createSurface(VkInstance instance) const;
 
     void log() const;
-
-    [[nodiscard]] static std::vector<const char*> getRequiredInstanceExtensions();
 
     [[nodiscard]] static std::vector<DisplayInfo> listDisplays();
     static void logDisplayInfo(SDL_DisplayID id);

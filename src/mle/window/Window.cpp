@@ -9,6 +9,7 @@
 #include "SDL3/SDL_vulkan.h"
 #include "UserInputManager.h"
 #include "mle/core/Assert.h"
+#include "mle/core/Core.h"
 #include "mle/utils/String.h"
 #include "mle/window/KeyUtils.h"
 #include "utf8/unchecked.h"
@@ -99,7 +100,7 @@ VkSurfaceKHR Window::createSurface(VkInstance instance) const {
     MLE_ASSERT_LOG(window_, "Window not created.");
     VkSurfaceKHR ret = nullptr;
     if (!SDL_Vulkan_CreateSurface(window_, instance, nullptr, &ret)) {
-        MLE_UNREACHABLE_LOG("SDL_Vulkan_CreateSurface failed: {}", SDL_GetError());
+        Core::i().unrecoverable("Failed to create Vulkan surface.");
     }
     return ret;
 }

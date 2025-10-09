@@ -11,6 +11,7 @@ int main(int argc, char* argv[]) {
     std::cout << "/// Hello, World! ///////////////////////////////////////\n";
     std::cout << "cwd: " << std::filesystem::current_path() << "\n";
     std::cout << "is debug build: " << mle::IS_DEBUG_BUILD << "\n";
+    std::cout << "is client build: " << mle::IS_CLIENT << "\n";
 
     mle::Core::InitInfo core_ii;
     core_ii.argc = argc;

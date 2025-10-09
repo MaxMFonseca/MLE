@@ -37,3 +37,4 @@ gtest_discover_tests(${test_name}
     LABELS "unit"
 )
 
+target_compile_definitions(${test_name} PUBLIC MLE_NO_CLIENT)
