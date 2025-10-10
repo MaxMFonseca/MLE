@@ -6,17 +6,98 @@
 #include "Types.h"
 #include "mle/renderer/SyncManager.h"
 #include "mle/utils/Utils.h"
+#include "mle/window/Types.h"
 
 // command buffers must be single threaded, so it is the user's responsibility to ensure that
 // get and submit are called from the same thread
 
 namespace mle {
+class CommandBuffer {
+  public:
+    MLE_NO_COPY(CommandBuffer)
+
+    CommandBuffer(CommandBuffer&& other) = default;
+    CommandBuffer& operator=(CommandBuffer&& other) = default;
+
+    ~CommandBuffer() = default;
+
+    [[nodiscard]] vk::CommandBuffer get() const { return o_; }
+    [[nodiscard]] bool isPrimary() const { return primary_; }
+    [[nodiscard]] auto tid() const { return tid_; }
+    [[nodiscard]] auto queueDataIdx() const { return queue_data_idx_; }
+
+    vk::CommandBuffer operator()() const { return o_; }
+
+  private:
+    friend RendererCommandManager;
+    friend ResetCommandPool;
+    CommandBuffer(vk::CommandBuffer buf, usize queue_data_idx, bool primary) :
+        o_(buf),
+        tid_(std::this_thread::get_id()),
+        queue_data_idx_(queue_data_idx),
+        primary_(primary) {}
+
+  private:
+    vk::CommandBuffer o_;
+    std::thread::id tid_;
+    usize queue_data_idx_ = INVALID_QUEUE;
+    bool primary_{true};
+};
+
+class ResetCommandPool {
+  public:
+    MLE_NO_COPY(ResetCommandPool)
+
+    ResetCommandPool(ResetCommandPool&& other) noexcept :
+        o_(other.o_),
+        queue_data_idx_(other.queue_data_idx_),
+        available_primary_buffers_(std::move(other.available_primary_buffers_)),
+        available_secondary_buffers_(std::move(other.available_secondary_buffers_)) {
+        other.o_ = nullptr;
+    }
+
+    ResetCommandPool& operator=(ResetCommandPool&& other) noexcept {
+        if (this != &other) {
+            o_ = other.o_;
+            queue_data_idx_ = other.queue_data_idx_;
+            available_primary_buffers_ = std::move(other.available_primary_buffers_);
+            available_secondary_buffers_ = std::move(other.available_secondary_buffers_);
+            other.o_ = nullptr;
+        }
+        return *this;
+    }
+
+    ~ResetCommandPool() = default;
+
+    void reset();
+
+    CommandBuffer getPrimary();
+    CommandBuffer getSecondary();
+
+    void submit(CommandBuffer&& cmd, vk::SubmitInfo2 submit_info);
+    void reclaim(CommandBuffer&& cmd);
+
+  private:
+    friend RendererCommandManager;
+    ResetCommandPool(vk::CommandPool pool, usize queue_data_idx) :
+        o_(pool),
+        queue_data_idx_(queue_data_idx) {}
+
+  private:
+    vk::CommandPool o_;
+    usize queue_data_idx_ = INVALID_QUEUE;
+    std::vector<vk::CommandBuffer> available_primary_buffers_;
+    std::vector<vk::CommandBuffer> available_secondary_buffers_;
+    usize primary_index_{0};
+    usize secondary_index_{0};
+};
+
 class RendererCommandManager {
   private:
     struct QueueData {
         struct OTSCommandPoolData {
             vk::CommandPool pool;
-            std::vector<vk::CommandBuffer> available_buffers;
+            std::vector<vk::CommandBuffer> available_primary_buffers;
         };
         std::mutex pool_map_mutex;
         std::map<std::thread::id, OTSCommandPoolData> thread_ots_pool_map;
@@ -32,12 +113,20 @@ class RendererCommandManager {
 
     ~RendererCommandManager() = default;
 
-    vk::CommandPool makeCmdPool(GCmdType type, vk::CommandPoolCreateFlags flags = {});
-    Fence submit(GCmdType type, vk::SubmitInfo2 submit_info);
+    ResetCommandPool makeResetableCommandPool(GCmdType type);
 
-    vk::CommandBuffer getOTS(GCmdType type);
-    void submitOTSWait(GCmdType type, vk::SubmitInfo2 submit_info);
-    void submitOTSAsync(GCmdType type, vk::SubmitInfo2 submit_info, std::move_only_function<void(void)>&& callback = {});
+    Fence submit(usize queue_data_idx, vk::SubmitInfo2 submit_info);
+    Fence submit(GCmdType type, vk::SubmitInfo2 submit_info) { return submit(queueDataIdx(type), submit_info); }
+
+    CommandBuffer getOTS(usize queue_data_idx);
+    CommandBuffer getOTS(GCmdType type) { return getOTS(queueDataIdx(type)); }
+    void submitOTSWait(CommandBuffer&& cmd, vk::SubmitInfo2 submit_info = {});
+    void submitOTSAsync(CommandBuffer&& cmd, vk::SubmitInfo2 submit_info = {}, std::move_only_function<void(void)>&& callback = {});
+    void reclaimOTS(CommandBuffer&& cmd);
+
+    [[nodiscard]] usize queueDataIdx(GCmdType type) const { return cmd_type_to_index_.at(as<usize>(type)); }
+    [[nodiscard]] usize queueFamilyIdx(GCmdType type) const { return queueData(type).family_index; }
+    [[nodiscard]] usize queueFamilyIdx(usize queue_data_idx) const { return queueData(queue_data_idx).family_index; }
 
   private:
     friend Renderer;
@@ -45,15 +134,14 @@ class RendererCommandManager {
     void init();
     void shutdown();
 
-    QueueData& queueData(GCmdType type);
-
-    void reclaimOTS(vk::CommandBuffer cmd, GCmdType type, std::thread::id tid);
+    QueueData& queueData(usize queue_data_idx) { return queue_data_.at(queue_data_idx); }
+    QueueData& queueData(GCmdType type) { return queue_data_.at(queueDataIdx(type)); }
+    [[nodiscard]] const QueueData& queueData(GCmdType type) const { return queue_data_.at(queueDataIdx(type)); }
+    [[nodiscard]] const QueueData& queueData(usize queue_data_idx) const { return queue_data_.at(queue_data_idx); }
 
   private:
     std::array<usize, 3> cmd_type_to_index_{max<usize>(), max<usize>(), max<usize>()};
     std::array<QueueData, 3> queue_data_{};
-
-    std::vector<vk::CommandPool> external_pools_;
 };
 
 }  // namespace mle

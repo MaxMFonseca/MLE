@@ -1,0 +1,49 @@
+#pragma once
+
+#include "Types.h"
+#include "mle/utils/Utils.h"
+
+namespace mle {
+struct ImageViewCreateInfo {
+    vk::ComponentSwizzle r = vk::ComponentSwizzle::eIdentity;
+    vk::ComponentSwizzle g = vk::ComponentSwizzle::eIdentity;
+    vk::ComponentSwizzle b = vk::ComponentSwizzle::eIdentity;
+    vk::ComponentSwizzle a = vk::ComponentSwizzle::eIdentity;
+};
+
+class Image {
+  public:
+    enum class State : u8 {
+        INITIAL,       ///< Undefined initial state.
+        TRANSFER_SRC,  ///< Used as source in a transfer.
+        TRANSFER_DST,  ///< Used as destination in a transfer.
+        COLOR_ATT,     ///< Used as a color attachment.
+        DEPTH_ATT,     ///< Used as a depth attachment.
+        COMPUTE_RW,    ///< Compute read/write.
+        COMPUTR_R,     ///< Compute read only
+        FS_READ        ///< Readable in shaders.
+    };
+
+    struct CreateInfo {
+        vec2u extent;
+        ImageFormat format;
+        vk::ImageUsageFlags usage;
+    };
+    using CI = CreateInfo;  ///< Alias for CreateInfo.
+
+    using ViewCI = ImageViewCreateInfo;  ///< Alias for ViewCreateInfo.
+
+  public:
+    MLE_NO_COPY(Image);
+
+    static Image create(const CI& ci);
+    static ImageHnd createHnd(const CI& ci);
+
+  private:
+    Image();
+    void init(const CI& ci);
+
+  private:
+    vk::Image o_;
+};
+}  // namespace mle

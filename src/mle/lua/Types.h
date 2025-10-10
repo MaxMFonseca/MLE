@@ -9,6 +9,8 @@
 
 #include <sol/sol.hpp>
 
+#include "mle/utils/Types.h"
+
 namespace mle::lua {
 /**
  * @brief Converts a Lua object to a string representation with an optional name.
@@ -17,6 +19,7 @@ namespace mle::lua {
  * @return A formatted string representing the Lua object.
  */
 std::string toString(const sol::object& obj, const std::string& prefix = "");
+
 }  // namespace mle::lua
 
 namespace fmt {

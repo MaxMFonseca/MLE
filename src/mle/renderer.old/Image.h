@@ -1,10 +1,13 @@
 #pragma once
 
+#include <vulkan/vulkan_structs.hpp>
+
 #include "Types.h"
 #include "mle/common/Assert.h"
 #include "mle/common/math/Types2D.h"
 #include "mle/renderer/Buffer.h"
 #include "mle/renderer/Renderer.h"
+#include "mle/renderer/Types.h"
 
 namespace mle::renderer {
 /// Specifies parameters for creating an image view.
@@ -35,8 +38,8 @@ class Image final : LiveCounter<Image> {
     /// Specifies parameters for image creation.
     struct CreateInfo {
         vk::Image o;                                      ///< Existing Vulkan image handle.
-        vec2i extent;                                     ///< Image size in pixels.
-        vk::Format format;                                ///< Pixel format.
+        vec2u extent;                                     ///< Image size in pixels.
+        ImageFormat format;                               ///< Image format.
         vk::ImageUsageFlags usage;                        ///< Vulkan usage flags.
         vk::MemoryPropertyFlags required_mem_flags = {};  ///< Required memory flags (optional).
     };
@@ -57,7 +60,7 @@ class Image final : LiveCounter<Image> {
     };
 
   public:
-    Image(const Image&) = default;
+    Image(const Image&) = default;  // WHY did I made this copiable? and default..
     Image& operator=(const Image&) = delete;
     Image(Image&&) = delete;
     Image& operator=(Image&&) = delete;

@@ -5,6 +5,68 @@
 #include "mle/core/Unwrap.h"
 
 namespace mle {
+CommandBuffer ResetCommandPool::getPrimary() {
+    vk::CommandBuffer cmd;
+    if (primary_index_ < available_primary_buffers_.size()) {
+        cmd = available_primary_buffers_[primary_index_];
+    } else {
+        auto alloc_info = vk::CommandBufferAllocateInfo{};
+        alloc_info.commandPool = o_;
+        alloc_info.level = vk::CommandBufferLevel::ePrimary;
+        alloc_info.commandBufferCount = 1;
+
+        auto cmds = unwrap(Renderer::i().vk().getDevice().allocateCommandBuffers(alloc_info));
+        MLE_ASSERT_LOG(cmds.size() == 1, "Expected to allocate exactly one command buffer, got: {}", cmds.size());
+        cmd = cmds[0];
+        available_primary_buffers_.push_back(cmd);
+    }
+    primary_index_++;
+    check(cmd.begin(vk::CommandBufferBeginInfo{vk::CommandBufferUsageFlagBits::eOneTimeSubmit}));
+    return {cmd, queue_data_idx_, true};
+}
+
+CommandBuffer ResetCommandPool::getSecondary() {
+    vk::CommandBuffer cmd;
+    if (secondary_index_ < available_secondary_buffers_.size()) {
+        cmd = available_secondary_buffers_[secondary_index_];
+    } else {
+        auto alloc_info = vk::CommandBufferAllocateInfo{};
+        alloc_info.commandPool = o_;
+        alloc_info.level = vk::CommandBufferLevel::eSecondary;
+        alloc_info.commandBufferCount = 1;
+
+        auto cmds = unwrap(Renderer::i().vk().getDevice().allocateCommandBuffers(alloc_info));
+        MLE_ASSERT_LOG(cmds.size() == 1, "Expected to allocate exactly one command buffer, got: {}", cmds.size());
+        cmd = cmds[0];
+        available_secondary_buffers_.push_back(cmd);
+    }
+    secondary_index_++;
+    check(cmd.begin({}));
+    return {cmd, queue_data_idx_, false};
+}
+
+void ResetCommandPool::submit(CommandBuffer&& cmd, vk::SubmitInfo2 submit_info) {
+    MLE_ASSERT_LOG(submit_info.commandBufferInfoCount == 1, "One, and only one, command buffer can be submitted here.");
+    MLE_ASSERT(cmd.isPrimary());
+
+    Renderer::i().cmdMgr().submit(queue_data_idx_, submit_info);
+
+    reclaim(std::move(cmd));
+}
+
+// NOLINTNEXTLINE(cppcoreguidelines-rvalue-reference-param-not-moved) enforcing ownership transfer
+void ResetCommandPool::reclaim(CommandBuffer&& cmd) {
+    if (cmd.isPrimary()) {
+        available_primary_buffers_.push_back(cmd.get());
+    } else {
+        available_secondary_buffers_.push_back(cmd.get());
+    }
+}
+
+void ResetCommandPool::reset() {
+    Renderer::i().vk().getDevice().resetCommandPool(o_);
+}
+
 void RendererCommandManager::init() {
     const auto& queue_data = Renderer::i().vkCtx().getQueueData();
 
@@ -36,14 +98,6 @@ void RendererCommandManager::init() {
     }
 }
 
-RendererCommandManager::QueueData& RendererCommandManager::queueData(GCmdType type) {
-    auto qd_idx = cmd_type_to_index_.at(as<usize>(type));
-    if (qd_idx == max<usize>()) {
-        MLE_UNREACHABLE_LOG("Requested command queue for unsupported queue type: {}", type);
-    }
-    return queue_data_.at(qd_idx);
-}
-
 void RendererCommandManager::shutdown() {
     for (auto& q_data : queue_data_) {
         std::scoped_lock lock(q_data.pool_map_mutex);
@@ -56,25 +110,22 @@ void RendererCommandManager::shutdown() {
 
         q_data.thread_ots_pool_map.clear();
     }
-    for (auto p : external_pools_) {
-        Renderer::i().destroy(p);
-    }
 }
 
-vk::CommandPool RendererCommandManager::makeCmdPool(GCmdType type, vk::CommandPoolCreateFlags flags) {
-    auto& q_data = queueData(type);
+ResetCommandPool RendererCommandManager::makeResetableCommandPool(GCmdType type) {
+    usize queue_idx = queueDataIdx(type);
+    auto& q_data = queue_data_.at(queue_idx);
 
     auto pool_ci = vk::CommandPoolCreateInfo{};
-    pool_ci.flags = flags;
+    pool_ci.flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer;
     pool_ci.queueFamilyIndex = as<u32>(q_data.family_index);
 
     auto pool = unwrap(Renderer::i().vk().getDevice().createCommandPool(pool_ci));
-    external_pools_.push_back(pool);
-    return pool;
+    return {pool, queue_idx};
 }
 
-vk::CommandBuffer RendererCommandManager::getOTS(GCmdType type) {
-    auto& q_data = queueData(type);
+CommandBuffer RendererCommandManager::getOTS(usize queue_data_idx) {
+    auto& q_data = queue_data_.at(queue_data_idx);
 
     vk::CommandBuffer cmd;
 
@@ -89,9 +140,9 @@ vk::CommandBuffer RendererCommandManager::getOTS(GCmdType type) {
             ots_pool_data.pool = unwrap(Renderer::i().vk().getDevice().createCommandPool(pool_ci));
         }
 
-        if (!ots_pool_data.available_buffers.empty()) {
-            cmd = ots_pool_data.available_buffers.back();
-            ots_pool_data.available_buffers.pop_back();
+        if (!ots_pool_data.available_primary_buffers.empty()) {
+            cmd = ots_pool_data.available_primary_buffers.back();
+            ots_pool_data.available_primary_buffers.pop_back();
         } else {
             auto alloc_info = vk::CommandBufferAllocateInfo{};
             alloc_info.commandPool = ots_pool_data.pool;
@@ -108,17 +159,17 @@ vk::CommandBuffer RendererCommandManager::getOTS(GCmdType type) {
     begin_info.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit;
     check(cmd.begin(begin_info));
 
-    return cmd;
+    return {cmd, queue_data_idx, true};
 }
 
-Fence RendererCommandManager::submit(GCmdType type, vk::SubmitInfo2 submit_info) {
+Fence RendererCommandManager::submit(usize queue_data_idx, vk::SubmitInfo2 submit_info) {
     MLE_ASSERT_LOG(submit_info.commandBufferInfoCount == 1, "One, and only one, command buffer can be submitted here.");
     // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic) safe
     auto cmd = submit_info.pCommandBufferInfos[0].commandBuffer;
 
     check(cmd.end());
 
-    auto& q_data = queueData(type);
+    auto& q_data = queue_data_.at(queue_data_idx);
 
     Fence fence = Renderer::i().syncMgr().acquireFence();
     {
@@ -128,33 +179,52 @@ Fence RendererCommandManager::submit(GCmdType type, vk::SubmitInfo2 submit_info)
     return fence;
 }
 
-void RendererCommandManager::submitOTSWait(GCmdType type, vk::SubmitInfo2 submit_info) {
-    Fence fence = submit(type, submit_info);
+void RendererCommandManager::submitOTSWait(CommandBuffer&& cmd, vk::SubmitInfo2 submit_info) {
+    if (submit_info.commandBufferInfoCount == 0) {
+        vk::CommandBufferSubmitInfo command_buffer_info = cmd();
+        submit_info.setCommandBufferInfos(command_buffer_info);
+    }
 
+    Fence fence = submit(cmd.queue_data_idx_, submit_info);
+
+    auto tid = cmd.tid();
+    MLE_ASSERT_LOG(tid == std::this_thread::get_id(), "Submitting thread must be the same as reclaiming thread.");
     // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic) safe
-    auto cmd = submit_info.pCommandBufferInfos[0].commandBuffer;
-    auto tid = std::this_thread::get_id();
+    MLE_ASSERT_LOG(submit_info.pCommandBufferInfos[0].commandBuffer == cmd.get(), "Submitted command buffer must be the same as the one provided.");
+
     check(fence.wait());
-    reclaimOTS(cmd, type, tid);
+    reclaimOTS(std::move(cmd));
 }
 
-void RendererCommandManager::submitOTSAsync(GCmdType type, vk::SubmitInfo2 submit_info, std::move_only_function<void(void)>&& callback) {
-    Fence fence = submit(type, submit_info);
+void RendererCommandManager::submitOTSAsync(CommandBuffer&& cmd, vk::SubmitInfo2 submit_info, std::move_only_function<void(void)>&& callback) {
+    if (submit_info.commandBufferInfoCount == 0) {
+        vk::CommandBufferSubmitInfo command_buffer_info = cmd();
+        submit_info.setCommandBufferInfos(command_buffer_info);
+    }
 
+    Fence fence = submit(cmd.queue_data_idx_, submit_info);
+
+    auto tid = cmd.tid();
+    MLE_ASSERT_LOG(tid == std::this_thread::get_id(), "Submitting thread must be the same as reclaiming thread.");
     // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic) safe
-    auto cmd = submit_info.pCommandBufferInfos[0].commandBuffer;
-    auto tid = std::this_thread::get_id();
-    Renderer::i().syncMgr().trackFence(std::move(fence), [this, cmd, cmd_type = type, tid, cb = std::move(callback)]() mutable {
-        reclaimOTS(cmd, cmd_type, tid);
-        cb();
-    });
+    MLE_ASSERT_LOG(submit_info.pCommandBufferInfos[0].commandBuffer == cmd.get(), "Submitted command buffer must be the same as the one provided.");
+
+    if (callback) {
+        Renderer::i().syncMgr().trackFence(std::move(fence), [this, cmd = std::move(cmd), cb = std::move(callback)]() mutable {
+            reclaimOTS(std::move(cmd));
+            cb();
+        });
+    } else {
+        Renderer::i().syncMgr().trackFence(std::move(fence), [this, cmd = std::move(cmd)]() mutable { reclaimOTS(std::move(cmd)); });
+    }
 }
 
-void RendererCommandManager::reclaimOTS(vk::CommandBuffer cmd, GCmdType type, std::thread::id tid) {
-    cmd.reset(vk::CommandBufferResetFlagBits::eReleaseResources);
-    auto& q_data = queueData(type);
+// NOLINTNEXTLINE(cppcoreguidelines-rvalue-reference-param-not-moved) enforcing ownership transfer
+void RendererCommandManager::reclaimOTS(CommandBuffer&& cmd) {
+    cmd().reset(vk::CommandBufferResetFlagBits::eReleaseResources);
+    auto& q_data = queue_data_.at(cmd.queue_data_idx_);
     std::scoped_lock lock(q_data.pool_map_mutex);
-    auto& pool_data = q_data.thread_ots_pool_map[tid];
-    pool_data.available_buffers.push_back(cmd);
+    auto& pool_data = q_data.thread_ots_pool_map[cmd.tid()];
+    pool_data.available_primary_buffers.push_back(cmd());
 }
 }  // namespace mle

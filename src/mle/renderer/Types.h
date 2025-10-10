@@ -9,13 +9,46 @@
 #include <vulkan/vulkan.hpp>
 
 #include "mle/math/Types.h"
+#include "mle/utils/Types.h"
 
 namespace mle {
 class Renderer;
 class VkCtx;
 class RendererCommandManager;
 
+class Image;
+using ImageHnd = std::unique_ptr<Image>;
+using ImageRef = Image*;
+
+class Buffer;
+using BufferHnd = std::unique_ptr<Buffer>;
+using BufferRef = Buffer*;
+
+class CommandBuffer;
+class RendererCommandManager;
+class ResetCommandPool;
+
 enum class GCmdType : u8 { GRAPHICS = 0, COMPUTE = 1, TRANSFER = 2, G = GRAPHICS, C = COMPUTE, T = TRANSFER };
+
+enum class ImageFormat : u8 {
+    SWAPCHAIN,
+    DEPTH,
+    TEXTURE_4U,
+    TEXTURE_4SRGB,
+    TEXTURE_2U,
+    TEXTURE_1U,
+    GBUF_PARAMS,
+    NORMALS,
+    COLOR,
+    STORAGE_4U8,
+    STORAGE_F32,
+    STORAGE_U32,
+    COUNT
+};
+
+constexpr usize NO_QUEUE = max<usize>() - 1;
+constexpr usize INVALID_QUEUE = max<usize>();
+
 }  // namespace mle
 
 namespace fmt {
@@ -54,6 +87,43 @@ struct formatter<mle::GCmdType> : formatter<std::string> {
                 return format_to(ctx.out(), "COMPUTE");
             case mle::GCmdType::TRANSFER:
                 return format_to(ctx.out(), "TRANSFER");
+            default:
+                return format_to(ctx.out(), "UNKNOWN");
+        }
+    }
+};
+
+template <>
+struct formatter<mle::ImageFormat> : formatter<std::string> {
+    template <typename FormatContext>
+    constexpr auto format(mle::ImageFormat format, FormatContext& ctx) const {
+        switch (format) {
+            case mle::ImageFormat::SWAPCHAIN:
+                return format_to(ctx.out(), "SWAPCHAIN");
+            case mle::ImageFormat::DEPTH:
+                return format_to(ctx.out(), "DEPTH");
+            case mle::ImageFormat::TEXTURE_4U:
+                return format_to(ctx.out(), "TEXTURE_4U");
+            case mle::ImageFormat::TEXTURE_4SRGB:
+                return format_to(ctx.out(), "TEXTURE_4SRGB");
+            case mle::ImageFormat::TEXTURE_2U:
+                return format_to(ctx.out(), "TEXTURE_2U");
+            case mle::ImageFormat::TEXTURE_1U:
+                return format_to(ctx.out(), "TEXTURE_1U");
+            case mle::ImageFormat::GBUF_PARAMS:
+                return format_to(ctx.out(), "GBUF_PARAMS");
+            case mle::ImageFormat::NORMALS:
+                return format_to(ctx.out(), "NORMALS");
+            case mle::ImageFormat::COLOR:
+                return format_to(ctx.out(), "COLOR");
+            case mle::ImageFormat::STORAGE_4U8:
+                return format_to(ctx.out(), "STORAGE_4U8");
+            case mle::ImageFormat::STORAGE_F32:
+                return format_to(ctx.out(), "STORAGE_F32");
+            case mle::ImageFormat::STORAGE_U32:
+                return format_to(ctx.out(), "STORAGE_U32");
+            case mle::ImageFormat::COUNT:
+                return format_to(ctx.out(), "COUNT");
             default:
                 return format_to(ctx.out(), "UNKNOWN");
         }

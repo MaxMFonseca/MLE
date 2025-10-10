@@ -398,80 +398,93 @@ void VkCtx::pickImageFormats() {
     MLE_D("Picking preferred formats");
 
     static constexpr std::array SURFACE{vk::Format::eB8G8R8A8Srgb, vk::Format::eR8G8B8A8Srgb, vk::Format::eB8G8R8A8Unorm, vk::Format::eR8G8B8A8Unorm};
-    static constexpr vk::FormatFeatureFlags2 SURFACE_REQUIRED_FEATURES = vk::FormatFeatureFlagBits2::eColorAttachment;
 
     static constexpr std::array DEPTH{vk::Format::eD24UnormS8Uint, vk::Format::eD32SfloatS8Uint};
-    static constexpr vk::FormatFeatureFlags2 DEPTH_REQUIRED_FEATURES = vk::FormatFeatureFlagBits2::eDepthStencilAttachment |
-                                                                       vk::FormatFeatureFlagBits2::eSampledImage |
-                                                                       vk::FormatFeatureFlagBits2::eSampledImageDepthComparison;
 
     static constexpr std::array TEXTURE4C{vk::Format::eR8G8B8A8Unorm};
     static constexpr std::array TEXTURE4C_SRGB{vk::Format::eR8G8B8A8Srgb};
     static constexpr std::array TEXTURE2C{vk::Format::eR8G8Unorm};
     static constexpr std::array TEXTURE1C{vk::Format::eR8Unorm};
-    static constexpr vk::FormatFeatureFlags2 TEXTURE_REQUIRED_FEATURES =
-        vk::FormatFeatureFlagBits2::eSampledImage | vk::FormatFeatureFlagBits2::eTransferSrc | vk::FormatFeatureFlagBits2::eTransferDst;
 
     static constexpr std::array GBUF_PARAMS{vk::Format::eR8G8B8A8Unorm};
-    static constexpr vk::FormatFeatureFlags2 GBUF_PARAMS_REQUIRED_FEATURES =
-        vk::FormatFeatureFlagBits2::eColorAttachment | vk::FormatFeatureFlagBits2::eSampledImage | vk::FormatFeatureFlagBits2::eTransferSrc |
-        vk::FormatFeatureFlagBits2::eTransferDst;
 
-    static constexpr std::array NORMALS{vk::Format::eR16G16Snorm, vk::Format::eR16G16Sfloat};
-    static constexpr vk::FormatFeatureFlags2 NORMALS_REQUIRED_FEATURES = vk::FormatFeatureFlagBits2::eColorAttachment |
-                                                                         vk::FormatFeatureFlagBits2::eSampledImage | vk::FormatFeatureFlagBits2::eTransferSrc |
-                                                                         vk::FormatFeatureFlagBits2::eTransferDst;
+    static constexpr std::array NORMALS{vk::Format::eR16G16Sfloat, vk::Format::eR16G16Unorm};
 
     static constexpr std::array COLOR{vk::Format::eA2B10G10R10UnormPack32, vk::Format::eR16G16B16A16Sfloat, vk::Format::eB8G8R8A8Unorm,
                                       vk::Format::eR8G8B8A8Unorm};
+    static constexpr std::array STORAGE_4U8{vk::Format::eR8G8B8A8Unorm};
+    static constexpr std::array STORAGE_F32{vk::Format::eR32Sfloat};
+    static constexpr std::array STORAGE_U32{vk::Format::eR32Uint};
+
+    static constexpr vk::FormatFeatureFlags2 SURFACE_REQUIRED_FEATURES = vk::FormatFeatureFlagBits2::eColorAttachment;
+    static constexpr vk::FormatFeatureFlags2 DEPTH_REQUIRED_FEATURES = vk::FormatFeatureFlagBits2::eDepthStencilAttachment |
+                                                                       vk::FormatFeatureFlagBits2::eSampledImage |
+                                                                       vk::FormatFeatureFlagBits2::eSampledImageDepthComparison;
+    static constexpr vk::FormatFeatureFlags2 TEXTURE_REQUIRED_FEATURES =
+        vk::FormatFeatureFlagBits2::eSampledImage | vk::FormatFeatureFlagBits2::eTransferSrc | vk::FormatFeatureFlagBits2::eTransferDst;
+    static constexpr vk::FormatFeatureFlags2 GBUF_PARAMS_REQUIRED_FEATURES =
+        vk::FormatFeatureFlagBits2::eColorAttachment | vk::FormatFeatureFlagBits2::eSampledImage | vk::FormatFeatureFlagBits2::eTransferSrc |
+        vk::FormatFeatureFlagBits2::eTransferDst;
+    static constexpr vk::FormatFeatureFlags2 NORMALS_REQUIRED_FEATURES = vk::FormatFeatureFlagBits2::eColorAttachment |
+                                                                         vk::FormatFeatureFlagBits2::eSampledImage | vk::FormatFeatureFlagBits2::eTransferSrc |
+                                                                         vk::FormatFeatureFlagBits2::eTransferDst;
     static constexpr vk::FormatFeatureFlags2 COLOR_REQUIRED_FEATURES =
         vk::FormatFeatureFlagBits2::eColorAttachment | vk::FormatFeatureFlagBits2::eSampledImage | vk::FormatFeatureFlagBits2::eTransferSrc |
         vk::FormatFeatureFlagBits2::eTransferDst | vk::FormatFeatureFlagBits2::eBlitSrc | vk::FormatFeatureFlagBits2::eBlitDst;
+    static constexpr vk::FormatFeatureFlags2 STORAGE_REQUIRED_FEATURES =
+        vk::FormatFeatureFlagBits2::eStorageImage | vk::FormatFeatureFlagBits2::eTransferSrc | vk::FormatFeatureFlagBits2::eTransferDst;
+    static constexpr vk::FormatFeatureFlags2 STORAGE_4U8_REQUIRED_FEATURES = STORAGE_REQUIRED_FEATURES | vk::FormatFeatureFlagBits2::eSampledImage;
 
-    static constexpr std::array STORAGE{vk::Format::eR8G8B8A8Unorm};
-    static constexpr vk::FormatFeatureFlags2 STORAGE_REQUIRED_FEATURES = vk::FormatFeatureFlagBits2::eStorageImage | vk::FormatFeatureFlagBits2::eSampledImage |
-                                                                         vk::FormatFeatureFlagBits2::eTransferSrc | vk::FormatFeatureFlagBits2::eTransferDst;
+    static constexpr vk::ImageUsageFlags SURFACE_USAGE = vk::ImageUsageFlagBits::eColorAttachment;
+    static constexpr vk::ImageUsageFlags DEPTH_USAGE =
+        vk::ImageUsageFlagBits::eDepthStencilAttachment | vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eInputAttachment;
+    static constexpr vk::ImageUsageFlags TEXTURE_USAGE =
+        vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst;
+    static constexpr vk::ImageUsageFlags GBUF_PARAMS_USAGE = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled |
+                                                             vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst;
+    static constexpr vk::ImageUsageFlags NORMALS_USAGE = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled |
+                                                         vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst;
+    static constexpr vk::ImageUsageFlags COLOR_USAGE = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled |
+                                                       vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst |
+                                                       vk::ImageUsageFlagBits::eInputAttachment;
+    static constexpr vk::ImageUsageFlags STORAGE_4U8_USAGE =
+        vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst;
+    static constexpr vk::ImageUsageFlags STORAGE_USAGE =
+        vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst;
 
-    formats_.swapchain = pickSurfaceFormat(p_device_.o, surface_, SURFACE, SURFACE_REQUIRED_FEATURES);
-    formats_.depth = pickOptimalFormat(p_device_.o, DEPTH, DEPTH_REQUIRED_FEATURES);
-    formats_.texture4u = pickOptimalFormat(p_device_.o, TEXTURE4C, TEXTURE_REQUIRED_FEATURES);
-    formats_.texture4srgb = pickOptimalFormat(p_device_.o, TEXTURE4C_SRGB, TEXTURE_REQUIRED_FEATURES);
-    formats_.texture2u = pickOptimalFormat(p_device_.o, TEXTURE2C, TEXTURE_REQUIRED_FEATURES);
-    formats_.texture1u = pickOptimalFormat(p_device_.o, TEXTURE1C, TEXTURE_REQUIRED_FEATURES);
-    formats_.gbuf_params = pickOptimalFormat(p_device_.o, GBUF_PARAMS, GBUF_PARAMS_REQUIRED_FEATURES);
-    formats_.normals = pickOptimalFormat(p_device_.o, NORMALS, NORMALS_REQUIRED_FEATURES);
-    formats_.color = pickOptimalFormat(p_device_.o, COLOR, COLOR_REQUIRED_FEATURES);
-    formats_.storage = pickOptimalFormat(p_device_.o, STORAGE, STORAGE_REQUIRED_FEATURES);
+    image_formats_.at(as<usize>(ImageFormat::SWAPCHAIN)) = pickSurfaceFormat(p_device_.o, surface_, SURFACE, SURFACE_REQUIRED_FEATURES);
+    image_formats_.at(as<usize>(ImageFormat::DEPTH)) = pickOptimalFormat(p_device_.o, DEPTH, DEPTH_REQUIRED_FEATURES);
+    image_formats_.at(as<usize>(ImageFormat::TEXTURE_4U)) = pickOptimalFormat(p_device_.o, TEXTURE4C, TEXTURE_REQUIRED_FEATURES);
+    image_formats_.at(as<usize>(ImageFormat::TEXTURE_4SRGB)) = pickOptimalFormat(p_device_.o, TEXTURE4C_SRGB, TEXTURE_REQUIRED_FEATURES);
+    image_formats_.at(as<usize>(ImageFormat::TEXTURE_2U)) = pickOptimalFormat(p_device_.o, TEXTURE2C, TEXTURE_REQUIRED_FEATURES);
+    image_formats_.at(as<usize>(ImageFormat::TEXTURE_1U)) = pickOptimalFormat(p_device_.o, TEXTURE1C, TEXTURE_REQUIRED_FEATURES);
+    image_formats_.at(as<usize>(ImageFormat::GBUF_PARAMS)) = pickOptimalFormat(p_device_.o, GBUF_PARAMS, GBUF_PARAMS_REQUIRED_FEATURES);
+    image_formats_.at(as<usize>(ImageFormat::NORMALS)) = pickOptimalFormat(p_device_.o, NORMALS, NORMALS_REQUIRED_FEATURES);
+    image_formats_.at(as<usize>(ImageFormat::COLOR)) = pickOptimalFormat(p_device_.o, COLOR, COLOR_REQUIRED_FEATURES);
+    image_formats_.at(as<usize>(ImageFormat::STORAGE_4U8)) = pickOptimalFormat(p_device_.o, STORAGE_4U8, STORAGE_4U8_REQUIRED_FEATURES);
+    image_formats_.at(as<usize>(ImageFormat::STORAGE_F32)) = pickOptimalFormat(p_device_.o, STORAGE_F32, STORAGE_REQUIRED_FEATURES);
+    image_formats_.at(as<usize>(ImageFormat::STORAGE_U32)) = pickOptimalFormat(p_device_.o, STORAGE_U32, STORAGE_REQUIRED_FEATURES);
 
-    if (formats_.swapchain == vk::Format::eUndefined) {
-        Core::i().unrecoverable("Failed pick swapchain format!");
-    }
-    if (formats_.depth == vk::Format::eUndefined) {
-        Core::i().unrecoverable("Failed pick depth format!");
-    }
-    if (formats_.texture4u == vk::Format::eUndefined) {
-        Core::i().unrecoverable("Failed pick texture4u format!");
-    }
-    if (formats_.texture4srgb == vk::Format::eUndefined) {
-        Core::i().unrecoverable("Failed pick texture4srgb format!");
-    }
-    if (formats_.texture2u == vk::Format::eUndefined) {
-        Core::i().unrecoverable("Failed pick texture2u format!");
-    }
-    if (formats_.texture1u == vk::Format::eUndefined) {
-        Core::i().unrecoverable("Failed pick texture1u format!");
-    }
-    if (formats_.gbuf_params == vk::Format::eUndefined) {
-        Core::i().unrecoverable("Failed pick gbuf_params format!");
-    }
-    if (formats_.normals == vk::Format::eUndefined) {
-        Core::i().unrecoverable("Failed pick normals format!");
-    }
-    if (formats_.color == vk::Format::eUndefined) {
-        Core::i().unrecoverable("Failed pick color format!");
-    }
-    if (formats_.storage == vk::Format::eUndefined) {
-        Core::i().unrecoverable("Failed pick storage format!");
+    image_format_usages_.at(as<usize>(ImageFormat::SWAPCHAIN)) = SURFACE_USAGE;
+    image_format_usages_.at(as<usize>(ImageFormat::DEPTH)) = DEPTH_USAGE;
+    image_format_usages_.at(as<usize>(ImageFormat::TEXTURE_4U)) = TEXTURE_USAGE;
+    image_format_usages_.at(as<usize>(ImageFormat::TEXTURE_4SRGB)) = TEXTURE_USAGE;
+    image_format_usages_.at(as<usize>(ImageFormat::TEXTURE_2U)) = TEXTURE_USAGE;
+    image_format_usages_.at(as<usize>(ImageFormat::TEXTURE_1U)) = TEXTURE_USAGE;
+    image_format_usages_.at(as<usize>(ImageFormat::GBUF_PARAMS)) = GBUF_PARAMS_USAGE;
+    image_format_usages_.at(as<usize>(ImageFormat::NORMALS)) = NORMALS_USAGE;
+    image_format_usages_.at(as<usize>(ImageFormat::COLOR)) = COLOR_USAGE;
+    image_format_usages_.at(as<usize>(ImageFormat::STORAGE_4U8)) = STORAGE_4U8_USAGE;
+    image_format_usages_.at(as<usize>(ImageFormat::STORAGE_F32)) = STORAGE_USAGE;
+    image_format_usages_.at(as<usize>(ImageFormat::STORAGE_U32)) = STORAGE_USAGE;
+
+    for (usize i = 0; i < as<usize>(ImageFormat::COUNT); ++i) {
+        auto format = image_formats_.at(i);
+        if (format == vk::Format::eUndefined) {
+            MLE_E("Failed to find a suitable format for {}", as<ImageFormat>(i));
+        } else {
+            MLE_D("Selected format for {}: {}, usage: {}", as<ImageFormat>(i), vk::to_string(format), vk::to_string(image_format_usages_.at(i)));
+        }
     }
 }
 
@@ -590,16 +603,9 @@ void VkCtx::logDevice() {
     MLE_I("Queue families: G:{} C:{} T:{}, separate_compute={}, dedicated_transfer={}", queue_data_.g_fam_idx, queue_data_.c_fam_idx, queue_data_.t_fam_idx,
           queue_data_.separate_compute, queue_data_.dedicated_transfer);
     MLE_I("Selected formats:");
-    MLE_I("  Swapchain: {}", vk::to_string(formats_.swapchain));
-    MLE_I("  Depth: {}", vk::to_string(formats_.depth));
-    MLE_I("  Texture4u: {}", vk::to_string(formats_.texture4u));
-    MLE_I("  Texture4srgb: {}", vk::to_string(formats_.texture4srgb));
-    MLE_I("  Texture2u: {}", vk::to_string(formats_.texture2u));
-    MLE_I("  Texture1u: {}", vk::to_string(formats_.texture1u));
-    MLE_I("  GBuffer params: {}", vk::to_string(formats_.gbuf_params));
-    MLE_I("  Normals: {}", vk::to_string(formats_.normals));
-    MLE_I("  Color: {}", vk::to_string(formats_.color));
-    MLE_I("  Storage: {}", vk::to_string(formats_.storage));
+    for (usize i = 0; i < as<usize>(ImageFormat::COUNT); ++i) {
+        MLE_I("  {}: {}, usage: {}", as<ImageFormat>(i), vk::to_string(image_formats_.at(i)), vk::to_string(image_format_usages_.at(i)));
+    }
     MLE_I("Memory properties:");
     MLE_I("  Memory types: {}", p_device_.memory_properties.memoryTypeCount);
     for (u32 i = 0; i < p_device_.memory_properties.memoryTypeCount; i++) {
@@ -614,6 +620,21 @@ void VkCtx::logDevice() {
 }
 
 bool VkCtx::isSurfaceUNORM() const {
-    return formats_.swapchain == vk::Format::eB8G8R8Unorm || formats_.swapchain == vk::Format::eR8G8B8Unorm;
+    return image_formats_.at(as<usize>(ImageFormat::SWAPCHAIN)) == vk::Format::eB8G8R8A8Unorm ||
+           image_formats_.at(as<usize>(ImageFormat::SWAPCHAIN)) == vk::Format::eR8G8B8A8Unorm;
+}
+
+[[nodiscard]] vk::DeviceSize VkCtx::getAlignmentForBufferUsage(vk::BufferUsageFlags flags) const {
+    const auto& limits = p_device_.properties.limits;
+
+    if (flags & vk::BufferUsageFlagBits::eUniformBuffer) {
+        return limits.minUniformBufferOffsetAlignment;
+    }
+
+    if (flags & vk::BufferUsageFlagBits::eStorageBuffer) {
+        return limits.minStorageBufferOffsetAlignment;
+    }
+
+    return 1;
 }
 }  // namespace mle

@@ -1,0 +1,69 @@
+#pragma once
+
+#include "Types.h"
+#include "mle/renderer/SyncManager.h"
+#include "mle/utils/Utils.h"
+
+namespace mle {
+class Buffer {
+  public:
+    struct CreateInfo {
+        usize size;
+        vk::BufferUsageFlags usage;
+        bool dedicated_memory = false;
+        enum class AllocationType : i8 { GPU_ONLY, GPU_ONLY_HOST_WRITE_SEQ, GPU_ONLY_HOST_READ, STAGING };
+        AllocationType allocation_type;
+    };
+    using CI = CreateInfo;
+
+  public:
+    MLE_NO_COPY_MOVE(Buffer);
+
+    Buffer() = default;
+    ~Buffer();
+
+    void create(const CI& ci);
+
+    void* map();
+    void unmap();
+
+    void write(const void* data, usize size, usize offset = 0);
+    void copy(CommandBuffer& cmd, BufferRef src, usize size = max<usize>(), usize src_offset = 0, usize dst_offset = 0);
+    [[nodiscard]] BufferHnd writeStaged(CommandBuffer& cmd, const void* data, usize size, usize src_offset = 0, usize dst_offset = 0);
+
+    [[nodiscard]] vk::DescriptorBufferInfo makeDescriptorInfo(CommandBuffer& cmd, usize size = max<usize>(), usize offset = 0);
+
+    [[nodiscard]] vk::Buffer get() { return o_; }
+    [[nodiscard]] vk::BufferUsageFlags getUsage() const { return usage_; }
+    [[nodiscard]] vk::DeviceSize getSize() const { return size_; }
+    [[nodiscard]] bool isPersistent() const { return persistent_; }
+
+    void* getMappedOffset(usize offset);
+
+    vk::DeviceAddress getDeviceAddress();
+
+    void transferOwnershipOTSWait(GCmdType type);
+    std::optional<Semaphore> acquireOwnership(CommandBuffer& cmd, vk::PipelineStageFlags2 dst_stage_mask = vk::PipelineStageFlagBits2::eAllCommands,
+                                              vk::AccessFlags2 dst_access_mask = vk::AccessFlagBits2::eMemoryWrite | vk::AccessFlagBits2::eMemoryRead);
+
+    [[nodiscard]]
+
+    static BufferHnd
+    createHnd(const CI& ci);
+
+  private:
+    Semaphore releaseOwnership(usize new_family);
+
+  private:
+    vk::Buffer o_;
+
+    vk::BufferUsageFlags usage_;
+    VmaAllocation allocation_{};
+    VmaAllocationInfo allocation_info_{};
+    usize size_ = 0;
+    usize queue_data_idx_ = NO_QUEUE;
+    void* mapped_data_ = nullptr;
+    bool persistent_ = false;
+    bool can_be_mapped_ = false;
+};
+}  // namespace mle

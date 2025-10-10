@@ -43,11 +43,14 @@ class VkCtx {
 
     auto getDevice() { return device_; }
     auto dev() { return device_; }
+    auto getVma() { return vma_; }
 
     template <class T>
     void destroy(T o) {
         device_.destroy(o);
     }
+
+    [[nodiscard]] vk::DeviceSize getAlignmentForBufferUsage(vk::BufferUsageFlags flags) const;
 
   private:
     friend Renderer;
@@ -74,15 +77,8 @@ class VkCtx {
     vk::Device device_;
     VmaAllocator vma_{};
 
-    struct {
-        vk::Format swapchain;
-        vk::Format depth;
-        vk::Format texture4u, texture4srgb, texture2u, texture1u;
-        vk::Format gbuf_params;
-        vk::Format normals;
-        vk::Format color;
-        vk::Format storage;
-    } formats_{};
+    std::array<vk::Format, as<usize>(ImageFormat::COUNT)> image_formats_{};
+    std::array<vk::ImageUsageFlags, as<usize>(ImageFormat::COUNT)> image_format_usages_{};
 
     QueueData queue_data_{};
 };

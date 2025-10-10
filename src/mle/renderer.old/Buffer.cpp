@@ -35,7 +35,6 @@ void Buffer::init(const CI& ci) {
         case CI::AllocationType::GPU_ONLY_HOST_WRITE_SEQ:
             allocation_ci.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
             allocation_ci.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
-            // TODO: check VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT
             can_be_mapped_ = true;
             break;
         case CI::AllocationType::GPU_ONLY_HOST_READ:

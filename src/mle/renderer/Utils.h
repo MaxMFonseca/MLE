@@ -15,6 +15,10 @@ inline void check(vk::Result result) {
     }
 }
 
+inline void check(VkResult result) {
+    check(vk::Result(result));
+}
+
 template <typename T>
 [[nodiscard]] T unwrap(vk::ResultValue<T>&& rv) {
     check(vk::Result(rv.result));
