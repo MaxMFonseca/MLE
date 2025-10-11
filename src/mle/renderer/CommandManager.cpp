@@ -64,36 +64,36 @@ void ResetCommandPool::reclaim(CommandBuffer&& cmd) {
 }
 
 void ResetCommandPool::reset() {
-    Renderer::i().vk().getDevice().resetCommandPool(o_);
+    check(Renderer::i().vk().getDevice().resetCommandPool(o_));
 }
 
 void RendererCommandManager::init() {
     const auto& queue_data = Renderer::i().vkCtx().getQueueData();
 
     if (queue_data.g_fam_idx != VkCtx::QueueData::INVALID_FAMILY) {
-        cmd_type_to_index_[0] = 0;
+        cmd_type_to_qdidx_[0] = 0;
 
         queue_data_[0].queue = queue_data.g_queue;
         queue_data_[0].family_index = queue_data.g_fam_idx;
     }
     if (queue_data.separate_compute) {
-        cmd_type_to_index_[1] = 1;
+        cmd_type_to_qdidx_[1] = 1;
 
         queue_data_[1].queue = queue_data.c_queue;
         queue_data_[1].family_index = queue_data.c_fam_idx;
     } else {
-        cmd_type_to_index_[1] = 0;
+        cmd_type_to_qdidx_[1] = 0;
     }
     if (queue_data.dedicated_transfer) {
-        cmd_type_to_index_[2] = 2;
+        cmd_type_to_qdidx_[2] = 2;
 
         queue_data_[2].queue = queue_data.t_queue;
         queue_data_[2].family_index = queue_data.t_fam_idx;
     } else {
         if (queue_data.g_fam_idx != VkCtx::QueueData::INVALID_FAMILY) {
-            cmd_type_to_index_[2] = 0;
+            cmd_type_to_qdidx_[2] = 0;
         } else {
-            cmd_type_to_index_[2] = 1;
+            cmd_type_to_qdidx_[2] = 1;
         }
     }
 }
@@ -113,18 +113,18 @@ void RendererCommandManager::shutdown() {
 }
 
 ResetCommandPool RendererCommandManager::makeResetableCommandPool(GCmdType type) {
-    usize queue_idx = queueDataIdx(type);
-    auto& q_data = queue_data_.at(queue_idx);
+    QueueDataIdx qdidx = queueDataIdx(type);
+    auto& q_data = queue_data_.at(qdidx);
 
     auto pool_ci = vk::CommandPoolCreateInfo{};
     pool_ci.flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer;
     pool_ci.queueFamilyIndex = as<u32>(q_data.family_index);
 
     auto pool = unwrap(Renderer::i().vk().getDevice().createCommandPool(pool_ci));
-    return {pool, queue_idx};
+    return {pool, qdidx};
 }
 
-CommandBuffer RendererCommandManager::getOTS(usize queue_data_idx) {
+CommandBuffer RendererCommandManager::getOTS(QueueDataIdx queue_data_idx) {
     auto& q_data = queue_data_.at(queue_data_idx);
 
     vk::CommandBuffer cmd;
@@ -162,7 +162,7 @@ CommandBuffer RendererCommandManager::getOTS(usize queue_data_idx) {
     return {cmd, queue_data_idx, true};
 }
 
-Fence RendererCommandManager::submit(usize queue_data_idx, vk::SubmitInfo2 submit_info) {
+Fence RendererCommandManager::submit(QueueDataIdx queue_data_idx, vk::SubmitInfo2 submit_info) {
     MLE_ASSERT_LOG(submit_info.commandBufferInfoCount == 1, "One, and only one, command buffer can be submitted here.");
     // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic) safe
     auto cmd = submit_info.pCommandBufferInfos[0].commandBuffer;
@@ -221,7 +221,7 @@ void RendererCommandManager::submitOTSAsync(CommandBuffer&& cmd, vk::SubmitInfo2
 
 // NOLINTNEXTLINE(cppcoreguidelines-rvalue-reference-param-not-moved) enforcing ownership transfer
 void RendererCommandManager::reclaimOTS(CommandBuffer&& cmd) {
-    cmd().reset(vk::CommandBufferResetFlagBits::eReleaseResources);
+    check(cmd().reset(vk::CommandBufferResetFlagBits::eReleaseResources));
     auto& q_data = queue_data_.at(cmd.queue_data_idx_);
     std::scoped_lock lock(q_data.pool_map_mutex);
     auto& pool_data = q_data.thread_ots_pool_map[cmd.tid()];

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "mle/core/Assert.h"
 #define VULKAN_HPP_ASSERT(expr) ((void)0)
 #define VULKAN_HPP_DISPATCH_LOADER_DYNAMIC 1
 #define VULKAN_HPP_NO_EXCEPTIONS
@@ -24,11 +25,19 @@ class Buffer;
 using BufferHnd = std::unique_ptr<Buffer>;
 using BufferRef = Buffer*;
 
+class Shader;
+using ShaderHnd = std::unique_ptr<Shader>;
+using ShaderRef = Shader*;
+
 class CommandBuffer;
 class RendererCommandManager;
 class ResetCommandPool;
 
 enum class GCmdType : u8 { GRAPHICS = 0, COMPUTE = 1, TRANSFER = 2, G = GRAPHICS, C = COMPUTE, T = TRANSFER };
+
+using QueueDataIdx = u32;
+constexpr QueueDataIdx NO_QUEUE = max<QueueDataIdx>() - 1;
+constexpr QueueDataIdx INVALID_QUEUE = max<QueueDataIdx>();
 
 enum class ImageFormat : u8 {
     SWAPCHAIN,
@@ -45,9 +54,6 @@ enum class ImageFormat : u8 {
     STORAGE_U32,
     COUNT
 };
-
-constexpr usize NO_QUEUE = max<usize>() - 1;
-constexpr usize INVALID_QUEUE = max<usize>();
 
 }  // namespace mle
 

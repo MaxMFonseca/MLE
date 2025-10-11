@@ -10,6 +10,7 @@ void Renderer::init() {
 }
 
 void Renderer::shutdown() {
+    shader_cache_.shutdown();
     sync_manager_.shutdown();
     command_manager_.shutdown();
     vk_ctx_.shutdown();

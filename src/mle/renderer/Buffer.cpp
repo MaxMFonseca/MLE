@@ -8,7 +8,7 @@
 #include "mle/renderer/Types.h"
 
 namespace mle {
-Buffer::Buffer(Buffer&& other) :
+Buffer::Buffer(Buffer&& other) noexcept :
     o_(other.o_),
     usage_(other.usage_),
     allocation_(other.allocation_),
@@ -28,7 +28,7 @@ Buffer::Buffer(Buffer&& other) :
     other.queue_data_idx_ = INVALID_QUEUE;
 }
 
-Buffer& Buffer::operator=(Buffer&& other) {
+Buffer& Buffer::operator=(Buffer&& other) noexcept {
     if (this != &other) {
         o_ = other.o_;
         usage_ = other.usage_;
@@ -224,7 +224,7 @@ vk::DeviceAddress Buffer::getDeviceAddress() {
     return Renderer::i().vk().getDevice().getBufferAddress({o_});
 }
 
-void Buffer::ownershipRelease(CommandBuffer& cmd, usize dst_queue_data_idx) {
+void Buffer::ownershipRelease(CommandBuffer& cmd, QueueDataIdx dst_queue_data_idx) {
     if (dst_queue_data_idx == queue_data_idx_) {
         return;
     }
@@ -276,7 +276,7 @@ void Buffer::ownershipAcquire(CommandBuffer& cmd, vk::PipelineStageFlags2 dst_st
     prev_queue_data_idx_ = NO_QUEUE;
 }
 
-std::optional<Semaphore> Buffer::ownershipReleaseOTS(usize dst_queue_data_idx) {
+std::optional<Semaphore> Buffer::ownershipReleaseOTS(QueueDataIdx dst_queue_data_idx) {
     if (dst_queue_data_idx == queue_data_idx_) {
         return {};
     }
@@ -323,7 +323,7 @@ std::optional<Semaphore> Buffer::ownershipReleaseOTSAcquire(CommandBuffer& cmd, 
 void Buffer::ownershipReleaseOTSAcquireOTSWait(GCmdType type) {
     MLE_ASSERT(queue_data_idx_ != INVALID_QUEUE);
 
-    usize queue_data_idx = Renderer::i().cmdMgr().queueDataIdx(type);
+    auto queue_data_idx = Renderer::i().cmdMgr().queueDataIdx(type);
     if (queue_data_idx_ == NO_QUEUE) {
         queue_data_idx_ = queue_data_idx;
         return;
@@ -355,7 +355,7 @@ void Buffer::ownershipReleaseOTSAcquireOTSWait(GCmdType type) {
     Renderer::i().cmdMgr().submitOTSWait(std::move(cmd), submit_info);
 }
 
-void Buffer::ownershipAcquireOTSWait(usize dst_queue_data_idx) {
+void Buffer::ownershipAcquireOTSWait(QueueDataIdx dst_queue_data_idx) {
     if (queue_data_idx_ == NO_QUEUE) {
         queue_data_idx_ = dst_queue_data_idx;
         return;
@@ -371,5 +371,4 @@ void Buffer::ownershipAcquireOTSWait(usize dst_queue_data_idx) {
 
     Renderer::i().cmdMgr().submitOTSWait(std::move(cmd));
 }
-
 }  // namespace mle

@@ -2,6 +2,7 @@
 
 #include "CommandManager.h"
 #include "SyncManager.h"
+#include "mle/renderer/ShaderCache.h"
 #include "mle/renderer/VkCtx.h"
 #include "mle/utils/Utils.h"
 
@@ -15,10 +16,12 @@ class Renderer {
 
     auto& vkCtx() { return vk_ctx_; }
     auto& vk() { return vk_ctx_; }
+    vk::Device vkDevice() { return vk_ctx_.getDevice(); }
     auto& commandManager() { return command_manager_; }
     auto& cmdMgr() { return command_manager_; }
     auto& syncManager() { return sync_manager_; }
     auto& syncMgr() { return sync_manager_; }
+    auto& shaderCache() { return shader_cache_; }
 
     template <class T>
     void destroy(T o) {
@@ -29,5 +32,6 @@ class Renderer {
     VkCtx vk_ctx_;
     RendererCommandManager command_manager_;
     RendererSyncManager sync_manager_;
+    ShaderCache shader_cache_;
 };
 }  // namespace mle

@@ -204,8 +204,8 @@ function mle_nvim_dap() {
   echo "  NVIM_DAP_PROGRAM=$NVIM_DAP_PROGRAM"
 }
 
-function _mle_compile_shaders() {
-  local shader_dir="$1"
+function mle_compile_shaders() {
+  local shader_dir="${1:-${_MLE_ROOT}/res/shaders}"
 
   find "$shader_dir" -type f \( \
     -name "*.vert" -o -name "*.frag" -o -name "*.comp" -o -name "*.geom" -o -name "*.tesc" -o -name "*.tese" \
@@ -218,10 +218,6 @@ function _mle_compile_shaders() {
       return 1
     fi
   done
-}
-
-function mle_compile_shaders() {
-  _mle_compile_shaders "${_MLE_ROOT}/res/shaders"
 }
 
 function mle_gen_docs() {
@@ -243,7 +239,7 @@ function mle_help() {
   echo "  mle_ber alias for mle_build_and_run_test"
   echo "  mle_clean"
   echo "  mle_nvim_dap [-n test_name] [-t build_type]"
-  echo "  mle_compile_shaders folder_path"
+  echo "  mle_compile_shaders [folder_path]"
   echo "  mle_gen_docs"
   echo "  mle_help"
 }

@@ -30,7 +30,7 @@ Image::~Image() {
     }
 }
 
-Image::Image(Image&& other) :
+Image::Image(Image&& other) noexcept :
     o_(other.o_),
     vk_format_(other.vk_format_),
     format_(other.format_),
@@ -47,7 +47,7 @@ Image::Image(Image&& other) :
     other.views_.clear();
 }
 
-Image& Image::operator=(Image&& other) {
+Image& Image::operator=(Image&& other) noexcept {
     if (this != &other) {
         o_ = other.o_;
         vk_format_ = other.vk_format_;
@@ -347,9 +347,16 @@ BufferHnd Image::copyRaw(CommandBuffer& cmd, const RawData& data, vec2i offset) 
 }
 
 Image::RawData Image::readFile(const std::string& path, int desired_channels) {
+    MLE_ASSERT_LOG(!path.empty(), "Image path is empty");
+    MLE_ASSERT_LOG(std::filesystem::exists(path), "Image file does not exist: {}", path);
     int width = 0, height = 0, channels = 0;
     stbi_uc* pixels = stbi_load(path.c_str(), &width, &height, &channels, desired_channels);
-    MLE_ASSERT(pixels && width > 0 && height > 0 && channels > 0);
+    MLE_ASSERT_LOG(pixels && width > 0 && height > 0 && channels > 0, "Problem loading image: {}, pixels: {}, w: {}, h: {}, c: {}", path, as<void*>(pixels),
+                   width, height, channels);
+
+    if (desired_channels) {
+        channels = desired_channels;
+    }
 
     Image::RawData data;
     data.extent = vec2u{as<u32>(width), as<u32>(height)};
@@ -470,7 +477,7 @@ void Image::transitionState(CommandBuffer& cmd, State state) {
     state_ = state;
 }
 
-void Image::ownershipRelease(CommandBuffer& cmd, usize dst_queue_data_idx) {
+void Image::ownershipRelease(CommandBuffer& cmd, QueueDataIdx dst_queue_data_idx) {
     if (dst_queue_data_idx == queue_data_idx_) {
         return;
     }
@@ -500,7 +507,7 @@ void Image::ownershipRelease(CommandBuffer& cmd, usize dst_queue_data_idx) {
     queue_data_idx_ = INVALID_QUEUE;
 }
 
-std::optional<Semaphore> Image::ownershipReleaseOTS(usize dst_queue_data_idx) {
+std::optional<Semaphore> Image::ownershipReleaseOTS(QueueDataIdx dst_queue_data_idx) {
     if (dst_queue_data_idx == queue_data_idx_) {
         return {};
     }
@@ -572,7 +579,7 @@ std::optional<Semaphore> Image::ownershipReleaseOTSAcquire(CommandBuffer& cmd, v
     return semaphore;
 }
 
-void Image::ownershipAcquireOTSWait(usize dst_queue_data_idx) {
+void Image::ownershipAcquireOTSWait(QueueDataIdx dst_queue_data_idx) {
     if (queue_data_idx_ == NO_QUEUE) {
         queue_data_idx_ = dst_queue_data_idx;
         return;
@@ -592,7 +599,7 @@ void Image::ownershipAcquireOTSWait(usize dst_queue_data_idx) {
 void Image::ownershipReleaseOTSAcquireOTSWait(GCmdType type) {
     MLE_ASSERT(queue_data_idx_ != INVALID_QUEUE);
 
-    usize queue_data_idx = Renderer::i().cmdMgr().queueDataIdx(type);
+    auto queue_data_idx = Renderer::i().cmdMgr().queueDataIdx(type);
     if (queue_data_idx_ == NO_QUEUE) {
         queue_data_idx_ = queue_data_idx;
         return;

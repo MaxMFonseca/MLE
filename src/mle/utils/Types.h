@@ -10,7 +10,6 @@
 namespace mle {
 using usize = size_t;     ///< Unsigned size type.
 using isize = ptrdiff_t;  ///< Signed size type.
-using byte = std::byte;   ///< Byte type for raw data.
 using char32 = char32_t;  ///< 32-bit Unicode character type.
 using UserPtr = void*;    ///< Generic user pointer.
 

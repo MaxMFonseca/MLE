@@ -17,10 +17,10 @@ class VkCtx {
     };
 
     struct QueueData {
-        static constexpr usize INVALID_FAMILY = max<usize>();
-        usize g_fam_idx = INVALID_FAMILY;
-        usize c_fam_idx = INVALID_FAMILY;
-        usize t_fam_idx = INVALID_FAMILY;
+        static constexpr u32 INVALID_FAMILY = max<u32>();
+        u32 g_fam_idx = INVALID_FAMILY;
+        u32 c_fam_idx = INVALID_FAMILY;
+        u32 t_fam_idx = INVALID_FAMILY;
 
         vk::Queue g_queue;
         vk::Queue c_queue;
@@ -32,7 +32,7 @@ class VkCtx {
 
   public:
     MLE_NO_COPY_MOVE(VkCtx);
-    ~VkCtx() { shutdown(); }
+    ~VkCtx() = default;
 
     void init();
     void shutdown();

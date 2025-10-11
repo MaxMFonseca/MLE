@@ -31,7 +31,7 @@ class CommandBuffer {
   private:
     friend RendererCommandManager;
     friend ResetCommandPool;
-    CommandBuffer(vk::CommandBuffer buf, usize queue_data_idx, bool primary) :
+    CommandBuffer(vk::CommandBuffer buf, QueueDataIdx queue_data_idx, bool primary) :
         o_(buf),
         tid_(std::this_thread::get_id()),
         queue_data_idx_(queue_data_idx),
@@ -40,7 +40,7 @@ class CommandBuffer {
   private:
     vk::CommandBuffer o_;
     std::thread::id tid_;
-    usize queue_data_idx_ = INVALID_QUEUE;
+    QueueDataIdx queue_data_idx_ = INVALID_QUEUE;
     bool primary_{true};
 };
 
@@ -79,13 +79,13 @@ class ResetCommandPool {
 
   private:
     friend RendererCommandManager;
-    ResetCommandPool(vk::CommandPool pool, usize queue_data_idx) :
+    ResetCommandPool(vk::CommandPool pool, QueueDataIdx queue_data_idx) :
         o_(pool),
         queue_data_idx_(queue_data_idx) {}
 
   private:
     vk::CommandPool o_;
-    usize queue_data_idx_ = INVALID_QUEUE;
+    QueueDataIdx queue_data_idx_ = INVALID_QUEUE;
     std::vector<vk::CommandBuffer> available_primary_buffers_;
     std::vector<vk::CommandBuffer> available_secondary_buffers_;
     usize primary_index_{0};
@@ -115,18 +115,18 @@ class RendererCommandManager {
 
     ResetCommandPool makeResetableCommandPool(GCmdType type);
 
-    Fence submit(usize queue_data_idx, vk::SubmitInfo2 submit_info);
+    Fence submit(QueueDataIdx queue_data_idx, vk::SubmitInfo2 submit_info);
     Fence submit(GCmdType type, vk::SubmitInfo2 submit_info) { return submit(queueDataIdx(type), submit_info); }
 
-    CommandBuffer getOTS(usize queue_data_idx);
+    CommandBuffer getOTS(QueueDataIdx queue_data_idx);
     CommandBuffer getOTS(GCmdType type) { return getOTS(queueDataIdx(type)); }
     void submitOTSWait(CommandBuffer&& cmd, vk::SubmitInfo2 submit_info = {});
     void submitOTSAsync(CommandBuffer&& cmd, vk::SubmitInfo2 submit_info = {}, std::move_only_function<void(void)>&& callback = {});
     void reclaimOTS(CommandBuffer&& cmd);
 
-    [[nodiscard]] usize queueDataIdx(GCmdType type) const { return cmd_type_to_index_.at(as<usize>(type)); }
-    [[nodiscard]] usize queueFamilyIdx(GCmdType type) const { return queueData(type).family_index; }
-    [[nodiscard]] usize queueFamilyIdx(usize queue_data_idx) const { return queueData(queue_data_idx).family_index; }
+    [[nodiscard]] QueueDataIdx queueDataIdx(GCmdType type) const { return cmd_type_to_qdidx_.at(as<u32>(type)); }
+    [[nodiscard]] QueueDataIdx queueFamilyIdx(GCmdType type) const { return queueData(type).family_index; }
+    [[nodiscard]] QueueDataIdx queueFamilyIdx(QueueDataIdx queue_data_idx) const { return queueData(queue_data_idx).family_index; }
 
   private:
     friend Renderer;
@@ -134,13 +134,13 @@ class RendererCommandManager {
     void init();
     void shutdown();
 
-    QueueData& queueData(usize queue_data_idx) { return queue_data_.at(queue_data_idx); }
+    QueueData& queueData(QueueDataIdx queue_data_idx) { return queue_data_.at(queue_data_idx); }
     QueueData& queueData(GCmdType type) { return queue_data_.at(queueDataIdx(type)); }
     [[nodiscard]] const QueueData& queueData(GCmdType type) const { return queue_data_.at(queueDataIdx(type)); }
-    [[nodiscard]] const QueueData& queueData(usize queue_data_idx) const { return queue_data_.at(queue_data_idx); }
+    [[nodiscard]] const QueueData& queueData(QueueDataIdx queue_data_idx) const { return queue_data_.at(queue_data_idx); }
 
   private:
-    std::array<usize, 3> cmd_type_to_index_{max<usize>(), max<usize>(), max<usize>()};
+    std::array<QueueDataIdx, 3> cmd_type_to_qdidx_{INVALID_QUEUE, INVALID_QUEUE, INVALID_QUEUE};
     std::array<QueueData, 3> queue_data_{};
 };
 

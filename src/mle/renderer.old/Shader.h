@@ -35,15 +35,15 @@ class Shader : public LiveCounter<Shader> {
     static void mergeDSL(DSL& a, const DSL& b);
     static void mergeDSLs(std::vector<DSL>& a, const std::vector<DSL>& b);
 
-    void reflect(const Bytes& spv_data);
-
   private:
     friend class detail::ShaderCache;
     Shader() = default;
 
     void setStage(vk::ShaderStageFlagBits stage) { stage_ = stage; }
     void setShaderModule(vk::ShaderModule shader_module) { shader_module_ = shader_module; }
+    void reflect(const Bytes& spv_data);
 
+  private:
     vk::ShaderModule shader_module_;
     vk::ShaderStageFlagBits stage_{};
     u32 first_instance_attribute_location_ = max<u32>();

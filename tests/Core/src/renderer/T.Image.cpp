@@ -69,7 +69,7 @@ TEST(Image, UploadRawData) {
     raw.channels = 4;
     raw.pixels.resize(4UL * 4 * 4);
     for (usize i = 0; i < raw.pixels.size(); ++i) {
-        raw.pixels[i] = static_cast<u8>(i);
+        raw.pixels[i] = as<u8>(i);
     }
 
     auto& cmd_mgr = Renderer::i().cmdMgr();
@@ -96,7 +96,7 @@ TEST(Image, CopyImage) {
     raw.channels = 4;
     raw.pixels.resize(8UL * 8 * 4);
     for (usize i = 0; i < raw.pixels.size(); ++i) {
-        raw.pixels[i] = static_cast<u8>(i);
+        raw.pixels[i] = as<u8>(i);
     }
 
     auto& cmd_mgr = Renderer::i().cmdMgr();
@@ -145,4 +145,46 @@ TEST(Image, BlitImage) {
     std::span<u8> mapped_span(mapped, as<usize>(dst_img->getExtent().x * dst_img->getExtent().y * dst_img->getChannelCount()));
     std::array<u8, 4UL * 4 * 4> not_expected{0};
     EXPECT_FALSE(std::ranges::equal(not_expected, raw.pixels));
+}
+
+namespace {
+void loadAndCompareTest120Aux(Image::RawData& loaded) {
+    Image::CI ci{};
+    ci.extent = loaded.extent;
+    ci.format = ImageFormat::TEXTURE_4U;
+    ci.extra_usage = vk::ImageUsageFlagBits::eTransferDst;
+    auto img = Image::createHnd(ci);
+
+    auto& cmd_mgr = Renderer::i().cmdMgr();
+    auto cmd = cmd_mgr.getOTS(GCmdType::TRANSFER);
+    auto staging = img->copyRaw(cmd, loaded);
+    cmd_mgr.submitOTSWait(std::move(cmd));
+
+    auto readback = img->copyToBufferOTS();
+    u8* mapped = as<u8*>(readback->map());
+    std::span<u8> mapped_span(mapped, loaded.pixels.size());
+
+    EXPECT_EQ(loaded.pixels.size(), mapped_span.size());
+    EXPECT_TRUE(std::ranges::equal(mapped_span, loaded.pixels));
+
+    EXPECT_EQ(mapped_span[(0 * 4) + 0], 0);
+    EXPECT_EQ(mapped_span[(0 * 4) + 1], 120);
+    EXPECT_EQ(mapped_span[(0 * 4) + 2], 240);
+    EXPECT_EQ(mapped_span[(0 * 4) + 3], 255);
+
+    EXPECT_EQ(mapped_span[(15 * 4) + 0], 0);
+    EXPECT_EQ(mapped_span[(150 * 4) + 1], 120);
+    EXPECT_EQ(mapped_span[(300 * 4) + 2], 240);
+    EXPECT_EQ(mapped_span[(315 * 4) + 3], 255);
+}
+}  // namespace
+
+TEST(Image, LoadAndCompare120) {
+    auto loaded = Image::readFile("res/textures/i/test120.png");
+    loadAndCompareTest120Aux(loaded);
+}
+
+TEST(Image, LoadAndCompare120c3c) {
+    auto loaded = Image::readFile("res/textures/i/test120c3c.png", 4);
+    loadAndCompareTest120Aux(loaded);
 }

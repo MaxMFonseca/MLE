@@ -57,8 +57,8 @@ class Image final {
     Image() = default;
     ~Image();
 
-    Image(Image&& other);
-    Image& operator=(Image&& other);
+    Image(Image&& other) noexcept;
+    Image& operator=(Image&& other) noexcept;
 
     MLE_NO_COPY(Image);
 
@@ -78,9 +78,9 @@ class Image final {
 
     void transitionState(CommandBuffer& cmd, State state);
 
-    void ownershipRelease(CommandBuffer& cmd, usize dst_queue_data_idx);
-    [[nodiscard]] std::optional<Semaphore> ownershipReleaseOTS(usize dst_queue_data_idx);
-    void ownershipAcquireOTSWait(usize dst_queue_data_idx);
+    void ownershipRelease(CommandBuffer& cmd, QueueDataIdx dst_queue_data_idx);
+    [[nodiscard]] std::optional<Semaphore> ownershipReleaseOTS(QueueDataIdx dst_queue_data_idx);
+    void ownershipAcquireOTSWait(QueueDataIdx dst_queue_data_idx);
     void ownershipAcquire(CommandBuffer& cmd, vk::PipelineStageFlags2 dst_stage_mask = vk::PipelineStageFlagBits2::eAllCommands,
                           vk::AccessFlags2 dst_access_mask = vk::AccessFlagBits2::eMemoryWrite | vk::AccessFlagBits2::eMemoryRead);
     [[nodiscard]] std::optional<Semaphore> ownershipReleaseOTSAcquire(CommandBuffer& cmd,
@@ -93,7 +93,6 @@ class Image final {
     [[nodiscard]] vk::Format getFormat() const { return vk_format_; }
     [[nodiscard]] vk::ImageUsageFlags getUsage() const { return usage_; }
     [[nodiscard]] vec2u getExtent() const { return extent_; }
-    [[nodiscard]] usize getQueueDataIdx() const { return queue_data_idx_; }
     [[nodiscard]] State getCurrentState() const { return state_; }
     [[nodiscard]] vk::ImageLayout getLayout() const { return layout_; }
     [[nodiscard]] vk::Extent2D getVkExtent() const { return {extent_.x, extent_.y}; }
@@ -130,8 +129,8 @@ class Image final {
     vk::Format vk_format_{};
     ImageFormat format_ = ImageFormat::COUNT;
     vk::ImageUsageFlags usage_;
-    usize queue_data_idx_ = NO_QUEUE;
-    usize prev_queue_data_idx_ = NO_QUEUE;
+    QueueDataIdx queue_data_idx_ = NO_QUEUE;
+    QueueDataIdx prev_queue_data_idx_ = NO_QUEUE;
     vec2u extent_{};
     VmaAllocation allocation_ = {};
     VmaAllocationInfo allocation_info_ = {};

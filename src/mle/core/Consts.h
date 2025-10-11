@@ -77,13 +77,11 @@ constexpr vec2i DEFAULT_WINDOW_SIZE{1280, 720};
 /// Default window name.
 constexpr auto DEFAULT_WINDOW_NAME = "MLE";
 
-constexpr auto RES_BASE_PATH = "res";  ///< Base path for resources.
-
-constexpr auto MLE_RES_SUBDIR_NAME = "mle";  ///< Subdirectory for engine resources.
-constexpr auto USER_RES_SUBDIR_NAME = "i";   ///< Subdirectory for user resources.
-
 /// Resource paths used by the engine.
 struct ResPath {
+    static constexpr auto RES = "res";            ///< Base resource path.
+    static constexpr auto MLE_SUBDIR = "mle";     ///< Subdirectory for engine resources.
+    static constexpr auto USER_SUBDIR = "i";      ///< Subdirectory for user resources.
     static constexpr auto LUA = "lua";            ///< Path to Lua scripts.
     static constexpr auto TEXTURES = "textures";  ///< Path to texture assets.
     static constexpr auto SHADERS = "shaders";    ///< Path to shader files.
