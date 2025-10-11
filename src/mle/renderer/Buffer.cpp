@@ -8,6 +8,50 @@
 #include "mle/renderer/Types.h"
 
 namespace mle {
+Buffer::Buffer(Buffer&& other) :
+    o_(other.o_),
+    usage_(other.usage_),
+    allocation_(other.allocation_),
+    allocation_info_(other.allocation_info_),
+    size_(other.size_),
+    queue_data_idx_(other.queue_data_idx_),
+    mapped_data_(other.mapped_data_),
+    persistent_(other.persistent_),
+    can_be_mapped_(other.can_be_mapped_) {
+    other.size_ = 0;
+    other.usage_ = {};
+    other.allocation_ = {};
+    other.allocation_info_ = {};
+    other.mapped_data_ = nullptr;
+    other.persistent_ = false;
+    other.can_be_mapped_ = false;
+    other.queue_data_idx_ = INVALID_QUEUE;
+}
+
+Buffer& Buffer::operator=(Buffer&& other) {
+    if (this != &other) {
+        o_ = other.o_;
+        usage_ = other.usage_;
+        allocation_ = other.allocation_;
+        allocation_info_ = other.allocation_info_;
+        size_ = other.size_;
+        queue_data_idx_ = other.queue_data_idx_;
+        mapped_data_ = other.mapped_data_;
+        persistent_ = other.persistent_;
+        can_be_mapped_ = other.can_be_mapped_;
+
+        other.size_ = 0;
+        other.usage_ = {};
+        other.allocation_ = {};
+        other.allocation_info_ = {};
+        other.mapped_data_ = nullptr;
+        other.persistent_ = false;
+        other.can_be_mapped_ = false;
+        other.queue_data_idx_ = INVALID_QUEUE;
+    }
+    return *this;
+}
+
 BufferHnd Buffer::createHnd(const CI& ci) {
     auto buffer = std::make_unique<Buffer>();
     buffer->create(ci);
@@ -15,6 +59,8 @@ BufferHnd Buffer::createHnd(const CI& ci) {
 }
 
 void Buffer::create(const CI& ci) {
+    MLE_ASSERT(ci.size > 0);
+
     MLE_T("Creating a buffer. size: {}, usage: {}", ci.size, vk::to_string(ci.usage));
 
     vk::BufferCreateInfo buffer_ci{};
@@ -178,16 +224,18 @@ vk::DeviceAddress Buffer::getDeviceAddress() {
     return Renderer::i().vk().getDevice().getBufferAddress({o_});
 }
 
-Semaphore Buffer::releaseOwnership(usize new_family) {
-    usize src_queue_family = Renderer::i().cmdMgr().queueFamilyIdx(queue_data_idx_);
+void Buffer::ownershipRelease(CommandBuffer& cmd, usize dst_queue_data_idx) {
+    if (dst_queue_data_idx == queue_data_idx_) {
+        return;
+    }
 
     vk::BufferMemoryBarrier2 mb{};
     mb.srcStageMask = vk::PipelineStageFlagBits2::eAllCommands;
     mb.srcAccessMask = vk::AccessFlagBits2::eMemoryWrite | vk::AccessFlagBits2::eMemoryRead;
     mb.dstStageMask = vk::PipelineStageFlagBits2::eNone;
     mb.dstAccessMask = vk::AccessFlagBits2::eNone;
-    mb.srcQueueFamilyIndex = src_queue_family;
-    mb.dstQueueFamilyIndex = new_family;
+    mb.srcQueueFamilyIndex = Renderer::i().cmdMgr().queueFamilyIdx(queue_data_idx_);
+    mb.dstQueueFamilyIndex = Renderer::i().cmdMgr().queueFamilyIdx(dst_queue_data_idx);
     mb.buffer = o_;
     mb.offset = 0;
     mb.size = size_;
@@ -196,9 +244,48 @@ Semaphore Buffer::releaseOwnership(usize new_family) {
     dep.bufferMemoryBarrierCount = 1;
     dep.pBufferMemoryBarriers = &mb;
 
-    auto cmd = Renderer::i().cmdMgr().getOTS(queue_data_idx_);
+    cmd().pipelineBarrier2(dep);
+
+    prev_queue_data_idx_ = queue_data_idx_;
+    queue_data_idx_ = INVALID_QUEUE;
+}
+
+void Buffer::ownershipAcquire(CommandBuffer& cmd, vk::PipelineStageFlags2 dst_stage_mask, vk::AccessFlags2 dst_access_mask) {
+    MLE_ASSERT_LOG(queue_data_idx_ == INVALID_QUEUE, "Release wasnt called.");
+    MLE_ASSERT(prev_queue_data_idx_ != INVALID_QUEUE && prev_queue_data_idx_ != NO_QUEUE);
+    auto next_queue_data_idx = cmd.queueDataIdx();
+
+    vk::BufferMemoryBarrier2 mb{};
+    mb.srcStageMask = vk::PipelineStageFlagBits2::eNone;
+    mb.srcAccessMask = vk::AccessFlagBits2::eNone;
+    mb.dstStageMask = dst_stage_mask;
+    mb.dstAccessMask = dst_access_mask;
+    mb.srcQueueFamilyIndex = Renderer::i().cmdMgr().queueFamilyIdx(prev_queue_data_idx_);
+    mb.dstQueueFamilyIndex = Renderer::i().cmdMgr().queueFamilyIdx(next_queue_data_idx);
+    mb.buffer = o_;
+    mb.offset = 0;
+    mb.size = size_;
+
+    vk::DependencyInfo dep{};
+    dep.bufferMemoryBarrierCount = 1;
+    dep.pBufferMemoryBarriers = &mb;
 
     cmd().pipelineBarrier2(dep);
+
+    queue_data_idx_ = next_queue_data_idx;
+    prev_queue_data_idx_ = NO_QUEUE;
+}
+
+std::optional<Semaphore> Buffer::ownershipReleaseOTS(usize dst_queue_data_idx) {
+    if (dst_queue_data_idx == queue_data_idx_) {
+        return {};
+    }
+
+    MLE_ASSERT_LOG(queue_data_idx_ != INVALID_QUEUE, "Release wasnt called.");
+
+    auto cmd = Renderer::i().cmdMgr().getOTS(queue_data_idx_);
+
+    ownershipRelease(cmd, dst_queue_data_idx);
 
     vk::CommandBufferSubmitInfo command_buffer_info{};
     command_buffer_info.commandBuffer = cmd.get();
@@ -216,12 +303,10 @@ Semaphore Buffer::releaseOwnership(usize new_family) {
 
     Renderer::i().cmdMgr().submitOTSAsync(std::move(cmd), submit_info);
 
-    queue_data_idx_ = INVALID_QUEUE;
-
     return semaphore;
 }
 
-std::optional<Semaphore> Buffer::acquireOwnership(CommandBuffer& cmd, vk::PipelineStageFlags2 dst_stage_mask, vk::AccessFlags2 dst_access_mask) {
+std::optional<Semaphore> Buffer::ownershipReleaseOTSAcquire(CommandBuffer& cmd, vk::PipelineStageFlags2 dst_stage_mask, vk::AccessFlags2 dst_access_mask) {
     if (queue_data_idx_ == NO_QUEUE) {
         queue_data_idx_ = cmd.queueDataIdx();
         return {};
@@ -230,34 +315,12 @@ std::optional<Semaphore> Buffer::acquireOwnership(CommandBuffer& cmd, vk::Pipeli
         return {};
     }
 
-    usize src_queue_family = Renderer::i().cmdMgr().queueFamilyIdx(queue_data_idx_);
-    usize dst_queue_family = Renderer::i().cmdMgr().queueFamilyIdx(cmd.queueDataIdx());
-
-    auto semaphore = releaseOwnership(dst_queue_family);
-
-    vk::BufferMemoryBarrier2 mb;
-    mb.srcStageMask = vk::PipelineStageFlagBits2::eNone;
-    mb.srcAccessMask = vk::AccessFlagBits2::eNone;
-    mb.dstStageMask = dst_stage_mask;
-    mb.dstAccessMask = dst_access_mask;
-    mb.srcQueueFamilyIndex = src_queue_family;
-    mb.dstQueueFamilyIndex = dst_queue_family;
-    mb.buffer = o_;
-    mb.offset = 0;
-    mb.size = size_;
-
-    vk::DependencyInfo dep{};
-    dep.bufferMemoryBarrierCount = 1;
-    dep.pBufferMemoryBarriers = &mb;
-
-    cmd().pipelineBarrier2(dep);
-
-    queue_data_idx_ = cmd.queueDataIdx();
-
+    auto semaphore = ownershipReleaseOTS(cmd.queueDataIdx());
+    ownershipAcquire(cmd, dst_stage_mask, dst_access_mask);
     return semaphore;
 }
 
-void Buffer::transferOwnershipOTSWait(GCmdType type) {
+void Buffer::ownershipReleaseOTSAcquireOTSWait(GCmdType type) {
     MLE_ASSERT(queue_data_idx_ != INVALID_QUEUE);
 
     usize queue_data_idx = Renderer::i().cmdMgr().queueDataIdx(type);
@@ -271,7 +334,7 @@ void Buffer::transferOwnershipOTSWait(GCmdType type) {
 
     auto cmd = Renderer::i().cmdMgr().getOTS(queue_data_idx);
 
-    auto semaphore = acquireOwnership(cmd);
+    auto semaphore = ownershipReleaseOTSAcquire(cmd);
 
     vk::SemaphoreSubmitInfo wait_info{};
     if (semaphore.has_value()) {
@@ -290,6 +353,23 @@ void Buffer::transferOwnershipOTSWait(GCmdType type) {
     submit_info.setCommandBufferInfos(command_buffer_info);
 
     Renderer::i().cmdMgr().submitOTSWait(std::move(cmd), submit_info);
+}
+
+void Buffer::ownershipAcquireOTSWait(usize dst_queue_data_idx) {
+    if (queue_data_idx_ == NO_QUEUE) {
+        queue_data_idx_ = dst_queue_data_idx;
+        return;
+    }
+    if (queue_data_idx_ == dst_queue_data_idx) {
+        return;
+    }
+    MLE_ASSERT_LOG(queue_data_idx_ == INVALID_QUEUE, "Release wasnt called.");
+
+    auto cmd = Renderer::i().cmdMgr().getOTS(dst_queue_data_idx);
+
+    ownershipAcquire(cmd);
+
+    Renderer::i().cmdMgr().submitOTSWait(std::move(cmd));
 }
 
 }  // namespace mle

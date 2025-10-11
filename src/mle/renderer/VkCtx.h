@@ -51,6 +51,11 @@ class VkCtx {
     }
 
     [[nodiscard]] vk::DeviceSize getAlignmentForBufferUsage(vk::BufferUsageFlags flags) const;
+    [[nodiscard]] auto getVkImageFormat(ImageFormat format) const { return image_formats_.at(as<usize>(format)); }
+    [[nodiscard]] auto getVkImageUsage(ImageFormat format) const { return image_format_usages_.at(as<usize>(format)); }
+    [[nodiscard]] const auto& getPhysicalDevice() const { return p_device_; }
+    [[nodiscard]] const auto& getInstance() const { return vk_instance_; }
+    [[nodiscard]] const auto& getSurface() const { return surface_; }
 
   private:
     friend Renderer;

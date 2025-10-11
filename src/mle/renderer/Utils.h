@@ -2,6 +2,7 @@
 
 #include "Types.h"
 #include "mle/core/Core.h"
+#include "mle/utils/Color.h"
 #include "mle/utils/Utils.h"
 
 namespace mle {
@@ -27,6 +28,14 @@ template <typename T>
 
 inline vk::Extent2D toVkExtent2D(const vec2i& extent) {
     return {as<u32>(extent.x), as<u32>(extent.y)};
+}
+
+inline vk::Extent3D toVkExtent3D(const vec2i& extent, u32 d = 1) {
+    return {as<u32>(extent.x), as<u32>(extent.y), d};
+}
+
+inline vk::ClearColorValue toVkColor(const Color& color) {
+    return vk::ClearColorValue(std::array<f32, 4>{color.r, color.g, color.b, color.a});
 }
 
 }  // namespace mle

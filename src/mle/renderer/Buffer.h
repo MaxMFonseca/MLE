@@ -17,10 +17,13 @@ class Buffer {
     using CI = CreateInfo;
 
   public:
-    MLE_NO_COPY_MOVE(Buffer);
+    MLE_NO_COPY(Buffer);
 
     Buffer() = default;
     ~Buffer();
+
+    Buffer(Buffer&& other);
+    Buffer& operator=(Buffer&& other);
 
     void create(const CI& ci);
 
@@ -42,17 +45,18 @@ class Buffer {
 
     vk::DeviceAddress getDeviceAddress();
 
-    void transferOwnershipOTSWait(GCmdType type);
-    std::optional<Semaphore> acquireOwnership(CommandBuffer& cmd, vk::PipelineStageFlags2 dst_stage_mask = vk::PipelineStageFlagBits2::eAllCommands,
-                                              vk::AccessFlags2 dst_access_mask = vk::AccessFlagBits2::eMemoryWrite | vk::AccessFlagBits2::eMemoryRead);
+    void ownershipRelease(CommandBuffer& cmd, usize dst_queue_data_idx);
+    [[nodiscard]] std::optional<Semaphore> ownershipReleaseOTS(usize dst_queue_data_idx);
+    void ownershipAcquireOTSWait(usize dst_queue_data_idx);
+    void ownershipAcquire(CommandBuffer& cmd, vk::PipelineStageFlags2 dst_stage_mask = vk::PipelineStageFlagBits2::eAllCommands,
+                          vk::AccessFlags2 dst_access_mask = vk::AccessFlagBits2::eMemoryWrite | vk::AccessFlagBits2::eMemoryRead);
+    [[nodiscard]] std::optional<Semaphore> ownershipReleaseOTSAcquire(CommandBuffer& cmd,
+                                                                      vk::PipelineStageFlags2 dst_stage_mask = vk::PipelineStageFlagBits2::eAllCommands,
+                                                                      vk::AccessFlags2 dst_access_mask = vk::AccessFlagBits2::eMemoryWrite |
+                                                                                                         vk::AccessFlagBits2::eMemoryRead);
+    void ownershipReleaseOTSAcquireOTSWait(GCmdType type);
 
-    [[nodiscard]]
-
-    static BufferHnd
-    createHnd(const CI& ci);
-
-  private:
-    Semaphore releaseOwnership(usize new_family);
+    [[nodiscard]] static BufferHnd createHnd(const CI& ci);
 
   private:
     vk::Buffer o_;
@@ -62,6 +66,7 @@ class Buffer {
     VmaAllocationInfo allocation_info_{};
     usize size_ = 0;
     usize queue_data_idx_ = NO_QUEUE;
+    usize prev_queue_data_idx_ = NO_QUEUE;
     void* mapped_data_ = nullptr;
     bool persistent_ = false;
     bool can_be_mapped_ = false;
