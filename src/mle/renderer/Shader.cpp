@@ -87,6 +87,7 @@ Shader::DataType spvTypeToShaderDataType(SpvReflectTypeDescription& td) {
 
     MLE_UNREACHABLE_LOG("Unsupported type. Fixme! {}", td.type_flags);
 }
+
 void reflectVertexInput(auto& reflection, auto& vertex_attributes_, auto& vertex_bindings_, u32& first_instance_attribute_location_) {
     std::vector<SpvReflectInterfaceVariable*> input_vars;
     u32 count = 0;

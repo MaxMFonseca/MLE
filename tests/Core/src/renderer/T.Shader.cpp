@@ -8,13 +8,12 @@ using namespace mle;  // NOLINT
 
 TEST(Shader, LoadVertexShader) {
     auto& cache = Renderer::i().shaderCache();
-    auto* shader = cache.get("i/test.vert");
-    ASSERT_NE(shader, nullptr);
+    const auto& shader = cache.get("i/test.vert");
 
-    EXPECT_EQ(shader->makePipelineShaderStageCreateInfo().stage, vk::ShaderStageFlagBits::eVertex);
+    EXPECT_EQ(shader.makePipelineShaderStageCreateInfo().stage, vk::ShaderStageFlagBits::eVertex);
 
     // Check vertex attributes
-    const auto& attrs = shader->getVertexAttributes();
+    const auto& attrs = shader.getVertexAttributes();
     EXPECT_EQ(attrs.size(),
               8);  // ini_pos, ini_size, ini_color, ini_outline_color, ini_texture_offset, ini_texture_size, ini_texture_index, ini_outline_thickness
 
@@ -26,12 +25,11 @@ TEST(Shader, LoadVertexShader) {
 
 TEST(Shader, LoadFragmentShader) {
     auto& cache = Renderer::i().shaderCache();
-    auto* shader = cache.get("i/test.frag");
-    ASSERT_NE(shader, nullptr);
+    const auto& shader = cache.get("i/test.frag");
 
-    EXPECT_EQ(shader->makePipelineShaderStageCreateInfo().stage, vk::ShaderStageFlagBits::eFragment);
+    EXPECT_EQ(shader.makePipelineShaderStageCreateInfo().stage, vk::ShaderStageFlagBits::eFragment);
 
-    const auto& sets = shader->mergeDescriptorSets(*shader);
+    const auto& sets = shader.mergeDescriptorSets(shader);
     ASSERT_GE(sets.size(), 2);
 
     // Set 0: texture2D array
@@ -47,12 +45,10 @@ TEST(Shader, LoadFragmentShader) {
 
 TEST(Shader, VertexAndFragmentMergeDescriptorSets) {
     auto& cache = Renderer::i().shaderCache();
-    auto* vert = cache.get("i/test.vert");
-    auto* frag = cache.get("i/test.frag");
-    ASSERT_NE(vert, nullptr);
-    ASSERT_NE(frag, nullptr);
+    const auto& vert = cache.get("i/test.vert");
+    const auto& frag = cache.get("i/test.frag");
 
-    auto merged = vert->mergeDescriptorSets(*frag);
+    auto merged = vert.mergeDescriptorSets(frag);
 
     EXPECT_EQ(merged.size(), 2);
     EXPECT_EQ(merged[0].set, 0);
@@ -61,26 +57,23 @@ TEST(Shader, VertexAndFragmentMergeDescriptorSets) {
 
 TEST(Shader, PushConstantReflection) {
     auto& cache = Renderer::i().shaderCache();
-    auto* vert = cache.get("i/test.vert");
-    ASSERT_NE(vert, nullptr);
+    const auto& vert = cache.get("i/test.vert");
 
-    const auto& pc_fields = vert->getPushConstantFields();
+    const auto& pc_fields = vert.getPushConstantFields();
     EXPECT_TRUE(pc_fields.empty());
-    EXPECT_EQ(vert->getPushConstantRange().size, 0);
+    EXPECT_EQ(vert.getPushConstantRange().size, 0);
 }
 
 TEST(Shader, DescriptorSetBindingMerge) {
     auto& cache = Renderer::i().shaderCache();
-    auto* frag = cache.get("i/test.frag");
-    auto* frag2 = cache.get("i/test.frag");
-    ASSERT_NE(frag, nullptr);
-    ASSERT_NE(frag2, nullptr);
+    const auto& frag = cache.get("i/test.frag");
+    const auto& frag2 = cache.get("i/test.frag");
 
-    auto merged = frag->mergeDescriptorSets(*frag2);
-    EXPECT_EQ(merged.size(), frag->getDescriptorSets().size());
+    auto merged = frag.mergeDescriptorSets(frag2);
+    EXPECT_EQ(merged.size(), frag.getDescriptorSets().size());
     for (size_t i = 0; i < merged.size(); ++i) {
-        EXPECT_EQ(merged[i].set, frag->getDescriptorSets()[i].set);
-        EXPECT_EQ(merged[i].bindings.size(), frag->getDescriptorSets()[i].bindings.size());
+        EXPECT_EQ(merged[i].set, frag.getDescriptorSets()[i].set);
+        EXPECT_EQ(merged[i].bindings.size(), frag.getDescriptorSets()[i].bindings.size());
     }
 }
 

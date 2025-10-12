@@ -2,6 +2,7 @@
 
 #include "CommandManager.h"
 #include "SyncManager.h"
+#include "mle/renderer/PipelineCache.h"
 #include "mle/renderer/ShaderCache.h"
 #include "mle/renderer/VkCtx.h"
 #include "mle/utils/Utils.h"
@@ -22,6 +23,7 @@ class Renderer {
     auto& syncManager() { return sync_manager_; }
     auto& syncMgr() { return sync_manager_; }
     auto& shaderCache() { return shader_cache_; }
+    auto& pipelineCache() { return pipeline_cache_; }
 
     template <class T>
     void destroy(T o) {
@@ -33,5 +35,6 @@ class Renderer {
     RendererCommandManager command_manager_;
     RendererSyncManager sync_manager_;
     ShaderCache shader_cache_;
+    PipelineCache pipeline_cache_;
 };
 }  // namespace mle

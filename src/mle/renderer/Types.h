@@ -33,6 +33,12 @@ class CommandBuffer;
 class RendererCommandManager;
 class ResetCommandPool;
 
+class Pipeline;
+using PipelineHnd = std::unique_ptr<Pipeline>;
+using PipelineRef = Pipeline*;
+
+class PipelineCache;
+
 enum class GCmdType : u8 { GRAPHICS = 0, COMPUTE = 1, TRANSFER = 2, G = GRAPHICS, C = COMPUTE, T = TRANSFER };
 
 using QueueDataIdx = u32;

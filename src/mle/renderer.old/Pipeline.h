@@ -20,7 +20,6 @@ namespace mle::renderer {
 class Pipeline final : public LiveCounter<Pipeline> {
   public:
     /// Configuration for creating a graphics pipeline.
-    /// TODO: I hate the fact that I use vectors here...
     struct CreateInfo {
         ShaderRef vertex_shader = nullptr;    ///< Vertex shader module.
         ShaderRef fragment_shader = nullptr;  ///< Fragment shader module.

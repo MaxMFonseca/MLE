@@ -535,8 +535,8 @@ void VkCtx::initDevice() {
 #ifdef MLE_IS_CLIENT
     vulkan12_features.descriptorIndexing = vk::True;
     vulkan12_features.runtimeDescriptorArray = vk::True;
-    vulkan12_features.descriptorBindingSampledImageUpdateAfterBind = vk::True;
     vulkan12_features.descriptorBindingVariableDescriptorCount = vk::True;
+    vulkan12_features.descriptorBindingSampledImageUpdateAfterBind = vk::True;
     vulkan12_features.descriptorBindingUpdateUnusedWhilePending = vk::True;
     vulkan12_features.descriptorBindingPartiallyBound = vk::True;
 #endif

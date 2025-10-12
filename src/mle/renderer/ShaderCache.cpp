@@ -5,10 +5,10 @@
 #include "mle/utils/File.h"
 
 namespace mle {
-ShaderRef ShaderCache::get(const std::string& name) {
+const Shader& ShaderCache::get(const std::string& name) {
     auto found = shaders_.find(name);
     if (found != shaders_.end()) {
-        return found->second.get();
+        return *found->second;
     }
 
     Path path = ResPath::RES;
@@ -23,7 +23,7 @@ ShaderRef ShaderCache::get(const std::string& name) {
 
     auto emplace_r = shaders_.emplace(name, std::move(shader));
 
-    return emplace_r.first->second.get();
+    return *emplace_r.first->second;
 }
 
 void ShaderCache::shutdown() {

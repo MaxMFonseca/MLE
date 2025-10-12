@@ -9,7 +9,7 @@ class ShaderCache {
     MLE_NO_COPY_MOVE(ShaderCache)
     ~ShaderCache() = default;
 
-    ShaderRef get(const std::string& name);
+    const Shader& get(const std::string& name);
 
   private:
     friend Renderer;
