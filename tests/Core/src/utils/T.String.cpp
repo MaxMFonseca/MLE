@@ -178,3 +178,94 @@ TEST(ToUtf32, Empty) {
     auto s32 = mle::toUtf32("");
     EXPECT_TRUE(s32.empty());
 }
+
+TEST(Trim, EmptyAndSpaces) {
+    EXPECT_EQ(trim(""), "");
+    EXPECT_EQ(trim("   "), "");
+    EXPECT_EQ(trim("\t \n"), "");
+    EXPECT_EQ(trim("  abc  "), "abc");
+    EXPECT_EQ(trim("abc"), "abc");
+    EXPECT_EQ(trim(" abc\ndef\t"), "abc\ndef");
+}
+
+TEST(SplitNumSuffix, PureNumber) {
+    auto [v, suf] = splitNumSuffix("42");
+    EXPECT_FLOAT_EQ(v, 42.0F);
+    EXPECT_TRUE(suf.empty());
+}
+
+TEST(SplitNumSuffix, NumberThenLetters) {
+    auto [v, suf] = splitNumSuffix("42kg");
+    EXPECT_FLOAT_EQ(v, 42.0F);
+    EXPECT_EQ(suf, "kg");
+}
+
+TEST(SplitNumSuffix, DecimalFraction) {
+    auto [v, suf] = splitNumSuffix("3.14159rad");
+    EXPECT_FLOAT_EQ(v, 3.14159F);
+    EXPECT_EQ(suf, "rad");
+}
+
+TEST(SplitNumSuffix, NegativeNumber) {
+    auto [v, suf] = splitNumSuffix("-0.5m");
+    EXPECT_FLOAT_EQ(v, -0.5F);
+    EXPECT_EQ(suf, "m");
+}
+
+TEST(SplitNumSuffix, ScientificNotation) {
+    auto [v1, s1] = splitNumSuffix("1e3ms");
+    EXPECT_FLOAT_EQ(v1, 1000.0F);
+    EXPECT_EQ(s1, "ms");
+
+    auto [v2, s2] = splitNumSuffix("1.0e-3s");
+    EXPECT_FLOAT_EQ(v2, 0.001F);
+    EXPECT_EQ(s2, "s");
+}
+
+TEST(SplitNumSuffix, PlusSign) {
+    auto [v, suf] = splitNumSuffix("+7.5V");
+    EXPECT_FLOAT_EQ(v, 7.5F);
+    EXPECT_EQ(suf, "V");
+}
+
+TEST(SplitNumSuffix, LeadingWhitespaceIsIgnored) {
+    auto [v, suf] = splitNumSuffix("   12kg");
+    EXPECT_FLOAT_EQ(v, 12.0F);
+    EXPECT_EQ(suf, "kg");
+}
+
+TEST(SplitNumSuffix, TrailingWhitespaceIsIgnored) {
+    auto [v, suf] = splitNumSuffix("12kg   ");
+    EXPECT_FLOAT_EQ(v, 12.0F);
+    EXPECT_EQ(suf, "kg");
+}
+
+TEST(SplitNumSuffix, InternalWhitespaceAfterNumberIsSkippedInSuffix) {
+    auto [v, suf] = splitNumSuffix("12   kg");
+    EXPECT_FLOAT_EQ(v, 12.0F);
+    EXPECT_EQ(suf, "kg");
+}
+
+TEST(SplitNumSuffix, TabsAndNewlines) {
+    auto [v, suf] = splitNumSuffix("\t\n  8.5\tmA \n");
+    EXPECT_FLOAT_EQ(v, 8.5F);
+    EXPECT_EQ(suf, "mA");
+}
+
+TEST(SplitNumSuffix, NoNumberAtStart) {
+    auto [v, suf] = splitNumSuffix("  kg ");
+    EXPECT_FLOAT_EQ(v, 0.0F);
+    EXPECT_EQ(suf, "kg");
+}
+
+TEST(SplitNumSuffix, EmptyString) {
+    auto [v, suf] = splitNumSuffix("");
+    EXPECT_FLOAT_EQ(v, 0.0F);
+    EXPECT_EQ(suf, "");
+}
+
+TEST(SplitNumSuffix, OutOfRangeIsFailureAndReturnsTrimmedInput) {
+    auto [v, suf] = splitNumSuffix("  1e9999x  ");
+    EXPECT_FLOAT_EQ(v, 0.0F);
+    EXPECT_EQ(suf, "1e9999x");
+}

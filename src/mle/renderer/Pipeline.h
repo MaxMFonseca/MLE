@@ -15,9 +15,9 @@ class Pipeline final {
         vk::CullModeFlags cull_mode = vk::CullModeFlagBits::eBack;
         vk::FrontFace front_face = vk::FrontFace::eCounterClockwise;
         bool line_width_dynamic = false;
-        std::vector<vk::Format> color_attachment_formats;
-        std::vector<vk::PipelineColorBlendAttachmentState> blend_attachments;
-        std::vector<vk::DynamicState> dynamic_states = {vk::DynamicState::eViewport, vk::DynamicState::eScissor};
+        std::span<const vk::Format> color_attachment_formats;
+        std::span<const vk::PipelineColorBlendAttachmentState> blend_attachments;
+        std::span<const vk::DynamicState> dynamic_states;
         bool depth = false;
         bool depth_write = true;
         bool depth_bias = false;

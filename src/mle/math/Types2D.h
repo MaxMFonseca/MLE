@@ -6,7 +6,9 @@
 
 #include <span>
 
+#include "Intersect2D.h"
 #include "Types.h"
+#include "mle/utils/Utils.h"
 
 namespace mle {
 /**
@@ -35,60 +37,192 @@ using Extent2d = Extent2<f64>;  ///< 2D double-precision extent.
  * @tparam T Scalar type (e.g., f32, i32)
  */
 template <typename T>
-struct Rect {
-    vec2<T> pos;   ///< Top-left corner of the rectangle.
-    vec2<T> size;  ///< The size of the rectangle.
-
+class Rect {
+  public:
     /// Constructs a ZERO rectangle.
-    Rect() = default;
+    constexpr Rect() = default;
 
     /// Constructs a rectangle from raw components.
-    Rect(T x, T y, T width, T height) :
-        pos(x, y),
-        size(width, height) {}
+    constexpr Rect(T x, T y, T width, T height) {
+        setPos(x, y);
+        setSize(width, height);
+    }
 
     /// Constructs a rectangle from a position and extent
-    Rect(vec2<T> pos, Extent2<T> size) :
-        pos(pos),
-        size(size) {}
+    constexpr Rect(vec2<T> pos, Extent2<T> size) :
+        Rect(pos.x, pos.y, size.x, size.y) {}
 
-    [[nodiscard]] constexpr T left() const { return pos.x; }             ///< Left edge (x position).
-    [[nodiscard]] constexpr T right() const { return pos.x + size.x; }   ///< Right edge (x + width).
-    [[nodiscard]] constexpr T top() const { return pos.y; }              ///< Top edge (y position).
-    [[nodiscard]] constexpr T bottom() const { return pos.y + size.y; }  ///< Bottom edge (y + height).
+    constexpr void setPosX(T v) { pos_.x = v; }          ///< Sets the x position of the rectangle.
+    constexpr void setPosY(T v) { pos_.y = v; }          ///< Sets the y position of the rectangle.
+    constexpr void setPos(vec2<T> pos) { pos_ = pos; }   ///< Sets the position of the rectangle.
+    constexpr void setPos(T x, T y) { setPos({x, y}); }  ///< Sets the position of the rectangle.
 
-    [[nodiscard]] constexpr T width() const { return size.x; }   ///< Width of the rectangle.
-    [[nodiscard]] constexpr T height() const { return size.y; }  ///< Height of the rectangle.
+    /// Sets the width of the rectangle.
+    constexpr void setSizeX(T v) {
+        size_.x = v;
+        normalizeX();
+    }
+    constexpr void setWidth(T v) { setSizeX(v); }  ///< Sets the width of the rectangle.
+    constexpr void setW(T v) { setSizeX(v); }      ///< Sets the width of the rectangle.
 
-    [[nodiscard]] constexpr vec2<T> min() const { return pos; }         ///< Minimum corner of the rectangle.
-    [[nodiscard]] constexpr vec2<T> max() const { return pos + size; }  ///< Maximum corner of the rectangle.
+    /// Sets the height of the rectangle.
+    constexpr void setSizeY(T v) {
+        size_.y = v;
+        normalizeY();
+    }
+    constexpr void setHeight(T v) { setSizeY(v); }  ///< Sets the height of the rectangle.
+    constexpr void setH(T v) { setSizeY(v); }       ///< Sets the height of the rectangle.
 
-    [[nodiscard]] constexpr vec2<T> center() const { return pos + (size * 0.5F); }  ///< Center of the rectangle.
+    /// Sets the size of the rectangle.
+    constexpr void setSize(vec2<T> size) {
+        size_ = size;
+        normalizeX();
+        normalizeY();
+    }
+    constexpr void setSize(T width, T height) { setSize({width, height}); }  ///< Sets the size of the rectangle.
+    constexpr void setWH(T width, T height) { setSize({width, height}); }    ///< Sets the size of the rectangle.
 
-    /// True if width and height are greater than 0.
-    [[nodiscard]] constexpr bool valid() const { return width() > 0 && height() > 0; }
+    /// Sets the left edge of the rectangle, adjusting position and width.
+    constexpr void setLeft(T v) {
+        T delta = v - left();
+        pos_.x += delta;
+        size_.x -= delta;
+        normalizeX();
+    }
+    constexpr void setL(T v) { setLeft(v); }  ///< Sets the left edge of the rectangle.
+
+    /// Sets the right edge of the rectangle, adjusting width.
+    constexpr void setRight(T v) {
+        size_.x = v - pos_.x;
+        normalizeX();
+    }
+    constexpr void setR(T v) { setRight(v); }  ///< Sets the right edge of the rectangle.
+
+    /// Sets the top edge of the rectangle, adjusting position and height.
+    constexpr void setTop(T v) {
+        T delta = v - top();
+        pos_.y += delta;
+        size_.y -= delta;
+        normalizeY();
+    }
+    constexpr void setT(T v) { setTop(v); }  ///< Sets the top edge of the rectangle.
+
+    /// Sets the bottom edge of the rectangle, adjusting height.
+    constexpr void setBottom(T v) {
+        size_.y = v - pos_.y;
+        normalizeY();
+    }
+    constexpr void setB(T v) { setBottom(v); }  ///< Sets the bottom edge of the rectangle.
+
+    /// Sets position and size.
+    constexpr void set(T x, T y, T width, T height) {
+        setPos(x, y);
+        setSize(width, height);
+    }
+    /// Sets position and size.
+    constexpr void set(vec2<T> pos, vec2<T> size) {
+        setPos(pos);
+        setSize(size);
+    }
+
+    /// Expands this rectangle to include a point.
+    constexpr void expand(vec2<T> p) {
+        const vec2<T> old_min = min();
+        const vec2<T> old_max = max();
+
+        const vec2<T> new_min{glm::min(old_min.x, p.x), glm::min(old_min.y, p.y)};
+        const vec2<T> new_max{glm::max(old_max.x, p.x), glm::max(old_max.y, p.y)};
+
+        pos_ = new_min;
+        size_ = new_max - new_min;
+    }
+
+    /// Expands this rectangle to include a set of points.
+    constexpr void expand(std::span<const vec2<T>> points) {
+        if (points.empty()) {
+            return;
+        }
+
+        vec2<T> min_v = pos_;
+        vec2<T> max_v = pos_ + size_;
+
+        for (const auto& p : points) {
+            min_v.x = glm::min(min_v.x, p.x);
+            min_v.y = glm::min(min_v.y, p.y);
+            max_v.x = glm::max(max_v.x, p.x);
+            max_v.y = glm::max(max_v.y, p.y);
+        }
+
+        pos_ = min_v;
+        size_ = max_v - min_v;
+    }
+
+    /// Creates a rectangle that encloses a set of points.
+    [[nodiscard]] static constexpr Rect<T> fromPoints(std::span<const vec2<T>> points) {
+        assert(!points.empty());
+        Rect<T> r{points[0].x, points[0].y, 0, 0};
+        r.expand(points);
+        return r;
+    }
+
+    /// Expands this rectangle to include another rectangle.
+    constexpr void expand(const Rect<T>& other) {
+        expand(other.min());
+        expand(other.max());
+    }
+
+    /// Creates a rectangle representing the intersection of this and another rectangle.
+    [[nodiscard]] constexpr Rect<T> intersection(const Rect<T>& other) const {
+        const vec2<T> a_min = pos_;
+        const vec2<T> a_max = pos_ + size_;
+        const vec2<T> b_min = other.pos();
+        const vec2<T> b_max = other.pos() + other.size();
+
+        const vec2<T> i_min{glm::max(a_min.x, b_min.x), glm::max(a_min.y, b_min.y)};
+        const vec2<T> i_max{glm::min(a_max.x, b_max.x), glm::min(a_max.y, b_max.y)};
+
+        const vec2<T> i_size{glm::max(T(0), i_max.x - i_min.x), glm::max(T(0), i_max.y - i_min.y)};
+
+        return Rect<T>(i_min, i_size);
+    }
 
     /// Translates rectangle by a given offset.
-    constexpr void move(vec2<T> offset) { pos += offset; }
+    constexpr void move(vec2<T> offset) { pos_ += offset; }
+
+    [[nodiscard]] constexpr vec2<T> pos() const { return pos_; }    ///< Top-left corner of the rectangle.
+    [[nodiscard]] constexpr vec2<T> size() const { return size_; }  ///< Size (width, height) of the rectangle.
+
+    [[nodiscard]] constexpr T left() const { return pos_.x; }              ///< Left edge (x position).
+    [[nodiscard]] constexpr T right() const { return pos_.x + size_.x; }   ///< Right edge (x + width).
+    [[nodiscard]] constexpr T top() const { return pos_.y; }               ///< Top edge (y position).
+    [[nodiscard]] constexpr T bottom() const { return pos_.y + size_.y; }  ///< Bottom edge (y + height).
+
+    [[nodiscard]] constexpr T width() const { return size_.x; }   ///< Width of the rectangle.
+    [[nodiscard]] constexpr T height() const { return size_.y; }  ///< Height of the rectangle.
+
+    [[nodiscard]] constexpr vec2<T> min() const { return pos_; }          ///< Minimum corner of the rectangle.
+    [[nodiscard]] constexpr vec2<T> max() const { return pos_ + size_; }  ///< Maximum corner of the rectangle.
+
+    /// Center of the rectangle.
+    [[nodiscard]] constexpr vec2<T> center() const
+        requires std::is_floating_point_v<T>
+    {
+        return pos_ + (size_ * 0.5F);
+    }
 
     /// True if the rectangles are equal. Only enabled for integer types
     [[nodiscard]] constexpr bool operator==(const Rect<T>& other) const
         requires(!std::is_floating_point_v<T>)
     {
-        return pos == other.pos && size == other.size;
+        return pos_ == other.pos_ && size_ == other.size_;
     }
-
-    // ---------- Float-only member functions ----------
 
     /// True if the rectangles are equal within a given epsilon.
     [[nodiscard]] constexpr bool almostEqual(const Rect<T>& rhs, T epsilon) const
         requires std::is_floating_point_v<T>
     {
-        return feq(pos.x, rhs.pos.x, epsilon) && feq(pos.y, rhs.pos.y, epsilon) && feq(size.x, rhs.size.x, epsilon) && feq(size.y, rhs.size.y, epsilon);
+        return feq(pos_.x, rhs.pos_.x, epsilon) && feq(pos_.y, rhs.pos_.y, epsilon) && feq(size_.x, rhs.size_.x, epsilon) && feq(size_.y, rhs.size_.y, epsilon);
     }
-
-    /// True if point is inside rectangle (inclusive).
-    [[nodiscard]] constexpr bool contains(vec2<T> point) const { return left() <= point.x && point.x <= right() && top() <= point.y && point.y <= bottom(); }
 
     /**
      * @brief Returns the normalized coordinates of a point inside this rectangle (aka local UV).
@@ -98,7 +232,7 @@ struct Rect {
     [[nodiscard]] constexpr vec2<T> localCoords(vec2<T> point) const
         requires std::is_floating_point_v<T>
     {
-        return {(point.x - pos.x) / size.x, (point.y - pos.y) / size.y};
+        return {(point.x - pos_.x) / size_.x, (point.y - pos_.y) / size_.y};
     }
 
     /// Clamps a point to [0,1] normalized space of the rectangle.
@@ -113,8 +247,8 @@ struct Rect {
         requires std::is_floating_point_v<T>
     {
         Rect<T> ret;
-        ret.pos = glm::clamp(pos, bounds.pos, bounds.pos + bounds.size);
-        ret.size = glm::max(vec2<T>{0}, glm::min(bounds.pos + bounds.size - ret.pos, size - (ret.pos - pos)));
+        ret.pos_ = glm::clamp(pos_, bounds.pos_, bounds.pos_ + bounds.size_);
+        ret.size_ = glm::max(vec2<T>{0}, glm::min(bounds.pos_ + bounds.size_ - ret.pos_, size_ - (ret.pos_ - pos_)));
         return ret;
     }
 
@@ -123,17 +257,46 @@ struct Rect {
         requires std::is_floating_point_v<T>
     {
         Rect<T> ret;
-        ret.pos.x = (to.pos.x - pos.x) / size.x;
-        ret.pos.y = (to.pos.y - pos.y) / size.y;
-        ret.size.x = to.size.x / size.x;
-        ret.size.y = to.size.y / size.y;
+        ret.pos_.x = (to.pos_.x - pos_.x) / size_.x;
+        ret.pos_.y = (to.pos_.y - pos_.y) / size_.y;
+        ret.size_.x = to.size_.x / size_.x;
+        ret.size_.y = to.size_.y / size_.y;
         return ret;
     }
 
     /// Returns a rectangle with the same position and size, but with floating-point precision.
-    [[nodiscard]] constexpr Rect<f32> asF32() const { return {as<f32>(pos.x), as<f32>(pos.y), as<f32>(size.x), as<f32>(size.y)}; }
+    [[nodiscard]] constexpr Rect<f32> asF32() const { return {as<f32>(pos_.x), as<f32>(pos_.y), as<f32>(size_.x), as<f32>(size_.y)}; }
     /// Returns a rectangle with the same position and size, but with int precision
-    [[nodiscard]] constexpr Rect<i32> asI32() const { return {as<i32>(pos.x), as<i32>(pos.y), as<i32>(size.x), as<i32>(size.y)}; }
+    [[nodiscard]] constexpr Rect<i32> asI32() const { return {as<i32>(pos_.x), as<i32>(pos_.y), as<i32>(size_.x), as<i32>(size_.y)}; }
+    /// Returns {top, bottom, left, right}.
+    [[nodiscard]] constexpr auto asTBLR() const { return std::array<T, 4>{top(), bottom(), left(), right()}; }
+
+    template <typename U>
+    [[nodiscard]] constexpr bool intersect(const U& o, f32 eps = FloatTolerance<f32>::REL) const
+        requires std::is_floating_point_v<T>
+    {
+        return Intersect2D::intersect(*this, o, eps);
+    }
+
+  private:
+    /// Normalizes the rectangle to ensure positive width.
+    constexpr void normalizeX() {
+        if (size_.x < 0) {
+            pos_.x += size_.x;
+            size_.x = -size_.x;
+        }
+    }
+    /// Normalizes the rectangle to ensure positive height.
+    constexpr void normalizeY() {
+        if (size_.y < 0) {
+            pos_.y += size_.y;
+            size_.y = -size_.y;
+        }
+    }
+
+  private:
+    vec2<T> pos_;   ///< Top-left corner of the rectangle.
+    vec2<T> size_;  ///< The size of the rectangle.
 };
 
 /**
@@ -146,55 +309,7 @@ using Rectf = Rect<f32>;  ///< 2D floating-point rectangle.
 using Rectd = Rect<f64>;  ///< 2D double-precision rectangle.
 /// @}
 
-/**
- * @brief A 2D axis-aligned bounding box.
- * @ingroup MathTypes
- */
-class AABB2D {
-  public:
-    AABB2D() = default;
-
-    /// Constructs from min and max points.
-    AABB2D(vec2f min, vec2f max) :
-        min_(min),
-        max_(max) {}
-
-    /// Creates an AABB from a set of points.
-    explicit AABB2D(std::span<const vec2f> points);
-
-    /// Returns the minimum corner.
-    [[nodiscard]] vec2f min() const { return min_; }
-
-    /// Returns the maximum corner.
-    [[nodiscard]] vec2f max() const { return max_; }
-
-    void setMin(vec2f min) { min_ = min; }  ///< Sets the minimum corner.
-    void setMax(vec2f max) { max_ = max; }  ///< Sets the maximum corner.
-
-    /// Returns the center of the box.
-    [[nodiscard]] vec2f center() const { return (min_ + max_) * 0.5F; }
-
-    /// Returns the size (width, height).
-    [[nodiscard]] vec2f size() const { return max_ - min_; }
-
-    /// Returns the HalfSize
-    [[nodiscard]] vec2f halfSize() const { return size() * 0.5F; }
-
-    /// Returns true if the box contains the point.
-    [[nodiscard]] bool contains(vec2f p) const { return p.x >= min_.x && p.x <= max_.x && p.y >= min_.y && p.y <= max_.y; }
-
-    /// Expands the box to include the given point.
-    void expand(vec2f p);
-
-    /// Returns true if the box intersects another box.
-    [[nodiscard]] bool intersects(const AABB2D& other) const {
-        return max_.x >= other.min_.x && min_.x <= other.max_.x && max_.y >= other.min_.y && min_.y <= other.max_.y;
-    }
-
-  private:
-    vec2f min_{mle::max<f32>()};  ///< Minimum corner.
-    vec2f max_{mle::min<f32>()};  ///< Maximum corner.
-};
+Rectf makeAABB2D(std::span<const vec2f> points);  ///< Creates an AABB that encloses a set of points.
 
 /**
  * @brief Infinite line represented by a point and a normalized direction.
@@ -230,8 +345,10 @@ class Line2D {
     /// Returns the (normalized) direction of the line.
     [[nodiscard]] constexpr vec2f direction() const { return direction_; }
 
-    /// Resturns true if the line contains a point (within epsilon).
-    [[nodiscard]] bool contains(vec2f point, f32 epsilon = 1e-5F) const;
+    template <typename U>
+    [[nodiscard]] constexpr bool intersect(const U& o, f32 eps = FloatTolerance<f32>::REL) const {
+        return Intersect2D::intersect(*this, o, eps);
+    }
 
   private:
     vec2f origin_;
@@ -275,8 +392,10 @@ class LineSegment2D {
     /// Returns the closest point on the segment to a given point.
     [[nodiscard]] vec2f closestPoint(vec2f point) const;
 
-    /// True if the point lies on the segment (within epsilon).
-    [[nodiscard]] bool contains(vec2f point, f32 epsilon = 1e-5F) const;
+    template <typename U>
+    [[nodiscard]] constexpr bool intersect(const U& o, f32 eps = FloatTolerance<f32>::REL) const {
+        return Intersect2D::intersect(*this, o, eps);
+    }
 
   private:
     vec2f a_;
@@ -317,6 +436,11 @@ class Ray2D {
     /// Returns the (normalized) direction of the ray.
     [[nodiscard]] constexpr vec2f getDirection() const { return direction_; }
 
+    template <typename U>
+    [[nodiscard]] constexpr bool intersect(const U& o, f32 eps = FloatTolerance<f32>::REL) const {
+        return Intersect2D::intersect(*this, o, eps);
+    }
+
   private:
     vec2f origin_;
     vec2f direction_;
@@ -337,7 +461,10 @@ class Polygon2f {
     /// Returns the vertices.
     [[nodiscard]] const std::vector<vec2f>& vertices() const { return verts_; }
 
-    [[nodiscard]] AABB2D boundingBox() const { return AABB2D{verts_}; }
+    /// Returns the i-th vertex.
+    [[nodiscard]] vec2f vertex(usize i) const { return verts_.at(i); }
+
+    [[nodiscard]] auto boundingBox() const { return Rectf::fromPoints(verts_); };
 
     /// Returns the number of vertices.
     [[nodiscard]] u64 vertexCount() const { return verts_.size(); }
@@ -351,11 +478,13 @@ class Polygon2f {
     /// Returns the signed area of the polygon.
     [[nodiscard]] f32 area() const;
 
-    /// Returns true if the point is inside the polygon.
-    [[nodiscard]] bool contains(vec2f p) const;
-
     /// Sorts the vertices counter-clockwise.
     void sortCCW();
+
+    template <typename U>
+    [[nodiscard]] constexpr bool intersect(const U& o, f32 eps = FloatTolerance<f32>::REL) const {
+        return Intersect2D::intersect(*this, o, eps);
+    }
 
   private:
     std::vector<vec2f> verts_;  ///< List of vertices.
@@ -396,14 +525,13 @@ class Circle {
     /// Returns the signed distance from a point to the circle boundary.
     [[nodiscard]] f32 signedDistance(vec2f point) const { return glm::length(point - center_) - radius_; }
 
-    /// Returns true if the point is inside or on the circle.
-    [[nodiscard]] bool contains(vec2f point) const { return glm::distance2(point, center_) <= radius2_; }
-
-    /// Returns true if this circle intersects another circle.
-    [[nodiscard]] bool intersects(const Circle& other) const;
-
     /// Returns the closest point on the circle boundary to the given point.
     [[nodiscard]] vec2f closestPoint(vec2f point) const;
+
+    template <typename U>
+    [[nodiscard]] constexpr bool intersect(const U& o, f32 eps = FloatTolerance<f32>::REL) const {
+        return Intersect2D::intersect(*this, o, eps);
+    }
 
   private:
     vec2f center_{};  ///< Center of the circle.
@@ -417,7 +545,7 @@ template <typename T>
 struct formatter<mle::Rect<T>> : formatter<std::string> {
     template <typename FormatContext>
     constexpr auto format(const mle::Rect<T>& rect, FormatContext& ctx) const {
-        return format_to(ctx.out(), "[pos:{}, size:{}]", rect.pos, rect.size);
+        return format_to(ctx.out(), "[pos:{}, size:{}]", rect.pos_, rect.size_);
     }
 };
 
@@ -453,16 +581,11 @@ struct formatter<mle::Polygon2f> : formatter<std::string> {
         for (const auto& v : polygon.vertices()) {
             verts_str += fmt::format("{} ", v);
         }
-        verts_str.pop_back();
-        return format_to(ctx.out(), "[vertices:{{{}}}]", verts_str);
-    }
-};
-
-template <>
-struct formatter<mle::AABB2D> : formatter<std::string> {
-    template <typename FormatContext>
-    constexpr auto format(const mle::AABB2D& box, FormatContext& ctx) const {
-        return format_to(ctx.out(), "[min:{}, max:{}]", box.min(), box.max());
+        if (!verts_str.empty()) {
+            verts_str.pop_back();
+            return format_to(ctx.out(), "[vertices:{{{}}}]", verts_str);
+        }
+        return format_to(ctx.out(), "[vertices:[]]");
     }
 };
 }  // namespace fmt

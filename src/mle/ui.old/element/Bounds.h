@@ -3,6 +3,7 @@
 #include "mle/common/Assert.h"
 #include "mle/common/math/Types2D.h"
 #include "mle/lua/Types.h"
+#include "mle/math/Types2D.h"
 #include "mle/ui/Types.h"
 #include "sol/forward.hpp"
 
@@ -41,13 +42,15 @@ struct Bounds {
     void apply(entt::entity self, const sol::object& obj);
 };
 
-struct Padding {
+struct TargetPadding {
     TargetBound t, b, l, r;
 
     void apply(entt::entity self, const sol::object& obj);
 
-    // BoxFace enum
-    [[nodiscard]] std::array<int, 4> calcOnRect(Recti rect) const;
+    struct PaddingValuesPx {
+        int t = 0, b = 0, l = 0, r = 0;
+    };
+    [[nodiscard]] PaddingValuesPx calcOnRect(Recti rect) const;
 };
 
 struct TargetSize {

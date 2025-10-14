@@ -127,16 +127,6 @@ template <typename T>
     return std::numeric_limits<T>::infinity();
 }
 
-/// Compares two floating-point numbers for approximate equality.
-///
-/// Epsilon must be provided explicitly to reflect the comparison context.
-template <typename T>
-[[nodiscard]] constexpr bool feq(T a, T b, T epsilon)
-    requires std::is_floating_point_v<T>
-{
-    return std::abs(a - b) < epsilon;
-}
-
 /// Computes 2 raised to the power of x (i.e., the x-th bit set).
 template <typename T>
 [[nodiscard]] constexpr T bit(T x)

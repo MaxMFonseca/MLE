@@ -36,8 +36,10 @@ TEST(Pipeline, CreateGraphicsPipeline) {
     Pipeline::CreateInfo ci;
     ci.vertex_shader = &vert;
     ci.fragment_shader = &frag;
-    ci.color_attachment_formats = {vk::Format::eR8G8B8A8Unorm};
-    ci.blend_attachments = {vk::PipelineColorBlendAttachmentState{}};
+    std::array color_attachment_formats{vk::Format::eR8G8B8A8Unorm};
+    ci.color_attachment_formats = color_attachment_formats;
+    std::array blend_attachments{vk::PipelineColorBlendAttachmentState{}};
+    ci.blend_attachments = blend_attachments;
     ci.depth = false;
     ci.external_descriptor_set_layouts = {{0, vdc_descriptor_set_layout}};
 

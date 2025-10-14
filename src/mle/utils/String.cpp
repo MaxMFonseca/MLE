@@ -1,5 +1,7 @@
 #include "String.h"
 
+#include "mle/utils/Utils.h"
+
 namespace mle {
 std::vector<std::string_view> split(std::string_view s, char delim, bool keep_empty) {
     std::vector<std::string_view> ret;
@@ -55,4 +57,55 @@ std::u32string toUtf32(std::string_view s) {
     utf8::unchecked::utf8to32(it, end, std::back_inserter(result));
     return result;
 }
+
+bool isSpace(char c) {
+    return std::isspace(as<unsigned char>(c)) != 0;
+}
+
+std::string_view trim(std::string_view s) {
+    // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic) safe
+    const char* begin = s.data();
+    const char* end = begin + s.size();
+
+    while (begin < end && isSpace(*begin)) {
+        ++begin;
+    }
+    while (end > begin && isSpace(*(end - 1))) {
+        --end;
+    }
+
+    return {begin, as<usize>(end - begin)};
+    // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+}
+
+std::pair<f32, std::string_view> splitNumSuffix(std::string_view s) {
+    s = trim(s);
+
+    if (s.size() > 0 && s[0] == '+') {
+        s.remove_prefix(1);
+    }
+
+    const char* begin = s.data();
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic) safe
+    const char* end = begin + s.size();
+
+    f32 value = 0.0F;
+    const char* num_end = begin;
+
+    auto [ptr, ec] = std::from_chars(begin, end, value);
+    if (ec == std::errc()) {
+        num_end = ptr;
+    } else {
+        return {0.0F, s};
+    }
+
+    std::string_view suffix(num_end, end - num_end);
+
+    while (!suffix.empty() && isSpace(suffix.front())) {
+        suffix.remove_prefix(1);
+    }
+
+    return {value, suffix};
+}
+
 }  // namespace mle

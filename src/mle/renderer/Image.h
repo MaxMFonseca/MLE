@@ -67,7 +67,7 @@ class Image final {
     void initSwapchain(vk::Image o);
 
     void copyBuffer(CommandBuffer& cmd, Buffer& src, vec2u extent = {0, 0}, vec2i offset = {0, 0});
-    void copyBuffer(CommandBuffer& cmd, Buffer& src, Recti rect) { copyBuffer(cmd, src, vec2u{rect.size.x, rect.size.y}, {rect.pos.x, rect.pos.y}); }
+    void copyBuffer(CommandBuffer& cmd, Buffer& src, Recti rect) { copyBuffer(cmd, src, vec2u{rect.size()}, {rect.pos()}); }
     void copyImage(CommandBuffer& cmd, Image& src, vec2u extent = {0, 0}, vec2i src_offset = {0, 0}, vec2i dst_offset = {0, 0});
     void blitImage(CommandBuffer& cmd, Image& src, Recti src_rect = {0, 0, 0, 0}, Recti dst_rect = {0, 0, 0, 0});
     BufferHnd copyToBufferOTS(vec2u extent = {0, 0}, vec2i offset = {0, 0});

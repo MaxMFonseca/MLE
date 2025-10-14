@@ -44,6 +44,12 @@ std::string toUpper(std::string_view s);
 std::string toUtf8(std::u32string_view s);
 std::u32string toUtf32(std::string_view s);
 
+bool isSpace(char c);
+
+std::string_view trim(std::string_view s);
+
+std::pair<f32, std::string_view> splitNumSuffix(std::string_view s);
+
 }  // namespace mle
 
 namespace fmt {

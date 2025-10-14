@@ -410,9 +410,9 @@ inline Recti as(const sol::object& o) {
         return o.as<Recti>();
     }
     if (o.is<sol::table>()) {
-        Recti ret;
-        getList<i32>(o, ret.pos.x, ret.pos.y, ret.size.x, ret.size.y);
-        return ret;
+        int x = 0, y = 0, w = 0, h = 0;
+        getList<int>(o, x, y, w, h);
+        return {x, y, w, h};
     }
 
     MLE_UNREACHABLE_LOG("Cannot convert to Recti from {}", o.get_type());
@@ -427,9 +427,9 @@ inline Rectf as(const sol::object& o) {
         return o.as<Rectf>();
     }
     if (o.is<sol::table>()) {
-        Rectf ret;
-        getList<f32>(o, ret.pos.x, ret.pos.y, ret.size.x, ret.size.y);
-        return ret;
+        f32 x = 0, y = 0, w = 0, h = 0;
+        getList<f32>(o, x, y, w, h);
+        return {x, y, w, h};
     }
 
     MLE_UNREACHABLE_LOG("Cannot convert to Rectf from {}", o.get_type());

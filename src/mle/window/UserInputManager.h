@@ -112,8 +112,8 @@ class UserInputManager {
     bool isPressed(Key key) const;
     bool isReleased(Key key) const;
     bool isDown(Key key) const;
-    bool isCursorInside(const Rectf& rect) { return rect.contains(cursor_pos_); }
-    bool isCursorInsideNormalized(const Rectf& rect) { return rect.contains(cursor_pos_normalized_); }
+    bool isCursorInside(const Rectf& rect) { return rect.intersect(cursor_pos_); }
+    bool isCursorInsideNormalized(const Rectf& rect) { return rect.intersect(cursor_pos_normalized_); }
 
     bool isCtrl() const { return ctrl_; }
     bool isShift() const { return shift_; }

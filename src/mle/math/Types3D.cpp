@@ -316,7 +316,7 @@ bool Frustum::contains(const AABB& box) const {
     return true;
 }
 
-AABB2D AABB::translateToXZ(vec3f v) const {
+Rectf AABB::translateToXZ(vec3f v) const {
     const vec3f t_min = min_ + v;
     const vec3f t_max = max_ + v;
 
@@ -325,10 +325,13 @@ AABB2D AABB::translateToXZ(vec3f v) const {
     const f32 max_x = std::max(t_min.x, t_max.x);
     const f32 max_z = std::max(t_min.z, t_max.z);
 
-    return {{min_x, min_z}, {max_x, max_z}};
+    Rectf ret;
+    ret.expand({min_x, min_z});
+    ret.expand({max_x, max_z});
+    return ret;
 }
 
-AABB2D AABB::translateToXZ(const mat4f& mat) const {
+Rectf AABB::translateToXZ(const mat4f& mat) const {
     return translateToXZ(vec3f{mat[3][0], mat[3][1], mat[3][2]});
 }
 }  // namespace mle

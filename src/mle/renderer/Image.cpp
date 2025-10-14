@@ -214,44 +214,44 @@ void Image::blitImage(CommandBuffer& cmd, Image& src, Recti src_rect, Recti dst_
     checkQueueOwnership(cmd);
     src.checkQueueOwnership(cmd);
 
-    if (src_rect.size.x == 0) {
-        src_rect.size.x = as<int>(src.getExtent().x) - src_rect.pos.x;
+    if (src_rect.width() <= 0) {
+        src_rect.setWidth(as<int>(src.getExtent().x) - src_rect.width());
     }
-    if (src_rect.size.y == 0) {
-        src_rect.size.y = as<int>(src.getExtent().y) - src_rect.pos.y;
+    if (src_rect.height() <= 0) {
+        src_rect.setHeight(as<int>(src.getExtent().y) - src_rect.height());
     }
-    if (dst_rect.size.x == 0) {
-        dst_rect.size.x = as<int>(extent_.x) - dst_rect.pos.x;
+    if (dst_rect.width() <= 0) {
+        dst_rect.setWidth(as<int>(extent_.x) - dst_rect.width());
     }
-    if (dst_rect.size.y == 0) {
-        dst_rect.size.y = as<int>(extent_.y) - dst_rect.pos.y;
+    if (dst_rect.height() <= 0) {
+        dst_rect.setHeight(as<int>(extent_.y) - dst_rect.height());
     }
 
-    MLE_ASSERT(src_rect.size.x > 0 && src_rect.size.y > 0);
-    MLE_ASSERT(dst_rect.size.x > 0 && dst_rect.size.y > 0);
-    MLE_ASSERT(src_rect.pos.x + src_rect.size.x <= as<int>(src.getExtent().x) && src_rect.pos.y + src_rect.size.y <= as<int>(src.getExtent().y));
-    MLE_ASSERT(dst_rect.pos.x + dst_rect.size.x <= as<int>(extent_.x) && dst_rect.pos.y + dst_rect.size.y <= as<int>(extent_.y));
+    MLE_ASSERT(src_rect.width() > 0 && src_rect.height() > 0);
+    MLE_ASSERT(dst_rect.width() > 0 && dst_rect.height() > 0);
+    MLE_ASSERT(src_rect.pos().x + src_rect.width() <= as<int>(src.getExtent().x) && src_rect.pos().y + src_rect.height() <= as<int>(src.getExtent().y));
+    MLE_ASSERT(dst_rect.pos().x + dst_rect.width() <= as<int>(extent_.x) && dst_rect.pos().y + dst_rect.height() <= as<int>(extent_.y));
 
     vk::ImageBlit2 blit{};
     blit.srcSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
     blit.srcSubresource.mipLevel = 0;
     blit.srcSubresource.baseArrayLayer = 0;
     blit.srcSubresource.layerCount = 1;
-    blit.srcOffsets[0].x = src_rect.pos.x;
-    blit.srcOffsets[0].y = src_rect.pos.y;
+    blit.srcOffsets[0].x = src_rect.pos().x;
+    blit.srcOffsets[0].y = src_rect.pos().y;
     blit.srcOffsets[0].z = 0;
-    blit.srcOffsets[1].x = src_rect.pos.x + src_rect.size.x;
-    blit.srcOffsets[1].y = src_rect.pos.y + src_rect.size.y;
+    blit.srcOffsets[1].x = src_rect.pos().x + src_rect.size().x;
+    blit.srcOffsets[1].y = src_rect.pos().y + src_rect.size().y;
     blit.srcOffsets[1].z = 1;
     blit.dstSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
     blit.dstSubresource.mipLevel = 0;
     blit.dstSubresource.baseArrayLayer = 0;
     blit.dstSubresource.layerCount = 1;
-    blit.dstOffsets[0].x = dst_rect.pos.x;
-    blit.dstOffsets[0].y = dst_rect.pos.y;
+    blit.dstOffsets[0].x = dst_rect.pos().x;
+    blit.dstOffsets[0].y = dst_rect.pos().y;
     blit.dstOffsets[0].z = 0;
-    blit.dstOffsets[1].x = dst_rect.pos.x + dst_rect.size.x;
-    blit.dstOffsets[1].y = dst_rect.pos.y + dst_rect.size.y;
+    blit.dstOffsets[1].x = dst_rect.pos().x + dst_rect.size().x;
+    blit.dstOffsets[1].y = dst_rect.pos().y + dst_rect.size().y;
     blit.dstOffsets[1].z = 1;
 
     vk::BlitImageInfo2 blit_info{};

@@ -237,12 +237,16 @@ void Pipeline::createGraphicsPipeline(const CI& ci) {
     pipeline_ci.setPColorBlendState(&color_blend_state_ci);
 
     MLE_T("Dynamic state");
-    for (auto state : ci.dynamic_states) {
+    std::vector<vk::DynamicState> dynamic_states;
+    dynamic_states.assign(ci.dynamic_states.begin(), ci.dynamic_states.end());
+    dynamic_states.push_back(vk::DynamicState::eViewport);
+    dynamic_states.push_back(vk::DynamicState::eScissor);
+    for (auto state : dynamic_states) {
         MLE_T("{}", vk::to_string(state));
     }
 
     vk::PipelineDynamicStateCreateInfo dynamic_state_ci;
-    dynamic_state_ci.setDynamicStates(ci.dynamic_states);
+    dynamic_state_ci.setDynamicStates(dynamic_states);
     pipeline_ci.setPDynamicState(&dynamic_state_ci);
 
     pipeline_ci.layout = pipeline_layout_;
