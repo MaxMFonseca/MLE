@@ -4,10 +4,9 @@
 #include "mle/core/Assert.h"
 #include "mle/core/Unwrap.h"
 
-// FIXME: rework this ..89234
 namespace mle {
 CommandBuffer& CommandBuffer::operator=(CommandBuffer&& other) {
-    MLE_ASSERT(o_ == nullptr);
+    MLE_ASSERT_LOG(o_ == nullptr, "Trying to move to a CommandBuffer that already owns a Vulkan command buffer. Submit/Reclaim it first.");
     if (this != &other) {
         o_ = other.o_;
         tid_ = other.tid_;
@@ -22,19 +21,19 @@ CommandBuffer::CommandBuffer(CommandBuffer&& other) :
     tid_(other.tid_),
     queue_data_idx_(other.queue_data_idx_),
     primary_(other.primary_) {
-    MLE_ASSERT(o_ == nullptr);
+    MLE_ASSERT_LOG(o_ == nullptr, "Trying to move to a CommandBuffer that already owns a Vulkan command buffer. Submit/Reclaim it first.");
     o_ = other.o_;
     other.o_ = nullptr;
 }
 
 ResetCommandPool& ResetCommandPool::operator=(ResetCommandPool&& other) {
-    MLE_ASSERT(o_ == nullptr);
+    MLE_ASSERT_LOG(o_ == nullptr, "Trying to move to a ResetCommandPool that already owns a Vulkan command pool. Shutdown it first.");
     if (this != &other) {
         o_ = other.o_;
+        other.o_ = nullptr;
         queue_data_idx_ = other.queue_data_idx_;
         available_primary_buffers_ = std::move(other.available_primary_buffers_);
         available_secondary_buffers_ = std::move(other.available_secondary_buffers_);
-        other.o_ = nullptr;
     }
     return *this;
 }
@@ -43,7 +42,7 @@ ResetCommandPool::ResetCommandPool(ResetCommandPool&& other) :
     queue_data_idx_(other.queue_data_idx_),
     available_primary_buffers_(std::move(other.available_primary_buffers_)),
     available_secondary_buffers_(std::move(other.available_secondary_buffers_)) {
-    MLE_ASSERT(o_ == nullptr);
+    MLE_ASSERT_LOG(o_ == nullptr, "Trying to move to a ResetCommandPool that already owns a Vulkan command pool. Shutdown it first.");
     o_ = other.o_;
     other.o_ = nullptr;
 }
@@ -307,4 +306,5 @@ vk::Result RendererCommandManager::submitPresent(const vk::PresentInfoKHR& prese
     std::scoped_lock lock(q_data.submit_mutex);
     return q_data.queue.presentKHR(present_info);
 }
+
 }  // namespace mle

@@ -4,6 +4,7 @@
 
 #include <atomic>
 #include <ranges>
+#include <thread>
 #include <utility>
 
 #include "CommandManager.h"
@@ -20,17 +21,15 @@ namespace mle {
 void FrameRenderer::init() {
     MLE_I("Initializing FrameRenderer");
 
-    initFramesData();
-
     swapchain_rtcl0_ = RuntimeConfig::i().listen("renderer.swapchain.present_mode", [this]() { swapchain_dirty_.store(true, std::memory_order_relaxed); });
     swapchain_rtcl1_ = RuntimeConfig::i().listen("renderer.swapchain.triple_buffer", [this]() { swapchain_dirty_.store(true, std::memory_order_relaxed); });
 
-    default_clear_color_rtcl_ = RuntimeConfig::i().listen("renderer.default_clear_color", [this]() {
-        auto color_str = RuntimeConfig::i().getString("renderer.default_clear_color", "BLACK");
+    swapchain_default_clear_color_rtcl_ = RuntimeConfig::i().listen("renderer.swapchain.default_clear_color", [this]() {
+        auto color_str = RuntimeConfig::i().getString("renderer.swapchain.default_clear_color", "BLACK");
         auto color = Color::fromString(color_str);
         default_clear_color_ = toVkColor(color);
     });
-    default_clear_color_ = toVkColor(Color::fromString(RuntimeConfig::i().getString("renderer.default_clear_color", "BLACK")));
+    default_clear_color_ = toVkColor(Color::fromString(RuntimeConfig::i().getString("renderer.swapchain.default_clear_color", "BLACK")));
 
     target_fps_.store(RuntimeConfig::i().getUInt("renderer.target_fps", max<u32>()), std::memory_order_relaxed);
 
@@ -39,17 +38,20 @@ void FrameRenderer::init() {
         swapchain_dirty_.store(true, std::memory_order_relaxed);
     });
 
-    auto force_swapchain_result = createSwapchain();
-    MLE_ASSERT(force_swapchain_result == Result::OK);
-
     running_.store(true, std::memory_order_relaxed);
     run_thread_ = std::jthread([this](std::stop_token st) { runLoop(std::move(st)); });
-    MLE_I("FrameRenderer run thread started.");
+
     MLE_D("FrameRenderer initialized successfully!");
 }
 
 // NOLINTNEXTLINE(performance-unnecessary-value-param) stop_token is small and cheap to copy
 void FrameRenderer::runLoop(std::stop_token st) {
+    MLE_I("FrameRenderer run thread started.");
+    initFramesData();
+
+    auto force_swapchain_result = createSwapchain();
+    MLE_ASSERT(force_swapchain_result == Result::OK);
+
     while (!st.stop_requested()) {
         Stopwatch sw;
 

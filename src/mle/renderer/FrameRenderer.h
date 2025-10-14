@@ -116,7 +116,7 @@ class FrameRenderer final {
 
     RuntimeConfigListenerHnd swapchain_rtcl0_;
     RuntimeConfigListenerHnd swapchain_rtcl1_;
-    RuntimeConfigListenerHnd default_clear_color_rtcl_{};
+    RuntimeConfigListenerHnd swapchain_default_clear_color_rtcl_{};
     RuntimeConfigListenerHnd target_fps_rtcl_{};
 
     window::ev::ResizeL window_resize_listener_;

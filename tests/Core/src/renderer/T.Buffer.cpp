@@ -54,6 +54,7 @@ TEST(Buffer, DescriptorInfo) {
     auto& cmd_mgr = Renderer::i().cmdMgr();
     auto cmd = cmd_mgr.getOTS(GCmdType::GRAPHICS);
     auto info = buf->makeDescriptorInfo(cmd, 128, 0);
+    cmd_mgr.submitOTSWait(std::move(cmd));
     EXPECT_EQ(info.range, 128);
     EXPECT_EQ(info.offset, 0);
     EXPECT_EQ(info.buffer, buf->get());

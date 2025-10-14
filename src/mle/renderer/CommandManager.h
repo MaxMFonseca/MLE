@@ -19,7 +19,6 @@ class CommandBuffer {
     CommandBuffer& operator=(CommandBuffer&& other);
 
     CommandBuffer() = default;
-    // FIXME: fix this stupid class
     ~CommandBuffer() { MLE_ASSERT_LOG(!o_, "Destroying a CommandBuffer that still owns a Vulkan command buffer. Did you forget to submit/reclaim it?"); }
 
     [[nodiscard]] vk::CommandBuffer get() const { return o_; }
