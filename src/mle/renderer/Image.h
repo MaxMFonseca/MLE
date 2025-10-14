@@ -19,7 +19,7 @@ class Image final {
   public:
     enum class State : u8 {
         INITIAL,       ///< Undefined initial state.
-        PRESENT_SRC,   ///< Used as source in a present operation.
+        PRESENT,       ///< Used as source in a present operation.
         TRANSFER_SRC,  ///< Used as source in a transfer.
         TRANSFER_DST,  ///< Used as destination in a transfer.
         COLOR_ATT,     ///< Used as a color attachment.
@@ -44,10 +44,11 @@ class Image final {
     };
 
     struct CreateInfo {
-        vk::Image o;
         vec2u extent;
-        ImageFormat format;
+        Format format;
         vk::ImageUsageFlags extra_usage;
+
+        vk::Image non_owned_image = {};
     };
     using CI = CreateInfo;
 
@@ -63,11 +64,12 @@ class Image final {
     MLE_NO_COPY(Image);
 
     void init(const CI& ci);
+    void initSwapchain(vk::Image o);
 
     void copyBuffer(CommandBuffer& cmd, Buffer& src, vec2u extent = {0, 0}, vec2i offset = {0, 0});
     void copyBuffer(CommandBuffer& cmd, Buffer& src, Recti rect) { copyBuffer(cmd, src, vec2u{rect.size.x, rect.size.y}, {rect.pos.x, rect.pos.y}); }
     void copyImage(CommandBuffer& cmd, Image& src, vec2u extent = {0, 0}, vec2i src_offset = {0, 0}, vec2i dst_offset = {0, 0});
-    void blitImage(CommandBuffer& cmd, Image& src, Recti src_rect, Recti dst_rect);
+    void blitImage(CommandBuffer& cmd, Image& src, Recti src_rect = {0, 0, 0, 0}, Recti dst_rect = {0, 0, 0, 0});
     BufferHnd copyToBufferOTS(vec2u extent = {0, 0}, vec2i offset = {0, 0});
 
     [[nodiscard]] BufferHnd copyRaw(CommandBuffer& cmd, const RawData& data, vec2i offset = {0, 0});
@@ -124,6 +126,8 @@ class Image final {
 
     static constexpr StateProps getStateProps(State state);
 
+    static constexpr u32 getFormatChannelCount(vk::Format format) noexcept;
+
   private:
     vk::Image o_{};
     vk::Format vk_format_{};
@@ -150,8 +154,8 @@ struct formatter<mle::Image::State> : formatter<std::string> {
         switch (v) {
             case Image::State::INITIAL:
                 return format_to(ctx.out(), "INITIAL");
-            case Image::State::PRESENT_SRC:
-                return format_to(ctx.out(), "PRESENT_SRC");
+            case Image::State::PRESENT:
+                return format_to(ctx.out(), "PRESENT");
             case Image::State::TRANSFER_SRC:
                 return format_to(ctx.out(), "TRANSFER_SRC");
             case Image::State::TRANSFER_DST:

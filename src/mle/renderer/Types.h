@@ -1,6 +1,7 @@
 #pragma once
 
 #include "mle/core/Assert.h"
+
 #define VULKAN_HPP_ASSERT(expr) ((void)0)
 #define VULKAN_HPP_DISPATCH_LOADER_DYNAMIC 1
 #define VULKAN_HPP_NO_EXCEPTIONS
@@ -30,6 +31,9 @@ using ShaderHnd = std::unique_ptr<Shader>;
 using ShaderRef = Shader*;
 
 class CommandBuffer;
+using CommandBufferHnd = std::unique_ptr<CommandBuffer>;
+using CommandBufferRef = CommandBuffer*;
+
 class RendererCommandManager;
 class ResetCommandPool;
 
@@ -46,7 +50,6 @@ constexpr QueueDataIdx NO_QUEUE = max<QueueDataIdx>() - 1;
 constexpr QueueDataIdx INVALID_QUEUE = max<QueueDataIdx>();
 
 enum class ImageFormat : u8 {
-    SWAPCHAIN,
     DEPTH,
     TEXTURE_4U,
     TEXTURE_4SRGB,
@@ -58,7 +61,16 @@ enum class ImageFormat : u8 {
     STORAGE_4U8,
     STORAGE_F32,
     STORAGE_U32,
-    COUNT
+    COUNT,
+    SWAPCHAIN
+};
+
+constexpr u64 DEFAULT_TIMEOUT_NS = 1'000'000'000;
+
+struct BufferSlice {
+    BufferRef buffer{};
+    vk::DeviceSize size = 0;
+    vk::DeviceSize offset = 0;
 };
 
 }  // namespace mle
@@ -110,8 +122,6 @@ struct formatter<mle::ImageFormat> : formatter<std::string> {
     template <typename FormatContext>
     constexpr auto format(mle::ImageFormat format, FormatContext& ctx) const {
         switch (format) {
-            case mle::ImageFormat::SWAPCHAIN:
-                return format_to(ctx.out(), "SWAPCHAIN");
             case mle::ImageFormat::DEPTH:
                 return format_to(ctx.out(), "DEPTH");
             case mle::ImageFormat::TEXTURE_4U:
@@ -134,11 +144,22 @@ struct formatter<mle::ImageFormat> : formatter<std::string> {
                 return format_to(ctx.out(), "STORAGE_F32");
             case mle::ImageFormat::STORAGE_U32:
                 return format_to(ctx.out(), "STORAGE_U32");
+            case mle::ImageFormat::SWAPCHAIN:
+                return format_to(ctx.out(), "SWAPCHAIN");
             case mle::ImageFormat::COUNT:
                 return format_to(ctx.out(), "COUNT");
             default:
-                return format_to(ctx.out(), "UNKNOWN");
+                MLE_UNREACHABLE_LOG("Unknown ImageFormat: {}", as<mle::u8>(format));
         }
+    }
+};
+
+template <>
+
+struct formatter<vk::DescriptorPoolSize> : formatter<std::string> {
+    template <typename FormatContext>
+    constexpr auto format(const vk::DescriptorPoolSize& size, FormatContext& ctx) const {
+        return format_to(ctx.out(), "{{type: {}, count: {}}}", vk::to_string(size.type), size.descriptorCount);
     }
 };
 

@@ -18,6 +18,8 @@ using RuntimeConfigListenerRef = RuntimeConfigListener*;
 class RuntimeConfig {
     MLE_SINGLETON(RuntimeConfig);
 
+    using ListenerCbFn = std::move_only_function<void()>;
+
   public:
     void parseArgs(int argc, char** argv);
 
@@ -32,9 +34,10 @@ class RuntimeConfig {
     std::string getString(const std::string& key, const std::string& def = "") const;
     bool getBool(const std::string& key, bool def = false) const;
     int getInt(const std::string& key, int def = 0) const;
+    u32 getUInt(const std::string& key, u32 def = 0) const;
     float getFloat(const std::string& key, f32 def = 0.0F) const;
 
-    RuntimeConfigListenerHnd listen(const std::string& key, std::move_only_function<void(const std::string& value)> cb);
+    RuntimeConfigListenerHnd listen(const std::string& key, ListenerCbFn cb);
 
   private:
     friend class RuntimeConfigListener;
@@ -47,14 +50,17 @@ class RuntimeConfig {
 
 class RuntimeConfigListener {
   public:
+    using CbFn = RuntimeConfig::ListenerCbFn;
+
+  public:
     ~RuntimeConfigListener();
 
     MLE_NO_COPY_MOVE(RuntimeConfigListener);
 
   private:
     friend class RuntimeConfig;
-    RuntimeConfigListener(std::string key, std::move_only_function<void(const std::string& value)> cb);
+    RuntimeConfigListener(std::string key, CbFn cb);
     const std::string key_;
-    std::move_only_function<void(const std::string&)> cb_;
+    CbFn cb_;
 };
 }  // namespace mle

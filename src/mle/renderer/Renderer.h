@@ -1,10 +1,11 @@
 #pragma once
 
 #include "CommandManager.h"
+#include "FrameRenderer.h"
+#include "PipelineCache.h"
+#include "ShaderCache.h"
 #include "SyncManager.h"
-#include "mle/renderer/PipelineCache.h"
-#include "mle/renderer/ShaderCache.h"
-#include "mle/renderer/VkCtx.h"
+#include "VkCtx.h"
 #include "mle/utils/Utils.h"
 
 namespace mle {
@@ -24,6 +25,7 @@ class Renderer {
     auto& syncMgr() { return sync_manager_; }
     auto& shaderCache() { return shader_cache_; }
     auto& pipelineCache() { return pipeline_cache_; }
+    auto& frameRenderer() { return frame_renderer_; }
 
     template <class T>
     void destroy(T o) {
@@ -36,5 +38,6 @@ class Renderer {
     RendererSyncManager sync_manager_;
     ShaderCache shader_cache_;
     PipelineCache pipeline_cache_;
+    FrameRenderer frame_renderer_;
 };
 }  // namespace mle

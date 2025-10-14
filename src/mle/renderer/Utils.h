@@ -26,16 +26,20 @@ template <typename T>
     return std::move(rv).value;
 }
 
-inline vk::Extent2D toVkExtent2D(const vec2i& extent) {
-    return {as<u32>(extent.x), as<u32>(extent.y)};
+inline vk::Extent2D toVkExtent2D(const vec2u& extent) {
+    return {extent.x, extent.y};
 }
 
-inline vk::Extent3D toVkExtent3D(const vec2i& extent, u32 d = 1) {
-    return {as<u32>(extent.x), as<u32>(extent.y), d};
+inline vk::Extent3D toVkExtent3D(const vec2u& extent, u32 d = 1) {
+    return {extent.x, extent.y, d};
 }
 
 inline vk::ClearColorValue toVkColor(const Color& color) {
     return vk::ClearColorValue(std::array<f32, 4>{color.r, color.g, color.b, color.a});
+}
+
+constexpr u64 alignUp(u64 value, u64 alignment) {
+    return (value + alignment - 1) & ~(alignment - 1);
 }
 
 }  // namespace mle

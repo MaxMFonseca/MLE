@@ -4,6 +4,7 @@
 #include "RuntimeConfig.h"
 #include "ThreadPool.h"
 #include "mle/client/Client.h"
+#include "mle/core/PerfTracker.h"
 #include "mle/renderer/Renderer.h"
 
 namespace mle {
@@ -14,6 +15,7 @@ void Core::init(const InitInfo& ii) {
     Logger::i().init();
     RuntimeConfig::i().logAll();
     ThreadPool::i().init();
+    PerfTracker::i().init();
 
     if constexpr (IS_CLIENT) {
         Client::i().init();
@@ -26,6 +28,8 @@ void Core::init(const InitInfo& ii) {
 
 void Core::shutdown() {
     Renderer::i().shutdown();
+
+    PerfTracker::i().shutdown();
     ThreadPool::i().shutdown();
 
     MLE_I("MLE Core shutdown completed after {}s", running_time_.elapsedSecFloat());

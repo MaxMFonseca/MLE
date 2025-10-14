@@ -375,29 +375,10 @@ vk::Format pickOptimalFormat(vk::PhysicalDevice p_device, const auto& candidates
     return vk::Format::eUndefined;
 }
 
-vk::Format pickSurfaceFormat(const auto& p_device, const vk::SurfaceKHR& surface, const auto& candidates, vk::FormatFeatureFlags2 required) {
-    vk::Format ret{};
-
-    auto available_surface_formats = unwrap(p_device.getSurfaceFormatsKHR(surface));
-    for (auto target_format : candidates) {
-        for (const auto& available_format : available_surface_formats) {
-            if (available_format.format == target_format && available_format.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear) {
-                auto feats = getOptimalFeatures(p_device, available_format.format);
-                if ((feats & required) == required) {
-                    ret = available_format.format;
-                    break;
-                }
-            }
-        }
-    }
-    return ret;
-}
 }  // namespace
 
 void VkCtx::pickImageFormats() {
     MLE_D("Picking preferred formats");
-
-    static constexpr std::array SURFACE{vk::Format::eB8G8R8A8Srgb, vk::Format::eR8G8B8A8Srgb, vk::Format::eB8G8R8A8Unorm, vk::Format::eR8G8B8A8Unorm};
 
     static constexpr std::array DEPTH{vk::Format::eD24UnormS8Uint, vk::Format::eD32SfloatS8Uint};
 
@@ -416,7 +397,6 @@ void VkCtx::pickImageFormats() {
     static constexpr std::array STORAGE_F32{vk::Format::eR32Sfloat};
     static constexpr std::array STORAGE_U32{vk::Format::eR32Uint};
 
-    static constexpr vk::FormatFeatureFlags2 SURFACE_REQUIRED_FEATURES = vk::FormatFeatureFlagBits2::eColorAttachment;
     static constexpr vk::FormatFeatureFlags2 DEPTH_REQUIRED_FEATURES = vk::FormatFeatureFlagBits2::eDepthStencilAttachment |
                                                                        vk::FormatFeatureFlagBits2::eSampledImage |
                                                                        vk::FormatFeatureFlagBits2::eSampledImageDepthComparison;
@@ -435,7 +415,6 @@ void VkCtx::pickImageFormats() {
         vk::FormatFeatureFlagBits2::eStorageImage | vk::FormatFeatureFlagBits2::eTransferSrc | vk::FormatFeatureFlagBits2::eTransferDst;
     static constexpr vk::FormatFeatureFlags2 STORAGE_4U8_REQUIRED_FEATURES = STORAGE_REQUIRED_FEATURES | vk::FormatFeatureFlagBits2::eSampledImage;
 
-    static constexpr vk::ImageUsageFlags SURFACE_USAGE = vk::ImageUsageFlagBits::eColorAttachment;
     static constexpr vk::ImageUsageFlags DEPTH_USAGE =
         vk::ImageUsageFlagBits::eDepthStencilAttachment | vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eInputAttachment;
     static constexpr vk::ImageUsageFlags TEXTURE_USAGE =
@@ -452,7 +431,6 @@ void VkCtx::pickImageFormats() {
     static constexpr vk::ImageUsageFlags STORAGE_USAGE =
         vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst;
 
-    image_formats_.at(as<usize>(ImageFormat::SWAPCHAIN)) = pickSurfaceFormat(p_device_.o, surface_, SURFACE, SURFACE_REQUIRED_FEATURES);
     image_formats_.at(as<usize>(ImageFormat::DEPTH)) = pickOptimalFormat(p_device_.o, DEPTH, DEPTH_REQUIRED_FEATURES);
     image_formats_.at(as<usize>(ImageFormat::TEXTURE_4U)) = pickOptimalFormat(p_device_.o, TEXTURE4C, TEXTURE_REQUIRED_FEATURES);
     image_formats_.at(as<usize>(ImageFormat::TEXTURE_4SRGB)) = pickOptimalFormat(p_device_.o, TEXTURE4C_SRGB, TEXTURE_REQUIRED_FEATURES);
@@ -465,7 +443,6 @@ void VkCtx::pickImageFormats() {
     image_formats_.at(as<usize>(ImageFormat::STORAGE_F32)) = pickOptimalFormat(p_device_.o, STORAGE_F32, STORAGE_REQUIRED_FEATURES);
     image_formats_.at(as<usize>(ImageFormat::STORAGE_U32)) = pickOptimalFormat(p_device_.o, STORAGE_U32, STORAGE_REQUIRED_FEATURES);
 
-    image_format_usages_.at(as<usize>(ImageFormat::SWAPCHAIN)) = SURFACE_USAGE;
     image_format_usages_.at(as<usize>(ImageFormat::DEPTH)) = DEPTH_USAGE;
     image_format_usages_.at(as<usize>(ImageFormat::TEXTURE_4U)) = TEXTURE_USAGE;
     image_format_usages_.at(as<usize>(ImageFormat::TEXTURE_4SRGB)) = TEXTURE_USAGE;
@@ -617,11 +594,6 @@ void VkCtx::logDevice() {
         MLE_I("  Heap({}) {}: {}MiB", i, vk::to_string(p_device_.memory_properties.memoryHeaps[i].flags),  // NOLINT
               p_device_.memory_properties.memoryHeaps[i].size / 1024 / 1024);                              // NOLINT
     }
-}
-
-bool VkCtx::isSurfaceUNORM() const {
-    return image_formats_.at(as<usize>(ImageFormat::SWAPCHAIN)) == vk::Format::eB8G8R8A8Unorm ||
-           image_formats_.at(as<usize>(ImageFormat::SWAPCHAIN)) == vk::Format::eR8G8B8A8Unorm;
 }
 
 [[nodiscard]] vk::DeviceSize VkCtx::getAlignmentForBufferUsage(vk::BufferUsageFlags flags) const {

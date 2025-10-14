@@ -4,6 +4,8 @@
 
 #include "mle/core/Assert.h"
 #include "mle/core/Logger.h"
+#include "mle/core/PerfTracker.h"
+#include "mle/utils/Color.h"
 #include "mle/utils/Stopwatch.h"
 #include "mle/window/TextBox.h"
 #include "mle/window/Window.h"
@@ -15,6 +17,8 @@ void Client::init() {
     initialized = true;
 
     MLE_I("MLE Client initializing...");
+
+    Color::addEngineDefaultColors();
 
     MLE_I("Lua init");
     lua_.init();
@@ -73,10 +77,6 @@ void Client::run() {
                 std::this_thread::sleep_for(sleep_time - SLEEP_GUARD);
             }
         }
-
-        if (sw.elapsedSecInt() > time_.seconds) {
-            updateTimeStatsEachSecond();
-        }
     }
 
     MLE_I("MLE client stopping...");
@@ -84,7 +84,7 @@ void Client::run() {
 }
 
 void Client::update() {
-    Stopwatch sw;
+    MLE_PERF_SCOPE("Client::update");
 
     Window::i().poolEvents();
     UserInputManager::i().update();
@@ -93,19 +93,15 @@ void Client::update() {
     std::this_thread::sleep_for(1ms);
 
     UserInputManager::i().lateUpdate();
-
-    time_.current_second.updates++;
-    time_.current_second.time_updating_ms += sw.elapsedMSFloat();
-}
-
-void Client::render(f64 /*unused*/) {
 }
 
 void Client::shutdown() {
     MLE_I("MLE Client shutting down after {}s", running_sw_.elapsedSecFloat());
-    MLE_I("Time stats at shutdown: {}", time_.all_time);
     Stopwatch sw;
     MLE_I("Calling {} shutdown callbacks", on_shutdown_callbacks_.size());
+    for (auto& cb : on_shutdown_callbacks_) {
+        cb();
+    }
     state_ = SystemState::UNINITIALIZED;
     MLE_I("MLE Client shut down successfully after {}s", sw.elapsedSecFloat());
 }
@@ -115,46 +111,4 @@ void Client::requestStop() {
     state_ = SystemState::STOPPING;
 }
 
-void Client::updateTimeStatsEachSecond() {
-    int time_seconds_running_aux = time_.seconds + 1;
-    time_.seconds = running_sw_.elapsedSecInt();
-    MLE_ASSERT_LOG(time_.seconds == time_seconds_running_aux, "This shouldnt happen! {} != {}", time_.seconds, time_seconds_running_aux);
-
-    time_.last_second = time_.current_second;
-
-    auto& all = time_.all_time;
-    all.updates += time_.current_second.updates;
-    all.frames += time_.current_second.frames;
-    all.time_updating_ms += time_.current_second.time_updating_ms;
-    all.time_rendering_ms += time_.current_second.time_rendering_ms;
-
-    for (const auto& [key, value] : time_.current_second.other_times_ms_) {
-        all.other_times_ms_[key] += value;
-    }
-
-    time_.current_second = {};
-
-    logTimeStatsLastSecond();
-    if (time_.seconds % 30 == 0) {
-        logTimeStatsAllTime();
-    }
-}
-
-void Client::logTimeStatsLastSecond() const {
-    MLE_I("----- Client Time Stats (Last Second) -----\nnow:{}s\n{}", time_.seconds, time_.last_second);
-}
-
-void Client::logTimeStatsAllTime() const {
-    MLE_I("----- Client Time Stats (All Time) -----\n now:{}s\n {}", time_.seconds, time_.all_time);
-
-    TimeStats::Tracked t2 = time_.all_time;
-    t2.updates /= time_.seconds;
-    t2.frames /= time_.seconds;
-    t2.time_updating_ms /= as<f32>(time_.seconds);
-    t2.time_rendering_ms /= as<f32>(time_.seconds);
-    for (auto& [key, value] : t2.other_times_ms_) {
-        value /= as<f32>(time_.seconds);
-    }
-    MLE_I("----- Client Time Stats (All Time Averages) -----\n now:{}s\n {}", time_.seconds, t2);
-}
 }  // namespace mle

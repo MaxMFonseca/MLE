@@ -23,11 +23,12 @@ enum class [[nodiscard]] Result : u8 {
     FRAME_SKIP,             ///< Frame was skipped, e.g., due to swapchain not being visible.
     NOT_READY,
 
-    NOK,               ///< Generic Error. Try to avoid. Bad practice! Adding new fields here is easy!
-    INVALID_ARGUMENT,  ///< Invalid argument provided.
-    OUT_OR_RANGE,      ///< Value out of acceptable range.
-    NOT_FOUND,         ///< Requested resource not found.
-    FAILED_TO_OPEN,    ///< Failed to open a resource (e.g., file, network).
+    NOK,                ///< Generic Error. Try to avoid. Bad practice! Adding new fields here is easy!
+    INVALID_ARGUMENT,   ///< Invalid argument provided.
+    OUT_OR_RANGE,       ///< Value out of acceptable range.
+    NOT_FOUND,          ///< Requested resource not found.
+    FAILED_TO_OPEN,     ///< Failed to open a resource (e.g., file, network).
+    ALLOCATION_FAILED,  ///< Memory allocation failed.
 };
 
 /// Converts a Result value to a string literal.
@@ -47,6 +48,7 @@ static constexpr const char* toString(Result result) {
         CASE(OUT_OR_RANGE);
         CASE(NOT_FOUND);
         CASE(FAILED_TO_OPEN);
+        CASE(ALLOCATION_FAILED);
     }
     std::unreachable();
 #undef CASE

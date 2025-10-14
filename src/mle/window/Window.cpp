@@ -18,6 +18,8 @@ namespace mle {
 void Window::init() {
     MLE_I("Initializing Window module.");
 
+    SDL_SetHint(SDL_HINT_APP_ID, "MLE");
+
     if (!SDL_WasInit(SDL_INIT_VIDEO)) {
         if (!SDL_Init(SDL_INIT_VIDEO)) {
             MLE_UNREACHABLE_LOG("SDL_Init failed: {}", SDL_GetError());
@@ -26,15 +28,22 @@ void Window::init() {
 
     logDisplays();
 
-    Uint32 flags = SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE;
+    const char* driver = SDL_GetCurrentVideoDriver();
+    if (driver) {
+        MLE_I("Using video driver: {}", driver);
+    } else {
+        MLE_W("SDL_GetCurrentVideoDriver returned null.");
+    }
+
+    u32 flags = SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE;
 
     window_ = SDL_CreateWindow("MLE APP", 800, 600, flags);
     if (!window_) {
         MLE_UNREACHABLE_LOG("SDL_CreateWindow failed: {}", SDL_GetError());
     }
-    SDL_StartTextInput(window_);
 
-    setPosition(100, 100);
+    SDL_StartTextInput(window_);
+    SDL_ShowWindow(window_);
 
     log();
 }
@@ -88,6 +97,10 @@ void Window::poolEvents() {
                 for (auto cp : u32str) {
                     UserInputManager::i().pushChar(cp);
                 }
+            } break;
+            case SDL_EVENT_WINDOW_RESIZED: {
+                MLE_I("Window resized to {}x{}", event.window.data1, event.window.data2);
+                ed_.dispatch(window::ev::Resize{.size = {event.window.data1, event.window.data2}});
             } break;
             default:
                 MLE_NOOP;

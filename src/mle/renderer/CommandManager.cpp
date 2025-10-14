@@ -4,7 +4,58 @@
 #include "mle/core/Assert.h"
 #include "mle/core/Unwrap.h"
 
+// FIXME: rework this ..89234
 namespace mle {
+CommandBuffer& CommandBuffer::operator=(CommandBuffer&& other) {
+    MLE_ASSERT(o_ == nullptr);
+    if (this != &other) {
+        o_ = other.o_;
+        tid_ = other.tid_;
+        queue_data_idx_ = other.queue_data_idx_;
+        primary_ = other.primary_;
+        other.o_ = nullptr;
+    }
+    return *this;
+}
+
+CommandBuffer::CommandBuffer(CommandBuffer&& other) :
+    tid_(other.tid_),
+    queue_data_idx_(other.queue_data_idx_),
+    primary_(other.primary_) {
+    MLE_ASSERT(o_ == nullptr);
+    o_ = other.o_;
+    other.o_ = nullptr;
+}
+
+ResetCommandPool& ResetCommandPool::operator=(ResetCommandPool&& other) {
+    MLE_ASSERT(o_ == nullptr);
+    if (this != &other) {
+        o_ = other.o_;
+        queue_data_idx_ = other.queue_data_idx_;
+        available_primary_buffers_ = std::move(other.available_primary_buffers_);
+        available_secondary_buffers_ = std::move(other.available_secondary_buffers_);
+        other.o_ = nullptr;
+    }
+    return *this;
+}
+
+ResetCommandPool::ResetCommandPool(ResetCommandPool&& other) :
+    queue_data_idx_(other.queue_data_idx_),
+    available_primary_buffers_(std::move(other.available_primary_buffers_)),
+    available_secondary_buffers_(std::move(other.available_secondary_buffers_)) {
+    MLE_ASSERT(o_ == nullptr);
+    o_ = other.o_;
+    other.o_ = nullptr;
+}
+
+void ResetCommandPool::shutdown() {
+    if (o_) {
+        MLE_T("Destroying ResetCommandPool {}", (void*)o_);
+        Renderer::i().destroy(o_);
+        o_ = nullptr;
+    }
+}
+
 CommandBuffer ResetCommandPool::getPrimary() {
     vk::CommandBuffer cmd;
     if (primary_index_ < available_primary_buffers_.size()) {
@@ -18,7 +69,6 @@ CommandBuffer ResetCommandPool::getPrimary() {
         auto cmds = unwrap(Renderer::i().vk().getDevice().allocateCommandBuffers(alloc_info));
         MLE_ASSERT_LOG(cmds.size() == 1, "Expected to allocate exactly one command buffer, got: {}", cmds.size());
         cmd = cmds[0];
-        available_primary_buffers_.push_back(cmd);
     }
     primary_index_++;
     check(cmd.begin(vk::CommandBufferBeginInfo{vk::CommandBufferUsageFlagBits::eOneTimeSubmit}));
@@ -38,18 +88,26 @@ CommandBuffer ResetCommandPool::getSecondary() {
         auto cmds = unwrap(Renderer::i().vk().getDevice().allocateCommandBuffers(alloc_info));
         MLE_ASSERT_LOG(cmds.size() == 1, "Expected to allocate exactly one command buffer, got: {}", cmds.size());
         cmd = cmds[0];
-        available_secondary_buffers_.push_back(cmd);
     }
     secondary_index_++;
     check(cmd.begin({}));
     return {cmd, queue_data_idx_, false};
 }
 
-void ResetCommandPool::submit(CommandBuffer&& cmd, vk::SubmitInfo2 submit_info) {
+void ResetCommandPool::submitWait(CommandBuffer&& cmd, vk::SubmitInfo2 submit_info) {
     MLE_ASSERT_LOG(submit_info.commandBufferInfoCount == 1, "One, and only one, command buffer can be submitted here.");
     MLE_ASSERT(cmd.isPrimary());
 
-    Renderer::i().cmdMgr().submit(queue_data_idx_, submit_info);
+    check(Renderer::i().cmdMgr().submit(queue_data_idx_, submit_info).wait());
+
+    reclaim(std::move(cmd));
+}
+
+void ResetCommandPool::submit(CommandBuffer&& cmd, vk::SubmitInfo2 submit_info, vk::Fence fence) {
+    MLE_ASSERT_LOG(submit_info.commandBufferInfoCount == 1, "One, and only one, command buffer can be submitted here.");
+    MLE_ASSERT(cmd.isPrimary());
+
+    Renderer::i().cmdMgr().submit(queue_data_idx_, submit_info, fence);
 
     reclaim(std::move(cmd));
 }
@@ -61,10 +119,13 @@ void ResetCommandPool::reclaim(CommandBuffer&& cmd) {
     } else {
         available_secondary_buffers_.push_back(cmd.get());
     }
+    cmd.o_ = nullptr;
 }
 
 void ResetCommandPool::reset() {
     check(Renderer::i().vk().getDevice().resetCommandPool(o_));
+    primary_index_ = 0;
+    secondary_index_ = 0;
 }
 
 void RendererCommandManager::init() {
@@ -112,7 +173,7 @@ void RendererCommandManager::shutdown() {
     }
 }
 
-ResetCommandPool RendererCommandManager::makeResetableCommandPool(GCmdType type) {
+ResetCommandPool RendererCommandManager::createResetCommandPool(GCmdType type) {
     QueueDataIdx qdidx = queueDataIdx(type);
     auto& q_data = queue_data_.at(qdidx);
 
@@ -162,7 +223,7 @@ CommandBuffer RendererCommandManager::getOTS(QueueDataIdx queue_data_idx) {
     return {cmd, queue_data_idx, true};
 }
 
-Fence RendererCommandManager::submit(QueueDataIdx queue_data_idx, vk::SubmitInfo2 submit_info) {
+void RendererCommandManager::submit(QueueDataIdx queue_data_idx, vk::SubmitInfo2 submit_info, vk::Fence fence) {
     MLE_ASSERT_LOG(submit_info.commandBufferInfoCount == 1, "One, and only one, command buffer can be submitted here.");
     // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic) safe
     auto cmd = submit_info.pCommandBufferInfos[0].commandBuffer;
@@ -171,11 +232,15 @@ Fence RendererCommandManager::submit(QueueDataIdx queue_data_idx, vk::SubmitInfo
 
     auto& q_data = queue_data_.at(queue_data_idx);
 
-    Fence fence = Renderer::i().syncMgr().acquireFence();
     {
         std::scoped_lock lock(q_data.submit_mutex);
-        check(q_data.queue.submit2(submit_info, fence.get()));
+        check(q_data.queue.submit2(submit_info, fence));
     }
+}
+
+Fence RendererCommandManager::submit(QueueDataIdx queue_data_idx, vk::SubmitInfo2 submit_info) {
+    Fence fence = Renderer::i().syncMgr().acquireFence();
+    submit(queue_data_idx, submit_info, fence.get());
     return fence;
 }
 
@@ -226,5 +291,20 @@ void RendererCommandManager::reclaimOTS(CommandBuffer&& cmd) {
     std::scoped_lock lock(q_data.pool_map_mutex);
     auto& pool_data = q_data.thread_ots_pool_map[cmd.tid()];
     pool_data.available_primary_buffers.push_back(cmd());
+    cmd.o_ = nullptr;
+}
+
+std::unique_lock<std::mutex> RendererCommandManager::waitIdle(GCmdType type) {
+    MLE_I("waitIdle queue {}", type);
+    auto& q_data = queue_data_.at(queueDataIdx(type));
+    std::unique_lock<std::mutex> lock(q_data.submit_mutex);
+    check(q_data.queue.waitIdle());
+    return lock;
+}
+
+vk::Result RendererCommandManager::submitPresent(const vk::PresentInfoKHR& present_info) {
+    auto& q_data = queue_data_.at(queueDataIdx(GCmdType::G));
+    std::scoped_lock lock(q_data.submit_mutex);
+    return q_data.queue.presentKHR(present_info);
 }
 }  // namespace mle

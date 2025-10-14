@@ -56,7 +56,7 @@ void RuntimeConfig::set(const std::string& key, const std::string& value) {
         auto listeners = it->second;
         for (auto* listener : listeners) {
             if (listener && listener->cb_) {
-                listener->cb_(value);
+                listener->cb_();
             }
         }
     }
@@ -92,6 +92,15 @@ int RuntimeConfig::getInt(const std::string& key, int def) const {
     return rv.has_value() ? rv.value() : def;
 }
 
+u32 RuntimeConfig::getUInt(const std::string& key, u32 def) const {
+    auto val = getString(key);
+    if (val.empty()) {
+        return def;
+    }
+    auto rv = strTo<u32>(val);
+    return rv.has_value() ? rv.value() : def;
+}
+
 float RuntimeConfig::getFloat(const std::string& key, f32 def) const {
     auto val = getString(key);
     if (val.empty()) {
@@ -101,7 +110,7 @@ float RuntimeConfig::getFloat(const std::string& key, f32 def) const {
     return rv.has_value() ? rv.value() : def;
 }
 
-RuntimeConfigListenerHnd RuntimeConfig::listen(const std::string& key, std::move_only_function<void(const std::string& value)> cb) {
+RuntimeConfigListenerHnd RuntimeConfig::listen(const std::string& key, ListenerCbFn cb) {
     RuntimeConfigListenerHnd listener(new RuntimeConfigListener(key, std::move(cb)));
     {
         std::lock_guard<std::mutex> lock(mutex_);
@@ -123,7 +132,7 @@ void RuntimeConfig::removeListener(RuntimeConfigListenerRef l) {
     }
 }
 
-RuntimeConfigListener::RuntimeConfigListener(std::string key, std::move_only_function<void(const std::string&)> cb) :
+RuntimeConfigListener::RuntimeConfigListener(std::string key, CbFn cb) :
     key_(std::move(key)),
     cb_(std::move(cb)) {
 }

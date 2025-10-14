@@ -70,10 +70,18 @@ Image& Image::operator=(Image&& other) noexcept {
 void Image::init(const CI& ci) {
     extent_ = ci.extent;
     format_ = ci.format;
-    vk_format_ = Renderer::i().vk().getVkImageFormat(ci.format);
-    usage_ = Renderer::i().vk().getVkImageUsage(ci.format) | ci.extra_usage;
 
-    if (!ci.o) {
+    if (ci.format != Format::SWAPCHAIN) {
+        vk_format_ = Renderer::i().vk().getVkImageFormat(ci.format);
+        usage_ = Renderer::i().vk().getVkImageUsage(ci.format);
+    } else {
+        vk_format_ = Renderer::i().frameRenderer().getSwapchainFormat();
+        usage_ = Renderer::i().frameRenderer().getSwapchianImageUsage();
+    }
+
+    usage_ |= ci.extra_usage;
+
+    if (!ci.non_owned_image) {
         vk::ImageCreateInfo image_ci{};
         image_ci.imageType = vk::ImageType::e2D;
         image_ci.format = vk_format_;
@@ -98,10 +106,10 @@ void Image::init(const CI& ci) {
         check(create_result);
         o_ = vk_image;
 
+        auto _ = createView();
     } else {
-        o_ = ci.o;
+        o_ = ci.non_owned_image;
     }
-    auto _ = createView();
 }
 
 vk::ImageView Image::createView(const ViewCI& ci) {
@@ -370,7 +378,6 @@ Image::RawData Image::readFile(const std::string& path, int desired_channels) {
 
 [[nodiscard]] int Image::getChannelCount() const {
     switch (format_) {
-        case ImageFormat::SWAPCHAIN:
         case ImageFormat::TEXTURE_4U:
         case ImageFormat::TEXTURE_4SRGB:
         case ImageFormat::STORAGE_4U8:
@@ -424,7 +431,7 @@ constexpr Image::StateProps Image::getStateProps(State state) {
     switch (state) {
         case State::INITIAL:
             return {.layout = vk::ImageLayout::eUndefined, .stage = {}, .access = {}};
-        case State::PRESENT_SRC:
+        case State::PRESENT:
             return {.layout = vk::ImageLayout::ePresentSrcKHR, .stage = vk::PipelineStageFlagBits2::eNone, .access = {}};
         case State::TRANSFER_SRC:
             return {
@@ -629,5 +636,75 @@ void Image::ownershipReleaseOTSAcquireOTSWait(GCmdType type) {
     submit_info.setCommandBufferInfos(command_buffer_info);
 
     Renderer::i().cmdMgr().submitOTSWait(std::move(cmd), submit_info);
+}
+
+constexpr u32 Image::getFormatChannelCount(vk::Format format) noexcept {
+    switch (format) {
+        case vk::Format::eR8Unorm:
+        case vk::Format::eR8Snorm:
+        case vk::Format::eR8Uint:
+        case vk::Format::eR8Sint:
+        case vk::Format::eR16Sfloat:
+        case vk::Format::eR16Unorm:
+        case vk::Format::eR16Snorm:
+        case vk::Format::eR16Uint:
+        case vk::Format::eR16Sint:
+        case vk::Format::eR32Sfloat:
+        case vk::Format::eR32Uint:
+        case vk::Format::eR32Sint:
+        case vk::Format::eD16Unorm:
+        case vk::Format::eD32Sfloat:
+        case vk::Format::eS8Uint:
+            return 1;
+
+        case vk::Format::eR8G8Unorm:
+        case vk::Format::eR8G8Snorm:
+        case vk::Format::eR8G8Uint:
+        case vk::Format::eR8G8Sint:
+        case vk::Format::eR16G16Sfloat:
+        case vk::Format::eR16G16Unorm:
+        case vk::Format::eR16G16Snorm:
+        case vk::Format::eR16G16Uint:
+        case vk::Format::eR16G16Sint:
+        case vk::Format::eR32G32Sfloat:
+        case vk::Format::eR32G32Uint:
+        case vk::Format::eR32G32Sint:
+        case vk::Format::eD24UnormS8Uint:
+        case vk::Format::eD32SfloatS8Uint:
+            return 2;
+
+        case vk::Format::eR8G8B8Unorm:
+        case vk::Format::eR8G8B8Snorm:
+        case vk::Format::eR8G8B8Uint:
+        case vk::Format::eR8G8B8Sint:
+        case vk::Format::eR16G16B16Sfloat:
+        case vk::Format::eR16G16B16Unorm:
+        case vk::Format::eR16G16B16Snorm:
+        case vk::Format::eR16G16B16Uint:
+        case vk::Format::eR16G16B16Sint:
+        case vk::Format::eR32G32B32Sfloat:
+        case vk::Format::eR32G32B32Uint:
+        case vk::Format::eR32G32B32Sint:
+            return 3;
+
+        case vk::Format::eR8G8B8A8Unorm:
+        case vk::Format::eR8G8B8A8Snorm:
+        case vk::Format::eR8G8B8A8Uint:
+        case vk::Format::eR8G8B8A8Sint:
+        case vk::Format::eB8G8R8A8Unorm:
+        case vk::Format::eB8G8R8A8Srgb:
+        case vk::Format::eR16G16B16A16Sfloat:
+        case vk::Format::eR16G16B16A16Unorm:
+        case vk::Format::eR16G16B16A16Snorm:
+        case vk::Format::eR16G16B16A16Uint:
+        case vk::Format::eR16G16B16A16Sint:
+        case vk::Format::eR32G32B32A32Sfloat:
+        case vk::Format::eR32G32B32A32Uint:
+        case vk::Format::eR32G32B32A32Sint:
+            return 4;
+
+        default:
+            MLE_UNREACHABLE_LOG("Unsupported format: {}", to_string(format));
+    }
 }
 }  // namespace mle

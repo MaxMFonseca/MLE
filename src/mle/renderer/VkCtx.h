@@ -37,8 +37,6 @@ class VkCtx {
     void init();
     void shutdown();
 
-    [[nodiscard]] bool isSurfaceUNORM() const;
-
     const auto& getQueueData() { return queue_data_; }
 
     auto getDevice() { return device_; }
@@ -56,6 +54,8 @@ class VkCtx {
     [[nodiscard]] const auto& getPhysicalDevice() const { return p_device_; }
     [[nodiscard]] const auto& getInstance() const { return vk_instance_; }
     [[nodiscard]] const auto& getSurface() const { return surface_; }
+
+    [[nodiscard]] auto getTimestampPeriod() const { return p_device_.properties.limits.timestampPeriod; }
 
   private:
     friend Renderer;
