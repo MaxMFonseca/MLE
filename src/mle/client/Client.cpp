@@ -53,6 +53,11 @@ void Client::run() {
     auto t_prev = running_sw_.elapsed<ns>();
     std::chrono::nanoseconds accumulator = 0ns;
 
+    if (!next_game_layer_) {
+        MLE_W("No initial game layer set! Pushing empty layer.");
+        pushGameLayer(std::make_unique<client::Layer>());
+    }
+
     while (state_ == SystemState::RUNNING) {
         const auto t_now = sw.elapsed<ns>();
         accumulator += std::chrono::duration_cast<ns>(t_now - t_prev);
@@ -86,10 +91,13 @@ void Client::run() {
 void Client::update() {
     MLE_PERF_SCOPE("Client::update");
 
+    checkNextGameLayer();
+
     Window::i().poolEvents();
     UserInputManager::i().update();
 
-    // FIXME: remove this
+    game_layer_->update();
+
     std::this_thread::sleep_for(1ms);
 
     UserInputManager::i().lateUpdate();
@@ -111,4 +119,28 @@ void Client::requestStop() {
     state_ = SystemState::STOPPING;
 }
 
+void Client::checkNextGameLayer() {
+    if (next_game_layer_) {
+        std::scoped_lock lock(game_layer_render_mutex_);
+
+        if (game_layer_) {
+            MLE_I("Shutting down current game layer");
+            game_layer_->shutdown();
+            game_layer_.reset();
+        }
+
+        MLE_I("Switching to new game layer");
+        game_layer_ = std::move(next_game_layer_);
+        game_layer_->init();
+    }
+}
+
+ImageRef Client::render() {
+    std::scoped_lock lock(game_layer_render_mutex_);
+    if (!game_layer_) {
+        return nullptr;
+    }
+
+    return game_layer_->render(0);
+}
 }  // namespace mle

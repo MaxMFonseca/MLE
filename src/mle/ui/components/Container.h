@@ -6,6 +6,9 @@ namespace mle::ui {
 /// SBO, cuz most containers will have 6 or less children
 class EntityStorage {
   public:
+    // 6 looks like a good number, can be adjusted later
+    static constexpr usize MAX_ARRAY_SIZE = 6;
+
     struct Entry {
         std::string name;
         entt::entity e;
@@ -35,15 +38,12 @@ class EntityStorage {
     };
 
   private:
-    [[nodiscard]] bool isArray() const { return count_ <= 6; }
+    [[nodiscard]] bool isArray() const { return count_ <= MAX_ARRAY_SIZE; }
     void insertInVec(Entry child, usize pos);
 
   private:
-    // TODO: 6 is used because sizeof(array) == sizeof(vec), but this does not really matter
-    // Maybe if we see that most containers have like 10 children we can increase this number
-    // allow for configuration
     union Storage {
-        std::array<Entry, 6> array{};
+        std::array<Entry, MAX_ARRAY_SIZE> array{};
         std::vector<Entry> vec;
 
         MLE_NO_COPY_MOVE(Storage)
@@ -60,6 +60,13 @@ class EntityStorage {
 namespace comp {
 struct Container {
     EntityStorage o;
+
+    Container() = default;
+    explicit Container(const Entt& e, const sol::object& obj);
+    void addChild(const Entt& e, std::string name, const sol::object& obj, usize pos = max<usize>());
+
+    static void apply(const Entt& e, const sol::object& obj);
+    static void applyAdd(const Entt& e, const sol::object& obj);
 };
 }  // namespace comp
 }  // namespace mle::ui

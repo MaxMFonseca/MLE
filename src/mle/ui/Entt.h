@@ -1,0 +1,106 @@
+#pragma once
+
+#include "Types.h"
+#include "mle/ui/UI.h"
+#include "mle/utils/ECS.h"
+
+namespace mle::ui {
+class Entt {
+  public:
+    Entt(UI& ui, entt::entity entity) :
+        ui_(ui),
+        e_(entity) {}
+
+    [[nodiscard]] auto& ui() const { return ui_; }
+    [[nodiscard]] auto e() const { return e_; }
+
+    void apply(const std::string& key, const sol::object& obj) const { ui_.getLuaElementOps().applyObj(e_, key, obj); }
+
+    [[nodiscard]] entt::entity getParent() const { return get<comp::Parent>().o; }
+    [[nodiscard]] comp::Container& getParentContainer() const { return ui_.getRegistry().get<comp::Container>(getParent()); }
+
+    template <typename T>
+    [[nodiscard]] T& get() const {
+        return ui_.getRegistry().get<T>(e_);
+    }
+
+    template <typename T>
+    [[nodiscard]] T* tryGet() const {
+        return ui_.getRegistry().try_get<T>(e_);
+    }
+
+    template <typename... T>
+    [[nodiscard]] bool has() const {
+        return ui_.getRegistry().all_of<T...>(e_);
+    }
+
+    template <typename... T>
+    [[nodiscard]] bool hasAny() const {
+        return ui_.getRegistry().any_of<T...>(e_);
+    }
+
+    template <typename T>
+    T& emplace()
+        requires std::default_initializable<T>
+    {
+        MLE_ASSERT(!has<T>());
+        return ui_.getRegistry().emplace<T>(e_);
+    }
+
+    template <typename T, typename... Args>
+    T& emplace(Args&&... args) const {
+        MLE_ASSERT(!has<T>());
+        return ui_.getRegistry().emplace<T>(e_, std::forward<Args>(args)...);
+    }
+
+    template <typename T, typename... Args>
+    T& emplaceOrReplace(Args&&... args) const {
+        return ui_.getRegistry().emplace_or_replace<T>(e_, std::forward<Args>(args)...);
+    }
+
+    template <typename T>
+    void remove() const {
+        MLE_ASSERT(has<T>());
+        ui_.getRegistry().remove<T>(e_);
+    }
+
+    template <typename T, typename... Args>
+    void replace(Args&&... args) const {
+        MLE_ASSERT(has<T>());
+        ui_.getRegistry().replace<T>(e_, std::forward<Args>(args)...);
+    }
+
+    template <typename T, typename... Args>
+    T& getOrEmplace() const
+        requires std::default_initializable<T>
+    {
+        if (has<T>()) {
+            return get<T>();
+        }
+        return emplace<T>();
+    }
+
+    template <typename T, typename Fn>
+    void patch(Fn&& fn) const
+        requires std::is_invocable_v<Fn, T&> && std::is_invocable_r_v<void, Fn, T&> && std::default_initializable<T>
+    {
+        MLE_ASSERT(has<T>());
+        ui_.getRegistry().patch<T>(e_, std::forward<Fn>(fn));
+    }
+
+    template <typename T, typename Fn>
+    void patchOrEmplace(Fn&& fn) const
+        requires std::is_invocable_v<Fn, T&> && std::is_invocable_r_v<void, Fn, T&> && std::default_initializable<T>
+    {
+        if (has<T>()) {
+            patch<T>(std::forward<Fn>(fn));
+        } else {
+            std::forward<Fn>(fn)(emplace<T>());
+        }
+    }
+
+  private:
+    UI& ui_;
+    entt::entity e_;
+};
+}  // namespace mle::ui

@@ -1,5 +1,6 @@
 #include "LuaElementOps.h"
 
+#include "mle/ui/Entt.h"
 #include "mle/ui/UI.h"
 #include "mle/ui/components/Bounds.h"
 
@@ -32,12 +33,17 @@ void LuaElementOps::applyObj(entt::entity e, const std::string& key, const sol::
     }
 }
 
+void LuaElementOps::addKeyHandler(const std::string& key, KeyHandlerFn fn) {
+    MLE_ASSERT_LOG(!key_handlers_.contains(key), "Key handler for '{}' already exists!", key);
+    key_handlers_[key] = fn;
+};
+
 LuaElementOps::LuaElementOps(UI& ui) :
     ui_(ui) {
     auto& lua = ui.getLua();
 
     auto ut = lua.newUsertype<Entt>("mle_ui_Entt", sol::no_constructor);
-    ut["apply"] = [](const Entt& e, const std::string& key, const sol::object& obj) { e.ui.getLuaElementOps().applyObj(e.e, key, obj); };
+    ut["apply"] = &Entt::apply;
 
     addKeyHandler("size", comp::TargetSize::apply);
     addKeyHandler("size_x", comp::TargetSize::applyX);
@@ -63,12 +69,14 @@ LuaElementOps::LuaElementOps(UI& ui) :
     addKeyHandler("aspect_ratio", comp::TargetAspectRatio::apply);
     addKeyHandler("relations", comp::TargetRelations::apply);
     addKeyHandler("relation", comp::TargetRelations::applyAdd);
+    addKeyHandler("container", comp::Container::apply);
+    addKeyHandler("c", comp::Container::apply);
+    addKeyHandler("container_add", comp::Container::applyAdd);
+    addKeyHandler("c_add", comp::Container::applyAdd);
 }
 // addLuaKeyHandler("background", background);
 // addLuaKeyHandler("blur", blur);
 // addLuaKeyHandler("rel", rel);
-// addLuaKeyHandler("container", container);
-// addLuaKeyHandler("c", container);
 // addLuaKeyHandler("root_image", rootImage);
 // addLuaKeyHandler("sprite", sprite);
 // addLuaKeyHandler("text", text);

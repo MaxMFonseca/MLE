@@ -66,10 +66,14 @@ void Bounds::checkContainerNeedsUpdate(entt::entity e, const std::set<entt::enti
 
     auto& container = ui_.getRegistry().get<comp::Container>(e);
 
-    for (auto child : container.children) {
-        if (ui_.getRegistry().try_get<comp::Container>(child)) {
-            checkContainerNeedsUpdate(child, containers_to_update);
+    for (const auto& child : container.o.get()) {
+        if (ui_.getRegistry().try_get<comp::Container>(child.e)) {
+            checkContainerNeedsUpdate(child.e, containers_to_update);
         }
     }
 }
+
+void Bounds::updateContainer(entt::entity /*unused*/){
+
+};
 }  // namespace mle::ui::system

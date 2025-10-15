@@ -261,7 +261,7 @@ inline bool tryGetIdx(const sol::table& table, int idx, T& out) {
  * @return True if the value was successfully extracted from either key or index, false otherwise.
  */
 template <typename T>
-inline bool tryGetKeyOrIdx(const sol::table& table, const std::string& key, int idx, T& ret) {
+[[nodiscard]] inline bool tryGetKeyOrIdx(const sol::table& table, const std::string& key, int idx, T& ret) {
     if (tryGetKey(table, key, ret)) {
         return true;
     }
@@ -279,7 +279,7 @@ inline bool tryGetKeyOrIdx(const sol::table& table, const std::string& key, int 
  * @param idx Index to look for in the table.
  * @return An optional containing the extracted value if it exists, or an empty optional otherwise.
  */
-std::optional<sol::object> getKeyOrIdx(const sol::table& table, const std::string& key, int idx);
+std::optional<sol::object> tryGetKeyOrIdx(const sol::table& table, const std::string& key, int idx);
 
 /**
  * @brief As overload for `vec2f`. Accepts o as num, vec2f, or a table(list) with 2 numeric elements.

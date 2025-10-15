@@ -8,13 +8,11 @@ namespace mle {
 class UI;
 
 namespace ui {
-struct Entt {
-    UI& ui;
-    entt::entity e;
+class Entt;
 
-    Entt(UI& ui, entt::entity entity) :
-        ui(ui),
-        e(entity) {}
-};
+namespace comp {
+struct Parent;
+struct Container;
+}  // namespace comp
 }  // namespace ui
 }  // namespace mle

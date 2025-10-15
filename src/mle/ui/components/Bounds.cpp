@@ -1,5 +1,6 @@
 #include "Bounds.h"
 
+#include "../Entt.h"
 #include "Base.h"
 #include "mle/core/Assert.h"
 #include "mle/core/Logger.h"
@@ -148,11 +149,11 @@ TargetSize::TargetSize(const sol::object& obj) {
         }
     } else {
         auto table = lua::as<sol::table>(obj);
-        auto x_r = lua::getKeyOrIdx(table, "x", 1);
+        auto x_r = lua::tryGetKeyOrIdx(table, "x", 1);
         if (x_r) {
             x.set(*x_r);
         }
-        auto y_r = lua::getKeyOrIdx(table, "y", 2);
+        auto y_r = lua::tryGetKeyOrIdx(table, "y", 2);
         if (y_r) {
             y.set(*y_r);
         }
@@ -161,17 +162,17 @@ TargetSize::TargetSize(const sol::object& obj) {
 
 void TargetSize::apply(const Entt& e, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
-    e.ui.getRegistry().emplace_or_replace<TargetSize>(e.e, obj);
+    e.emplaceOrReplace<TargetSize>(obj);
 }
 
 void TargetSize::applyX(const Entt& e, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
-    e.ui.getRegistry().patch<TargetSize>(e.e, [&](TargetSize& ts) { ts.x.set(obj); });
+    e.patchOrEmplace<TargetSize>([&](TargetSize& ts) { ts.x.set(obj); });
 }
 
 void TargetSize::applyY(const Entt& e, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
-    e.ui.getRegistry().patch<TargetSize>(e.e, [&](TargetSize& ts) { ts.y.set(obj); });
+    e.patchOrEmplace<TargetSize>([&](TargetSize& ts) { ts.y.set(obj); });
 }
 
 TargetPosition::TargetPosition(const sol::object& obj) {
@@ -194,11 +195,11 @@ TargetPosition::TargetPosition(const sol::object& obj) {
         }
     } else {
         auto table = lua::as<sol::table>(obj);
-        auto x_r = lua::getKeyOrIdx(table, "x", 1);
+        auto x_r = lua::tryGetKeyOrIdx(table, "x", 1);
         if (x_r) {
             x.set(*x_r);
         }
-        auto y_r = lua::getKeyOrIdx(table, "y", 2);
+        auto y_r = lua::tryGetKeyOrIdx(table, "y", 2);
         if (y_r) {
             y.set(*y_r);
         }
@@ -207,17 +208,17 @@ TargetPosition::TargetPosition(const sol::object& obj) {
 
 void TargetPosition::apply(const Entt& e, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
-    e.ui.getRegistry().emplace_or_replace<TargetPosition>(e.e, obj);
+    e.emplaceOrReplace<TargetPosition>(obj);
 }
 
 void TargetPosition::applyX(const Entt& e, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
-    e.ui.getRegistry().patch<TargetPosition>(e.e, [&](TargetPosition& tp) { tp.x.set(obj); });
+    e.patchOrEmplace<TargetPosition>([&](TargetPosition& tp) { tp.x.set(obj); });
 }
 
 void TargetPosition::applyY(const Entt& e, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
-    e.ui.getRegistry().patch<TargetPosition>(e.e, [&](TargetPosition& tp) { tp.y.set(obj); });
+    e.patchOrEmplace<TargetPosition>([&](TargetPosition& tp) { tp.y.set(obj); });
 }
 
 TargetPadding::TargetPadding(const sol::object& obj) {
@@ -235,19 +236,19 @@ TargetPadding::TargetPadding(const sol::object& obj) {
     }
     if (obj.is<sol::table>()) {
         auto table = obj.as<sol::table>();
-        auto t_r = lua::getKeyOrIdx(table, "t", 1);
+        auto t_r = lua::tryGetKeyOrIdx(table, "t", 1);
         if (t_r) {
             t.set(*t_r);
         }
-        auto b_r = lua::getKeyOrIdx(table, "b", 2);
+        auto b_r = lua::tryGetKeyOrIdx(table, "b", 2);
         if (b_r) {
             b.set(*b_r);
         }
-        auto l_r = lua::getKeyOrIdx(table, "l", 3);
+        auto l_r = lua::tryGetKeyOrIdx(table, "l", 3);
         if (l_r) {
             l.set(*l_r);
         }
-        auto r_r = lua::getKeyOrIdx(table, "r", 4);
+        auto r_r = lua::tryGetKeyOrIdx(table, "r", 4);
         if (r_r) {
             r.set(*r_r);
         }
@@ -258,32 +259,32 @@ TargetPadding::TargetPadding(const sol::object& obj) {
 
 void TargetPadding::apply(const Entt& e, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
-    e.ui.getRegistry().emplace_or_replace<TargetPadding>(e.e, obj);
+    e.emplaceOrReplace<TargetPadding>(obj);
 }
 
 void TargetPadding::applyT(const Entt& e, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
-    e.ui.getRegistry().patch<TargetPadding>(e.e, [&](TargetPadding& tp) { tp.t.set(obj); });
+    e.patchOrEmplace<TargetPadding>([&](TargetPadding& tp) { tp.t.set(obj); });
 }
 
 void TargetPadding::applyB(const Entt& e, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
-    e.ui.getRegistry().patch<TargetPadding>(e.e, [&](TargetPadding& tp) { tp.b.set(obj); });
+    e.patchOrEmplace<TargetPadding>([&](TargetPadding& tp) { tp.b.set(obj); });
 }
 
 void TargetPadding::applyL(const Entt& e, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
-    e.ui.getRegistry().patch<TargetPadding>(e.e, [&](TargetPadding& tp) { tp.l.set(obj); });
+    e.patchOrEmplace<TargetPadding>([&](TargetPadding& tp) { tp.l.set(obj); });
 }
 
 void TargetPadding::applyR(const Entt& e, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
-    e.ui.getRegistry().patch<TargetPadding>(e.e, [&](TargetPadding& tp) { tp.r.set(obj); });
+    e.patchOrEmplace<TargetPadding>([&](TargetPadding& tp) { tp.r.set(obj); });
 }
 
 void TargetPadding::applyX(const Entt& e, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
-    e.ui.getRegistry().patch<TargetPadding>(e.e, [&](TargetPadding& tp) {
+    e.patchOrEmplace<TargetPadding>([&](TargetPadding& tp) {
         tp.l.set(obj);
         tp.r.set(obj);
     });
@@ -291,7 +292,7 @@ void TargetPadding::applyX(const Entt& e, const sol::object& obj) {
 
 void TargetPadding::applyY(const Entt& e, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
-    e.ui.getRegistry().patch<TargetPadding>(e.e, [&](TargetPadding& tp) {
+    e.patchOrEmplace<TargetPadding>([&](TargetPadding& tp) {
         tp.t.set(obj);
         tp.b.set(obj);
     });
@@ -312,19 +313,19 @@ TargetMargin::TargetMargin(const sol::object& obj) {
     }
     if (obj.is<sol::table>()) {
         auto table = obj.as<sol::table>();
-        auto t_r = lua::getKeyOrIdx(table, "t", 1);
+        auto t_r = lua::tryGetKeyOrIdx(table, "t", 1);
         if (t_r) {
             t.set(*t_r);
         }
-        auto b_r = lua::getKeyOrIdx(table, "b", 2);
+        auto b_r = lua::tryGetKeyOrIdx(table, "b", 2);
         if (b_r) {
             b.set(*b_r);
         }
-        auto l_r = lua::getKeyOrIdx(table, "l", 3);
+        auto l_r = lua::tryGetKeyOrIdx(table, "l", 3);
         if (l_r) {
             l.set(*l_r);
         }
-        auto r_r = lua::getKeyOrIdx(table, "r", 4);
+        auto r_r = lua::tryGetKeyOrIdx(table, "r", 4);
         if (r_r) {
             r.set(*r_r);
         }
@@ -335,32 +336,32 @@ TargetMargin::TargetMargin(const sol::object& obj) {
 
 void TargetMargin::apply(const Entt& e, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
-    e.ui.getRegistry().emplace_or_replace<TargetMargin>(e.e, obj);
+    e.emplaceOrReplace<TargetMargin>(obj);
 }
 
 void TargetMargin::applyT(const Entt& e, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
-    e.ui.getRegistry().patch<TargetMargin>(e.e, [&](TargetMargin& tm) { tm.t.set(obj); });
+    e.patchOrEmplace<TargetMargin>([&](TargetMargin& tm) { tm.t.set(obj); });
 }
 
 void TargetMargin::applyB(const Entt& e, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
-    e.ui.getRegistry().patch<TargetMargin>(e.e, [&](TargetMargin& tm) { tm.b.set(obj); });
+    e.patchOrEmplace<TargetMargin>([&](TargetMargin& tm) { tm.b.set(obj); });
 }
 
 void TargetMargin::applyL(const Entt& e, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
-    e.ui.getRegistry().patch<TargetMargin>(e.e, [&](TargetMargin& tm) { tm.l.set(obj); });
+    e.patchOrEmplace<TargetMargin>([&](TargetMargin& tm) { tm.l.set(obj); });
 }
 
 void TargetMargin::applyR(const Entt& e, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
-    e.ui.getRegistry().patch<TargetMargin>(e.e, [&](TargetMargin& tm) { tm.r.set(obj); });
+    e.patchOrEmplace<TargetMargin>([&](TargetMargin& tm) { tm.r.set(obj); });
 }
 
 void TargetMargin::applyX(const Entt& e, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
-    e.ui.getRegistry().patch<TargetMargin>(e.e, [&](TargetMargin& tm) {
+    e.patchOrEmplace<TargetMargin>([&](TargetMargin& tm) {
         tm.l.set(obj);
         tm.r.set(obj);
     });
@@ -368,7 +369,7 @@ void TargetMargin::applyX(const Entt& e, const sol::object& obj) {
 
 void TargetMargin::applyY(const Entt& e, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
-    e.ui.getRegistry().patch<TargetMargin>(e.e, [&](TargetMargin& tm) {
+    e.patchOrEmplace<TargetMargin>([&](TargetMargin& tm) {
         tm.t.set(obj);
         tm.b.set(obj);
     });
@@ -389,11 +390,11 @@ TargetOrigin::TargetOrigin(const sol::object& obj) {
     }
     if (obj.is<sol::table>()) {
         auto table = obj.as<sol::table>();
-        auto x_r = lua::getKeyOrIdx(table, "x", 1);
+        auto x_r = lua::tryGetKeyOrIdx(table, "x", 1);
         if (x_r) {
             o.x = lua::as<f32>(*x_r);
         }
-        auto y_r = lua::getKeyOrIdx(table, "y", 2);
+        auto y_r = lua::tryGetKeyOrIdx(table, "y", 2);
         if (y_r) {
             o.y = lua::as<f32>(*y_r);
         }
@@ -404,7 +405,7 @@ TargetOrigin::TargetOrigin(const sol::object& obj) {
 
 void TargetOrigin::apply(const Entt& e, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
-    e.ui.getRegistry().emplace_or_replace<TargetOrigin>(e.e, obj);
+    e.emplaceOrReplace<TargetOrigin>(obj);
 }
 
 TargetAspectRatio::TargetAspectRatio(const sol::object& obj) :
@@ -413,13 +414,13 @@ TargetAspectRatio::TargetAspectRatio(const sol::object& obj) :
 
 void TargetAspectRatio::apply(const Entt& e, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
-    e.ui.getRegistry().emplace_or_replace<TargetAspectRatio>(e.e, obj);
+    e.emplaceOrReplace<TargetAspectRatio>(obj);
 }
 
 TargetRelations::TargetRelations(const Entt& e, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
 
-    const auto& parent_container = e.ui.getParentContainer(e.e);
+    const auto& parent_container = e.getParentContainer();
 
     if (obj.is<std::string>()) {
         add(obj, parent_container);
@@ -438,7 +439,7 @@ TargetRelations::TargetRelations(const Entt& e, const sol::object& obj) {
 void TargetRelations::add(const Entt& e, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
 
-    add(obj, e.ui.getParentContainer(e.e));
+    add(obj, e.getParentContainer());
 
     MLE_UNREACHABLE_LOG("Unexpected obj type for TargetRelations entry: {}", obj.get_type());
 }
@@ -494,12 +495,12 @@ void TargetRelations::add(const sol::object& obj, const comp::Container& parent_
 
 void TargetRelations::apply(const Entt& e, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
-    e.ui.getRegistry().emplace_or_replace<TargetRelations>(e.e, e, obj);
+    e.emplaceOrReplace<TargetRelations>(e, obj);
 }
 
 void TargetRelations::applyAdd(const Entt& e, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
-    e.ui.getRegistry().patch<TargetRelations>(e.e, [&](TargetRelations& tr) { tr.add(e, obj); });
+    e.patchOrEmplace<TargetRelations>([&](TargetRelations& tr) { tr.add(e, obj); });
 }
 
 }  // namespace comp

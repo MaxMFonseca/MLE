@@ -1,5 +1,9 @@
 #include "Container.h"
 
+#include "mle/lua/Utils.h"
+#include "mle/ui/Entt.h"
+#include "mle/ui/UI.h"
+
 namespace mle::ui {
 EntityStorage::~EntityStorage() {
     if (!isArray()) {
@@ -16,7 +20,7 @@ std::span<const EntityStorage::Entry> EntityStorage::get() const {
 
 void EntityStorage::add(std::string name, entt::entity e, usize pos) {
     if (isArray()) {
-        if (count_ < 6) {
+        if (count_ < MAX_ARRAY_SIZE) {
             if (pos == max<usize>()) {
                 children_.array.at(count_) = {.name = std::move(name), .e = e};
             } else {
@@ -109,5 +113,52 @@ std::string EntityStorage::getNameFromE(entt::entity e) const {
     return {};
 }
 
-namespace comp {}
+namespace comp {
+Container::Container(const Entt& e, const sol::object& obj) {
+    auto table = lua::as<sol::table>(obj);
+    for (const auto& [key, value] : table) {
+        if (key.is<std::string>()) {
+            addChild(e, key.as<std::string>(), value);
+        } else {
+            addChild(e, "", value);
+        }
+    }
+}
+
+void Container::addChild(const Entt& e, std::string name, const sol::object& obj, usize pos) {
+    auto child = e.ui().getLuaElementOps().createElement(obj, e.e());
+    o.add(std::move(name), child, pos);
+}
+
+void Container::apply(const Entt& e, const sol::object& obj) {
+    MLE_ASSERT(obj.valid());
+    if (e.has<Container>()) {
+        e.remove<Container>();  // remove cuz no copy move
+    }
+    e.emplace<Container>(e, obj);
+}
+
+void Container::applyAdd(const Entt& e, const sol::object& obj) {
+    auto table = lua::as<sol::table>(obj);
+
+    std::string name;
+    auto name_r = lua::tryGetKeyOrIdx(table, "name", 1, name);
+    MLE_ASSERT(name_r);
+
+    sol::table child_table;
+    auto child_table_r = lua::tryGetKeyOrIdx(table, "child", 2, child_table);
+    MLE_ASSERT(child_table_r);
+
+    auto pos = max<usize>();
+    std::ignore = lua::tryGetKeyOrIdx(table, "pos", 3, pos);
+
+    if (e.has<Container>()) {
+        e.patch<Container>([&](Container& c) { c.addChild(e, std::move(name), child_table, pos); });
+    } else {
+        auto& new_c = e.emplace<Container>();
+        new_c.addChild(e, std::move(name), child_table, pos);
+    }
+}
+
+}  // namespace comp
 }  // namespace mle::ui

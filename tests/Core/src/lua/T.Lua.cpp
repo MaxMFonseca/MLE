@@ -45,10 +45,10 @@ TEST_F(LuaTest, UtilsGetKeyOrIdx) {
     auto tbl = lua_.createTable();
     tbl["foo"] = 7;
     tbl[1] = 8;
-    auto v1 = lua::getKeyOrIdx(tbl, "foo", 1);
+    auto v1 = lua::tryGetKeyOrIdx(tbl, "foo", 1);
     ASSERT_TRUE(v1.has_value());
     EXPECT_EQ(v1->as<int>(), 8);
-    auto v2 = lua::getKeyOrIdx(tbl, "foo", 99);
+    auto v2 = lua::tryGetKeyOrIdx(tbl, "foo", 99);
     ASSERT_TRUE(v2.has_value());
     EXPECT_EQ(v2->as<int>(), 7);
 }

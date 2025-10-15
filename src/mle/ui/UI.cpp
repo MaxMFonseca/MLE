@@ -1,12 +1,18 @@
 #include "UI.h"
 
 namespace mle {
-const ui::comp::Parent& UI::getParent(entt::entity e) const {
-    MLE_ASSERT_LOG(registry_.all_of<ui::comp::Parent>(e), "Trying to get root's parent?");
-    return registry_.get<ui::comp::Parent>(e);
+void UI::setRoot(const std::string& element_name) {
+    MLE_I("Setting UI root to element '{}'", element_name);
+
+    auto root_table = getTableFor(element_name);
+
+    registry_.clear();
+
+    root_ = lua_element_ops_.createElement(root_table, entt::null);
+};
+
+sol::table UI::getTableFor(const std::string& element_name) {
+    return lua_.require(element_name);
 }
 
-const ui::comp::Container& UI::getParentContainer(entt::entity e) const {
-    return registry_.get<ui::comp::Container>(getParent(e).o);
-}
 }  // namespace mle

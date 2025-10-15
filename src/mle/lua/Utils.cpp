@@ -3,7 +3,7 @@
 #include "mle/lua/Lua.h"
 
 namespace mle::lua {
-std::optional<sol::object> getKeyOrIdx(const sol::table& table, const std::string& key, int idx) {
+std::optional<sol::object> tryGetKeyOrIdx(const sol::table& table, const std::string& key, int idx) {
     auto iret = table[idx];
     if (iret.valid()) {
         return iret;

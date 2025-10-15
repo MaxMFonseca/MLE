@@ -1,5 +1,6 @@
 #include <filesystem>
 
+#include "layers/Init.h"
 #include "mle/client/Client.h"
 #include "mle/core/Consts.h"
 #include "mle/core/Core.h"
@@ -16,6 +17,7 @@ int main(int argc, char** argv) {
 
     mle::Core::i().init(core_ii);
 
+    mle::Client::i().pushGameLayer(std::make_unique<mle::user::InitLayer>());
     mle::Client::i().run();
 
     mle::Core::i().shutdown();

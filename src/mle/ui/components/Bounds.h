@@ -37,6 +37,7 @@ struct Bounds {
 struct TargetSize {
     TargetBound x, y;
 
+    TargetSize() = default;
     explicit TargetSize(const sol::object& obj);
 
     static void apply(const Entt& e, const sol::object& obj);
@@ -47,6 +48,7 @@ struct TargetSize {
 struct TargetPosition {
     TargetBound x, y;
 
+    TargetPosition() = default;
     explicit TargetPosition(const sol::object& obj);
 
     static void apply(const Entt& e, const sol::object& obj);
@@ -57,6 +59,7 @@ struct TargetPosition {
 struct TargetPadding {
     TargetBound t, b, l, r;
 
+    TargetPadding() = default;
     explicit TargetPadding(const sol::object& obj);
 
     static void apply(const Entt& e, const sol::object& obj);
@@ -76,6 +79,7 @@ struct TargetPadding {
 struct TargetMargin {
     TargetBound t, b, l, r;
 
+    TargetMargin() = default;
     explicit TargetMargin(const sol::object& obj);
 
     static void apply(const Entt& e, const sol::object& obj);
@@ -90,6 +94,7 @@ struct TargetMargin {
 struct TargetOrigin {
     vec2f o = {0.0F, 0.0F};
 
+    TargetOrigin() = default;
     explicit TargetOrigin(const sol::object& obj);
 
     static void apply(const Entt& e, const sol::object& obj);
@@ -98,6 +103,7 @@ struct TargetOrigin {
 struct TargetAspectRatio {
     f32 o = 0.0F;
 
+    TargetAspectRatio() = default;
     explicit TargetAspectRatio(const sol::object& obj);
 
     static void apply(const Entt& e, const sol::object& obj);
@@ -112,6 +118,7 @@ struct TargetRelations {
     };
     std::vector<Dep> o{};
 
+    TargetRelations() = default;
     explicit TargetRelations(const Entt& e, const sol::object& obj);
     void add(const Entt& e, const sol::object& obj);
     void add(const sol::object& obj, const comp::Container& parent);

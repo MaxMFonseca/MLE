@@ -1,5 +1,6 @@
 #pragma once
 
+#include "mle/renderer/Types.h"
 #include "mle/utils/Utils.h"
 
 namespace mle::client {
@@ -14,7 +15,7 @@ class Layer {
     virtual void shutdown() {};
 
     virtual void update() {};
-    virtual void render([[maybe_unused]] f64 dt) {};
+    virtual ImageRef render([[maybe_unused]] f64 dt) { return nullptr; };
 
   private:
 };
