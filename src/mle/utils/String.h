@@ -8,7 +8,7 @@
 
 namespace mle {
 template <typename T>
-Expected<T> strTo(const std::string& s) {
+Expected<T> strTo(std::string_view s) {
     T value{};
 
     if (s.empty()) {

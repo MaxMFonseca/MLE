@@ -1,0 +1,75 @@
+#include "Bounds.h"
+
+#include "../components/Bounds.h"
+#include "mle/core/Logger.h"
+#include "mle/ui/UI.h"
+#include "mle/ui/components/Base.h"
+#include "mle/ui/components/Container.h"
+
+namespace mle::ui::system {
+Bounds::Bounds(UI& ui) :
+    ui_(ui),
+    storage_(ui.getRegistry().storage<entt::reactive>()) {
+    MLE_I("Creating Bounds system");
+
+    storage_.on_construct<comp::RequestExternalUpdate>()
+        .on_construct<comp::TargetSize>()
+        .on_destroy<comp::TargetSize>()
+        .on_update<comp::TargetSize>()
+        .on_construct<comp::TargetPosition>()
+        .on_destroy<comp::TargetPosition>()
+        .on_update<comp::TargetPosition>()
+        .on_construct<comp::TargetPadding>()
+        .on_destroy<comp::TargetPadding>()
+        .on_update<comp::TargetPadding>()
+        .on_construct<comp::TargetMargin>()
+        .on_destroy<comp::TargetMargin>()
+        .on_update<comp::TargetMargin>()
+        .on_construct<comp::TargetOrigin>()
+        .on_destroy<comp::TargetOrigin>()
+        .on_update<comp::TargetOrigin>()
+        .on_construct<comp::TargetAspectRatio>()
+        .on_destroy<comp::TargetAspectRatio>()
+        .on_update<comp::TargetAspectRatio>()
+        .on_construct<comp::TargetRelations>()
+        .on_destroy<comp::TargetRelations>()
+        .on_update<comp::TargetRelations>();
+}
+
+void Bounds::update() {
+    MLE_T(".");
+    if (storage_.empty()) {
+        return;
+    }
+    MLE_D("Updating Bounds system");
+
+    std::set<entt::entity> containers_to_update;
+    for (auto [e] : storage_.each()) {
+        auto* parent_c = ui_.getRegistry().try_get<comp::Parent>(e);
+        if (parent_c && parent_c->o != entt::null) {
+            containers_to_update.insert(parent_c->o);
+        } else {
+            containers_to_update.insert(e);
+        }
+    }
+    ui_.getRegistry().clear<comp::RequestExternalUpdate>();
+
+    checkContainerNeedsUpdate(ui_.getRoot(), containers_to_update);
+}
+
+// NOLINTNEXTLINE(misc-no-recursion) yeah, i know, its cool, its a tree, i cant really avoid it
+void Bounds::checkContainerNeedsUpdate(entt::entity e, const std::set<entt::entity>& containers_to_update) {
+    if (containers_to_update.contains(e)) {
+        updateContainer(e);
+        return;
+    }
+
+    auto& container = ui_.getRegistry().get<comp::Container>(e);
+
+    for (auto child : container.children) {
+        if (ui_.getRegistry().try_get<comp::Container>(child)) {
+            checkContainerNeedsUpdate(child, containers_to_update);
+        }
+    }
+}
+}  // namespace mle::ui::system
