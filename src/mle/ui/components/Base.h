@@ -7,7 +7,7 @@ struct Parent {
     entt::entity o = entt::null;
 };
 
-struct RequestInternalUpdate {};
-struct RequestExternalUpdate {};
+struct ContainerNeedsInternalBoundsUpdate {};
+struct RequestExternalBoundsUpdate {};
 
 }  // namespace mle::ui::comp

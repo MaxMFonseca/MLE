@@ -6,7 +6,11 @@
 
 namespace mle::ui {
 EntityStorage::~EntityStorage() {
-    if (!isArray()) {
+    if (isArray()) {
+        for (usize i = 0; i < count_; ++i) {
+            children_.array.at(i).~Entry();
+        }
+    } else {
         children_.vec.~vector();
     }
 }

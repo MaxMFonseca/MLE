@@ -15,6 +15,7 @@ class UI {
     UI() = default;
 
     void setRoot(const std::string& element_name);
+    void resizeRoot(const vec2u& size);
 
     [[nodiscard]] auto& getRegistry() { return registry_; }
     [[nodiscard]] auto getRoot() const { return root_; }

@@ -48,9 +48,13 @@ LuaElementOps::LuaElementOps(UI& ui) :
     addKeyHandler("size", comp::TargetSize::apply);
     addKeyHandler("size_x", comp::TargetSize::applyX);
     addKeyHandler("size_y", comp::TargetSize::applyY);
+    addKeyHandler("size_x_dep", comp::TargetSize::applyXDep);
+    addKeyHandler("size_y_dep", comp::TargetSize::applyYDep);
     addKeyHandler("pos", comp::TargetPosition::apply);
     addKeyHandler("pos_x", comp::TargetPosition::applyX);
     addKeyHandler("pos_y", comp::TargetPosition::applyY);
+    addKeyHandler("pos_x_dep", comp::TargetPosition::applyXDep);
+    addKeyHandler("pos_y_dep", comp::TargetPosition::applyYDep);
     addKeyHandler("padding", comp::TargetPadding::apply);
     addKeyHandler("padding_t", comp::TargetPadding::applyT);
     addKeyHandler("padding_b", comp::TargetPadding::applyB);
@@ -67,8 +71,6 @@ LuaElementOps::LuaElementOps(UI& ui) :
     addKeyHandler("margin_y", comp::TargetMargin::applyY);
     addKeyHandler("origin", comp::TargetOrigin::apply);
     addKeyHandler("aspect_ratio", comp::TargetAspectRatio::apply);
-    addKeyHandler("relations", comp::TargetRelations::apply);
-    addKeyHandler("relation", comp::TargetRelations::applyAdd);
     addKeyHandler("container", comp::Container::apply);
     addKeyHandler("c", comp::Container::apply);
     addKeyHandler("container_add", comp::Container::applyAdd);

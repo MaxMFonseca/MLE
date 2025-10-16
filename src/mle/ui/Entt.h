@@ -13,11 +13,13 @@ class Entt {
 
     [[nodiscard]] auto& ui() const { return ui_; }
     [[nodiscard]] auto e() const { return e_; }
+    void setE(entt::entity e) { e_ = e; }
 
     void apply(const std::string& key, const sol::object& obj) const { ui_.getLuaElementOps().applyObj(e_, key, obj); }
 
     [[nodiscard]] entt::entity getParent() const { return get<comp::Parent>().o; }
     [[nodiscard]] comp::Container& getParentContainer() const { return ui_.getRegistry().get<comp::Container>(getParent()); }
+    [[nodiscard]] bool anyFitTargetExternalBound() const;
 
     template <typename T>
     [[nodiscard]] T& get() const {
@@ -51,6 +53,13 @@ class Entt {
     T& emplace(Args&&... args) const {
         MLE_ASSERT(!has<T>());
         return ui_.getRegistry().emplace<T>(e_, std::forward<Args>(args)...);
+    }
+
+    template <typename T>
+    void addFlag() const {
+        if (!has<T>()) {
+            ui_.getRegistry().emplace<T>(e_);
+        }
     }
 
     template <typename T, typename... Args>

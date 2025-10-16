@@ -13,13 +13,13 @@ struct TargetBound {
         ROOT,        ///< Relative to root element.                 Suffix: "%r"
         PARENT_W,    ///< Width relative to parent.                 Suffix: "%pw"
         PARENT_H,    ///< Height relative to parent.                Suffix: "%ph"
-        SELF,        ///< Size based on self content.               Suffix: "%s"
+        SELF,        ///< Size based on self content.               Suffix: "%s", "fit"
         SELF_W,      ///< Width based on self content.              Suffix: "%sw"
         SELF_H,      ///< Height based on self content.             Suffix: "%sh"
         DEFAULT      ///< Default behavior.                         Suffix: ""
     };
 
-    f32 val = 0.F;
+    f32 val = 0;
     Type type = Type::DEFAULT;
 
     TargetBound() = default;
@@ -27,33 +27,52 @@ struct TargetBound {
     void set(f32 v, Type t);
     void set(const sol::object& obj);
     void set(std::string_view str);
+    [[nodiscard]] bool isFit() const { return type == Type::SELF || type == Type::SELF_W || type == Type::SELF_H; }
+};
+
+struct Dependency {
+    f32 val = 0;
+    entt::entity e = entt::null;
+
+    void set(const Entt& e, const sol::object& obj);
 };
 
 namespace comp {
+
 struct Bounds {
     Recti parent_px{};
+
+    Bounds() = default;
+    explicit Bounds(vec2u size) :
+        parent_px({0, 0}, size) {}
 };
 
 struct TargetSize {
     TargetBound x, y;
+    Dependency xdep, ydep;
 
     TargetSize() = default;
-    explicit TargetSize(const sol::object& obj);
+    explicit TargetSize(const Entt& e, const sol::object& obj);
 
     static void apply(const Entt& e, const sol::object& obj);
     static void applyX(const Entt& e, const sol::object& obj);
     static void applyY(const Entt& e, const sol::object& obj);
+    static void applyXDep(const Entt& e, const sol::object& obj);
+    static void applyYDep(const Entt& e, const sol::object& obj);
 };
 
 struct TargetPosition {
     TargetBound x, y;
+    Dependency xdep, ydep;
 
     TargetPosition() = default;
-    explicit TargetPosition(const sol::object& obj);
+    explicit TargetPosition(const Entt& e, const sol::object& obj);
 
     static void apply(const Entt& e, const sol::object& obj);
     static void applyX(const Entt& e, const sol::object& obj);
     static void applyY(const Entt& e, const sol::object& obj);
+    static void applyXDep(const Entt& e, const sol::object& obj);
+    static void applyYDep(const Entt& e, const sol::object& obj);
 };
 
 struct TargetPadding {
@@ -107,24 +126,6 @@ struct TargetAspectRatio {
     explicit TargetAspectRatio(const sol::object& obj);
 
     static void apply(const Entt& e, const sol::object& obj);
-};
-
-struct TargetRelations {
-    struct Dep {
-        f32 val = 0;
-        entt::entity e{};
-        enum class Type : u8 { POS_X, POS_Y, SIZE_X, SIZE_Y } type{};
-        // a:0.3:pos_x
-    };
-    std::vector<Dep> o{};
-
-    TargetRelations() = default;
-    explicit TargetRelations(const Entt& e, const sol::object& obj);
-    void add(const Entt& e, const sol::object& obj);
-    void add(const sol::object& obj, const comp::Container& parent);
-
-    static void apply(const Entt& e, const sol::object& obj);
-    static void applyAdd(const Entt& e, const sol::object& obj);
 };
 
 }  // namespace comp

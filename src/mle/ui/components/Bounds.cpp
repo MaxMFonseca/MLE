@@ -6,7 +6,6 @@
 #include "mle/core/Logger.h"
 #include "mle/lua/Utils.h"
 #include "mle/ui/UI.h"
-#include "mle/utils/ECS.h"
 #include "mle/utils/String.h"
 
 namespace mle::ui {
@@ -31,7 +30,7 @@ TargetBound::Type stringToType(std::string_view str) {
     if (str == "%ph") {
         return Type::PARENT_H;
     }
-    if (str == "%s") {
+    if (str == "%s" || str == "fit") {
         return Type::SELF;
     }
     if (str == "%sw") {
@@ -128,8 +127,48 @@ void TargetBound::set(const sol::object& obj) {
     }
     MLE_UNREACHABLE_LOG("Unexpected obj type for TargetBound: {}", obj.get_type());
 }
+
+void Dependency::set(const Entt& e, const sol::object& obj) {
+    MLE_ASSERT(obj.valid());
+
+    this->e = entt::null;
+    val = 0;
+
+    const auto& parent_c = e.getParentContainer();
+
+    auto apply = [&](std::string_view dep_name, f32 dep_val) {
+        this->e = parent_c.o.getEFromName(std::string(dep_name));
+        if (this->e == entt::null) {
+            /// NOLINTNEXTLINE(bugprone-lambda-function-name) just a log
+            MLE_E("Dependency target '{}' not found in parent container of entity {}", dep_name, e.e());
+            return;
+        }
+        this->val = dep_val;
+        return;
+    };
+
+    if (obj.is<std::string>()) {
+        auto str = obj.as<std::string>();
+        auto splited = split(str, ':');
+        if (splited.size() != 2) {
+            MLE_E("Invalid dependency string: '{}'. Expected format is 'dep_name:val'.", str);
+            return;
+        }
+        auto val_r = strTo<f32>(splited[1]);
+        if (!val_r) {
+            MLE_E("Invalid dependency value in string: '{}'. Expected format is 'dep_name:val' where val is a number.", str);
+            return;
+        }
+        apply(splited[0], *val_r);
+    } else if (obj.is<sol::table>()) {
+        apply(lua::getIdx<std::string>(obj, 1), lua::getIdx<f32>(obj, 2));
+    } else {
+        MLE_UNREACHABLE_LOG("Unexpected obj type for Dependency: {}", obj.get_type());
+    }
+}
+
 namespace comp {
-TargetSize::TargetSize(const sol::object& obj) {
+TargetSize::TargetSize(const Entt& e, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
 
     if (obj.is<f32>()) {
@@ -157,12 +196,20 @@ TargetSize::TargetSize(const sol::object& obj) {
         if (y_r) {
             y.set(*y_r);
         }
+        auto dep_x_r = lua::tryGetKeyOrIdx(table, "dep_x", 3);
+        if (dep_x_r) {
+            xdep.set(e, *dep_x_r);
+        }
+        auto dep_y_r = lua::tryGetKeyOrIdx(table, "dep_y", 4);
+        if (dep_y_r) {
+            ydep.set(e, *dep_y_r);
+        }
     }
 }
 
 void TargetSize::apply(const Entt& e, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
-    e.emplaceOrReplace<TargetSize>(obj);
+    e.emplaceOrReplace<TargetSize>(e, obj);
 }
 
 void TargetSize::applyX(const Entt& e, const sol::object& obj) {
@@ -175,7 +222,17 @@ void TargetSize::applyY(const Entt& e, const sol::object& obj) {
     e.patchOrEmplace<TargetSize>([&](TargetSize& ts) { ts.y.set(obj); });
 }
 
-TargetPosition::TargetPosition(const sol::object& obj) {
+void TargetSize::applyXDep(const Entt& e, const sol::object& obj) {
+    MLE_ASSERT(obj.valid());
+    e.patchOrEmplace<TargetSize>([&](TargetSize& ts) { ts.xdep.set(e, obj); });
+}
+
+void TargetSize::applyYDep(const Entt& e, const sol::object& obj) {
+    MLE_ASSERT(obj.valid());
+    e.patchOrEmplace<TargetSize>([&](TargetSize& ts) { ts.ydep.set(e, obj); });
+}
+
+TargetPosition::TargetPosition(const Entt& e, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
 
     if (obj.is<f32>()) {
@@ -203,12 +260,20 @@ TargetPosition::TargetPosition(const sol::object& obj) {
         if (y_r) {
             y.set(*y_r);
         }
+        auto dep_x_r = lua::tryGetKeyOrIdx(table, "dep_x", 3);
+        if (dep_x_r) {
+            xdep.set(e, *dep_x_r);
+        }
+        auto dep_y_r = lua::tryGetKeyOrIdx(table, "dep_y", 4);
+        if (dep_y_r) {
+            ydep.set(e, *dep_y_r);
+        }
     }
 }
 
 void TargetPosition::apply(const Entt& e, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
-    e.emplaceOrReplace<TargetPosition>(obj);
+    e.emplaceOrReplace<TargetPosition>(e, obj);
 }
 
 void TargetPosition::applyX(const Entt& e, const sol::object& obj) {
@@ -219,6 +284,16 @@ void TargetPosition::applyX(const Entt& e, const sol::object& obj) {
 void TargetPosition::applyY(const Entt& e, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
     e.patchOrEmplace<TargetPosition>([&](TargetPosition& tp) { tp.y.set(obj); });
+}
+
+void TargetPosition::applyXDep(const Entt& e, const sol::object& obj) {
+    MLE_ASSERT(obj.valid());
+    e.patchOrEmplace<TargetPosition>([&](TargetPosition& tp) { tp.xdep.set(e, obj); });
+}
+
+void TargetPosition::applyYDep(const Entt& e, const sol::object& obj) {
+    MLE_ASSERT(obj.valid());
+    e.patchOrEmplace<TargetPosition>([&](TargetPosition& tp) { tp.ydep.set(e, obj); });
 }
 
 TargetPadding::TargetPadding(const sol::object& obj) {
@@ -416,92 +491,5 @@ void TargetAspectRatio::apply(const Entt& e, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
     e.emplaceOrReplace<TargetAspectRatio>(obj);
 }
-
-TargetRelations::TargetRelations(const Entt& e, const sol::object& obj) {
-    MLE_ASSERT(obj.valid());
-
-    const auto& parent_container = e.getParentContainer();
-
-    if (obj.is<std::string>()) {
-        add(obj, parent_container);
-        return;
-    }
-    if (obj.is<sol::table>()) {
-        for (const auto& v : obj.as<sol::table>()) {
-            add(v.second, parent_container);
-        }
-        return;
-    }
-
-    MLE_UNREACHABLE_LOG("Unexpected obj type for TargetRelations: {}", obj.get_type());
-}
-
-void TargetRelations::add(const Entt& e, const sol::object& obj) {
-    MLE_ASSERT(obj.valid());
-
-    add(obj, e.getParentContainer());
-
-    MLE_UNREACHABLE_LOG("Unexpected obj type for TargetRelations entry: {}", obj.get_type());
-}
-
-void TargetRelations::add(const sol::object& obj, const comp::Container& parent_container) {
-    // obj is str in format name:type:val
-    auto str = lua::as<std::string>(obj);
-    auto s = split(str, ':');
-    if (s.size() != 3) {
-        MLE_E("Invalid TargetRelations string: '{}'. Expected format is 'name:type:val'.", str);
-        return;
-    }
-    entt::entity rel_e = parent_container.o.getEFromName(std::string(s.at(0)));
-    if (rel_e == entt::null) {
-        MLE_E("Invalid TargetRelations string: '{}'. No such sibling entity: '{}'.", str, s.at(0));
-        return;
-    }
-
-    vec2f val{0.0F, 0.0F};
-    if (std::isdigit(s.at(2)[0]) || s.at(2)[0] == '-' || s.at(2)[0] == '+' || s.at(2)[0] == '.') {
-        auto val_r = strTo<f32>(s.at(2));
-        if (val_r) {
-            val.x = *val_r;
-        }
-    } else {
-        if (s.at(2).empty() || s.at(2).size() > 2) {
-            MLE_E("Invalid target position string: '{}'. {} Expected format is 'x(pos_val)' or 'xy(pos_val)'.", str, s.at(2));
-            return;
-        }
-        val = strToSize(s.at(2));
-    }
-
-    auto type_str = s.at(1);
-    if (type_str == "pos_x") {
-        o.emplace_back(val.x, rel_e, Dep::Type::POS_X);
-    } else if (type_str == "pos_y") {
-        o.emplace_back(val.x, rel_e, Dep::Type::POS_Y);
-    } else if (type_str == "size_x") {
-        o.emplace_back(val.x, rel_e, Dep::Type::SIZE_X);
-    } else if (type_str == "size_y") {
-        o.emplace_back(val.x, rel_e, Dep::Type::SIZE_Y);
-    } else if (type_str == "pos") {
-        o.emplace_back(val.x, rel_e, Dep::Type::POS_X);
-        o.emplace_back(val.y, rel_e, Dep::Type::POS_Y);
-    } else if (type_str == "size") {
-        o.emplace_back(val.x, rel_e, Dep::Type::SIZE_X);
-        o.emplace_back(val.y, rel_e, Dep::Type::SIZE_Y);
-    } else {
-        MLE_E("Invalid TargetRelations string: '{}'. Unknown relation type: '{}'.", str, type_str);
-        return;
-    }
-}
-
-void TargetRelations::apply(const Entt& e, const sol::object& obj) {
-    MLE_ASSERT(obj.valid());
-    e.emplaceOrReplace<TargetRelations>(e, obj);
-}
-
-void TargetRelations::applyAdd(const Entt& e, const sol::object& obj) {
-    MLE_ASSERT(obj.valid());
-    e.patchOrEmplace<TargetRelations>([&](TargetRelations& tr) { tr.add(e, obj); });
-}
-
 }  // namespace comp
 }  // namespace mle::ui

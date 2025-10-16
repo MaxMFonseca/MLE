@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../Types.h"
+#include "mle/ui/components/Bounds.h"
 
 namespace mle::ui {
 /// SBO, cuz most containers will have 6 or less children
@@ -60,6 +61,20 @@ class EntityStorage {
 namespace comp {
 struct Container {
     EntityStorage o;
+
+    int offset_x = 0, offset_y = 0;
+
+    enum class ListDirection : u8 { HORIZONTAL, VERTICAL, HORIZONTAL_REVERSED, VERTICAL_REVERSED };
+    enum class ListAlignCross : u8 { START, CENTER, END };
+    enum class ListAlignMain : u8 { START, CENTER, END, SPACE_BETWEEN, SPACE_AROUND, SPACE_EVENLY };
+
+    ListDirection list_direction = ListDirection::VERTICAL;
+    ListAlignCross list_align_cross = ListAlignCross::START;
+    ListAlignMain list_align_main = ListAlignMain::START;
+
+    TargetBound gap;
+
+    sol::table element_base;
 
     Container() = default;
     explicit Container(const Entt& e, const sol::object& obj);
