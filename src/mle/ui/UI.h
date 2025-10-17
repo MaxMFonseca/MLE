@@ -22,10 +22,16 @@ class UI {
     [[nodiscard]] auto& getLua() { return lua_; }
     [[nodiscard]] auto& getLuaElementOps() { return lua_element_ops_; }
     [[nodiscard]] sol::table getTableFor(const std::string& element_name);
+    [[nodiscard]] vec2u getRootSize() const { return root_size_; }
+    [[nodiscard]] f32 getRootAspectRatio() const { return root_aspect_ratio_; }
+
+    void update() { bounds_system_.update(); }
 
   private:
     entt::registry registry_;
     entt::entity root_{};
+    vec2u root_size_{0};
+    f32 root_aspect_ratio_ = 1;
     Lua lua_;
 
     ui::system::Bounds bounds_system_{*this};

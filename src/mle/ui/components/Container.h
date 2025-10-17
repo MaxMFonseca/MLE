@@ -2,86 +2,43 @@
 
 #include "../Types.h"
 #include "mle/ui/components/Bounds.h"
+#include "mle/ui/components/Utils.h"
 
-namespace mle::ui {
-/// SBO, cuz most containers will have 6 or less children
-class EntityStorage {
-  public:
-    // 6 looks like a good number, can be adjusted later
-    static constexpr usize MAX_ARRAY_SIZE = 6;
-
-    struct Entry {
-        std::string name;
-        entt::entity e;
-    };
-
-  public:
-    MLE_NO_COPY_MOVE(EntityStorage)
-
-    EntityStorage() = default;
-    ~EntityStorage();
-
-    [[nodiscard]] std::span<const Entry> get() const;
-    void add(std::string name, entt::entity e, usize pos = max<usize>());
-    void remove(usize idx);
-    void remove(entt::entity e);
-    void remove(const std::string& name);
-    [[nodiscard]] std::optional<usize> getIdx(entt::entity e) const;
-    [[nodiscard]] std::optional<usize> getIdx(const std::string& name) const;
-    [[nodiscard]] entt::entity getEFromName(const std::string& name) const;
-    [[nodiscard]] std::string getNameFromE(entt::entity e) const;
-
-    [[nodiscard]] usize size() const {
-        if (isArray()) {
-            return count_;
-        }
-        return children_.vec.size();
-    };
-
-  private:
-    [[nodiscard]] bool isArray() const { return count_ <= MAX_ARRAY_SIZE; }
-    void insertInVec(Entry child, usize pos);
-
-  private:
-    union Storage {
-        std::array<Entry, MAX_ARRAY_SIZE> array{};
-        std::vector<Entry> vec;
-
-        MLE_NO_COPY_MOVE(Storage)
-
-        Storage() {};
-        ~Storage() {};
-    } children_;
-
-    // This is used to track if array or vector, since we do not demote this is invalid after promotion
-    // use size() and isArray() always
-    usize count_ = 0;
-};
-
-namespace comp {
+namespace mle::ui::comp {
 struct Container {
-    EntityStorage o;
-
-    int offset_x = 0, offset_y = 0;
-
     enum class ListDirection : u8 { HORIZONTAL, VERTICAL, HORIZONTAL_REVERSED, VERTICAL_REVERSED };
     enum class ListAlignCross : u8 { START, CENTER, END };
     enum class ListAlignMain : u8 { START, CENTER, END, SPACE_BETWEEN, SPACE_AROUND, SPACE_EVENLY };
+    enum class WrapMode : u8 { NO, WRAP, WRAP_REVERSE };
 
+    EntityStorage o;
+    int offset_x = 0, offset_y = 0;
     ListDirection list_direction = ListDirection::VERTICAL;
     ListAlignCross list_align_cross = ListAlignCross::START;
     ListAlignMain list_align_main = ListAlignMain::START;
+    WrapMode wrap_mode = WrapMode::NO;
+    bool scrollable = true;
 
     TargetBound gap;
 
+    vec2u internal_size = {0, 0};
+
     sol::table element_base;
+
+    void addChild(const Entt& e, std::string name, const sol::object& obj, usize pos = max<usize>());
+
+    void computeChildrenBounds(const Entt& e, vec2u max_size);
+
+    static vec2u sizeProvider(const Entt& e, vec2u max_size);
+    static void setAsSizeProvider(const Entt& e);
+
+    // TODO: this
+    static void setAsRenderProvider(const Entt& e);
 
     Container() = default;
     explicit Container(const Entt& e, const sol::object& obj);
-    void addChild(const Entt& e, std::string name, const sol::object& obj, usize pos = max<usize>());
 
     static void apply(const Entt& e, const sol::object& obj);
     static void applyAdd(const Entt& e, const sol::object& obj);
 };
-}  // namespace comp
-}  // namespace mle::ui
+}  // namespace mle::ui::comp

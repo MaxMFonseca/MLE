@@ -18,26 +18,20 @@ TargetBound::Type stringToType(std::string_view str) {
     if (str == "f" || str == "flex") {
         return Type::FLEX_SHARE;
     }
+    if (str == "fit") {
+        return Type::FIT;
+    }
     if (str == "%") {
-        return Type::PARENT;
+        return Type::RELATIVE;
     }
     if (str == "%r") {
         return Type::ROOT;
     }
-    if (str == "%pw") {
-        return Type::PARENT_W;
+    if (str == "%w") {
+        return Type::RELATIVE_W;
     }
-    if (str == "%ph") {
-        return Type::PARENT_H;
-    }
-    if (str == "%s" || str == "fit") {
-        return Type::SELF;
-    }
-    if (str == "%sw") {
-        return Type::SELF_W;
-    }
-    if (str == "%sh") {
-        return Type::SELF_H;
+    if (str == "%h") {
+        return Type::RELATIVE_H;
     }
     return Type::DEFAULT;
 }
@@ -72,8 +66,7 @@ void TargetBound::set(f32 v, Type t) {
     val = v;
     type = t;
 
-    bool type_is_percent =
-        (t == Type::PARENT || t == Type::ROOT || t == Type::PARENT_W || t == Type::PARENT_H || t == Type::SELF || t == Type::SELF_W || t == Type::SELF_H);
+    bool type_is_percent = (t == Type::RELATIVE || t == Type::RELATIVE_W || t == Type::RELATIVE_H || t == Type::ROOT);
     if (type_is_percent) {
         val /= 100.0F;
     }
@@ -87,7 +80,7 @@ void TargetBound::set(std::string_view str) {
     }
     if (str.size() == 1) {
         val = charToSize(str[0]);
-        type = Type::PARENT;
+        type = Type::RELATIVE;
         return;
     }
 
@@ -108,6 +101,7 @@ void TargetBound::set(const sol::object& obj) {
 
     if (obj.is<f32>()) {
         val = obj.as<f32>();
+        type = Type::DEFAULT;
         return;
     }
     if (obj.is<std::string>()) {
@@ -184,7 +178,7 @@ TargetSize::TargetSize(const Entt& e, const sol::object& obj) {
             auto str_pos = strToSize(str);
             x.val = str_pos.x;
             y.val = str_pos.y;
-            y.type = x.type = TargetBound::Type::PARENT;
+            y.type = x.type = TargetBound::Type::RELATIVE;
         }
     } else {
         auto table = lua::as<sol::table>(obj);
@@ -248,7 +242,7 @@ TargetPosition::TargetPosition(const Entt& e, const sol::object& obj) {
             auto str_pos = strToSize(str);
             x.val = str_pos.x;
             y.val = str_pos.y;
-            y.type = x.type = TargetBound::Type::PARENT;
+            y.type = x.type = TargetBound::Type::RELATIVE;
         }
     } else {
         auto table = lua::as<sol::table>(obj);
@@ -371,6 +365,52 @@ void TargetPadding::applyY(const Entt& e, const sol::object& obj) {
         tp.t.set(obj);
         tp.b.set(obj);
     });
+}
+
+PaddingPx TargetPadding::calc(const UI& ui, vec2u size) const {
+    PaddingPx ret;
+
+    auto root_size_f = vec2f{ui.getRootSize()};
+    auto f_size = vec2f{size};
+
+    auto calc_fn = [&](const TargetBound& p, bool is_x) {
+        switch (p.type) {
+            case TargetBound::Type::PX: {
+                return p.val;
+            } break;
+            case TargetBound::Type::DEFAULT:
+            case TargetBound::Type::RELATIVE: {
+                if (is_x) {
+                    return f_size.x * p.val;
+                }
+                return f_size.y * p.val;
+            } break;
+            case TargetBound::Type::RELATIVE_W: {
+                return f_size.x * p.val;
+            } break;
+            case TargetBound::Type::RELATIVE_H: {
+                return f_size.y * p.val;
+            } break;
+            case TargetBound::Type::ROOT: {
+                if (is_x) {
+                    return root_size_f.x * p.val;
+                }
+                return root_size_f.y * p.val;
+            } break;
+            default: {
+                // NOLINTNEXTLINE(bugprone-lambda-function-name) not a problem
+                MLE_W("Invalid TargetBound type for padding, treating as 0 px");
+                return 0.0F;
+            } break;
+        }
+    };
+
+    ret.t = as<int>(calc_fn(t, false));
+    ret.b = as<int>(calc_fn(b, false));
+    ret.l = as<int>(calc_fn(l, true));
+    ret.r = as<int>(calc_fn(r, true));
+
+    return ret;
 }
 
 TargetMargin::TargetMargin(const sol::object& obj) {

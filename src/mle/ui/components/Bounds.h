@@ -9,13 +9,11 @@ struct TargetBound {
     enum class Type : u8 {
         PX,          ///< Absolute value.                           Suffix: "px"
         FLEX_SHARE,  ///< Share available space flexibly.           Suffix: "f", "flex"
-        PARENT,      ///< Relative to parent element.               Suffix: "%"
-        ROOT,        ///< Relative to root element.                 Suffix: "%r"
-        PARENT_W,    ///< Width relative to parent.                 Suffix: "%pw"
-        PARENT_H,    ///< Height relative to parent.                Suffix: "%ph"
-        SELF,        ///< Size based on self content.               Suffix: "%s", "fit"
-        SELF_W,      ///< Width based on self content.              Suffix: "%sw"
-        SELF_H,      ///< Height based on self content.             Suffix: "%sh"
+        FIT,         ///< Fit to content size.                      Suffix: "fit"
+        ROOT,        ///< Relative to root.                         Suffix: "%r"
+        RELATIVE,    ///< Relative.                                 Suffix: "%"
+        RELATIVE_W,  ///< Relative width.                           Suffix: "%w"
+        RELATIVE_H,  ///< Relative height.                          Suffix: "%h"
         DEFAULT      ///< Default behavior.                         Suffix: ""
     };
 
@@ -27,7 +25,6 @@ struct TargetBound {
     void set(f32 v, Type t);
     void set(const sol::object& obj);
     void set(std::string_view str);
-    [[nodiscard]] bool isFit() const { return type == Type::SELF || type == Type::SELF_W || type == Type::SELF_H; }
 };
 
 struct Dependency {
@@ -61,6 +58,11 @@ struct TargetSize {
     static void applyYDep(const Entt& e, const sol::object& obj);
 };
 
+struct SizePovider {
+    using Fn = std::move_only_function<vec2u(const Entt& e, vec2u max_size)>;
+    mutable Fn fn;
+};
+
 struct TargetPosition {
     TargetBound x, y;
     Dependency xdep, ydep;
@@ -73,6 +75,10 @@ struct TargetPosition {
     static void applyY(const Entt& e, const sol::object& obj);
     static void applyXDep(const Entt& e, const sol::object& obj);
     static void applyYDep(const Entt& e, const sol::object& obj);
+};
+
+struct PaddingPx {
+    int t = 0, b = 0, l = 0, r = 0;
 };
 
 struct TargetPadding {
@@ -89,10 +95,7 @@ struct TargetPadding {
     static void applyX(const Entt& e, const sol::object& obj);
     static void applyY(const Entt& e, const sol::object& obj);
 
-    struct PaddingValuesPx {
-        int t = 0, b = 0, l = 0, r = 0;
-    };
-    [[nodiscard]] PaddingValuesPx calcOnRect(const Recti& rect) const;
+    [[nodiscard]] PaddingPx calc(const UI& ui, vec2u size) const;
 };
 
 struct TargetMargin {
@@ -130,3 +133,39 @@ struct TargetAspectRatio {
 
 }  // namespace comp
 }  // namespace mle::ui
+
+namespace fmt {
+template <>
+struct formatter<mle::ui::TargetBound::Type> : formatter<std::string> {
+    template <typename FormatContext>
+    constexpr auto format(const mle::ui::TargetBound::Type& v, FormatContext& ctx) const {
+        switch (v) {
+            case mle::ui::TargetBound::Type::PX:
+                return format_to(ctx.out(), "PX(px)");
+            case mle::ui::TargetBound::Type::FLEX_SHARE:
+                return format_to(ctx.out(), "FLEX_SHARE(flex)");
+            case mle::ui::TargetBound::Type::ROOT:
+                return format_to(ctx.out(), "ROOT(%r)");
+            case mle::ui::TargetBound::Type::FIT:
+                return format_to(ctx.out(), "SELF(fit)");
+            case mle::ui::TargetBound::Type::RELATIVE:
+                return format_to(ctx.out(), "RELATIVE(%)");
+            case mle::ui::TargetBound::Type::RELATIVE_W:
+                return format_to(ctx.out(), "RELATIVE_W(%w)");
+            case mle::ui::TargetBound::Type::RELATIVE_H:
+                return format_to(ctx.out(), "RELATIVE_H(%h)");
+            case mle::ui::TargetBound::Type::DEFAULT:
+                return format_to(ctx.out(), "DEFAULT()");
+        }
+    }
+};
+
+template <>
+struct formatter<mle::ui::TargetBound> : formatter<std::string> {
+    template <typename FormatContext>
+    constexpr auto format(const mle::ui::TargetBound& v, FormatContext& ctx) const {
+        return format_to(ctx.out(), "[{}, {}]", v.val, v.type);
+    }
+};
+
+}  // namespace fmt

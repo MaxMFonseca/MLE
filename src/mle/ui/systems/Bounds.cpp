@@ -75,7 +75,7 @@ std::set<entt::entity> Bounds::fixFitContainersNeedsUpdate(const std::set<entt::
 // NOLINTNEXTLINE(misc-no-recursion) yeah, i know, its cool, its a tree, i cant really avoid it
 void Bounds::checkContainerNeedsUpdate(entt::entity e, const std::set<entt::entity>& containers_to_update) {
     if (containers_to_update.contains(e)) {
-        updateContainerBounds(e);
+        updateContainerInternalBounds(e);
         return;
     }
 
@@ -88,112 +88,9 @@ void Bounds::checkContainerNeedsUpdate(entt::entity e, const std::set<entt::enti
     }
 }
 
-std::vector<entt::entity> Bounds::sortChildrenByDependency(std::span<const entt::entity> span) {
-    enum class Mark : u8 { UNSEEN = 0, VISITING = 1, DONE = 2 };
-    std::map<entt::entity, Mark> mark;
-
-    std::vector<entt::entity> out;
-    out.reserve(span.size());
-
-    auto find_it = [](auto span, entt::entity e) { return std::find_if(span.begin(), span.end(), [e](entt::entity o) { return o == e; }); };
-    // NOLINTNEXTLINE(misc-no-recursion) yeah, cool recursion
-    auto dfs = [&](auto&& self, entt::entity e) {
-        const auto mark_it = mark.find(e);
-        if (mark_it != mark.end()) {
-            if (mark_it->second == Mark::DONE) {
-                return true;
-            }
-            if (mark_it->second == Mark::VISITING) {
-                // NOLINTNEXTLINE(bugprone-lambda-function-name) just a log
-                MLE_ASSERT_LOG(false, "Cycle detected while sorting UI deps at entity {}", e);
-                return false;
-            }
-        }
-
-        mark[e] = Mark::VISITING;
-
-        Entt ee(ui_, e);
-
-        std::array<entt::entity, 4> deps{};
-        usize n = 0;
-        auto push_unique = [&](entt::entity d) {
-            if (d == entt::null) {
-                return;
-            }
-            for (usize i = 0; i < n; ++i) {
-                if (deps.at(i) == d) {
-                    return;
-                }
-            }
-            if (n < deps.size()) {
-                deps.at(n++) = d;
-            }
-        };
-
-        if (const auto* pos = ee.tryGet<comp::TargetPosition>()) {
-            push_unique(pos->xdep.e);
-            push_unique(pos->ydep.e);
-        }
-        if (const auto* size = ee.tryGet<comp::TargetSize>()) {
-            push_unique(size->xdep.e);
-            push_unique(size->ydep.e);
-        }
-
-        for (usize i = 0; i < n; ++i) {
-            const entt::entity d = deps.at(i);
-            if (find_it(span, d) == span.end()) {
-                continue;  // skip deps outside of the span, maybe is a list child
-            }
-            if (!self(self, d)) {
-                return false;
-            }
-        }
-
-        mark[e] = Mark::DONE;
-        out.push_back(e);
-        return true;
-    };
-
-    for (const auto& e : span) {
-        if (!mark.contains(e)) {
-            if (!dfs(dfs, e)) {
-                MLE_E("Cycle detected while sorting UI deps. Returning empty list.");
-                return {};
-            }
-        }
-    }
-
-    MLE_ASSERT_LOG(out.size() == span.size(), "Sorted UI deps size mismatch. Check this. {}x{}", out.size(), span.size());
-
-    return out;
-}
-
-std::pair<std::vector<entt::entity>, std::vector<entt::entity>> Bounds::separateFlexFromListChildren(std::span<const EntityStorage::Entry> span) {
-    std::vector<entt::entity> flex_children;
-    std::vector<entt::entity> list_children;
-
-    for (const auto& e : span) {
-        Entt ee{ui_, e.e};
-        if (ee.has<comp::TargetPosition>()) {
-            flex_children.push_back(e.e);
-        } else {
-            list_children.push_back(e.e);
-        }
-    }
-
-    return {flex_children, list_children};
-}
-
-void Bounds::updateContainerBounds(entt::entity e) {
-    Entt eentt{ui_, e};
-    vec2u bottom_size_px = eentt.get<comp::Bounds>().parent_px.size();
-    auto& container = eentt.get<comp::Container>();
-    auto children = container.o.get();
-    auto [flex_children, list_children] = separateFlexFromListChildren(children);
-    auto sorted_by_dependencies = sortChildrenByDependency(flex_children);
-
-    for (auto c : list_children) {
-        Entt centt{ui_, c};
-    }
+void Bounds::updateContainerInternalBounds(entt::entity e) {
+    Entt ee(ui_, e);
+    ee.get<comp::Container>().computeChildrenBounds(ee, ee.get<comp::Bounds>().parent_px.size());
 };
+
 }  // namespace mle::ui::system

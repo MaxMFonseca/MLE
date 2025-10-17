@@ -21,6 +21,8 @@ void UI::resizeRoot(const vec2u& size) {
     ui::Entt e(*this, root_);
     e.emplaceOrReplace<ui::comp::Bounds>(size);
     e.addFlag<ui::comp::ContainerNeedsInternalBoundsUpdate>();
+    root_size_ = size;
+    root_aspect_ratio_ = static_cast<f32>(size.x) / static_cast<f32>(size.y);
 };
 
 sol::table UI::getTableFor(const std::string& element_name) {

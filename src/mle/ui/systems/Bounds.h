@@ -16,7 +16,7 @@ class Bounds final {
 
   private:
     void checkContainerNeedsUpdate(entt::entity e, const std::set<entt::entity>& containers_to_update);
-    void updateContainerBounds(entt::entity e);
+    void updateContainerInternalBounds(entt::entity e);
     std::set<entt::entity> fixFitContainersNeedsUpdate(const std::set<entt::entity>& containers_to_update);
     std::pair<std::vector<entt::entity>, std::vector<entt::entity>> separateFlexFromListChildren(std::span<const EntityStorage::Entry> span);
     std::vector<entt::entity> sortChildrenByDependency(std::span<const entt::entity> span);
