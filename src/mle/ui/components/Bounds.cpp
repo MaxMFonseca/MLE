@@ -531,5 +531,158 @@ void TargetAspectRatio::apply(const Entt& e, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
     e.emplaceOrReplace<TargetAspectRatio>(obj);
 }
+
+// thickness can be a table or a single value
+// round can be a table or a single value
+// color is a Color
+TargetBorder::TargetBorder(const sol::object& obj) {
+    auto table = lua::as<sol::table>(obj);
+
+    if (const auto thickness_r = table["thickness"]; thickness_r) {
+        setThickness(thickness_r);
+    }
+    if (const auto color_r = table["color"]; color_r) {
+        setColor(color_r);
+    }
+    if (const auto round_r = table["round"]; round_r) {
+        setRound(round_r);
+    }
+}
+
+void TargetBorder::setThickness(const sol::object& obj) {
+    MLE_ASSERT(obj.valid());
+
+    if (obj.is<f32>() || obj.is<std::string>()) {
+        f32 val = lua::as<f32>(obj);
+        t.val = b.val = l.val = r.val = val;
+        return;
+    }
+    if (obj.is<sol::table>()) {
+        auto table = obj.as<sol::table>();
+        if (const auto t_r = lua::tryGetKeyOrIdx(table, "t", 1); t_r) {
+            t.set(*t_r);
+        }
+        if (const auto b_r = lua::tryGetKeyOrIdx(table, "b", 2); b_r) {
+            b.set(*b_r);
+        }
+        if (const auto l_r = lua::tryGetKeyOrIdx(table, "l", 3); l_r) {
+            l.set(*l_r);
+        }
+        if (const auto r_r = lua::tryGetKeyOrIdx(table, "r", 4); r_r) {
+            r.set(*r_r);
+        }
+        return;
+    }
+    MLE_UNREACHABLE_LOG("Unexpected obj type for TargetBorder thickness: {}", obj.get_type());
+}
+
+void TargetBorder::setRound(const sol::object& obj) {
+    MLE_ASSERT(obj.valid());
+
+    if (obj.is<f32>() || obj.is<std::string>()) {
+        f32 val = lua::as<f32>(obj);
+        round_lt.val = round_rt.val = round_lb.val = round_rb.val = val;
+        return;
+    }
+    if (obj.is<sol::table>()) {
+        auto table = obj.as<sol::table>();
+        if (const auto lt_r = lua::tryGetKeyOrIdx(table, "lt", 1); lt_r) {
+            round_lt.set(*lt_r);
+        }
+        if (const auto rt_r = lua::tryGetKeyOrIdx(table, "rt", 2); rt_r) {
+            round_rt.set(*rt_r);
+        }
+        if (const auto lb_r = lua::tryGetKeyOrIdx(table, "lb", 3); lb_r) {
+            round_lb.set(*lb_r);
+        }
+        if (const auto rb_r = lua::tryGetKeyOrIdx(table, "rb", 4); rb_r) {
+            round_rb.set(*rb_r);
+        }
+        return;
+    }
+    MLE_UNREACHABLE_LOG("Unexpected obj type for TargetBorder round: {}", obj.get_type());
+}
+
+void TargetBorder::setColor(const sol::object& obj) {
+    MLE_ASSERT(obj.valid());
+    color = Color::fromLua(obj);
+}
+
+void TargetBorder::apply(const Entt& e, const sol::object& obj) {
+    MLE_ASSERT(obj.valid());
+    e.emplaceOrReplace<TargetBorder>(obj);
+}
+
+void TargetBorder::applyThickness(const Entt& e, const sol::object& obj) {
+    MLE_ASSERT(obj.valid());
+    e.patchOrEmplace<TargetBorder>([&](TargetBorder& tb) { tb.setThickness(obj); });
+}
+
+void TargetBorder::applyColor(const Entt& e, const sol::object& obj) {
+    MLE_ASSERT(obj.valid());
+    e.patchOrEmplace<TargetBorder>([&](TargetBorder& tb) { tb.setColor(obj); });
+}
+
+void TargetBorder::applyRound(const Entt& e, const sol::object& obj) {
+    MLE_ASSERT(obj.valid());
+    e.patchOrEmplace<TargetBorder>([&](TargetBorder& tb) { tb.setRound(obj); });
+}
+
+void TargetBorder::applyT(const Entt& e, const sol::object& obj) {
+    MLE_ASSERT(obj.valid());
+    e.patchOrEmplace<TargetBorder>([&](TargetBorder& tb) { tb.t.set(obj); });
+}
+
+void TargetBorder::applyB(const Entt& e, const sol::object& obj) {
+    MLE_ASSERT(obj.valid());
+    e.patchOrEmplace<TargetBorder>([&](TargetBorder& tb) { tb.b.set(obj); });
+}
+
+void TargetBorder::applyL(const Entt& e, const sol::object& obj) {
+    MLE_ASSERT(obj.valid());
+    e.patchOrEmplace<TargetBorder>([&](TargetBorder& tb) { tb.l.set(obj); });
+}
+
+void TargetBorder::applyR(const Entt& e, const sol::object& obj) {
+    MLE_ASSERT(obj.valid());
+    e.patchOrEmplace<TargetBorder>([&](TargetBorder& tb) { tb.r.set(obj); });
+}
+
+void TargetBorder::applyX(const Entt& e, const sol::object& obj) {
+    MLE_ASSERT(obj.valid());
+    e.patchOrEmplace<TargetBorder>([&](TargetBorder& tb) {
+        tb.l.set(obj);
+        tb.r.set(obj);
+    });
+}
+
+void TargetBorder::applyY(const Entt& e, const sol::object& obj) {
+    MLE_ASSERT(obj.valid());
+    e.patchOrEmplace<TargetBorder>([&](TargetBorder& tb) {
+        tb.t.set(obj);
+        tb.b.set(obj);
+    });
+}
+
+void TargetBorder::applyRoundLT(const Entt& e, const sol::object& obj) {
+    MLE_ASSERT(obj.valid());
+    e.patchOrEmplace<TargetBorder>([&](TargetBorder& tb) { tb.round_lt.set(obj); });
+}
+
+void TargetBorder::applyRoundRT(const Entt& e, const sol::object& obj) {
+    MLE_ASSERT(obj.valid());
+    e.patchOrEmplace<TargetBorder>([&](TargetBorder& tb) { tb.round_rt.set(obj); });
+}
+
+void TargetBorder::applyRoundLB(const Entt& e, const sol::object& obj) {
+    MLE_ASSERT(obj.valid());
+    e.patchOrEmplace<TargetBorder>([&](TargetBorder& tb) { tb.round_lb.set(obj); });
+}
+
+void TargetBorder::applyRoundRB(const Entt& e, const sol::object& obj) {
+    MLE_ASSERT(obj.valid());
+    e.patchOrEmplace<TargetBorder>([&](TargetBorder& tb) { tb.round_rb.set(obj); });
+}
+
 }  // namespace comp
 }  // namespace mle::ui

@@ -3,6 +3,7 @@
 #include "../Types.h"
 #include "Types.h"
 #include "mle/math/Types2D.h"
+#include "mle/utils/Color.h"
 
 namespace mle::ui {
 struct TargetBound {
@@ -44,6 +45,12 @@ struct Bounds {
         parent_px({0, 0}, size) {}
 };
 
+struct Border {
+    int round_lt = 0, round_rt = 0, round_lb = 0, round_rb = 0;
+    int t, b, l, r;
+    Color color = Color::ZERO;
+};
+
 struct TargetSize {
     TargetBound x, y;
     Dependency xdep, ydep;
@@ -58,9 +65,25 @@ struct TargetSize {
     static void applyYDep(const Entt& e, const sol::object& obj);
 };
 
-struct SizePovider {
+struct SizeProvider {
     using Fn = std::move_only_function<vec2u(const Entt& e, vec2u max_size)>;
-    mutable Fn fn;
+
+    vec2u calc(const Entt& e, vec2u max_size) {
+        if (!done()) {
+            size_ = fn_(e, max_size);
+        }
+        return size_;
+    }
+
+    void reset() { size_ = vec2u{0, 0}; }
+    bool done() { return size_ != vec2u{0, 0}; }
+
+    explicit SizeProvider(Fn fn) :
+        fn_(std::move(fn)) {}
+
+  private:
+    vec2u size_{};
+    mutable Fn fn_;
 };
 
 struct TargetPosition {
@@ -111,6 +134,34 @@ struct TargetMargin {
     static void applyR(const Entt& e, const sol::object& obj);
     static void applyX(const Entt& e, const sol::object& obj);
     static void applyY(const Entt& e, const sol::object& obj);
+};
+
+struct TargetBorder {
+    TargetBound round_lt, round_rt, round_lb, round_rb;
+    TargetBound t, b, l, r;
+    Color color = Color::ZERO;
+
+    TargetBorder() = default;
+    explicit TargetBorder(const sol::object& obj);
+
+    void setColor(const sol::object& obj);
+    void setThickness(const sol::object& obj);
+    void setRound(const sol::object& obj);
+
+    static void apply(const Entt& e, const sol::object& obj);
+    static void applyThickness(const Entt& e, const sol::object& obj);
+    static void applyColor(const Entt& e, const sol::object& obj);
+    static void applyRound(const Entt& e, const sol::object& obj);
+    static void applyT(const Entt& e, const sol::object& obj);
+    static void applyB(const Entt& e, const sol::object& obj);
+    static void applyL(const Entt& e, const sol::object& obj);
+    static void applyR(const Entt& e, const sol::object& obj);
+    static void applyX(const Entt& e, const sol::object& obj);
+    static void applyY(const Entt& e, const sol::object& obj);
+    static void applyRoundLT(const Entt& e, const sol::object& obj);
+    static void applyRoundRT(const Entt& e, const sol::object& obj);
+    static void applyRoundLB(const Entt& e, const sol::object& obj);
+    static void applyRoundRB(const Entt& e, const sol::object& obj);
 };
 
 struct TargetOrigin {

@@ -12,25 +12,36 @@ struct Container {
     enum class WrapMode : u8 { NO, WRAP, WRAP_REVERSE };
 
     EntityStorage o;
+
     int offset_x = 0, offset_y = 0;
     ListDirection list_direction = ListDirection::VERTICAL;
     ListAlignCross list_align_cross = ListAlignCross::START;
     ListAlignMain list_align_main = ListAlignMain::START;
     WrapMode wrap_mode = WrapMode::NO;
+    TargetBound min_gap_main;
+    TargetBound min_gap_cross;
+    TargetBound max_fit_size_main;
+    TargetBound max_fit_size_cross;
     bool scrollable = true;
-
-    TargetBound gap;
-
-    vec2u internal_size = {0, 0};
 
     sol::table element_base;
 
     void addChild(const Entt& e, std::string name, const sol::object& obj, usize pos = max<usize>());
 
-    void computeChildrenBounds(const Entt& e, vec2u max_size);
+    struct ChildrenSizeCacheData {
+        vec2u size_px{0, 0};
+        struct {
+            u32 t{}, b{}, l{}, r{};
+        } margin_px{};
+        struct {
+            u32 t{}, b{}, l{}, r{};
+        } border_px{};
+    };
 
-    static vec2u sizeProvider(const Entt& e, vec2u max_size);
-    static void setAsSizeProvider(const Entt& e);
+    [[nodiscard]] vec2u calculateChildrenBounds(const Entt& e, vec2u max_size) const;
+    [[nodiscard]] vec2u accumulateChildrenBounds() const;
+
+    static void setAsBoundsCalculator(const Entt& e);
 
     // TODO: this
     static void setAsRenderProvider(const Entt& e);

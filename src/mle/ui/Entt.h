@@ -19,7 +19,7 @@ class Entt {
 
     [[nodiscard]] entt::entity getParent() const { return get<comp::Parent>().o; }
     [[nodiscard]] comp::Container& getParentContainer() const { return ui_.getRegistry().get<comp::Container>(getParent()); }
-    [[nodiscard]] bool anyFitTargetExternalBound() const;
+    [[nodiscard]] bool hasFitSize() const;
 
     template <typename T>
     [[nodiscard]] T& get() const {

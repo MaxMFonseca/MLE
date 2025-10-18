@@ -13,7 +13,7 @@ Bounds::Bounds(UI& ui) :
     storage_(ui.getRegistry().storage<entt::reactive>()) {
     MLE_I("Creating Bounds system");
 
-    storage_.on_construct<comp::RequestExternalBoundsUpdate>()
+    storage_.on_construct<comp::RequestExternalBoundsUpdateFlag>()
         .on_construct<comp::TargetSize>()
         .on_destroy<comp::TargetSize>()
         .on_update<comp::TargetSize>()
@@ -50,12 +50,12 @@ void Bounds::update() {
             containers_to_update.insert(e);
         }
     }
-    auto container_needs_internal_update_view = ui_.getRegistry().view<comp::ContainerNeedsInternalBoundsUpdate>();
+    auto container_needs_internal_update_view = ui_.getRegistry().view<comp::ContainerNeedsInternalBoundsUpdateFlag>();
     for (auto e : container_needs_internal_update_view) {
         containers_to_update.insert(e);
     }
-    ui_.getRegistry().clear<comp::RequestExternalBoundsUpdate>();
-    ui_.getRegistry().clear<comp::ContainerNeedsInternalBoundsUpdate>();
+    ui_.getRegistry().clear<comp::RequestExternalBoundsUpdateFlag>();
+    ui_.getRegistry().clear<comp::ContainerNeedsInternalBoundsUpdateFlag>();
 
     checkContainerNeedsUpdate(ui_.getRoot(), fixFitContainersNeedsUpdate(containers_to_update));
 }
@@ -64,7 +64,7 @@ std::set<entt::entity> Bounds::fixFitContainersNeedsUpdate(const std::set<entt::
     std::set<entt::entity> ret;
     for (auto e : containers_to_update) {
         Entt ee(ui_, e);
-        while (ee.anyFitTargetExternalBound()) {
+        while (ee.hasFitSize()) {
             ee.setE(ee.getParent());
         }
         ret.insert(ee.e());
@@ -90,7 +90,7 @@ void Bounds::checkContainerNeedsUpdate(entt::entity e, const std::set<entt::enti
 
 void Bounds::updateContainerInternalBounds(entt::entity e) {
     Entt ee(ui_, e);
-    ee.get<comp::Container>().computeChildrenBounds(ee, ee.get<comp::Bounds>().parent_px.size());
+    std::ignore = ee.get<comp::Container>().calculateChildrenBounds(ee, ee.get<comp::Bounds>().parent_px.size());
 };
 
 }  // namespace mle::ui::system

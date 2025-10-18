@@ -42,13 +42,9 @@ TEST(Buffer, WriteStaged) {
 TEST(Buffer, OwnershipTransfer) {
     Buffer::CI ci{128, vk::BufferUsageFlagBits::eTransferSrc, false, Buffer::CI::AllocationType::STAGING};
     auto buf = Buffer::createHnd(ci);
-    MLE_VC(0);
     buf->ownershipReleaseOTSAcquireOTSWait(GCmdType::TRANSFER);
-    MLE_VC(0);
     buf->ownershipReleaseOTSAcquireOTSWait(GCmdType::GRAPHICS);
-    MLE_VC(0);
     buf->ownershipReleaseOTSAcquireOTSWait(GCmdType::COMPUTE);
-    MLE_VC(0);
     EXPECT_EQ(buf->getSize(), 128);
 }
 

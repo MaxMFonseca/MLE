@@ -20,7 +20,7 @@ void UI::setRoot(const std::string& element_name) {
 void UI::resizeRoot(const vec2u& size) {
     ui::Entt e(*this, root_);
     e.emplaceOrReplace<ui::comp::Bounds>(size);
-    e.addFlag<ui::comp::ContainerNeedsInternalBoundsUpdate>();
+    e.addFlag<ui::comp::ContainerNeedsInternalBoundsUpdateFlag>();
     root_size_ = size;
     root_aspect_ratio_ = static_cast<f32>(size.x) / static_cast<f32>(size.y);
 };

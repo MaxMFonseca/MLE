@@ -184,7 +184,7 @@ Color Color::toLinear() const {
 Color Color::mix(const Color& a, const Color& b, f32 factor) {
     MLE_ASSERT_LOG(factor >= 0.0F && factor <= 1.0F, "Factor must be in the range [0, 1]. {}", factor);
     auto ret = a * (1.0F - factor) + b * factor;
-    ret.a = a.a * (1.0F - factor) + b.a * factor;
+    ret.a = (a.a * (1.0F - factor)) + (b.a * factor);
     return ret;
 }
 
