@@ -34,6 +34,7 @@ class Lua {
     sol::table createTable();
     sol::table createTable(const std::string& name);
     sol::table createTable(const sol::table& table, bool deep = false);
+    sol::table mergeTablesNew(const sol::table& dst, const sol::table& src);
     void mergeTables(sol::table& dst, const sol::table& src);
 
     sol::table getTable(const std::string& name);

@@ -2,6 +2,7 @@
 
 #include "../Entt.h"
 #include "Base.h"
+#include "Container.h"
 #include "mle/core/Assert.h"
 #include "mle/core/Logger.h"
 #include "mle/lua/Utils.h"

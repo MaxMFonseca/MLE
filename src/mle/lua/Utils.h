@@ -90,6 +90,15 @@ inline bool tryAs(const sol::object& obj, T& out) {
     return true;
 }
 
+template <typename T>
+std::optional<T> tryAs(const sol::object& obj) {
+    T out;
+    if (!tryAs<T>(obj, out)) {
+        return std::nullopt;
+    }
+    return out;
+}
+
 /**
  * @brief Extract sequential values from a Lua table(list) by index.
  *
@@ -170,6 +179,27 @@ inline T getKey(const sol::table& table, const std::string& key) {
 template <typename T>
 inline bool tryGetKey(const sol::table& table, const std::string& key, T& out) {
     return tryAs(table[key], out);
+}
+
+template <typename... Keys>
+sol::object tryGetAnyKey(const sol::table& table, const Keys&... keys) {
+    sol::object result = sol::nil;
+    bool found = false;
+
+    auto check = [&](const std::string& key) {
+        if (found) {
+            return;
+        }
+        sol::object o = table[key];
+        if (o.valid() && !o.is<sol::nil_t>()) {
+            result = o;
+            found = true;
+        }
+    };
+
+    (check(keys), ...);
+
+    return result;
 }
 
 /**

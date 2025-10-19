@@ -1,10 +1,6 @@
 #pragma once
 
 #include "mle/lua/Lua.h"
-#include "mle/lua/Types.h"
-#include "mle/renderer/Types.h"
-#include "mle/ui/components/Base.h"
-#include "mle/ui/components/Container.h"
 #include "mle/ui/systems/Bounds.h"
 #include "mle/ui/systems/LuaElementOps.h"
 #include "mle/utils/ECS.h"
@@ -25,7 +21,7 @@ class UI {
     [[nodiscard]] vec2u getRootSize() const { return root_size_; }
     [[nodiscard]] f32 getRootAspectRatio() const { return root_aspect_ratio_; }
 
-    void update() { bounds_system_.update(); }
+    void update();
 
   private:
     entt::registry registry_;

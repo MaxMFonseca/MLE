@@ -219,4 +219,89 @@ struct formatter<mle::ui::TargetBound> : formatter<std::string> {
     }
 };
 
+template <>
+struct formatter<mle::ui::Dependency> : formatter<std::string> {
+    template <typename FormatContext>
+    constexpr auto format(const mle::ui::Dependency& v, FormatContext& ctx) const {
+        if (v.e == entt::null) {
+            return format_to(ctx.out(), "-");
+        }
+        return format_to(ctx.out(), "[val: {}, e: {}]", v.val, v.e);
+    }
+};
+
+template <>
+struct formatter<mle::ui::comp::Bounds> : formatter<std::string> {
+    template <typename FormatContext>
+    constexpr auto format(const mle::ui::comp::Bounds& v, FormatContext& ctx) const {
+        return format_to(ctx.out(), "[pos: {}, size: {}", v.parent_px.pos(), v.parent_px.size());
+    }
+};
+
+template <>
+struct formatter<mle::ui::comp::Border> : formatter<std::string> {
+    template <typename FormatContext>
+    constexpr auto format(const mle::ui::comp::Border& v, FormatContext& ctx) const {
+        return format_to(ctx.out(), "[t: {}, b: {}, l: {}, r: {}, color: {}, rounds: lt:{}, rt:{}, lb:{}, rb:{}]", v.t, v.b, v.l, v.r, v.color, v.round_lt,
+                         v.round_rt, v.round_lb, v.round_rb);
+    }
+};
+
+template <>
+struct formatter<mle::ui::comp::TargetSize> : formatter<std::string> {
+    template <typename FormatContext>
+    constexpr auto format(const mle::ui::comp::TargetSize& v, FormatContext& ctx) const {
+        return format_to(ctx.out(), "[x: {}, y: {}, xdep: {}, ydep: {}]", v.x, v.y, v.xdep, v.ydep);
+    }
+};
+
+template <>
+struct formatter<mle::ui::comp::TargetPosition> : formatter<std::string> {
+    template <typename FormatContext>
+    constexpr auto format(const mle::ui::comp::TargetPosition& v, FormatContext& ctx) const {
+        return format_to(ctx.out(), "[x: {}, y: {}, xdep: {}, ydep: {}]", v.x, v.y, v.xdep, v.ydep);
+    }
+};
+
+template <>
+struct formatter<mle::ui::comp::TargetPadding> : formatter<std::string> {
+    template <typename FormatContext>
+    constexpr auto format(const mle::ui::comp::TargetPadding& v, FormatContext& ctx) const {
+        return format_to(ctx.out(), "[t: {}, b: {}, l: {}, r: {}]", v.t, v.b, v.l, v.r);
+    }
+};
+
+template <>
+struct formatter<mle::ui::comp::TargetMargin> : formatter<std::string> {
+    template <typename FormatContext>
+    constexpr auto format(const mle::ui::comp::TargetMargin& v, FormatContext& ctx) const {
+        return format_to(ctx.out(), "[t: {}, b: {}, l: {}, r: {}]", v.t, v.b, v.l, v.r);
+    }
+};
+
+template <>
+struct formatter<mle::ui::comp::TargetBorder> : formatter<std::string> {
+    template <typename FormatContext>
+    constexpr auto format(const mle::ui::comp::TargetBorder& v, FormatContext& ctx) const {
+        return format_to(ctx.out(), "[t: {}, b: {}, l: {}, r: {}, color: {}, rounds: lt:{}, rt:{}, lb:{}, rb:{}]", v.t, v.b, v.l, v.r, v.color, v.round_lt,
+                         v.round_rt, v.round_lb, v.round_rb);
+    }
+};
+
+template <>
+struct formatter<mle::ui::comp::TargetOrigin> : formatter<std::string> {
+    template <typename FormatContext>
+    constexpr auto format(const mle::ui::comp::TargetOrigin& v, FormatContext& ctx) const {
+        return format_to(ctx.out(), "[o: {}]", v.o);
+    }
+};
+
+template <>
+struct formatter<mle::ui::comp::TargetAspectRatio> : formatter<std::string> {
+    template <typename FormatContext>
+    constexpr auto format(const mle::ui::comp::TargetAspectRatio& v, FormatContext& ctx) const {
+        return format_to(ctx.out(), "[o: {}]", v.o);
+    }
+};
+
 }  // namespace fmt

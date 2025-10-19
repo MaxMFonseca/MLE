@@ -2,6 +2,8 @@
 
 #include "Types.h"
 #include "mle/ui/UI.h"
+#include "mle/ui/components/Base.h"
+#include "mle/ui/components/Container.h"
 #include "mle/utils/ECS.h"
 
 namespace mle::ui {
@@ -20,6 +22,8 @@ class Entt {
     [[nodiscard]] entt::entity getParent() const { return get<comp::Parent>().o; }
     [[nodiscard]] comp::Container& getParentContainer() const { return ui_.getRegistry().get<comp::Container>(getParent()); }
     [[nodiscard]] bool hasFitSize() const;
+    [[nodiscard]] std::string name() const;
+    [[nodiscard]] std::string parentName() const;
 
     template <typename T>
     [[nodiscard]] T& get() const {
@@ -68,8 +72,13 @@ class Entt {
     }
 
     template <typename T>
-    void remove() const {
+    void erase() const {
         MLE_ASSERT(has<T>());
+        ui_.getRegistry().remove<T>(e_);
+    }
+
+    template <typename T>
+    void eraseCheck() const {
         ui_.getRegistry().remove<T>(e_);
     }
 

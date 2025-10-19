@@ -112,4 +112,9 @@ void Lua::mergeTables(sol::table& dst, const sol::table& src) {  // NOLINT
     }
 }
 
+sol::table Lua::mergeTablesNew(const sol::table& dst, const sol::table& src) {
+    sol::table result = createTable(dst, true);
+    mergeTables(result, src);
+    return result;
+}
 }  // namespace mle

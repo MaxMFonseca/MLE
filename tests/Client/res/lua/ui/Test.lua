@@ -1,18 +1,79 @@
 return {
 	background = "NQB",
+	container = {
+		min_gap = "5px",
+		dir = "v",
+		justify = "c",
+	},
 	c = {
 		{
-			size_x = 0.8,
-			size_y = "100px",
-			pos = "c",
-			origin = "c",
+			size = "10px",
 			background = "RED",
 		},
 		{
-			size_x = "50px",
-			size_y = 1,
-			pos = { 0.25, "c" },
+			size = "20px",
 			background = "GREEN",
+		},
+		{
+			size = "30px",
+			background = "BLUE",
+		},
+		{
+			size = "40px",
+			background = "YELLOW",
+		},
+		{
+			size = "50px",
+			background = "CYAN",
+		},
+
+		{
+			size = "50px",
+			background = "CYAN",
+		},
+		{
+			size = "50px",
+			background = "CYAN",
+		},
+		{
+			size = "50px",
+			background = "CYAN",
+		},
+		{
+			size = "50px",
+			background = "CYAN",
+		},
+		{
+			size = "50px",
+			background = "CYAN",
+		},
+		{
+			size = "50px",
+			background = "CYAN",
+		},
+		{
+			size = "50px",
+			background = "CYAN",
+		},
+		{
+			size = "50px",
+			background = "CYAN",
+		},
+		{
+			size = "50px",
+			background = "CYAN",
+		},
+		{
+			size = "50px",
+			background = "CYAN",
+		},
+		{
+			size = "50px",
+			background = "CYAN",
+		},
+		{
+			size = "50px",
+			background = "CYAN",
 		},
 	},
 }

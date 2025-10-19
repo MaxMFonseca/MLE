@@ -1,7 +1,5 @@
 #pragma once
 
-#include <iostream>
-
 #include "Types.h"
 #include "mle/core/Assert.h"
 #include "mle/utils/Utils.h"
@@ -15,24 +13,20 @@ struct Justify {
     using Line = std::vector<T>;
     using Lines = std::vector<Line>;
 
-    struct NoWrapRet {
-        Line line{};
-        T total_size{};
-    };
-    static NoWrapRet noWrap(std::span<T> sizes, T gap) {
-        NoWrapRet ret;
+    static Line noWrap(std::span<T> sizes, T gap) {
+        Line ret;
         if (sizes.empty()) {
             return ret;
         }
+        T total_size = 0;
         for (const T& s : sizes) {
-            ret.line.push_back(ret.total_size);
-            ret.total_size += s + gap;
+            ret.push_back(total_size);
+            total_size += s + gap;
         }
-        ret.total_size -= gap;
         return ret;
     }
 
-    static Lines wrapLines(std::span<T> sizes, T min_gap, LineMode mode, LineMode mode_last_line, T line_max_size) {
+    static Lines wrap(std::span<T> sizes, T min_gap, LineMode mode, LineMode mode_last_line, T line_max_size) {
         Lines lines;
         if (sizes.empty() || 0 >= sizes.size()) {
             return lines;
@@ -40,16 +34,15 @@ struct Justify {
 
         usize start_index = 0;
         while (start_index < sizes.size()) {
-            auto line = wrapOneLine(sizes.subspan(start_index), min_gap, mode, mode_last_line, line_max_size);
+            auto line = justifyUntilOverflow(sizes.subspan(start_index), min_gap, mode, mode_last_line, line_max_size);
             lines.push_back(line);
-            std::cout << lines.size() << " " << line.size() << "\n";
             start_index += line.size();
         }
 
         return lines;
     }
 
-    static Line wrapOneLine(std::span<T> sizes, T min_gap, LineMode mode, LineMode mode_last_line, T line_max_size) {
+    static Line justifyUntilOverflow(std::span<T> sizes, T min_gap, LineMode mode, LineMode mode_last_line, T line_max_size) {
         if (sizes.empty() || 0 >= sizes.size()) {
             return {};
         }
@@ -96,13 +89,7 @@ struct Justify {
 
         switch (mode) {
             case LineMode::START: {
-                Line line;
-                T pos = 0;
-                for (const T& s : sizes) {
-                    line.push_back(pos);
-                    pos += s + min_gap;
-                }
-                return line;
+                return justifyLineStart(sizes, min_gap);
             }
             case LineMode::CENTER: {
                 Line line;
@@ -161,5 +148,17 @@ struct Justify {
 
         MLE_UNREACHABLE;
     }
+
+    static Line justifyLineStart(std::span<T> sizes, T min_gap) {
+        Line line;
+        T pos = 0;
+        for (const T& s : sizes) {
+            line.push_back(pos);
+            pos += s + min_gap;
+        }
+        return line;
+    }
 };
+
+using JustifyInt = Justify<int>;
 }  // namespace mle

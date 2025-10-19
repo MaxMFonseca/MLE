@@ -45,6 +45,10 @@ LuaElementOps::LuaElementOps(UI& ui) :
     auto ut = lua.newUsertype<Entt>("mle_ui_Entt", sol::no_constructor);
     ut["apply"] = &Entt::apply;
 
+    addKeyHandler("container", comp::Container::apply);
+    addKeyHandler("container_add_child", comp::Container::applyAddChild);
+    addKeyHandler("c", comp::Container::applyAddChildren);
+    addKeyHandler("container_add_children", comp::Container::applyAddChildren);
     addKeyHandler("size", comp::TargetSize::apply);
     addKeyHandler("size_x", comp::TargetSize::applyX);
     addKeyHandler("size_y", comp::TargetSize::applyY);
@@ -69,12 +73,22 @@ LuaElementOps::LuaElementOps(UI& ui) :
     addKeyHandler("margin_r", comp::TargetMargin::applyR);
     addKeyHandler("margin_x", comp::TargetMargin::applyX);
     addKeyHandler("margin_y", comp::TargetMargin::applyY);
+    addKeyHandler("border", comp::TargetBorder::apply);
+    addKeyHandler("border_thickness", comp::TargetBorder::applyThickness);
+    addKeyHandler("border_color", comp::TargetBorder::applyColor);
+    addKeyHandler("border_round", comp::TargetBorder::applyRound);
+    addKeyHandler("border_t", comp::TargetBorder::applyT);
+    addKeyHandler("border_b", comp::TargetBorder::applyB);
+    addKeyHandler("border_l", comp::TargetBorder::applyL);
+    addKeyHandler("border_r", comp::TargetBorder::applyR);
+    addKeyHandler("border_x", comp::TargetBorder::applyX);
+    addKeyHandler("border_y", comp::TargetBorder::applyY);
+    addKeyHandler("border_round_lt", comp::TargetBorder::applyRoundLT);
+    addKeyHandler("border_round_rt", comp::TargetBorder::applyRoundRT);
+    addKeyHandler("border_round_lb", comp::TargetBorder::applyRoundLB);
+    addKeyHandler("border_round_rb", comp::TargetBorder::applyRoundRB);
     addKeyHandler("origin", comp::TargetOrigin::apply);
     addKeyHandler("aspect_ratio", comp::TargetAspectRatio::apply);
-    addKeyHandler("container", comp::Container::apply);
-    addKeyHandler("c", comp::Container::apply);
-    addKeyHandler("container_add", comp::Container::applyAdd);
-    addKeyHandler("c_add", comp::Container::applyAdd);
 }
 // addLuaKeyHandler("background", background);
 // addLuaKeyHandler("blur", blur);

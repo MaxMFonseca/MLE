@@ -29,4 +29,7 @@ sol::table UI::getTableFor(const std::string& element_name) {
     return lua_.require(element_name);
 }
 
+void UI::update() {
+    bounds_system_.update();
+}
 }  // namespace mle

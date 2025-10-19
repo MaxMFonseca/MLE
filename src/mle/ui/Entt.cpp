@@ -15,4 +15,22 @@ bool Entt::hasFitSize() const {
     }
     return false;
 }
+
+[[nodiscard]] std::string Entt::name() const {
+    const auto* parent_r = tryGet<comp::Parent>();
+    if (!parent_r) {
+        return "<root>";
+    }
+    const auto& parent_container = ui_.getRegistry().get<comp::Container>(parent_r->o);
+    return parent_container.o.getNameFromE(e_);
+};
+
+[[nodiscard]] std::string Entt::parentName() const {
+    const auto* parent_r = tryGet<comp::Parent>();
+    if (!parent_r) {
+        return "<no parent>";
+    }
+    Entt parent_entt{ui_, parent_r->o};
+    return parent_entt.name();
+}
 }  // namespace mle::ui

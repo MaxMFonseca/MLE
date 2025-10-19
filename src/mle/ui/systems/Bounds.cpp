@@ -20,12 +20,15 @@ Bounds::Bounds(UI& ui) :
         .on_construct<comp::TargetPosition>()
         .on_destroy<comp::TargetPosition>()
         .on_update<comp::TargetPosition>()
-        .on_construct<comp::TargetPadding>()
-        .on_destroy<comp::TargetPadding>()
-        .on_update<comp::TargetPadding>()
         .on_construct<comp::TargetMargin>()
         .on_destroy<comp::TargetMargin>()
         .on_update<comp::TargetMargin>()
+        .on_construct<comp::TargetBorder>()
+        .on_destroy<comp::TargetBorder>()
+        .on_update<comp::TargetBorder>()
+        .on_construct<comp::TargetPadding>()
+        .on_destroy<comp::TargetPadding>()
+        .on_update<comp::TargetPadding>()
         .on_construct<comp::TargetOrigin>()
         .on_destroy<comp::TargetOrigin>()
         .on_update<comp::TargetOrigin>()
@@ -35,11 +38,9 @@ Bounds::Bounds(UI& ui) :
 }
 
 void Bounds::update() {
-    MLE_T(".");
     if (storage_.empty()) {
         return;
     }
-    MLE_D("Updating Bounds system");
 
     std::set<entt::entity> containers_to_update;
     for (auto [e] : storage_.each()) {
@@ -50,6 +51,7 @@ void Bounds::update() {
             containers_to_update.insert(e);
         }
     }
+    storage_.clear();
     auto container_needs_internal_update_view = ui_.getRegistry().view<comp::ContainerNeedsInternalBoundsUpdateFlag>();
     for (auto e : container_needs_internal_update_view) {
         containers_to_update.insert(e);

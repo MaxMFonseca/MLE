@@ -50,6 +50,11 @@ std::string_view trim(std::string_view s);
 
 std::pair<f32, std::string_view> splitNumSuffix(std::string_view s);
 
+template <typename... CString>
+constexpr bool matchAny(std::string_view str, CString... cs) {
+    static_assert((std::is_convertible_v<CString, const char*> && ...), "All arguments must be const char* or convertible.");
+    return ((str == cs) || ...);
+}
 }  // namespace mle
 
 namespace fmt {

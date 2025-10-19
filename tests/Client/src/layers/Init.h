@@ -14,7 +14,7 @@ class InitLayer : public mle::client::Layer {
     void init() override;
     void shutdown() override {};
 
-    void update() override {};
+    void update() override;
     ImageRef render([[maybe_unused]] f64 dt) override { return nullptr; };
 
   private:

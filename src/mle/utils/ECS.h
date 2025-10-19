@@ -11,7 +11,10 @@ template <>
 struct formatter<entt::entity> : formatter<std::string> {
     template <typename FormatContext>
     constexpr auto format(entt::entity v, FormatContext& ctx) const {
-        return format_to(ctx.out(), "{}", mle::as<mle::u32>(v));
+        if (v == entt::null) {
+            return format_to(ctx.out(), "<null>");
+        }
+        return format_to(ctx.out(), "{}", entt::to_integral(v));
     }
 };
 }  // namespace fmt
