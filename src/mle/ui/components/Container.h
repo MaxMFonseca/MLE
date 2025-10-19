@@ -8,8 +8,10 @@
 #include "mle/utils/Justify.h"
 #include "mle/utils/Utils.h"
 
+// TODO: make this a class AND FIX THE NAMING
 namespace mle::ui::comp {
 struct Container {
+    enum class Type : u8 { HYBRID, LIST, FREE };
     enum class ListDirection : u8 { HORIZONTAL, VERTICAL, HORIZONTAL_REVERSED, VERTICAL_REVERSED };
     enum class WrapMode : u8 { NO, WRAP, WRAP_REVERSED };
     enum class AlignCross : u8 { START, CENTER, END, STRETCH };
@@ -21,6 +23,7 @@ struct Container {
 
     bool scrollable = true;
 
+    Type type = Type::HYBRID;
     ListDirection list_direction = ListDirection::VERTICAL;
     JustifyMode list_align_main = JustifyMode::START;
     AlignCross list_align_cross = AlignCross::START;
@@ -38,8 +41,7 @@ struct Container {
     MLE_NO_COPY_MOVE(Container)
 
     void set(const Entt& e, const sol::table& table);
-    void addChild(const Entt& e, const sol::table& table);
-    void addChild(const Entt& e, const sol::table& table, std::string name, usize pos = max<usize>());
+    void addChild(const Entt& e, const sol::table& table, const std::string& name = "", usize pos = max<usize>());
     void addMany(const Entt& e, const sol::table& table);
     void setOffset(vec2i offset) {
         offset_x = offset.x;
@@ -70,5 +72,11 @@ struct Container {
     static void on_construct(entt::registry& registry, const entt::entity entt);
     static void on_destroy(entt::registry& registry, const entt::entity entt);
     // NOLINTEND(readability-identifier-naming, readability-avoid-const-params-in-decls)
+
+  private:
+    std::tuple<sol::table, entt::entity, std::string, usize> createChildEnttHnd(const Entt& e, const sol::table& table, std::string name, usize pos);
+    void addChild(const Entt& e, entt::entity child_e, const sol::table& comp_table);
+
+  private:
 };
 }  // namespace mle::ui::comp

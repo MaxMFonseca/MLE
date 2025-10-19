@@ -12,7 +12,9 @@ void UI::setRoot(const std::string& element_name) {
 
     registry_.clear();
 
-    root_ = lua_element_ops_.createElement(root_table, entt::null);
+    root_ = lua_element_ops_.createElement(entt::null);
+    ui::Entt root_entt{*this, root_};
+    root_entt.applyTable(root_table);
 
     resizeRoot(Window::i().getSize());
 };

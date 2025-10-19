@@ -18,6 +18,7 @@ class Entt {
     void setE(entt::entity e) { e_ = e; }
 
     void apply(const std::string& key, const sol::object& obj) const { ui_.getLuaElementOps().applyObj(e_, key, obj); }
+    void applyTable(const sol::table& table) const { ui_.getLuaElementOps().applyTable(e_, table); }
 
     [[nodiscard]] entt::entity getParent() const { return get<comp::Parent>().o; }
     [[nodiscard]] comp::Container& getParentContainer() const { return ui_.getRegistry().get<comp::Container>(getParent()); }

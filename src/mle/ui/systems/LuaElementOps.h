@@ -12,7 +12,7 @@ class LuaElementOps final {
   public:
     explicit LuaElementOps(UI& ui);
 
-    entt::entity createElement(const sol::table& table, entt::entity parent);
+    entt::entity createElement(entt::entity parent);
     void applyTable(entt::entity e, const sol::table& table);
     void applyObj(entt::entity e, const std::string& key, const sol::object& obj);
 

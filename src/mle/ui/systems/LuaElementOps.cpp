@@ -3,14 +3,15 @@
 #include "mle/ui/Entt.h"
 #include "mle/ui/UI.h"
 #include "mle/ui/components/Bounds.h"
+#include "mle/utils/String.h"
 
 namespace mle::ui::system {
-entt::entity LuaElementOps::createElement(const sol::table& table, entt::entity parent) {
+entt::entity LuaElementOps::createElement(entt::entity parent) {
     auto e = ui_.getRegistry().create();
     if (parent != entt::null) {
         ui_.getRegistry().emplace<comp::Parent>(e, parent);
     }
-    applyTable(e, table);
+    ui_.getRegistry().emplace<comp::Bounds>(e);
     return e;
 }
 
@@ -28,7 +29,7 @@ void LuaElementOps::applyObj(entt::entity e, const std::string& key, const sol::
     auto it = key_handlers_.find(key);
     if (it != key_handlers_.end()) {
         it->second(Entt(ui_, e), obj);
-    } else {
+    } else if (!matchAny(key, "name", "pos")) {
         MLE_E("No handler for element key '{}'", key);
     }
 }
@@ -46,9 +47,9 @@ LuaElementOps::LuaElementOps(UI& ui) :
     ut["apply"] = &Entt::apply;
 
     addKeyHandler("container", comp::Container::apply);
-    addKeyHandler("container_add_child", comp::Container::applyAddChild);
+    addKeyHandler("child", comp::Container::applyAddChild);
     addKeyHandler("c", comp::Container::applyAddChildren);
-    addKeyHandler("container_add_children", comp::Container::applyAddChildren);
+    addKeyHandler("children", comp::Container::applyAddChildren);
     addKeyHandler("size", comp::TargetSize::apply);
     addKeyHandler("size_x", comp::TargetSize::applyX);
     addKeyHandler("size_y", comp::TargetSize::applyY);

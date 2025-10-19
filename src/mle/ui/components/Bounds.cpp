@@ -80,12 +80,22 @@ void TargetBound::set(std::string_view str) {
         return;
     }
     if (str.size() == 1) {
+        if (std::isdigit(str[0])) {
+            val = static_cast<f32>(str[0] - '0');
+            type = Type::DEFAULT;
+            return;
+        }
         val = charToSize(str[0]);
         type = Type::RELATIVE;
         return;
     }
 
     auto [num, suffix] = splitNumSuffix(str);
+
+    if (suffix.empty()) {
+        set(num, Type::DEFAULT);
+        return;
+    }
 
     bool is_percent_type = suffix[0] == '%';
 
@@ -127,20 +137,9 @@ void Dependency::set(const Entt& e, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
 
     this->e = entt::null;
-    val = 0;
+    dep_tb = {};
 
     const auto& parent_c = e.getParentContainer();
-
-    auto apply = [&](std::string_view dep_name, f32 dep_val) {
-        this->e = parent_c.o.getEFromName(std::string(dep_name));
-        if (this->e == entt::null) {
-            /// NOLINTNEXTLINE(bugprone-lambda-function-name) just a log
-            MLE_E("Dependency target '{}' not found in parent container of entity {}", dep_name, e.e());
-            return;
-        }
-        this->val = dep_val;
-        return;
-    };
 
     if (obj.is<std::string>()) {
         auto str = obj.as<std::string>();
@@ -149,14 +148,28 @@ void Dependency::set(const Entt& e, const sol::object& obj) {
             MLE_E("Invalid dependency string: '{}'. Expected format is 'dep_name:val'.", str);
             return;
         }
-        auto val_r = strTo<f32>(splited[1]);
-        if (!val_r) {
-            MLE_E("Invalid dependency value in string: '{}'. Expected format is 'dep_name:val' where val is a number.", str);
+        std::string dep_name{splited[0]};
+        this->e = parent_c.o.getEFromName(dep_name);
+        if (this->e == entt::null) {
+            MLE_E("Dependency target '{}' not found in parent container of entity {}", dep_name, e.e());
             return;
         }
-        apply(splited[0], *val_r);
+        dep_tb.set(splited[1]);
     } else if (obj.is<sol::table>()) {
-        apply(lua::getIdx<std::string>(obj, 1), lua::getIdx<f32>(obj, 2));
+        auto table = lua::as<sol::table>(obj);
+        auto name_r = lua::tryAs<std::string>(table[1]);
+        auto val_r = table[2];
+        if (!name_r || !val_r.valid()) {
+            MLE_E("Invalid dependency table for entt {}. Expected format is {{dep_name, val}}.", e.name());
+            return;
+        }
+        auto dep_name = *name_r;
+        this->e = parent_c.o.getEFromName(dep_name);
+        if (this->e == entt::null) {
+            MLE_E("Dependency target '{}' not found in parent container of entity {}", dep_name, e.e());
+            return;
+        }
+        dep_tb.set(val_r);
     } else {
         MLE_UNREACHABLE_LOG("Unexpected obj type for Dependency: {}", obj.get_type());
     }

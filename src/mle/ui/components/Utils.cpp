@@ -1,5 +1,8 @@
 #include "Utils.h"
 
+#include "mle/core/Logger.h"
+#include "mle/utils/ECS.h"
+
 namespace mle::ui {
 EntityStorage::~EntityStorage() {
     if (isArray()) {

@@ -29,7 +29,7 @@ struct TargetBound {
 };
 
 struct Dependency {
-    f32 val = 0;
+    TargetBound dep_tb{};
     entt::entity e = entt::null;
 
     void set(const Entt& e, const sol::object& obj);
@@ -226,7 +226,7 @@ struct formatter<mle::ui::Dependency> : formatter<std::string> {
         if (v.e == entt::null) {
             return format_to(ctx.out(), "-");
         }
-        return format_to(ctx.out(), "[val: {}, e: {}]", v.val, v.e);
+        return format_to(ctx.out(), "[val: {}, e: {}]", v.dep_tb, v.e);
     }
 };
 
