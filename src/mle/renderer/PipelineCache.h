@@ -5,6 +5,8 @@
 #include "Pipeline.h"
 #include "Types.h"
 
+// TODO: Maybe instead of storing created pieplines I could store its create info and shared ptr, and create/destroy on demand
+// The same for other resources too ?
 namespace mle {
 class PipelineCache final {
   public:

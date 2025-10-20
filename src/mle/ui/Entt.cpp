@@ -4,6 +4,19 @@
 #include "mle/ui/components/Bounds.h"
 
 namespace mle::ui {
+void Entt::setName(const std::string& name) const {
+    if (name.empty()) {
+        erase<comp::Name>();
+        return;
+    }
+
+    if (name.contains('.')) {
+        MLE_W("Invalid character '.' in element name '{}'", name);
+        return;
+    }
+    patchOrEmplace<comp::Name>([&](auto& n) { n.o = name; });
+}
+
 bool Entt::hasFitSize() const {
     if (const auto* size = tryGet<comp::TargetSize>()) {
         if (size->x.type == TargetBound::Type::FIT || size->y.type == TargetBound::Type::FIT) {
@@ -16,21 +29,36 @@ bool Entt::hasFitSize() const {
     return false;
 }
 
-[[nodiscard]] std::string Entt::name() const {
-    const auto* parent_r = tryGet<comp::Parent>();
-    if (!parent_r) {
-        return "<root>";
-    }
-    const auto& parent_container = ui_.getRegistry().get<comp::Container>(parent_r->o);
-    return parent_container.o.getNameFromE(e_);
+std::string Entt::name() const {
+    const auto* name_comp = tryGet<comp::Name>();
+    return name_comp ? name_comp->o : "<unnamed>";
 };
 
-[[nodiscard]] std::string Entt::parentName() const {
-    const auto* parent_r = tryGet<comp::Parent>();
-    if (!parent_r) {
+std::string Entt::parentName() const {
+    auto parent_r = getParent();
+    if (parent_r == entt::null) {
         return "<no parent>";
     }
-    Entt parent_entt{ui_, parent_r->o};
+    Entt parent_entt{ui_, parent_r};
     return parent_entt.name();
+}
+
+// NOLINTNEXTLINE(misc-no-recursion) cool recursion
+std::string Entt::fullName() const {
+    auto parent_r = getParent();
+    if (parent_r != entt::null) {
+        Entt parent_entt{ui_, parent_r};
+        return parent_entt.fullName() + "." + name();
+    }
+    return name();
+}
+
+void Entt::destroy() const {
+    auto& relationship = getRelationship();
+    if (relationship.parent != entt::null) {
+        comp::Container::destroyChild(Entt{ui_, relationship.parent}, e_);
+    } else {
+        ui_.clear();
+    }
 }
 }  // namespace mle::ui

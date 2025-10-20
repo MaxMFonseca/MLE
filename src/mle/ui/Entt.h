@@ -19,12 +19,15 @@ class Entt {
 
     void apply(const std::string& key, const sol::object& obj) const { ui_.getLuaElementOps().applyObj(e_, key, obj); }
     void applyTable(const sol::table& table) const { ui_.getLuaElementOps().applyTable(e_, table); }
+    void setName(const std::string& name) const;
+    void destroy() const;
 
-    [[nodiscard]] entt::entity getParent() const { return get<comp::Parent>().o; }
-    [[nodiscard]] comp::Container& getParentContainer() const { return ui_.getRegistry().get<comp::Container>(getParent()); }
+    [[nodiscard]] auto& getRelationship() const { return get<comp::Relationship>(); }
+    [[nodiscard]] entt::entity getParent() const { return getRelationship().parent; }
     [[nodiscard]] bool hasFitSize() const;
     [[nodiscard]] std::string name() const;
     [[nodiscard]] std::string parentName() const;
+    [[nodiscard]] std::string fullName() const;
 
     template <typename T>
     [[nodiscard]] T& get() const {
@@ -123,3 +126,13 @@ class Entt {
     entt::entity e_;
 };
 }  // namespace mle::ui
+
+namespace fmt {
+template <>
+struct formatter<mle::ui::Entt> : formatter<std::string> {
+    template <typename FormatContext>
+    constexpr auto format(const mle::ui::Entt& v, FormatContext& ctx) const {
+        return format_to(ctx.out(), "Entt({})", v.fullName());
+    }
+};
+}  // namespace fmt

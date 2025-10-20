@@ -6,15 +6,6 @@
 #include "mle/utils/String.h"
 
 namespace mle::ui::system {
-entt::entity LuaElementOps::createElement(entt::entity parent) {
-    auto e = ui_.getRegistry().create();
-    if (parent != entt::null) {
-        ui_.getRegistry().emplace<comp::Parent>(e, parent);
-    }
-    ui_.getRegistry().emplace<comp::Bounds>(e);
-    return e;
-}
-
 void LuaElementOps::applyTable(entt::entity e, const sol::table& table) {
     for (const auto& [key_r, value_r] : table) {
         if (!key_r.is<std::string>()) {

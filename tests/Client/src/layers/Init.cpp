@@ -10,4 +10,9 @@ void InitLayer::init() {
 void InitLayer::update() {
     ui_.update();
 };
+
+ImageRef InitLayer::render([[maybe_unused]] f64 dt) {
+    ui_.render();
+    return nullptr;
+};
 }  // namespace mle::user

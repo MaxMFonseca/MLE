@@ -698,5 +698,10 @@ void TargetBorder::applyRoundRB(const Entt& e, const sol::object& obj) {
     e.patchOrEmplace<TargetBorder>([&](TargetBorder& tb) { tb.round_rb.set(obj); });
 }
 
+[[nodiscard]] vec2i PaddingPx::removeFrom(vec2i size) const {
+    size.x -= l + r;
+    size.y -= t + b;
+    return size;
+}
 }  // namespace comp
 }  // namespace mle::ui

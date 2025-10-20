@@ -12,10 +12,8 @@ class LuaElementOps final {
   public:
     explicit LuaElementOps(UI& ui);
 
-    entt::entity createElement(entt::entity parent);
     void applyTable(entt::entity e, const sol::table& table);
     void applyObj(entt::entity e, const std::string& key, const sol::object& obj);
-
     void addKeyHandler(const std::string& key, KeyHandlerFn fn);
 
   private:

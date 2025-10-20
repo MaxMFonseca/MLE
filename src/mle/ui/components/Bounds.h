@@ -1,7 +1,6 @@
 #pragma once
 
 #include "../Types.h"
-#include "Types.h"
 #include "mle/math/Types2D.h"
 #include "mle/utils/Color.h"
 
@@ -102,6 +101,8 @@ struct TargetPosition {
 
 struct PaddingPx {
     int t = 0, b = 0, l = 0, r = 0;
+
+    [[nodiscard]] vec2i removeFrom(vec2i size) const;
 };
 
 struct TargetPadding {

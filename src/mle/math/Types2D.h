@@ -545,7 +545,7 @@ template <typename T>
 struct formatter<mle::Rect<T>> : formatter<std::string> {
     template <typename FormatContext>
     constexpr auto format(const mle::Rect<T>& rect, FormatContext& ctx) const {
-        return format_to(ctx.out(), "[pos:{}, size:{}]", rect.pos_, rect.size_);
+        return format_to(ctx.out(), "[pos:{}, size:{}]", rect.pos(), rect.size());
     }
 };
 

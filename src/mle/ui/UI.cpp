@@ -5,6 +5,13 @@
 #include "mle/window/Window.h"
 
 namespace mle {
+void UI::clear() {
+    MLE_I("Clearing UI");
+    registry_.clear();
+    root_ = entt::null;
+    root_size_ = vec2u{0};
+}
+
 void UI::setRoot(const std::string& element_name) {
     MLE_I("Setting UI root to element '{}'", element_name);
 
@@ -12,9 +19,12 @@ void UI::setRoot(const std::string& element_name) {
 
     registry_.clear();
 
-    root_ = lua_element_ops_.createElement(entt::null);
+    root_ = registry_.create();
     ui::Entt root_entt{*this, root_};
     root_entt.applyTable(root_table);
+    if (!root_entt.has<ui::comp::Container>()) {
+        root_entt.emplace<ui::comp::Container>();
+    }
 
     resizeRoot(Window::i().getSize());
 };
@@ -33,5 +43,12 @@ sol::table UI::getTableFor(const std::string& element_name) {
 
 void UI::update() {
     bounds_system_.update();
+
+    // rendering_system_.update();
 }
+
+void UI::render() {
+    // rendering_system_.render();
+};
+
 }  // namespace mle

@@ -186,7 +186,7 @@ sol::object tryGetAnyKey(const sol::table& table, const Keys&... keys) {
     sol::object result = sol::nil;
     bool found = false;
 
-    auto check = [&](const std::string& key) {
+    auto check = [&](const auto& key) {
         if (found) {
             return;
         }
@@ -279,37 +279,6 @@ template <typename T>
 inline bool tryGetIdx(const sol::table& table, int idx, T& out) {
     return tryAs(table[idx], out);
 }
-
-/**
- * @brief Try to get a value from a Lua table by key or index.
- *
- * @tparam T Expected value type.
- * @param table Lua table object.
- * @param key Key to look for in the table.
- * @param idx Index to look for in the table.
- * @param ret Output reference to store the extracted value.
- * @return True if the value was successfully extracted from either key or index, false otherwise.
- */
-template <typename T>
-[[nodiscard]] inline bool tryGetKeyOrIdx(const sol::table& table, const std::string& key, int idx, T& ret) {
-    if (tryGetKey(table, key, ret)) {
-        return true;
-    }
-    if (tryGetIdx(table, idx, ret)) {
-        return true;
-    }
-    return false;
-}
-
-/**
- * @brief Try to get a value from a Lua table by key or index.
- *
- * @parem table Lua table object.
- * @param key Key to look for in the table.
- * @param idx Index to look for in the table.
- * @return An optional containing the extracted value if it exists, or an empty optional otherwise.
- */
-std::optional<sol::object> tryGetKeyOrIdx(const sol::table& table, const std::string& key, int idx);
 
 /**
  * @brief As overload for `vec2f`. Accepts o as num, vec2f, or a table(list) with 2 numeric elements.

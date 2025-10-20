@@ -11,8 +11,11 @@ namespace ui {
 class Entt;
 
 namespace comp {
-struct Parent;
-struct Container;
+struct Relationship;
+struct Name;
+struct Bounds;
+struct Border;
+class Container;
 }  // namespace comp
 }  // namespace ui
 }  // namespace mle
