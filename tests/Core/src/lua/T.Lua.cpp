@@ -41,16 +41,16 @@ TEST_F(LuaTest, ToStringWorks) {
     EXPECT_NE(s.find("x = 123"), std::string::npos);
 }
 
-TEST_F(LuaTest, UtilsGetKeyOrIdx) {
+TEST_F(LuaTest, UtilsTryGetKeyAnyKey) {
     auto tbl = lua_.createTable();
     tbl["foo"] = 7;
     tbl[1] = 8;
-    auto v1 = lua::tryGetKeyOrIdx(tbl, "foo", 1);
-    ASSERT_TRUE(v1.has_value());
-    EXPECT_EQ(v1->as<int>(), 8);
-    auto v2 = lua::tryGetKeyOrIdx(tbl, "foo", 99);
-    ASSERT_TRUE(v2.has_value());
-    EXPECT_EQ(v2->as<int>(), 7);
+    auto v1 = lua::getFirstKey(tbl, "foo", 1);
+    ASSERT_TRUE(v1.valid());
+    EXPECT_EQ(v1.as<int>(), 8);
+    auto v2 = lua::getFirstKey(tbl, "foo", 99);
+    ASSERT_TRUE(v2.valid());
+    EXPECT_EQ(v2.as<int>(), 7);
 }
 
 TEST_F(LuaTest, UtilsTypeConversions) {
@@ -60,15 +60,6 @@ TEST_F(LuaTest, UtilsTypeConversions) {
     auto v = lua::as<vec2f>(tbl);
     EXPECT_FLOAT_EQ(v.x, 1.0F);
     EXPECT_FLOAT_EQ(v.y, 2.0F);
-}
-
-TEST_F(LuaTest, TryGetKeyOrIdxTemplate) {
-    auto tbl = lua_.createTable();
-    tbl["foo"] = 42;
-    int out = 0;
-    bool found = lua::tryGetKeyOrIdx<int>(tbl, "foo", 1, out);
-    EXPECT_TRUE(found);
-    EXPECT_EQ(out, 42);
 }
 
 TEST_F(LuaTest, RequireHelloLua) {
@@ -146,17 +137,6 @@ TEST_F(LuaTest, ToStringNestedTable) {
     std::string s = lua::toString(tbl);
     EXPECT_NE(s.find("foo = 123"), std::string::npos);
     EXPECT_NE(s.find("bar = 456"), std::string::npos);
-}
-
-TEST_F(LuaTest, TryGetKeyOrIdxWithMissing) {
-    auto tbl = lua_.createTable();
-    tbl["foo"] = 42;
-    int out = 0;
-    bool found = lua::tryGetKeyOrIdx<int>(tbl, "foo", 99, out);
-    EXPECT_TRUE(found);
-    EXPECT_EQ(out, 42);
-    found = lua::tryGetKeyOrIdx<int>(tbl, "bar", 99, out);
-    EXPECT_FALSE(found);
 }
 
 TEST_F(LuaTest, ParseVec2fUsertypes) {

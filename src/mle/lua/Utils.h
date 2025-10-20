@@ -63,7 +63,7 @@ inline bool validAll(const sol::object& first, const Args&... rest) {
  */
 template <typename T>
 inline T as(const sol::object& obj) {
-    MLE_ASSERT_LOG(valid<T>(obj), "Object is not valid or not of type {}", obj.get_type());
+    assertIs<T>(obj);
     return obj.as<T>();
 }
 
@@ -161,7 +161,7 @@ inline bool tryGetList(const sol::table& table, Args&... out) {
  * @return A vector containing the extracted values.
  */
 template <typename T>
-inline T getKey(const sol::table& table, const std::string& key) {
+inline T getKeyAs(const sol::table& table, const std::string& key) {
     return as<T>(table[key]);
 }
 
@@ -177,12 +177,12 @@ inline T getKey(const sol::table& table, const std::string& key) {
  * @return True if the value was successfully extracted, false otherwise.
  */
 template <typename T>
-inline bool tryGetKey(const sol::table& table, const std::string& key, T& out) {
+inline bool tryGetKeyAs(const sol::table& table, const std::string& key, T& out) {
     return tryAs(table[key], out);
 }
 
 template <typename... Keys>
-sol::object tryGetAnyKey(const sol::table& table, const Keys&... keys) {
+sol::object getFirstKey(const sol::table& table, const Keys&... keys) {
     sol::object result = sol::nil;
     bool found = false;
 

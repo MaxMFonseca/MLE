@@ -1,4 +1,4 @@
-#include "BoundsSystem.h"
+#include "Bounds.h"
 
 #include "../components/Bounds.h"
 #include "mle/core/Logger.h"
@@ -44,9 +44,10 @@ void Bounds::update() {
 
     std::set<entt::entity> containers_to_update;
     for (auto [e] : storage_.each()) {
-        auto* parent_c = ui_.getRegistry().try_get<comp::Parent>(e);
-        if (parent_c && parent_c->o != entt::null) {
-            containers_to_update.insert(parent_c->o);
+        Entt ee{ui_, e};
+        auto& relationship = ee.getRelationship();
+        if (relationship.parent != entt::null) {
+            containers_to_update.insert(relationship.parent);
         } else {
             containers_to_update.insert(e);
         }
@@ -81,11 +82,12 @@ void Bounds::checkContainerNeedsUpdate(entt::entity e, const std::set<entt::enti
         return;
     }
 
-    auto& container = ui_.getRegistry().get<comp::Container>(e);
+    Entt ee(ui_, e);
 
-    for (const auto& child : container.o.get()) {
-        if (ui_.getRegistry().try_get<comp::Container>(child.e)) {
-            checkContainerNeedsUpdate(child.e, containers_to_update);
+    for (const auto& child : comp::Container::getChildren(ee)) {
+        Entt cee(ui_, child);
+        if (cee.getRelationship().child_count > 0) {
+            checkContainerNeedsUpdate(child, containers_to_update);
         }
     }
 }

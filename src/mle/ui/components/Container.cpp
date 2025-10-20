@@ -47,13 +47,13 @@ void Container::applyAddChildren(const Entt& e, const sol::object& obj) {
 }
 
 void Container::set(const Entt& e, const sol::table& table) {
-    if (const auto c_r = lua::tryGetAnyKey(table, "c", "children"); lua::valid<sol::table>(c_r)) {
+    if (const auto c_r = lua::getFirstKey(table, "c", "children"); lua::valid<sol::table>(c_r)) {
         createChildren(e, lua::as<sol::table>(c_r));
     }
     if (const auto child_r = table["child"]; lua::valid<sol::table>(child_r)) {
         createChild(e, child_r);
     }
-    if (const auto type_r = lua::tryGetAnyKey(table, "type", "container_type"); lua::valid<std::string>(type_r)) {
+    if (const auto type_r = lua::getFirstKey(table, "type", "container_type"); lua::valid<std::string>(type_r)) {
         setType(lua::as<std::string>(type_r));
     }
     if (const auto scrollable_r = table["scrollable"]; lua::valid<bool>(scrollable_r)) {
@@ -68,42 +68,42 @@ void Container::set(const Entt& e, const sol::table& table) {
     if (const auto offset_y_r = table["offset_y"]; lua::valid<i32>(offset_y_r)) {
         setOffsetY(lua::as<i32>(offset_y_r));
     }
-    if (const auto children_base_r = lua::tryGetAnyKey(table, "children_base", "base"); lua::valid<sol::table>(children_base_r)) {
+    if (const auto children_base_r = lua::getFirstKey(table, "children_base", "base"); lua::valid<sol::table>(children_base_r)) {
         setChildrenBase(lua::as<sol::table>(children_base_r));
     }
-    if (const auto list_direction_r = lua::tryGetAnyKey(table, "list_direction", "direction"); lua::valid<std::string>(list_direction_r)) {
+    if (const auto list_direction_r = lua::getFirstKey(table, "list_direction", "direction"); lua::valid<std::string>(list_direction_r)) {
         setListDirection(lua::as<std::string>(list_direction_r));
     }
-    if (const auto list_justify_r = lua::tryGetAnyKey(table, "list_justify", "justify"); lua::valid<std::string>(list_justify_r)) {
+    if (const auto list_justify_r = lua::getFirstKey(table, "list_justify", "justify"); lua::valid<std::string>(list_justify_r)) {
         setListJustify(lua::as<std::string>(list_justify_r));
     }
-    if (const auto list_align_cross_r = lua::tryGetAnyKey(table, "list_cross_align", "cross_align"); lua::valid<std::string>(list_align_cross_r)) {
+    if (const auto list_align_cross_r = lua::getFirstKey(table, "list_cross_align", "cross_align"); lua::valid<std::string>(list_align_cross_r)) {
         setListCrossAlign(lua::as<std::string>(list_align_cross_r));
     }
-    if (const auto list_wrap_mode_r = lua::tryGetAnyKey(table, "list_wrap_mode", "wrap_mode"); lua::valid<std::string>(list_wrap_mode_r)) {
+    if (const auto list_wrap_mode_r = lua::getFirstKey(table, "list_wrap_mode", "wrap_mode"); lua::valid<std::string>(list_wrap_mode_r)) {
         setListWrapMode(lua::as<std::string>(list_wrap_mode_r));
     }
-    if (const auto list_cross_max_size_r = lua::tryGetAnyKey(table, "list_cross_max_size", "cross_max_size"); list_cross_max_size_r.valid()) {
+    if (const auto list_cross_max_size_r = lua::getFirstKey(table, "list_cross_max_size", "cross_max_size"); list_cross_max_size_r.valid()) {
         TargetBound tb{};
         tb.set(list_cross_max_size_r);
         setListCrossMaxSize(tb);
     }
-    if (const auto list_main_min_gap_r = lua::tryGetAnyKey(table, "list_main_min_gap", "main_min_gap"); list_main_min_gap_r.valid()) {
+    if (const auto list_main_min_gap_r = lua::getFirstKey(table, "list_main_min_gap", "main_min_gap"); list_main_min_gap_r.valid()) {
         TargetBound tb{};
         tb.set(list_main_min_gap_r);
         setListMainMinGap(tb);
     }
-    if (const auto list_cross_gap_r = lua::tryGetAnyKey(table, "list_cross_gap", "cross_gap"); list_cross_gap_r.valid()) {
+    if (const auto list_cross_gap_r = lua::getFirstKey(table, "list_cross_gap", "cross_gap"); list_cross_gap_r.valid()) {
         TargetBound tb{};
         tb.set(list_cross_gap_r);
         setListCrossGap(tb);
     }
-    if (const auto list_main_max_fit_size_r = lua::tryGetAnyKey(table, "list_main_max_fit_size", "main_max_fit_size"); list_main_max_fit_size_r.valid()) {
+    if (const auto list_main_max_fit_size_r = lua::getFirstKey(table, "list_main_max_fit_size", "main_max_fit_size"); list_main_max_fit_size_r.valid()) {
         TargetBound tb{};
         tb.set(list_main_max_fit_size_r);
         setListMainMaxFitSize(tb);
     }
-    if (const auto list_cross_max_fit_size_r = lua::tryGetAnyKey(table, "list_cross_max_fit_size", "cross_max_fit_size"); list_cross_max_fit_size_r.valid()) {
+    if (const auto list_cross_max_fit_size_r = lua::getFirstKey(table, "list_cross_max_fit_size", "cross_max_fit_size"); list_cross_max_fit_size_r.valid()) {
         TargetBound tb{};
         tb.set(list_cross_max_fit_size_r);
         setListCrossMaxFitSize(tb);
@@ -263,6 +263,19 @@ usize Container::getChildrenCount(const Entt& e) {
     return e.getRelationship().child_count;
 }
 
+bool Container::hasChild(const Entt& e, entt::entity child_e) {
+    auto& self_relationship = e.getRelationship();
+    entt::entity ichild = self_relationship.first_child;
+    for (usize i = 0; i < self_relationship.child_count; ++i) {
+        if (ichild == child_e) {
+            return true;
+        }
+        Entt child{e.ui(), ichild};
+        ichild = child.getRelationship().right;
+    }
+    return false;
+}
+
 entt::entity Container::createChildHnd(const Entt& e, usize idx) {
     auto& self_relationship = e.getRelationship();
 
@@ -383,7 +396,7 @@ void Container::destroyAllChildren(const Entt& e) {
 
 void Container::createChild(const Entt& e, const sol::table& table) {
     auto idx = max<usize>();
-    if (const auto idx_r = lua::tryGetAnyKey(table, "pos", "idx", 2); lua::valid<usize>(idx_r)) {
+    if (const auto idx_r = lua::getFirstKey(table, "pos", "idx", 2); lua::valid<usize>(idx_r)) {
         idx = lua::as<usize>(idx_r);
     }
 
@@ -395,7 +408,7 @@ void Container::createChild(const Entt& e, const sol::table& table) {
 
     Entt centt{e.ui(), child_e};
 
-    if (const auto name_r = lua::tryGetAnyKey(table, "name", 1); lua::valid<std::string>(name_r)) {
+    if (const auto name_r = lua::getFirstKey(table, "name", 1); lua::valid<std::string>(name_r)) {
         centt.setName(lua::as<std::string>(name_r));
     }
 
@@ -410,14 +423,14 @@ void Container::createChildren(const Entt& e, const sol::table& table) {
         const auto child_table = lua::as<sol::table>(child_table_r);
 
         auto idx = max<usize>();
-        if (const auto idx_r = lua::tryGetAnyKey(child_table, "pos", "idx", 2); lua::valid<usize>(idx_r)) {
+        if (const auto idx_r = lua::getFirstKey(child_table, "pos", "idx", 2); lua::valid<usize>(idx_r)) {
             idx = lua::as<usize>(idx_r);
         }
 
         std::string name;
         if (lua::valid<std::string>(name_r)) {
             name = lua::as<std::string>(name_r);
-        } else if (const auto name_r = lua::tryGetAnyKey(child_table, "name", 1); name_r && lua::valid<std::string>(name_r)) {
+        } else if (const auto name_r = lua::getFirstKey(child_table, "name", 1); name_r && lua::valid<std::string>(name_r)) {
             name = lua::as<std::string>(name_r);
         }
 
@@ -445,10 +458,13 @@ void Container::createChildren(const Entt& e, const sol::table& table) {
 void Container::applyChildInitialTable(const Entt& e, const sol::table& table, entt::entity child_e) {
     Entt centt{e.ui(), child_e};
     sol::table final_table;
-    if (const auto comp_r = lua::tryGetAnyKey(table, "comp", "components"); lua::valid<sol::table>(comp_r)) {
-        final_table = e.ui().getLua().mergeTablesNew(children_base_, comp_r);
+    if (const auto comp_r = lua::getFirstKey(table, "comp", "components"); lua::valid<sol::table>(comp_r)) {
+        final_table = comp_r;
     } else {
-        final_table = e.ui().getLua().mergeTablesNew(children_base_, table);
+        final_table = table;
+    }
+    if (children_base_.valid()) {
+        final_table = e.ui().getLua().mergeTablesNew(final_table, children_base_);
     }
     centt.applyTable(final_table);
 }
@@ -516,6 +532,68 @@ struct ChildBoundsCalcData {
         }
     };
 };
+
+void finishChildBounds(const Entt& centt, auto& cbcd) {
+    MLE_C("Finishing {} bounds", centt.name());
+
+    comp::Bounds new_bounds;
+    new_bounds.parent_px.setPos(cbcd.new_position);
+    new_bounds.parent_px.setSize(cbcd.new_size);
+
+    MLE_VC(new_bounds);
+
+    centt.emplaceOrReplace<comp::Bounds>(new_bounds);
+
+    if (centt.has<comp::TargetBorder>()) {
+        comp::Border new_border;
+        new_border.t = cbcd.new_border.t;
+        new_border.b = cbcd.new_border.b;
+        new_border.l = cbcd.new_border.l;
+        new_border.r = cbcd.new_border.r;
+        new_border.color = cbcd.target.border.color;
+
+        auto largest_size = std::max({cbcd.new_size.x, cbcd.new_size.y});
+        auto roundc = [&](const TargetBound& round_tb) {
+            switch (round_tb.type) {
+                case TargetBound::Type::PX: {
+                    return as<int>(round_tb.val);
+                } break;
+                case TargetBound::Type::DEFAULT:
+                case TargetBound::Type::RELATIVE: {
+                    return as<int>(as<f32>(largest_size) * round_tb.val);
+                } break;
+                case TargetBound::Type::RELATIVE_W: {
+                    return as<int>(as<f32>(cbcd.new_size.x) * round_tb.val);
+                } break;
+                case TargetBound::Type::RELATIVE_H: {
+                    return as<int>(as<f32>(cbcd.new_size.y) * round_tb.val);
+                } break;
+                default: {
+                    // NOLINTNEXTLINE(bugprone-lambda-function-name) not a problem
+                    MLE_W("Invalid border round type: {}. Treating as 0.", round_tb.type);
+                    return 0;
+                } break;
+            }
+        };
+        new_border.round_lt = roundc(cbcd.target.border.round_lt);
+        new_border.round_rt = roundc(cbcd.target.border.round_rt);
+        new_border.round_lb = roundc(cbcd.target.border.round_lb);
+        new_border.round_rb = roundc(cbcd.target.border.round_rb);
+
+        MLE_VC(new_border);
+
+        centt.emplaceOrReplace<comp::Border>(new_border);
+    }
+};
+
+void finishChildrenBounds(const Entt& e, auto& children_data, std::span<const entt::entity> to_update) {
+    for (auto c : to_update) {
+        auto centt = Entt(e.ui(), c);
+        auto& cud = children_data.at(c);
+
+        finishChildBounds(centt, cud);
+    }
+}
 
 struct ListCalculator {
   public:
@@ -588,12 +666,12 @@ struct ListCalculator {
     };
 
   public:
-    ListCalculator(Entt container_e, const Container& container, vec2i padded_size, const std::vector<entt::entity>& children,
-                   std::vector<ChildBoundsCalcData>& cbcds) :
+    ListCalculator(Entt container_e, const Container& container, vec2i padded_size, const std::vector<entt::entity>& list_children,
+                   std::map<entt::entity, ChildBoundsCalcData>& cbcds) :
         container_e(container_e),
         container(container),
-        children(children),
-        cbuds(cbcds),
+        list_children(list_children),
+        cbcds(cbcds),
         main_is_x(container.getListDirection() == Container::ListDirection::HORIZONTAL ||
                   container.getListDirection() == Container::ListDirection::HORIZONTAL_REVERSED),
         padded_size_main(main_is_x ? padded_size.x : padded_size.y),
@@ -612,13 +690,18 @@ struct ListCalculator {
         root_size_cross(main_is_x ? root_size.y : root_size.x),
         root_size_main_f(as<f32>(root_size_main)),
         root_size_cross_f(as<f32>(root_size_cross)),
-        min_gap_main(calcMinGapMain(container.getListMainMinGap(), root_size_main_f, child_max_size_main_f, padded_size)) {}
+        min_gap_main(calcMinGapMain(container.getListMainMinGap(), root_size_main_f, child_max_size_main_f, padded_size)),
+        gap_cross(calcGapCross(container.getListCrossGap(), root_size_cross_f, child_max_size_cross_f, padded_size)) {
+        calculateChildrenSizes();
+        calculateChildrenPositions();
+        finishChildrenBounds(container_e, cbcds, list_children);
+    }
 
     const Entt container_e;
     const Container& container;
 
-    const std::vector<entt::entity>& children;
-    std::vector<ChildBoundsCalcData>& cbuds;
+    const std::vector<entt::entity>& list_children;
+    std::map<entt::entity, ChildBoundsCalcData>& cbcds;
 
     const bool main_is_x{};
 
@@ -643,6 +726,7 @@ struct ListCalculator {
     const f32 root_size_cross_f;
 
     const int min_gap_main = 0;
+    const int gap_cross = 0;
 
     static int calcChildMaxSizeCross(const TargetBound& target_max_size_cross, int padded_size_cross, f32 padded_size_cross_f, f32 root_size_cross_f,
                                      vec2i padded_size) {
@@ -700,8 +784,36 @@ struct ListCalculator {
         }
     }
 
-    bool listCalculateMarginSize(ChildSizeCalcData::CalcState& calc_state, int& ret_px, f32& ret_flex, const TargetBound& target_margin,
-                                 const bool is_main) const {
+    static int calcGapCross(const TargetBound& gap_cross, const f32 root_size_cross_px_f, const f32 max_size_cross_px_f, const vec2i& padded_max_size_px) {
+        switch (gap_cross.type) {
+            case TargetBound::Type::PX: {
+                return as<int>(gap_cross.val);
+            }
+            case TargetBound::Type::ROOT: {
+                return as<int>(root_size_cross_px_f * gap_cross.val);
+            } break;
+            case TargetBound::Type::DEFAULT: {
+                return as<int>(gap_cross.val);
+            } break;
+            case TargetBound::Type::RELATIVE: {
+                return as<int>(max_size_cross_px_f * gap_cross.val);
+            } break;
+            case TargetBound::Type::RELATIVE_W: {
+                return as<int>(as<f32>(padded_max_size_px.x) * gap_cross.val);
+            } break;
+            case TargetBound::Type::RELATIVE_H: {
+                return as<int>(as<f32>(padded_max_size_px.y) * gap_cross.val);
+            } break;
+            default: {
+                // NOLINTNEXTLINE(bugprone-lambda-function-name) not a problem
+                MLE_W("Invalid cross gap type: {}. Returning 0.", gap_cross.type);
+                return 0;
+            } break;
+        }
+    }
+
+    bool calculateChildMarginSize(ChildSizeCalcData::CalcState& calc_state, int& ret_px, f32& ret_flex, const TargetBound& target_margin,
+                                  const bool is_main) const {
         using CalcState = ChildSizeCalcData::CalcState;
         switch (target_margin.type) {
             case TargetBound::Type::PX: {
@@ -738,8 +850,8 @@ struct ListCalculator {
         return calc_state == CalcState::DONE;
     };
 
-    bool listCalculateContentSize(ChildSizeCalcData::CalcState& calc_state, int& ret_px, f32& ret_flex, const TargetBound& target_size, const bool is_main,
-                                  const bool has_size_provider, const f32 aspect_ratio) const {
+    bool calculateChildContentSize(ChildSizeCalcData::CalcState& calc_state, int& ret_px, f32& ret_flex, const TargetBound& target_size, const bool is_main,
+                                   const bool has_size_provider, const f32 aspect_ratio) const {
         using CalcState = ChildSizeCalcData::CalcState;
         switch (target_size.type) {
             case TargetBound::Type::PX: {
@@ -788,35 +900,696 @@ struct ListCalculator {
         return calc_state == CalcState::DONE;
     }
 
-    void listFinishFlexCross(auto& cld, const f32 max_size_cross) const {
+    void finishFlexCross(ChildSizeCalcData& cld) const {
         using CalcState = ChildSizeCalcData::CalcState;
         f32 flex_acc_cross = cld.flex.size.cross + cld.flex.margin.cross_a + cld.flex.margin.cross_b + cld.flex.border.cross_a + cld.flex.border.cross_b;
         if (flex_acc_cross > 0.0F) {
-            int px_cross =
-                as<int>(max_size_cross) - cld.size_cross_px - cld.margin_px.cross_a - cld.margin_px.cross_b - cld.border_px.cross_a - cld.border_px.cross_b;
+            int px_cross = child_max_size_cross - cld.size_cross - cld.margin.cross_a - cld.margin.cross_b - cld.border.cross_a - cld.border.cross_b;
             px_cross = std::max(0, px_cross);
             f32 flex_share_size = as<f32>(px_cross) / std::max(1.F, flex_acc_cross);
             if (cld.state.cross == CalcState::FLEX) {
-                cld.size_cross_px = as<int>(cld.flex.size.cross * flex_share_size);
+                cld.size_cross = as<int>(cld.flex.size.cross * flex_share_size);
                 cld.state.cross = CalcState::DONE;
             }
             if (cld.state.margin_cross_a == CalcState::FLEX) {
-                cld.margin_px.cross_a = as<int>(cld.flex.margin.cross_a * flex_share_size);
+                cld.margin.cross_a = as<int>(cld.flex.margin.cross_a * flex_share_size);
                 cld.state.margin_cross_a = CalcState::DONE;
             }
             if (cld.state.margin_cross_b == CalcState::FLEX) {
-                cld.margin_px.cross_b = as<int>(cld.flex.margin.cross_b * flex_share_size);
+                cld.margin.cross_b = as<int>(cld.flex.margin.cross_b * flex_share_size);
                 cld.state.margin_cross_b = CalcState::DONE;
             }
             if (cld.state.border_cross_a == CalcState::FLEX) {
-                cld.border_px.cross_a = as<int>(cld.flex.border.cross_a * flex_share_size);
+                cld.border.cross_a = as<int>(cld.flex.border.cross_a * flex_share_size);
                 cld.state.border_cross_a = CalcState::DONE;
             }
             if (cld.state.border_cross_b == CalcState::FLEX) {
-                cld.border_px.cross_b = as<int>(cld.flex.border.cross_b * flex_share_size);
+                cld.border.cross_b = as<int>(cld.flex.border.cross_b * flex_share_size);
                 cld.state.border_cross_b = CalcState::DONE;
             }
         }
+    }
+
+    // NOLINTNEXTLINE(readability-function-cognitive-complexity) Not that complex
+    void calculateChildrenSizes() {
+        f32 flex_acc_main = 0;
+        int px_acc_main = 0;
+
+        std::map<entt::entity, ChildSizeCalcData> children_sizes_data;
+
+        for (auto c : list_children) {
+            Entt centt{container_e.ui(), c};
+
+            auto& cbcd = cbcds.at(c);
+            auto& csd = children_sizes_data.emplace(c, ChildSizeCalcData{cbcd, main_is_x}).first->second;
+
+            bool done = calculateChildMarginSize(csd.state.margin_main_a, csd.margin.main_a, csd.flex.margin.main_a, csd.target_main.margin_a, true);
+            done &= calculateChildMarginSize(csd.state.margin_main_b, csd.margin.main_b, csd.flex.margin.main_b, csd.target_main.margin_b, true);
+
+            if ((csd.target_cross.margin_a.type != TargetBound::Type::DEFAULT && csd.target_cross.margin_a.val != 0.0F) ||
+                (csd.target_cross.margin_b.type != TargetBound::Type::DEFAULT && csd.target_cross.margin_b.val != 0.0F)) {
+                MLE_W("Non-default cross margin on list child is not supported and will be ignored.");
+            }
+
+            done &= calculateChildMarginSize(csd.state.border_main_a, csd.border.main_a, csd.flex.border.main_a, csd.target_main.border_a, true);
+            done &= calculateChildMarginSize(csd.state.border_main_b, csd.border.main_b, csd.flex.border.main_b, csd.target_main.border_b, true);
+            done &= calculateChildMarginSize(csd.state.border_cross_a, csd.border.cross_a, csd.flex.border.cross_a, csd.target_cross.border_a, false);
+            done &= calculateChildMarginSize(csd.state.border_cross_b, csd.border.cross_b, csd.flex.border.cross_b, csd.target_cross.border_b, false);
+
+            done &= calculateChildContentSize(csd.state.main, csd.size_main, csd.flex.size.main, csd.target_main.size, true, cbcd.size_provider != nullptr,
+                                              cbcd.target.aspect_ratio);
+
+            if (container.getListCrossAlign() != Container::ListCrossAlign::STRETCH) {
+                done &= calculateChildContentSize(csd.state.cross, csd.size_cross, csd.flex.size.cross, csd.target_cross.size, false,
+                                                  cbcd.size_provider != nullptr, cbcd.target.aspect_ratio);
+            } else {
+                csd.size_cross = 0;
+                csd.flex.size.cross = 1.0F;
+                csd.state.cross = ChildSizeCalcData::CalcState::FLEX;
+            }
+
+            switch (container.getListCrossAlign()) {
+                case Container::ListCrossAlign::CENTER: {
+                    csd.flex.margin.cross_a = .01;
+                    csd.flex.margin.cross_b = .01;
+                } break;
+                case Container::ListCrossAlign::END: {
+                    csd.flex.margin.cross_a = .02;
+                    csd.flex.margin.cross_b = .00;
+                } break;
+                default: {
+                    MLE_NOOP;
+                } break;
+            }
+
+            if (done) {
+                csd.done = true;
+                flex_acc_main += csd.flex.size.main + csd.flex.margin.main_a + csd.flex.margin.main_b + csd.flex.border.main_a + csd.flex.border.main_b;
+                px_acc_main += csd.size_main + csd.margin.main_a + csd.margin.main_b + csd.border.main_a + csd.border.main_b;
+                continue;
+            }
+
+            if (csd.state.main == ChildSizeCalcData::CalcState::FLEX) {
+                flex_acc_main += csd.flex.size.main + csd.flex.margin.main_a + csd.flex.margin.main_b + csd.flex.border.main_a + csd.flex.border.main_b;
+                px_acc_main += csd.size_main + csd.margin.main_a + csd.margin.main_b + csd.border.main_a + csd.border.main_b;
+                continue;
+            }
+
+            if (csd.state.main == ChildSizeCalcData::CalcState::FIT && csd.state.cross == ChildSizeCalcData::CalcState::FIT) {
+                int fit_max_size_main = child_max_size_main - csd.margin.main_a - csd.margin.main_b - csd.border.main_a - csd.border.main_b;
+                int fit_max_size_cross = child_max_size_cross - csd.margin.cross_a - csd.margin.cross_b - csd.border.cross_a - csd.border.cross_b;
+
+                if (fit_max_size_cross <= 0 || fit_max_size_main <= 0) {
+                    MLE_E("Child cannot FIT in the given max size");
+                    csd.valid = false;
+                    continue;
+                }
+
+                vec2u p_max_size =
+                    main_is_x ? vec2u{as<u32>(fit_max_size_main), as<u32>(fit_max_size_cross)} : vec2u{as<u32>(fit_max_size_cross), as<u32>(fit_max_size_main)};
+                vec2u size_from_provider = cbcd.size_provider->calc(container_e, p_max_size);
+                u32 main_size_from_provider = main_is_x ? size_from_provider.x : size_from_provider.y;
+                u32 cross_size_from_provider = main_is_x ? size_from_provider.y : size_from_provider.x;
+
+                csd.size_main = as<int>(main_size_from_provider);
+                csd.state.main = ChildSizeCalcData::CalcState::DONE;
+
+                csd.size_cross = as<int>(cross_size_from_provider);
+                csd.state.cross = ChildSizeCalcData::CalcState::DONE;
+            }
+
+            if (csd.state.cross == ChildSizeCalcData::CalcState::FIT) {
+                if (csd.state.main == ChildSizeCalcData::CalcState::DONE) {
+                    int fit_max_size_cross = child_max_size_cross - csd.margin.cross_a - csd.margin.cross_b - csd.border.cross_a - csd.border.cross_b;
+                    if (fit_max_size_cross <= 0) {
+                        MLE_E("Child cannot FIT in the given max cross size");
+                        csd.valid = false;
+                        continue;
+                    }
+
+                    vec2u p_max_size =
+                        main_is_x ? vec2u{as<u32>(csd.size_main), as<u32>(fit_max_size_cross)} : vec2u{as<u32>(fit_max_size_cross), as<u32>(csd.size_main)};
+                    vec2u size_from_provider = cbcd.size_provider->calc(container_e, p_max_size);
+                    u32 cross_size_from_provider = main_is_x ? size_from_provider.y : size_from_provider.x;
+
+                    csd.size_cross = as<int>(cross_size_from_provider);
+                    csd.state.cross = ChildSizeCalcData::CalcState::DONE;
+                } else if (csd.state.main == ChildSizeCalcData::CalcState::AR) {
+                    MLE_E("Cannot mix FIT and AR");
+                    csd.valid = false;
+                    continue;
+                }
+            }
+
+            if (csd.state.cross == ChildSizeCalcData::CalcState::AR) {
+                if (csd.state.main == ChildSizeCalcData::CalcState::DONE) {
+                    if (main_is_x) {
+                        csd.size_cross = as<int>(as<f32>(csd.size_main) / cbcd.target.aspect_ratio);
+                    } else {
+                        csd.size_cross = as<int>(as<f32>(csd.size_main) * cbcd.target.aspect_ratio);
+                    }
+                    csd.state.cross = ChildSizeCalcData::CalcState::DONE;
+                } else if (csd.state.main == ChildSizeCalcData::CalcState::FIT) {
+                    MLE_E("Cannot mix FIT and AR");
+                    csd.valid = false;
+                    continue;
+                } else if (csd.state.main == ChildSizeCalcData::CalcState::AR) {
+                    MLE_E("Cannot have AR on both axis.");
+                    csd.valid = false;
+                    continue;
+                }
+            }
+
+            finishFlexCross(csd);
+
+            if (csd.state.main == ChildSizeCalcData::CalcState::AR) {
+                if (csd.state.cross == ChildSizeCalcData::CalcState::DONE) {
+                    if (main_is_x) {
+                        csd.size_main = as<int>(as<f32>(csd.size_cross) * cbcd.target.aspect_ratio);
+                    } else {
+                        csd.size_main = as<int>(as<f32>(csd.size_cross) / cbcd.target.aspect_ratio);
+                    }
+                    csd.state.main = ChildSizeCalcData::CalcState::DONE;
+                } else {
+                    MLE_E("This should be unreachable due to previous checks. Main state: AR, Cross state:{}", (int)csd.state.cross);
+                    csd.valid = false;
+                    continue;
+                }
+            }
+
+            flex_acc_main += csd.flex.size.main + csd.flex.margin.main_a + csd.flex.margin.main_b + csd.flex.border.main_a + csd.flex.border.main_b;
+            px_acc_main += csd.size_main + csd.margin.main_a + csd.margin.main_b + csd.border.main_a + csd.border.main_b;
+        }
+
+        px_acc_main += list_children.size() > 0 ? min_gap_main * (as<int>(list_children.size()) - 1) : 0;
+
+        int remaining_px_main = as<int>(padded_size_main) - px_acc_main;
+        remaining_px_main = std::max(0, remaining_px_main);
+        f32 flex_share_main = (flex_acc_main > 0.0F) ? as<f32>(remaining_px_main) / std::max(1.F, flex_acc_main) : 0.0F;
+
+        for (auto c : list_children) {
+            auto& cld = children_sizes_data.at(c);
+            if (!cld.valid) {
+                continue;
+            }
+            auto& cbud = cbcds.at(c);
+
+            if (!cld.done) {
+                if (cld.state.main == ChildSizeCalcData::CalcState::FLEX) {
+                    cld.size_main = as<int>(cld.flex.size.main * flex_share_main);
+                    cld.state.main = ChildSizeCalcData::CalcState::DONE;
+                }
+                if (cld.state.margin_main_a == ChildSizeCalcData::CalcState::FLEX) {
+                    cld.margin.main_a = as<int>(cld.flex.margin.main_a * flex_share_main);
+                    cld.state.margin_main_a = ChildSizeCalcData::CalcState::DONE;
+                }
+                if (cld.state.margin_main_b == ChildSizeCalcData::CalcState::FLEX) {
+                    cld.margin.main_b = as<int>(cld.flex.margin.main_b * flex_share_main);
+                    cld.state.margin_main_b = ChildSizeCalcData::CalcState::DONE;
+                }
+                if (cld.state.border_main_a == ChildSizeCalcData::CalcState::FLEX) {
+                    cld.border.main_a = as<int>(cld.flex.border.main_a * flex_share_main);
+                    cld.state.border_main_a = ChildSizeCalcData::CalcState::DONE;
+                }
+                if (cld.state.border_main_b == ChildSizeCalcData::CalcState::FLEX) {
+                    cld.border.main_b = as<int>(cld.flex.border.main_b * flex_share_main);
+                    cld.state.border_main_b = ChildSizeCalcData::CalcState::DONE;
+                }
+                // if cross is ar
+                if (cld.state.cross == ChildSizeCalcData::CalcState::AR) {
+                    if (main_is_x) {
+                        cld.size_cross = as<int>(as<f32>(cld.size_main) / cbud.target.aspect_ratio);
+                    } else {
+                        cld.size_cross = as<int>(as<f32>(cld.size_main) * cbud.target.aspect_ratio);
+                    }
+                    cld.state.cross = ChildSizeCalcData::CalcState::DONE;
+                }
+                finishFlexCross(cld);
+
+                cld.done = cld.state.main == ChildSizeCalcData::CalcState::DONE && cld.state.cross == ChildSizeCalcData::CalcState::DONE &&
+                           cld.state.margin_main_a == ChildSizeCalcData::CalcState::DONE && cld.state.margin_main_b == ChildSizeCalcData::CalcState::DONE &&
+                           cld.state.margin_cross_a == ChildSizeCalcData::CalcState::DONE && cld.state.margin_cross_b == ChildSizeCalcData::CalcState::DONE &&
+                           cld.state.border_main_a == ChildSizeCalcData::CalcState::DONE && cld.state.border_main_b == ChildSizeCalcData::CalcState::DONE &&
+                           cld.state.border_cross_a == ChildSizeCalcData::CalcState::DONE && cld.state.border_cross_b == ChildSizeCalcData::CalcState::DONE;
+
+                if (!cld.done) {
+                    MLE_E("Could not resolve all size/margin/border for list child. Please fixe me!");
+                    cld.valid = false;
+                    continue;
+                }
+            }
+
+            MLE_ASSERT_LOG(cld.size_main > 0 && cld.size_cross > 0, "Negative or zero size calculated for list child. main: {}, cross: {}", cld.size_main,
+                           cld.size_cross);
+
+            if (main_is_x) {
+                cbud.new_size.x = cld.size_main;
+                cbud.new_size.y = cld.size_cross;
+                cbud.new_margin.l = cld.margin.main_a;
+                cbud.new_margin.r = cld.margin.main_b;
+                cbud.new_margin.t = cld.margin.cross_a;
+                cbud.new_margin.b = cld.margin.cross_b;
+                cbud.new_border.l = cld.border.main_a;
+                cbud.new_border.r = cld.border.main_b;
+                cbud.new_border.t = cld.border.cross_a;
+                cbud.new_border.b = cld.border.cross_b;
+            } else {
+                cbud.new_size.y = cld.size_main;
+                cbud.new_size.x = cld.size_cross;
+                cbud.new_margin.t = cld.margin.main_a;
+                cbud.new_margin.b = cld.margin.main_b;
+                cbud.new_margin.l = cld.margin.cross_a;
+                cbud.new_margin.r = cld.margin.cross_b;
+                cbud.new_border.t = cld.border.main_a;
+                cbud.new_border.b = cld.border.main_b;
+                cbud.new_border.l = cld.border.cross_a;
+                cbud.new_border.r = cld.border.cross_b;
+            }
+        }
+    }
+
+    void calculateChildrenPositions() const {
+        std::vector<int> children_main_sizes;
+        for (auto c : list_children) {
+            auto& cbcd = cbcds.at(c);
+            auto total_margin_border_main = main_is_x ? (cbcd.new_margin.l + cbcd.new_margin.r + cbcd.new_border.l + cbcd.new_border.r)
+                                                      : (cbcd.new_margin.t + cbcd.new_margin.b + cbcd.new_border.t + cbcd.new_border.b);
+            auto total_size_main = main_is_x ? cbcd.new_size.x : cbcd.new_size.y;
+            total_size_main += total_margin_border_main;
+            children_main_sizes.push_back(total_size_main);
+        }
+
+        const auto main_reversed = container.getListDirectionIsReversed();
+
+        const auto container_origin_main = main_reversed ? padded_size_main : 0;
+        const auto container_origin_cross = main_reversed ? padded_size_cross : 0;
+
+        const auto base_pos_main = container_origin_main;
+        auto current_pos_cross = container_origin_cross;
+
+        switch (container.getListWrapMode()) {
+            case Container::ListWrapMode::NO: {
+                auto line = JustifyInt::justifyUntilOverflow(children_main_sizes, min_gap_main, container.getListJustify(), container.getListJustify(),
+                                                             child_max_size_main);
+                if (container.isScrollable() && line.size() != list_children.size()) {
+                    line = JustifyInt::justifyLineStart(children_main_sizes, min_gap_main);
+                }
+                for (usize i = 0; i < line.size(); i++) {
+                    auto centt = Entt{container_e.ui(), list_children[i]};
+                    auto& cbcd = cbcds.at(centt.e());
+                    auto pos_main_beg = line[i];
+                    auto c_size_main = children_main_sizes[i];
+                    auto pos_main_end = pos_main_beg + c_size_main;
+                    auto new_pos_main = base_pos_main + (main_reversed ? -pos_main_end : pos_main_beg);
+
+                    cbcd.new_position = main_is_x ? vec2i{new_pos_main, current_pos_cross} : vec2i{current_pos_cross, new_pos_main};
+                    cbcd.new_position.x -= cbcd.new_margin.l + cbcd.new_border.l;
+                    cbcd.new_position.y -= cbcd.new_margin.t + cbcd.new_border.t;
+                }
+            } break;
+            case Container::ListWrapMode::WRAP_REVERSED:
+            case Container::ListWrapMode::WRAP: {
+                auto lines = JustifyInt::wrap(children_main_sizes, min_gap_main, container.getListJustify(), JustifyInt::LineMode::START, child_max_size_main);
+                usize line_index = 0;
+                usize child_index_in_line = 0;
+                for (usize i = 0; i < list_children.size(); i++) {
+                    auto centt = Entt{container_e.ui(), list_children[i]};
+                    auto& cbcd = cbcds.at(centt.e());
+                    auto pos_main_beg = lines[line_index][child_index_in_line];
+                    auto c_size_main = children_main_sizes[i];
+                    auto pos_main_end = pos_main_beg + c_size_main;
+                    auto new_pos_main = base_pos_main + (main_reversed ? -pos_main_end : pos_main_beg);
+
+                    cbcd.new_position = main_is_x ? vec2i{new_pos_main, current_pos_cross} : vec2i{current_pos_cross, new_pos_main};
+                    cbcd.new_position.x -= cbcd.new_margin.l + cbcd.new_border.l;
+                    cbcd.new_position.y -= cbcd.new_margin.t + cbcd.new_border.t;
+
+                    child_index_in_line++;
+                    if (child_index_in_line >= lines[line_index].size()) {
+                        line_index++;
+                        child_index_in_line = 0;
+                        current_pos_cross += (container.getListWrapMode() == Container::ListWrapMode::WRAP_REVERSED ? -(child_max_size_cross + gap_cross)
+                                                                                                                    : (child_max_size_cross + gap_cross));
+                    }
+                }
+            } break;
+            default: {
+                MLE_UNREACHABLE_LOG("Invalid wrap mode: {}", (int)container.getListWrapMode());
+            } break;
+        }
+    }
+};
+
+struct FreeCalculator {
+    // NOLINTNEXTLINE(readability-function-cognitive-complexity) Not that complex
+    FreeCalculator(Entt container_e, [[maybe_unused]] const Container& container, vec2i padded_size, const std::vector<entt::entity>& free_children,
+                   std::map<entt::entity, ChildBoundsCalcData>& cbcds) {
+        auto sorted_by_dependencies = sortByDependency(container_e.ui(), free_children);
+
+        const auto root_size = container_e.ui().getRootSize();
+        const auto root_size_f = vec2f{as<f32>(root_size.x), as<f32>(root_size.y)};
+
+        for (int i = 0; i < as<int>(sorted_by_dependencies.size()); i++) {
+            auto c = sorted_by_dependencies[i];
+            Entt centt{container_e.ui(), c};
+            auto& cbcd = cbcds.at(c);
+
+            switch (cbcd.target.position.x.type) {
+                case TargetBound::Type::PX: {
+                    cbcd.new_position.x = as<int>(cbcd.target.position.x.val);
+                } break;
+                case TargetBound::Type::ROOT: {
+                    cbcd.new_position.x = as<int>(root_size_f.x * cbcd.target.position.x.val);
+                } break;
+                case TargetBound::Type::DEFAULT:
+                case TargetBound::Type::RELATIVE_W:
+                case TargetBound::Type::RELATIVE: {
+                    cbcd.new_position.x = as<int>(as<f32>(padded_size.x) * cbcd.target.position.x.val);
+                } break;
+                case TargetBound::Type::RELATIVE_H: {
+                    cbcd.new_position.x = as<int>(as<f32>(padded_size.y) * cbcd.target.position.x.val);
+                } break;
+                default: {
+                    MLE_E("Invalid target position x type: {}.", cbcd.target.position.x.type);
+                } break;
+            }
+
+            if (cbcd.target.position.xdep.e != entt::null) {
+                if (!Container::hasChild(container_e, centt.e())) {
+                    MLE_W("Child {} is not a child of the container. Ignoring x dependency.", centt.name());
+                    continue;
+                }
+                const auto dep_entt = Entt{container_e.ui(), cbcd.target.position.ydep.e};
+                const auto tb = cbcd.target.position.xdep.dep_tb;
+                auto& dep_bounds = dep_entt.get<comp::Bounds>();
+                cbcd.new_position.x += dep_bounds.parent_px.left();
+                switch (tb.type) {
+                    case TargetBound::Type::PX: {
+                        cbcd.new_position.x += as<int>(tb.val) + dep_bounds.parent_px.width();
+                    } break;
+                    case TargetBound::Type::DEFAULT:
+                    case TargetBound::Type::RELATIVE:
+                    case TargetBound::Type::RELATIVE_W: {
+                        cbcd.new_position.x += as<int>(as<f32>(dep_bounds.parent_px.width()) * tb.val);
+                    } break;
+                    default: {
+                        MLE_W("Invalid x dependency target bound type: {}. Ignoring extra.", tb.type);
+                    } break;
+                }
+            }
+
+            switch (cbcd.target.position.y.type) {
+                case TargetBound::Type::PX: {
+                    cbcd.new_position.y = as<int>(cbcd.target.position.y.val);
+                } break;
+                case TargetBound::Type::ROOT: {
+                    cbcd.new_position.y = as<int>(root_size_f.y * cbcd.target.position.y.val);
+                } break;
+                case TargetBound::Type::DEFAULT:
+                case TargetBound::Type::RELATIVE_W:
+                case TargetBound::Type::RELATIVE: {
+                    cbcd.new_position.y = as<int>(as<f32>(padded_size.y) * cbcd.target.position.y.val);
+                } break;
+                case TargetBound::Type::RELATIVE_H: {
+                    cbcd.new_position.y = as<int>(as<f32>(padded_size.x) * cbcd.target.position.y.val);
+                } break;
+                default: {
+                    MLE_W("Invalid target position y type: {}.", cbcd.target.position.y.type);
+                } break;
+            }
+
+            if (cbcd.target.position.ydep.e != entt::null) {
+                if (!Container::hasChild(container_e, centt.e())) {
+                    MLE_W("Child {} is not a child of the container. Ignoring y dependency.", centt.name());
+                    continue;
+                }
+                const auto dep_entt = Entt{container_e.ui(), cbcd.target.position.ydep.e};
+                const auto tb = cbcd.target.position.ydep.dep_tb;
+                auto& dep_bounds = dep_entt.get<comp::Bounds>();
+                cbcd.new_position.y += dep_bounds.parent_px.top();
+                switch (tb.type) {
+                    case TargetBound::Type::PX: {
+                        cbcd.new_position.y += as<int>(tb.val) + dep_bounds.parent_px.height();
+                    } break;
+                    case TargetBound::Type::DEFAULT:
+                    case TargetBound::Type::RELATIVE:
+                    case TargetBound::Type::RELATIVE_W: {
+                        cbcd.new_position.y += as<int>(as<f32>(dep_bounds.parent_px.height()) * tb.val);
+                    } break;
+                    default: {
+                        MLE_W("Invalid y dependency target bound type: {}. Ignoring extra.", tb.type);
+                    } break;
+                }
+            }
+
+            bool x_is_ar = false;
+            bool x_is_fit = false;
+            bool y_is_fit = false;
+
+            switch (cbcd.target.size.x.type) {
+                case TargetBound::Type::PX: {
+                    cbcd.new_size.x = as<int>(cbcd.target.size.x.val);
+                } break;
+                case TargetBound::Type::ROOT: {
+                    cbcd.new_size.x = as<int>(root_size_f.x * cbcd.target.size.x.val);
+                } break;
+                case TargetBound::Type::RELATIVE_W:
+                case TargetBound::Type::RELATIVE: {
+                    cbcd.new_size.x = as<int>(as<f32>(padded_size.x) * cbcd.target.size.x.val);
+                }; break;
+                case TargetBound::Type::RELATIVE_H: {
+                    cbcd.new_size.x = as<int>(as<f32>(padded_size.y) * cbcd.target.size.x.val);
+                } break;
+                case TargetBound::Type::FLEX_SHARE: {
+                    auto remaining_px = padded_size.x - cbcd.new_position.x;
+                    cbcd.new_size.x = as<int>(cbcd.target.size.x.val * as<f32>(remaining_px));
+                } break;
+                case TargetBound::Type::FIT: {
+                    if (cbcd.size_provider == nullptr) {
+                        MLE_E("FIT target size x requires a size provider. Entity:{}", centt.fullName());
+                        continue;
+                    }
+                    x_is_fit = true;
+                } break;
+                case TargetBound::Type::DEFAULT: {
+                    if (cbcd.target.size.x.val != 0) {
+                        cbcd.new_size.x = as<int>(as<f32>(padded_size.x) * cbcd.target.size.x.val);
+                    } else if (cbcd.target.size.xdep.e == entt::null) {
+                        if (cbcd.target.aspect_ratio > 0) {
+                            x_is_ar = true;
+                        } else if (cbcd.size_provider != nullptr) {
+                            x_is_fit = true;
+                        } else {
+                            auto remaining_px = padded_size.x - cbcd.new_position.x;
+                            cbcd.new_size.x = as<int>(as<f32>(remaining_px));
+                        }
+                    }
+                } break;
+                default: {
+                    MLE_E("Weird enum value for target size x type: {}.", (int)cbcd.target.size.x.type);
+                    continue;
+                } break;
+            }
+
+            if (cbcd.target.size.xdep.e != entt::null) {
+                if (!Container::hasChild(container_e, centt.e())) {
+                    MLE_W("Child {} is not a child of the container. Ignoring x size dependency.", centt.name());
+                    continue;
+                }
+                const auto dep_entt = Entt{container_e.ui(), cbcd.target.size.xdep.e};
+                const auto tb = cbcd.target.size.xdep.dep_tb;
+                auto& dep_bounds = dep_entt.get<comp::Bounds>();
+                switch (tb.type) {
+                    case TargetBound::Type::PX: {
+                        cbcd.new_size.x += as<int>(tb.val) + dep_bounds.parent_px.width();
+                    } break;
+                    case TargetBound::Type::DEFAULT:
+                    case TargetBound::Type::RELATIVE:
+                    case TargetBound::Type::RELATIVE_W: {
+                        cbcd.new_size.x += as<int>(as<f32>(dep_bounds.parent_px.width()) * tb.val);
+                    } break;
+                    default: {
+                        MLE_W("Invalid x size dependency target bound type: {}. Ignoring extra.", tb.type);
+                    } break;
+                }
+            }
+
+            switch (cbcd.target.size.y.type) {
+                case TargetBound::Type::PX: {
+                    cbcd.new_size.y = as<int>(cbcd.target.size.y.val);
+                } break;
+                case TargetBound::Type::ROOT: {
+                    cbcd.new_size.y = as<int>(root_size_f.y * cbcd.target.size.y.val);
+                }
+                case TargetBound::Type::RELATIVE_H:
+                case TargetBound::Type::RELATIVE: {
+                    cbcd.new_size.y = as<int>(as<f32>(padded_size.y) * cbcd.target.size.y.val);
+                }; break;
+                case TargetBound::Type::RELATIVE_W: {
+                    cbcd.new_size.y = as<int>(as<f32>(padded_size.x) * cbcd.target.size.y.val);
+                } break;
+                case TargetBound::Type::FLEX_SHARE: {
+                    auto remaining_px = padded_size.y - cbcd.new_position.y;
+                    cbcd.new_size.y = as<int>(cbcd.target.size.y.val * as<f32>(remaining_px));
+                } break;
+                case TargetBound::Type::FIT: {
+                    if (x_is_ar) {
+                        MLE_E("Cannot mix FIT and AR.");
+                        continue;
+                    }
+                    if (cbcd.size_provider == nullptr) {
+                        MLE_E("FIT target size y requires a size provider. Entity name:{}", centt.fullName());
+                        continue;
+                    }
+                    y_is_fit = true;
+                } break;
+                case TargetBound::Type::DEFAULT: {
+                    if (cbcd.target.size.y.val != 0) {
+                        cbcd.new_size.y = as<int>(as<f32>(padded_size.y) * cbcd.target.size.y.val);
+                    } else if (cbcd.target.size.ydep.e == entt::null) {
+                        if (cbcd.size_provider != nullptr && !x_is_ar) {
+                            y_is_fit = true;
+                        } else {
+                            auto remaining_px = padded_size.y - cbcd.new_position.y;
+                            cbcd.new_size.y = as<int>(as<f32>(remaining_px));
+                        }
+                    }
+                } break;
+                default: {
+                    MLE_E("Weird enum value for target size y type: {}.", (int)cbcd.target.size.y.type);
+                    continue;
+                } break;
+            }
+
+            if (cbcd.target.size.ydep.e != entt::null) {
+                if (!Container::hasChild(container_e, centt.e())) {
+                    MLE_W("Child {} is not a child of the container. Ignoring y size dependency.", centt.name());
+                    continue;
+                }
+                const auto dep_entt = Entt{container_e.ui(), cbcd.target.size.ydep.e};
+                const auto tb = cbcd.target.size.ydep.dep_tb;
+                auto& dep_bounds = dep_entt.get<comp::Bounds>();
+                switch (tb.type) {
+                    case TargetBound::Type::PX: {
+                        cbcd.new_size.y += as<int>(tb.val) + dep_bounds.parent_px.height();
+                    } break;
+                    case TargetBound::Type::DEFAULT:
+                    case TargetBound::Type::RELATIVE:
+                    case TargetBound::Type::RELATIVE_W: {
+                        cbcd.new_size.y += as<int>(as<f32>(dep_bounds.parent_px.height()) * tb.val);
+                    } break;
+                    default: {
+                        MLE_W("Invalid y size dependency target bound type: {}. Ignoring extra.", tb.type);
+                    } break;
+                }
+            }
+
+            if (x_is_ar) {
+                cbcd.new_size.x = as<int>(as<f32>(cbcd.new_size.y) * cbcd.target.aspect_ratio);
+            }
+
+            if (x_is_fit || y_is_fit) {
+                vec2u fit_max_size_px = {cbcd.new_size.x, cbcd.new_size.y};
+
+                if (fit_max_size_px.x <= 0) {
+                    fit_max_size_px.x = padded_size.x - cbcd.new_position.x;
+                }
+                if (fit_max_size_px.y <= 0) {
+                    fit_max_size_px.y = padded_size.y - cbcd.new_position.y;
+                }
+
+                vec2u size_from_provider = cbcd.size_provider->calc(centt, fit_max_size_px);
+
+                if (x_is_fit) {
+                    cbcd.new_size.x = as<int>(size_from_provider.x);
+                }
+                if (y_is_fit) {
+                    cbcd.new_size.y = as<int>(size_from_provider.y);
+                }
+            }
+
+            finishChildBounds(centt, cbcd);
+        }
+    }
+
+    static std::vector<entt::entity> sortByDependency(UI& ui, std::span<const entt::entity> span) {
+        enum class Mark : u8 { UNSEEN = 0, VISITING = 1, DONE = 2 };
+        std::map<entt::entity, Mark> mark;
+
+        std::vector<entt::entity> out;
+        out.reserve(span.size());
+
+        auto find_it = [](auto span, entt::entity e) { return std::find_if(span.begin(), span.end(), [e](entt::entity o) { return o == e; }); };
+        // NOLINTNEXTLINE(misc-no-recursion) yeah, cool recursion
+        auto dfs = [&](auto&& self, entt::entity e) {
+            const auto mark_it = mark.find(e);
+            if (mark_it != mark.end()) {
+                if (mark_it->second == Mark::DONE) {
+                    return true;
+                }
+                if (mark_it->second == Mark::VISITING) {
+                    // NOLINTNEXTLINE(bugprone-lambda-function-name) just a log
+                    MLE_ASSERT_LOG(false, "Cycle detected while sorting UI deps at entity {}", e);
+                    return false;
+                }
+            }
+
+            mark[e] = Mark::VISITING;
+
+            Entt ee(ui, e);
+
+            std::array<entt::entity, 4> deps{};
+            usize n = 0;
+            auto push_unique = [&](entt::entity d) {
+                if (d == entt::null) {
+                    return;
+                }
+                for (usize i = 0; i < n; ++i) {
+                    if (deps.at(i) == d) {
+                        return;
+                    }
+                }
+                if (n < deps.size()) {
+                    deps.at(n++) = d;
+                }
+            };
+
+            if (const auto* pos = ee.tryGet<comp::TargetPosition>()) {
+                push_unique(pos->xdep.e);
+                push_unique(pos->ydep.e);
+            }
+            if (const auto* size = ee.tryGet<comp::TargetSize>()) {
+                push_unique(size->xdep.e);
+                push_unique(size->ydep.e);
+            }
+
+            for (usize i = 0; i < n; ++i) {
+                const entt::entity d = deps.at(i);
+                if (find_it(span, d) == span.end()) {
+                    continue;  // skip deps outside of the span, maybe is a list child
+                }
+                if (!self(self, d)) {
+                    return false;
+                }
+            }
+
+            mark[e] = Mark::DONE;
+            out.push_back(e);
+            return true;
+        };
+
+        for (const auto& e : span) {
+            if (!mark.contains(e)) {
+                if (!dfs(dfs, e)) {
+                    MLE_E("Cycle detected while sorting UI deps. Returning empty list.");
+                    return {};
+                }
+            }
+        }
+
+        MLE_ASSERT_LOG(out.size() == span.size(), "Sorted UI deps size mismatch. Check this. {}x{}", out.size(), span.size());
+
+        return out;
     }
 };
 
@@ -882,872 +1655,18 @@ vec2u accumulateChildrenExtent(const std::map<entt::entity, ChildBoundsCalcData>
     switch (type_) {
         case Type::HYBRID: {
             auto [free_children, list_children] = separateFreeListChildren(e.ui(), children);
-            calculateChildrenBoundsList(e, padded_max_size, list_children, cbcds);
-            finishChildrenBounds(e, cbcds, list_children);
-            calculateChildrenBoundsFree(e, padded_max_size, free_children, cbcds);
-        } break;
-        case Type::LIST: {
-            calculateChildrenBoundsList(e, padded_max_size, children, cbcds);
+            ListCalculator list_calculator{e, *this, padded_max_size, list_children, cbcds};
+            FreeCalculator free_calculator{e, *this, padded_max_size, free_children, cbcds};
             finishChildrenBounds(e, cbcds, children);
         } break;
+        case Type::LIST: {
+            ListCalculator list_calculator{e, *this, padded_max_size, children, cbcds};
+        } break;
         case Type::FREE: {
-            calculateChildrenBoundsFree(e, padded_max_size, children, cbcds);
+            FreeCalculator free_calculator{e, *this, padded_max_size, children, cbcds};
         } break;
     }
 
     return accumulateChildrenExtent(cbcds, padding_result);
 }
 }  // namespace mle::ui::comp
-
-// // NOLINTNEXTLINE(readability-function-cognitive-complexity) IDK if I can/should split this function
-// void calculateListChildrenSize(const Entt& e, const Container& self, const vec2i padded_max_size_px, const std::vector<entt::entity>& list_children,
-//                                std::map<entt::entity, ChildUpdatingData>& children_updating_data) {
-//     const auto main_is_x = self.list_direction == Container::ListDirection::HORIZONTAL || self.list_direction ==
-//     Container::ListDirection::HORIZONTAL_REVERSED;
-//
-//     const auto root_size_px = e.ui().getRootSize();
-//
-//     const int root_size_main_px = as<int>(main_is_x ? root_size_px.x : root_size_px.y);
-//     const int root_size_cross_px = as<int>(main_is_x ? root_size_px.y : root_size_px.x);
-//
-//     const f32 root_size_main_px_f = as<f32>(root_size_main_px);
-//     const f32 root_size_cross_px_f = as<f32>(root_size_cross_px);
-//
-//     const int max_size_main_px = main_is_x ? padded_max_size_px.x : padded_max_size_px.y;
-//
-//     const auto max_size_cross_px =
-//         maxCrossSizePx(self.max_size_cross, root_size_cross_px_f, padded_max_size_px, main_is_x ? padded_max_size_px.y : padded_max_size_px.x);
-//
-//     const f32 max_size_main_px_f = as<f32>(max_size_main_px);
-//     const f32 max_size_cross_px_f = as<f32>(max_size_cross_px);
-//
-//     const int min_gap_main_px = minGapMainPx(self.min_gap_main, root_size_main_px_f, max_size_main_px_f, padded_max_size_px);
-//
-//     const int max_main_size_fit_px = [&]() {
-//         switch (self.max_fit_size_main.type) {
-//             case TargetBound::Type::PX: {
-//                 return as<int>(self.max_fit_size_main.val);
-//             } break;
-//             case TargetBound::Type::ROOT: {
-//                 return as<int>(root_size_main_px_f * self.max_fit_size_main.val);
-//             } break;
-//             case TargetBound::Type::DEFAULT: {
-//                 return max<int>();
-//             } break;
-//             case TargetBound::Type::RELATIVE: {
-//                 return as<int>(max_size_main_px_f * self.max_fit_size_main.val);
-//             } break;
-//             case TargetBound::Type::RELATIVE_W: {
-//                 return as<int>(as<f32>(padded_max_size_px.x) * self.max_fit_size_main.val);
-//             } break;
-//             case TargetBound::Type::RELATIVE_H: {
-//                 return as<int>(as<f32>(padded_max_size_px.y) * self.max_fit_size_main.val);
-//             } break;
-//             default: {
-//                 // NOLINTNEXTLINE(bugprone-lambda-function-name) not a problem
-//                 MLE_W("Invalid main max fit size type: {}. Returning max<int>().", self.max_fit_size_main.type);
-//                 return max<int>();
-//             } break;
-//         }
-//     }();
-//
-//     const int max_cross_size_fit_px = [&]() {
-//         switch (self.max_fit_size_cross.type) {
-//             case TargetBound::Type::PX: {
-//                 return as<int>(self.max_fit_size_cross.val);
-//             } break;
-//             case TargetBound::Type::ROOT: {
-//                 return as<int>(root_size_cross_px_f * self.max_fit_size_cross.val);
-//             } break;
-//             case TargetBound::Type::DEFAULT: {
-//                 return max<int>();
-//             } break;
-//             case TargetBound::Type::RELATIVE: {
-//                 return as<int>(max_size_cross_px_f * self.max_fit_size_cross.val);
-//             } break;
-//             case TargetBound::Type::RELATIVE_W: {
-//                 return as<int>(as<f32>(padded_max_size_px.x) * self.max_fit_size_cross.val);
-//             } break;
-//             case TargetBound::Type::RELATIVE_H: {
-//                 return as<int>(as<f32>(padded_max_size_px.y) * self.max_fit_size_cross.val);
-//             } break;
-//             default: {
-//                 // NOLINTNEXTLINE(bugprone-lambda-function-name) not a problem
-//                 MLE_W("Invalid cross max fit size type: {}. Returning max<int>().", self.max_fit_size_cross.type);
-//                 return max<int>();
-//             } break;
-//         }
-//     }();
-//
-//     f32 flex_acc_main = 0;
-//     int px_acc_main = 0;
-//
-//     std::map<entt::entity, ChildUpdatingData::ListSizeData> list_children_data;
-//
-//     for (auto c : list_children) {
-//         Entt centt{e.ui(), c};
-//
-//         auto& cld = list_children_data[c];
-//         auto& cud = children_updating_data.at(c);
-//         cld = cud.gatterListData(main_is_x);
-//
-//         bool done = listCalculateMarginBorder(main_is_x, max_size_main_px_f, max_size_cross_px_f, root_size_main_px_f, root_size_cross_px_f,
-//                                               cld.state.margin_main_a, cld.margin_px.main_a, cld.flex.margin.main_a, cld.target_main.margin_a, true);
-//         done &= listCalculateMarginBorder(main_is_x, max_size_main_px_f, max_size_cross_px_f, root_size_main_px_f, root_size_cross_px_f,
-//                                           cld.state.margin_main_b, cld.margin_px.main_b, cld.flex.margin.main_b, cld.target_main.margin_b, true);
-//
-//         if ((cld.target_cross.margin_a.type != TargetBound::Type::DEFAULT && cld.target_cross.margin_a.val != 0.0F) ||
-//             (cld.target_cross.margin_b.type != TargetBound::Type::DEFAULT && cld.target_cross.margin_b.val != 0.0F)) {
-//             MLE_W("Non-default cross margin_b on list child is not supported and will be ignored.");
-//         }
-//
-//         done &= listCalculateMarginBorder(main_is_x, max_size_main_px_f, max_size_cross_px_f, root_size_main_px_f, root_size_cross_px_f,
-//                                           cld.state.margin_cross_a, cld.margin_px.cross_a, cld.flex.margin.cross_a, cld.target_cross.margin_a, false);
-//         done &= listCalculateMarginBorder(main_is_x, max_size_main_px_f, max_size_cross_px_f, root_size_main_px_f, root_size_cross_px_f,
-//                                           cld.state.margin_cross_b, cld.margin_px.cross_b, cld.flex.margin.cross_b, cld.target_cross.margin_b, false);
-//
-//         done &= listCalculateMarginBorder(main_is_x, max_size_main_px_f, max_size_cross_px_f, root_size_main_px_f, root_size_cross_px_f,
-//                                           cld.state.border_main_a, cld.border_px.main_a, cld.flex.border.main_a, cld.target_main.border_a, true);
-//         done &= listCalculateMarginBorder(main_is_x, max_size_main_px_f, max_size_cross_px_f, root_size_main_px_f, root_size_cross_px_f,
-//                                           cld.state.border_main_b, cld.border_px.main_b, cld.flex.border.main_b, cld.target_main.border_b, true);
-//         done &= listCalculateMarginBorder(main_is_x, max_size_main_px_f, max_size_cross_px_f, root_size_main_px_f, root_size_cross_px_f,
-//                                           cld.state.border_cross_a, cld.border_px.cross_a, cld.flex.border.cross_a, cld.target_cross.border_a, false);
-//         done &= listCalculateMarginBorder(main_is_x, max_size_main_px_f, max_size_cross_px_f, root_size_main_px_f, root_size_cross_px_f,
-//                                           cld.state.border_cross_b, cld.border_px.cross_b, cld.flex.border.cross_b, cld.target_cross.border_b, false);
-//
-//         done &= listCalculateSize(main_is_x, max_size_main_px_f, max_size_cross_px_f, root_size_main_px_f, root_size_cross_px_f, cld.state.main,
-//                                   cld.size_main_px, cld.flex.size.main, cld.target_main.size, true, cud.size_provider != nullptr,
-//                                   cud.target_aspect_ratio);
-//
-//         if (self.list_align_cross != Container::AlignCross::STRETCH) {
-//             done &=
-//                 listCalculateSize(main_is_x, max_size_main_px_f, max_size_cross_px_f, root_size_main_px_f, root_size_cross_px_f, cld.state.cross,
-//                                   cld.size_cross_px, cld.flex.size.cross, cld.target_cross.size, false, cud.size_provider != nullptr,
-//                                   cud.target_aspect_ratio);
-//         } else {
-//             cld.size_cross_px = 0.0F;
-//             cld.flex.size.cross = 1.0F;
-//             cld.state.cross = ChildUpdatingData::ListSizeData::CalcState::FLEX;
-//         }
-//
-//         switch (self.list_align_cross) {
-//             case Container::AlignCross::CENTER: {
-//                 cld.flex.margin.cross_a = .01;
-//                 cld.flex.margin.cross_b = .01;
-//             } break;
-//             case Container::AlignCross::END: {
-//                 cld.flex.margin.cross_a = .02;
-//                 cld.flex.margin.cross_b = .00;
-//             } break;
-//             default: {
-//                 MLE_NOOP;
-//             } break;
-//         }
-//
-//         if (done) {
-//             cld.done = true;
-//             flex_acc_main += cld.flex.size.main + cld.flex.margin.main_a + cld.flex.margin.main_b + cld.flex.border.main_a + cld.flex.border.main_b;
-//             px_acc_main += cld.size_main_px + cld.margin_px.main_a + cld.margin_px.main_b + cld.border_px.main_a + cld.border_px.main_b;
-//             continue;
-//         }
-//
-//         if (cld.state.main == ChildUpdatingData::ListSizeData::CalcState::FLEX) {
-//             flex_acc_main += cld.flex.size.main + cld.flex.margin.main_a + cld.flex.margin.main_b + cld.flex.border.main_a + cld.flex.border.main_b;
-//             px_acc_main += cld.size_main_px + cld.margin_px.main_a + cld.margin_px.main_b + cld.border_px.main_a + cld.border_px.main_b;
-//             continue;
-//         }
-//
-//         if (cld.state.main == ChildUpdatingData::ListSizeData::CalcState::FIT && cld.state.cross == ChildUpdatingData::ListSizeData::CalcState::FIT) {
-//             int max_size_main = max_main_size_fit_px - cld.margin_px.main_a - cld.margin_px.main_b - cld.border_px.main_a - cld.border_px.main_b;
-//             int max_size_cross = max_cross_size_fit_px - cld.margin_px.cross_a - cld.margin_px.cross_b - cld.border_px.cross_a - cld.border_px.cross_b;
-//
-//             if (max_size_cross <= 0 || max_size_main <= 0) {
-//                 MLE_E("Child cannot FIT in the given max size");
-//                 cld.valid = false;
-//                 continue;
-//             }
-//
-//             vec2u p_max_size = main_is_x ? vec2u{max_size_main, max_size_cross} : vec2u{max_size_cross, max_size_main};
-//             vec2u size_from_provider = cud.size_provider->calc(e, p_max_size);
-//             u32 main_size_from_provider = main_is_x ? size_from_provider.x : size_from_provider.y;
-//             u32 cross_size_from_provider = main_is_x ? size_from_provider.y : size_from_provider.x;
-//
-//             cld.size_main_px = as<int>(main_size_from_provider);
-//             cld.state.main = ChildUpdatingData::ListSizeData::CalcState::DONE;
-//             cld.size_cross_px = as<int>(cross_size_from_provider);
-//             cld.state.cross = ChildUpdatingData::ListSizeData::CalcState::DONE;
-//         }
-//
-//         if (cld.state.cross == ChildUpdatingData::ListSizeData::CalcState::FIT) {
-//             if (cld.state.main == ChildUpdatingData::ListSizeData::CalcState::DONE) {
-//                 int max_size_cross = max_cross_size_fit_px - cld.margin_px.cross_a - cld.margin_px.cross_b - cld.border_px.cross_a -
-//                 cld.border_px.cross_b; if (max_size_cross <= 0) {
-//                     MLE_E("Child cannot FIT in the given max cross size");
-//                     cld.valid = false;
-//                     continue;
-//                 }
-//
-//                 vec2u p_max_size = main_is_x ? vec2u{cld.size_main_px, max_size_cross} : vec2u{max_size_cross, cld.size_main_px};
-//                 vec2u size_from_provider = cud.size_provider->calc(e, p_max_size);
-//                 u32 cross_size_from_provider = main_is_x ? size_from_provider.y : size_from_provider.x;
-//
-//                 cld.size_cross_px = as<int>(cross_size_from_provider);
-//                 cld.state.cross = ChildUpdatingData::ListSizeData::CalcState::DONE;
-//             } else if (cld.state.main == ChildUpdatingData::ListSizeData::CalcState::AR) {
-//                 MLE_E("Cannot mix FIT and AR");
-//                 cld.valid = false;
-//                 continue;
-//             }
-//         }
-//
-//         if (cld.state.cross == ChildUpdatingData::ListSizeData::CalcState::AR) {
-//             if (cld.state.main == ChildUpdatingData::ListSizeData::CalcState::DONE) {
-//                 if (main_is_x) {
-//                     cld.size_cross_px = as<int>(as<f32>(cld.size_main_px) / cud.target_aspect_ratio);
-//                 } else {
-//                     cld.size_cross_px = as<int>(as<f32>(cld.size_main_px) * cud.target_aspect_ratio);
-//                 }
-//                 cld.state.cross = ChildUpdatingData::ListSizeData::CalcState::DONE;
-//             } else if (cld.state.main == ChildUpdatingData::ListSizeData::CalcState::FIT) {
-//                 MLE_E("Cannot mix FIT and AR");
-//                 cld.valid = false;
-//                 continue;
-//             } else if (cld.state.main == ChildUpdatingData::ListSizeData::CalcState::AR) {
-//                 MLE_E("Cannot have AR on both axis.");
-//                 cld.valid = false;
-//                 continue;
-//             }
-//         }
-//
-//         listFinishFlexCross(cld, max_size_cross_px_f);
-//
-//         if (cld.state.main == ChildUpdatingData::ListSizeData::CalcState::AR) {
-//             if (cld.state.cross == ChildUpdatingData::ListSizeData::CalcState::DONE) {
-//                 if (main_is_x) {
-//                     cld.size_main_px = as<int>(as<f32>(cld.size_cross_px) * cud.target_aspect_ratio);
-//                 } else {
-//                     cld.size_main_px = as<int>(as<f32>(cld.size_cross_px) / cud.target_aspect_ratio);
-//                 }
-//                 cld.state.main = ChildUpdatingData::ListSizeData::CalcState::DONE;
-//             } else {
-//                 MLE_UNREACHABLE_LOG("This should be unreachable due to previous checks. Main state: AR, Cross state:{}", (int)cld.state.cross);
-//                 cld.valid = false;
-//                 continue;
-//             }
-//         }
-//
-//         flex_acc_main += cld.flex.size.main + cld.flex.margin.main_a + cld.flex.margin.main_b + cld.flex.border.main_a + cld.flex.border.main_b;
-//         px_acc_main += cld.size_main_px + cld.margin_px.main_a + cld.margin_px.main_b + cld.border_px.main_a + cld.border_px.main_b;
-//     }
-//
-//     px_acc_main += list_children.size() > 0 ? min_gap_main_px * (as<int>(list_children.size()) - 1) : 0;
-//
-//     int remaining_px_main = as<int>(max_size_main_px) - px_acc_main;
-//     remaining_px_main = std::max(0, remaining_px_main);
-//     f32 flex_share_main = (flex_acc_main > 0.0F) ? as<f32>(remaining_px_main) / std::max(1.F, flex_acc_main) : 0.0F;
-//
-//     for (auto c : list_children) {
-//         auto& cld = list_children_data[c];
-//         if (!cld.valid) {
-//             continue;
-//         }
-//         auto& cud = children_updating_data.at(c);
-//
-//         if (!cld.done) {
-//             if (cld.state.main == ChildUpdatingData::ListSizeData::CalcState::FLEX) {
-//                 cld.size_main_px = as<int>(cld.flex.size.main * flex_share_main);
-//                 cld.state.main = ChildUpdatingData::ListSizeData::CalcState::DONE;
-//             }
-//             if (cld.state.margin_main_a == ChildUpdatingData::ListSizeData::CalcState::FLEX) {
-//                 cld.margin_px.main_a = as<int>(cld.flex.margin.main_a * flex_share_main);
-//                 cld.state.margin_main_a = ChildUpdatingData::ListSizeData::CalcState::DONE;
-//             }
-//             if (cld.state.margin_main_b == ChildUpdatingData::ListSizeData::CalcState::FLEX) {
-//                 cld.margin_px.main_b = as<int>(cld.flex.margin.main_b * flex_share_main);
-//                 cld.state.margin_main_b = ChildUpdatingData::ListSizeData::CalcState::DONE;
-//             }
-//             if (cld.state.border_main_a == ChildUpdatingData::ListSizeData::CalcState::FLEX) {
-//                 cld.border_px.main_a = as<int>(cld.flex.border.main_a * flex_share_main);
-//                 cld.state.border_main_a = ChildUpdatingData::ListSizeData::CalcState::DONE;
-//             }
-//             if (cld.state.border_main_b == ChildUpdatingData::ListSizeData::CalcState::FLEX) {
-//                 cld.border_px.main_b = as<int>(cld.flex.border.main_b * flex_share_main);
-//                 cld.state.border_main_b = ChildUpdatingData::ListSizeData::CalcState::DONE;
-//             }
-//             // if cross is ar
-//             if (cld.state.cross == ChildUpdatingData::ListSizeData::CalcState::AR) {
-//                 if (main_is_x) {
-//                     cld.size_cross_px = as<int>(as<f32>(cld.size_main_px) / cud.target_aspect_ratio);
-//                 } else {
-//                     cld.size_cross_px = as<int>(as<f32>(cld.size_main_px) * cud.target_aspect_ratio);
-//                 }
-//                 cld.state.cross = ChildUpdatingData::ListSizeData::CalcState::DONE;
-//             }
-//             listFinishFlexCross(cld, max_size_cross_px_f);
-//
-//             cld.done = cld.state.main == ChildUpdatingData::ListSizeData::CalcState::DONE &&
-//                        cld.state.cross == ChildUpdatingData::ListSizeData::CalcState::DONE &&
-//                        cld.state.margin_main_a == ChildUpdatingData::ListSizeData::CalcState::DONE &&
-//                        cld.state.margin_main_b == ChildUpdatingData::ListSizeData::CalcState::DONE &&
-//                        cld.state.margin_cross_a == ChildUpdatingData::ListSizeData::CalcState::DONE &&
-//                        cld.state.margin_cross_b == ChildUpdatingData::ListSizeData::CalcState::DONE &&
-//                        cld.state.border_main_a == ChildUpdatingData::ListSizeData::CalcState::DONE &&
-//                        cld.state.border_main_b == ChildUpdatingData::ListSizeData::CalcState::DONE &&
-//                        cld.state.border_cross_a == ChildUpdatingData::ListSizeData::CalcState::DONE &&
-//                        cld.state.border_cross_b == ChildUpdatingData::ListSizeData::CalcState::DONE;
-//
-//             if (!cld.done) {
-//                 MLE_E("Could not resolve all size/margin/border for list child. Please fixe me!");
-//                 cld.valid = false;
-//                 continue;
-//             }
-//         }
-//
-//         MLE_ASSERT_LOG(cld.size_main_px > 0 && cld.size_cross_px > 0, "Negative or zero size calculated for list child. main: {}, cross: {}",
-//         cld.size_main_px,
-//                        cld.size_cross_px);
-//
-//         if (main_is_x) {
-//             cud.new_size.x = cld.size_main_px;
-//             cud.new_size.y = cld.size_cross_px;
-//             cud.new_margin.t = cld.margin_px.cross_a;
-//             cud.new_margin.b = cld.margin_px.cross_b;
-//             cud.new_margin.l = cld.margin_px.main_a;
-//             cud.new_margin.r = cld.margin_px.main_b;
-//             cud.new_border.t = cld.border_px.cross_a;
-//             cud.new_border.b = cld.border_px.cross_b;
-//             cud.new_border.l = cld.border_px.main_a;
-//             cud.new_border.r = cld.border_px.main_b;
-//         } else {
-//             cud.new_size.y = cld.size_main_px;
-//             cud.new_size.x = cld.size_cross_px;
-//             cud.new_margin.l = cld.margin_px.cross_a;
-//             cud.new_margin.r = cld.margin_px.cross_b;
-//             cud.new_margin.t = cld.margin_px.main_a;
-//             cud.new_margin.b = cld.margin_px.main_b;
-//             cud.new_border.l = cld.border_px.cross_a;
-//             cud.new_border.r = cld.border_px.cross_b;
-//             cud.new_border.t = cld.border_px.main_a;
-//             cud.new_border.b = cld.border_px.main_b;
-//         }
-//     }
-// }
-//
-// // NOLINTNEXTLINE(readability-function-cognitive-complexity) This CANT be splittd, its just a bunch of consts
-// void calculateListChildrenPosition(const Entt& e, const Container& self, const vec2i padded_max_size_px, const std::vector<entt::entity>& list_children,
-//                                    std::map<entt::entity, ChildUpdatingData>& children_updating_data) {
-//     const bool main_is_x = self.list_direction == Container::ListDirection::HORIZONTAL || self.list_direction ==
-//     Container::ListDirection::HORIZONTAL_REVERSED;
-//
-//     // FIXME: FIX THIS STUPID NAMING
-//     const bool main_reversed =
-//         self.list_direction == Container::ListDirection::HORIZONTAL_REVERSED || self.list_direction == Container::ListDirection::VERTICAL_REVERSED;
-//     const bool cross_reversed = self.wrap_mode == Container::WrapMode::WRAP_REVERSED;
-//
-//     const auto root_size_px = e.ui().getRootSize();
-//
-//     const int root_size_main_px = as<int>(main_is_x ? root_size_px.x : root_size_px.y);
-//     const int root_size_cross_px = as<int>(main_is_x ? root_size_px.y : root_size_px.x);
-//
-//     const f32 root_size_main_px_f = as<f32>(root_size_main_px);
-//     const f32 root_size_cross_px_f = as<f32>(root_size_cross_px);
-//
-//     const int max_size_main_px = main_is_x ? padded_max_size_px.x : padded_max_size_px.y;
-//     const int container_size_cross_px = main_is_x ? padded_max_size_px.y : padded_max_size_px.x;
-//
-//     const auto max_size_cross_px = maxCrossSizePx(self.max_size_cross, root_size_cross_px_f, padded_max_size_px, container_size_cross_px);
-//
-//     const f32 max_size_main_px_f = as<f32>(max_size_main_px);
-//
-//     const int min_gap_main_px = minGapMainPx(self.min_gap_main, root_size_main_px_f, max_size_main_px_f, padded_max_size_px);
-//     const int line_gap_cross_px = 0;  // TODO: this
-//
-//     const auto container_origin_px_main = main_reversed ? max_size_main_px : 0;
-//     const auto container_origin_px_cross = main_reversed ? container_size_cross_px : 0;
-//
-//     const auto base_pos_main_px = container_origin_px_main;
-//     auto current_pos_cross_px = container_origin_px_cross;
-//
-//     std::vector<int> children_main_sizes_px;
-//     for (auto c : list_children) {
-//         auto& cud = children_updating_data.at(c);
-//         auto total_margin_border_main = main_is_x ? (cud.new_margin.l + cud.new_margin.r + cud.new_border.l + cud.new_border.r)
-//                                                   : (cud.new_margin.t + cud.new_margin.b + cud.new_border.t + cud.new_border.b);
-//         auto total_size_main = main_is_x ? cud.new_size.x : cud.new_size.y;
-//         total_size_main += total_margin_border_main;
-//         children_main_sizes_px.push_back(total_size_main);
-//     }
-//
-//     switch (self.wrap_mode) {
-//         case Container::WrapMode::NO: {
-//             auto line = JustifyInt::justifyUntilOverflow(children_main_sizes_px, min_gap_main_px, self.list_align_main, self.list_align_main,
-//             max_size_main_px); if (self.scrollable && line.size() != list_children.size()) {
-//                 line = JustifyInt::justifyLineStart(children_main_sizes_px, min_gap_main_px);
-//             }
-//             for (usize i = 0; i < line.size(); i++) {
-//                 auto centt = Entt{e.ui(), list_children[i]};
-//                 auto& cud = children_updating_data.at(centt.e());
-//                 auto pos_main_beg = line[i];
-//                 auto c_size_main = children_main_sizes_px[i];
-//                 auto pos_main_end = pos_main_beg + c_size_main;
-//                 auto new_pos_main = base_pos_main_px + (main_reversed ? -pos_main_end : pos_main_beg);
-//
-//                 cud.new_position = main_is_x ? vec2i{new_pos_main, current_pos_cross_px} : vec2i{current_pos_cross_px, new_pos_main};
-//                 cud.new_position.x -= cud.new_margin.l + cud.new_border.l;
-//                 cud.new_position.y -= cud.new_margin.t + cud.new_border.t;
-//             }
-//
-//         } break;
-//         case Container::WrapMode::WRAP_REVERSED:
-//         case Container::WrapMode::WRAP: {
-//             auto lines = JustifyInt::wrap(children_main_sizes_px, min_gap_main_px, self.list_align_main, JustifyInt::LineMode::START, max_size_main_px);
-//             usize line_index = 0;
-//             usize child_index_in_line = 0;
-//             for (usize i = 0; i < list_children.size(); i++) {
-//                 auto centt = Entt{e.ui(), list_children[i]};
-//                 auto& cud = children_updating_data.at(centt.e());
-//                 auto pos_main_beg = lines[line_index][child_index_in_line];
-//                 auto c_size_main = children_main_sizes_px[i];
-//                 auto pos_main_end = pos_main_beg + c_size_main;
-//                 auto new_pos_main = base_pos_main_px + (main_reversed ? -pos_main_end : pos_main_beg);
-//
-//                 cud.new_position = main_is_x ? vec2i{new_pos_main, current_pos_cross_px} : vec2i{current_pos_cross_px, new_pos_main};
-//                 cud.new_position.x -= cud.new_margin.l + cud.new_border.l;
-//                 cud.new_position.y -= cud.new_margin.t + cud.new_border.t;
-//
-//                 child_index_in_line++;
-//                 if (child_index_in_line >= lines[line_index].size()) {
-//                     line_index++;
-//                     child_index_in_line = 0;
-//                     current_pos_cross_px += cross_reversed ? -(max_size_cross_px + line_gap_cross_px) : (max_size_cross_px + line_gap_cross_px);
-//                 }
-//             }
-//         } break;
-//         default: {
-//             MLE_UNREACHABLE_LOG("Invalid wrap mode: {}", (int)self.wrap_mode);
-//         } break;
-//     }
-// }
-//
-//
-// void finishChildBounds(const Entt& e, auto& cud) {
-//     MLE_C("Finishing {} bounds", e.name());
-//
-//     comp::Bounds new_bounds;
-//     new_bounds.parent_px.setPos(cud.new_position);
-//     new_bounds.parent_px.setSize(cud.new_size);
-//
-//     MLE_VC(new_bounds);
-//
-//     e.emplaceOrReplace<comp::Bounds>(new_bounds);
-//
-//     if (e.has<comp::TargetBorder>()) {
-//         comp::Border new_border;
-//         new_border.t = cud.new_border.t;
-//         new_border.b = cud.new_border.b;
-//         new_border.l = cud.new_border.l;
-//         new_border.r = cud.new_border.r;
-//         new_border.color = cud.target_border.color;
-//
-//         auto largest_size = std::max({cud.new_size.x, cud.new_size.y});
-//         auto roundc = [&](const TargetBound& round_tb) {
-//             switch (round_tb.type) {
-//                 case TargetBound::Type::PX: {
-//                     return as<int>(round_tb.val);
-//                 } break;
-//                 case TargetBound::Type::DEFAULT:
-//                 case TargetBound::Type::RELATIVE: {
-//                     return as<int>(as<f32>(largest_size) * round_tb.val);
-//                 } break;
-//                 case TargetBound::Type::RELATIVE_W: {
-//                     return as<int>(as<f32>(cud.new_size.x) * round_tb.val);
-//                 } break;
-//                 case TargetBound::Type::RELATIVE_H: {
-//                     return as<int>(as<f32>(cud.new_size.y) * round_tb.val);
-//                 } break;
-//                 default: {
-//                     // NOLINTNEXTLINE(bugprone-lambda-function-name) not a problem
-//                     MLE_W("Invalid border round type: {}. Treating as 0.", round_tb.type);
-//                     return 0;
-//                 } break;
-//             }
-//         };
-//         new_border.round_lt = roundc(cud.target_border.round_lt);
-//         new_border.round_rt = roundc(cud.target_border.round_rt);
-//         new_border.round_lb = roundc(cud.target_border.round_lb);
-//         new_border.round_rb = roundc(cud.target_border.round_rb);
-//
-//         MLE_VC(new_border);
-//
-//         e.emplaceOrReplace<comp::Border>(new_border);
-//     }
-// }
-//
-// void finishChildrenBounds(const Entt& e, auto& children_data, std::span<const entt::entity> to_update) {
-//     for (auto c : to_update) {
-//         auto centt = Entt(e.ui(), c);
-//         auto& cud = children_data.at(c);
-//
-//         finishChildBounds(centt, cud);
-//     }
-// }
-//
-// void calculateListChildrenBounds(const Entt& e, const Container& self, const vec2i padded_max_size_px, const std::vector<entt::entity>& list_children,
-//                                  std::map<entt::entity, ChildUpdatingData>& children_updating_data) {
-//     calculateListChildrenSize(e, self, padded_max_size_px, list_children, children_updating_data);
-//     calculateListChildrenPosition(e, self, padded_max_size_px, list_children, children_updating_data);
-// }
-//
-// // NOLINTNEXTLINE(readability-function-cognitive-complexity) Yeah
-// void calculateFreeChildrenBounds(const Entt& e, const Container& self, const vec2i padded_max_size_px, const std::vector<entt::entity>& free_children,
-//                                  std::map<entt::entity, ChildUpdatingData>& children_updating_data) {
-//     auto sorted_by_dependencies = sortChildrenByDependency(e.ui(), free_children);
-//
-//     const auto root_size_px = e.ui().getRootSize();
-//     const auto root_size_px_f = vec2f{as<f32>(root_size_px.x), as<f32>(root_size_px.y)};
-//
-//     for (int i = 0; i < as<int>(sorted_by_dependencies.size()); i++) {
-//         auto c = sorted_by_dependencies[i];
-//         Entt centt{e.ui(), c};
-//         auto& cud = children_updating_data.at(c);
-//
-//         switch (cud.target_position.x.type) {
-//             case TargetBound::Type::PX: {
-//                 cud.new_position.x = as<int>(cud.target_position.x.val);
-//             } break;
-//             case TargetBound::Type::ROOT: {
-//                 cud.new_position.x = as<int>(root_size_px_f.x * cud.target_position.x.val);
-//             } break;
-//             case TargetBound::Type::DEFAULT:
-//             case TargetBound::Type::RELATIVE_W:
-//             case TargetBound::Type::RELATIVE: {
-//                 cud.new_position.x = as<int>(as<f32>(padded_max_size_px.x) * cud.target_position.x.val);
-//             } break;
-//             case TargetBound::Type::RELATIVE_H: {
-//                 cud.new_position.x = as<int>(as<f32>(padded_max_size_px.y) * cud.target_position.x.val);
-//             } break;
-//             default: {
-//                 MLE_W("Invalid target position x type: {}.", cud.target_position.x.type);
-//             } break;
-//         }
-//
-//         if (cud.target_position.xdep.e != entt::null) {
-//             if (!self.o.getIdx(cud.target_position.xdep.e)) {
-//                 MLE_W("Child {} has invalid y dependency on entity {}. Ignoring it.", centt.name(), as<u32>(cud.target_position.ydep.e));
-//                 continue;
-//             }
-//             const auto dep_entt = Entt{e.ui(), cud.target_position.ydep.e};
-//             const auto tb = cud.target_position.xdep.dep_tb;
-//             auto& dep_bounds = dep_entt.get<comp::Bounds>();
-//             cud.new_position.x += dep_bounds.parent_px.left();
-//             switch (tb.type) {
-//                 case TargetBound::Type::PX: {
-//                     cud.new_position.x += as<int>(tb.val) + dep_bounds.parent_px.width();
-//                 } break;
-//                 case TargetBound::Type::DEFAULT:
-//                 case TargetBound::Type::RELATIVE:
-//                 case TargetBound::Type::RELATIVE_W: {
-//                     cud.new_position.x += as<int>(as<f32>(dep_bounds.parent_px.width()) * tb.val);
-//                 } break;
-//                 default: {
-//                     MLE_W("Invalid x dependency target bound type: {}. Ignoring extra.", tb.type);
-//                 } break;
-//             }
-//         }
-//
-//         switch (cud.target_position.y.type) {
-//             case TargetBound::Type::PX: {
-//                 cud.new_position.y = as<int>(cud.target_position.y.val);
-//             } break;
-//             case TargetBound::Type::ROOT: {
-//                 cud.new_position.y = as<int>(root_size_px_f.y * cud.target_position.y.val);
-//             } break;
-//             case TargetBound::Type::DEFAULT:
-//             case TargetBound::Type::RELATIVE_W:
-//             case TargetBound::Type::RELATIVE: {
-//                 cud.new_position.y = as<int>(as<f32>(padded_max_size_px.y) * cud.target_position.y.val);
-//             } break;
-//             case TargetBound::Type::RELATIVE_H: {
-//                 cud.new_position.y = as<int>(as<f32>(padded_max_size_px.x) * cud.target_position.y.val);
-//             } break;
-//             default: {
-//                 MLE_W("Invalid target position y type: {}.", cud.target_position.y.type);
-//             } break;
-//         }
-//
-//         if (cud.target_position.ydep.e != entt::null) {
-//             if (!self.o.getIdx(cud.target_position.ydep.e)) {
-//                 MLE_W("Child {} has invalid y dependency on entity {}. Ignoring it.", centt.name(), as<u32>(cud.target_position.ydep.e));
-//                 continue;
-//             }
-//             const auto dep_entt = Entt{e.ui(), cud.target_position.ydep.e};
-//             const auto tb = cud.target_position.ydep.dep_tb;
-//             auto& dep_bounds = dep_entt.get<comp::Bounds>();
-//             cud.new_position.y += dep_bounds.parent_px.top();
-//             switch (tb.type) {
-//                 case TargetBound::Type::PX: {
-//                     cud.new_position.y += as<int>(tb.val) + dep_bounds.parent_px.height();
-//                 } break;
-//                 case TargetBound::Type::DEFAULT:
-//                 case TargetBound::Type::RELATIVE:
-//                 case TargetBound::Type::RELATIVE_W: {
-//                     cud.new_position.y += as<int>(as<f32>(dep_bounds.parent_px.height()) * tb.val);
-//                 } break;
-//                 default: {
-//                     MLE_W("Invalid y dependency target bound type: {}. Ignoring extra.", tb.type);
-//                 } break;
-//             }
-//         }
-//
-//         bool x_is_ar = false;
-//         bool x_is_fit = false;
-//         bool y_is_fit = false;
-//
-//         switch (cud.target_size.x.type) {
-//             case TargetBound::Type::PX: {
-//                 cud.new_size.x = as<int>(cud.target_size.x.val);
-//             } break;
-//             case TargetBound::Type::ROOT: {
-//                 cud.new_size.x = as<int>(root_size_px_f.x * cud.target_size.x.val);
-//             } break;
-//             case TargetBound::Type::RELATIVE_W:
-//             case TargetBound::Type::RELATIVE: {
-//                 cud.new_size.x = as<int>(as<f32>(padded_max_size_px.x) * cud.target_size.x.val);
-//             }; break;
-//             case TargetBound::Type::RELATIVE_H: {
-//                 cud.new_size.x = as<int>(as<f32>(padded_max_size_px.y) * cud.target_size.x.val);
-//             } break;
-//             case TargetBound::Type::FLEX_SHARE: {
-//                 auto remaining_px = padded_max_size_px.x - cud.new_position.x;
-//                 cud.new_size.x = as<int>(cud.target_size.x.val * as<f32>(remaining_px));
-//             } break;
-//             case TargetBound::Type::FIT: {
-//                 if (cud.size_provider == nullptr) {
-//                     MLE_E("FIT target size x requires a size provider. Entity name:{}", e.name());
-//                     continue;
-//                 }
-//                 x_is_fit = true;
-//             } break;
-//             case TargetBound::Type::DEFAULT: {
-//                 if (cud.target_size.x.val != 0) {
-//                     cud.new_size.x = as<int>(as<f32>(padded_max_size_px.x) * cud.target_size.x.val);
-//                 } else if (cud.target_size.xdep.e == entt::null) {
-//                     if (cud.target_aspect_ratio > 0) {
-//                         x_is_ar = true;
-//                     } else if (cud.size_provider != nullptr) {
-//                         x_is_fit = true;
-//                     } else {
-//                         auto remaining_px = padded_max_size_px.x - cud.new_position.x;
-//                         cud.new_size.x = as<int>(as<f32>(remaining_px));
-//                     }
-//                 }
-//             } break;
-//             default: {
-//                 MLE_E("Weird enum value for target size x type: {}.", (int)cud.target_size.x.type);
-//                 continue;
-//             } break;
-//         }
-//
-//         if (cud.target_size.xdep.e != entt::null) {
-//             if (!self.o.getIdx(cud.target_size.xdep.e)) {
-//                 MLE_W("Child {} has invalid x size dependency on entity {}. Ignoring it.", centt.name(), as<u32>(cud.target_size.xdep.e));
-//                 continue;
-//             }
-//             const auto dep_entt = Entt{e.ui(), cud.target_size.xdep.e};
-//             const auto tb = cud.target_size.xdep.dep_tb;
-//             auto& dep_bounds = dep_entt.get<comp::Bounds>();
-//             switch (tb.type) {
-//                 case TargetBound::Type::PX: {
-//                     cud.new_size.x += as<int>(tb.val) + dep_bounds.parent_px.width();
-//                 } break;
-//                 case TargetBound::Type::DEFAULT:
-//                 case TargetBound::Type::RELATIVE:
-//                 case TargetBound::Type::RELATIVE_W: {
-//                     cud.new_size.x += as<int>(as<f32>(dep_bounds.parent_px.width()) * tb.val);
-//                 } break;
-//                 default: {
-//                     MLE_W("Invalid x size dependency target bound type: {}. Ignoring extra.", tb.type);
-//                 } break;
-//             }
-//         }
-//
-//         switch (cud.target_size.y.type) {
-//             case TargetBound::Type::PX: {
-//                 cud.new_size.y = as<int>(cud.target_size.y.val);
-//             } break;
-//             case TargetBound::Type::ROOT: {
-//                 cud.new_size.y = as<int>(root_size_px_f.y * cud.target_size.y.val);
-//             }
-//             case TargetBound::Type::RELATIVE_H:
-//             case TargetBound::Type::RELATIVE: {
-//                 cud.new_size.y = as<int>(as<f32>(padded_max_size_px.y) * cud.target_size.y.val);
-//             }; break;
-//             case TargetBound::Type::RELATIVE_W: {
-//                 cud.new_size.y = as<int>(as<f32>(padded_max_size_px.x) * cud.target_size.y.val);
-//             } break;
-//             case TargetBound::Type::FLEX_SHARE: {
-//                 auto remaining_px = padded_max_size_px.y - cud.new_position.y;
-//                 cud.new_size.y = as<int>(cud.target_size.y.val * as<f32>(remaining_px));
-//             } break;
-//             case TargetBound::Type::FIT: {
-//                 if (x_is_ar) {
-//                     MLE_E("Cannot mix FIT and AR.");
-//                     continue;
-//                 }
-//                 if (cud.size_provider == nullptr) {
-//                     MLE_E("FIT target size y requires a size provider. Entity name:{}", e.name());
-//                     continue;
-//                 }
-//                 y_is_fit = true;
-//             } break;
-//             case TargetBound::Type::DEFAULT: {
-//                 if (cud.target_size.y.val != 0) {
-//                     cud.new_size.y = as<int>(as<f32>(padded_max_size_px.y) * cud.target_size.y.val);
-//                 } else if (cud.target_size.ydep.e == entt::null) {
-//                     if (cud.size_provider != nullptr && !x_is_ar) {
-//                         y_is_fit = true;
-//                     } else {
-//                         auto remaining_px = padded_max_size_px.y - cud.new_position.y;
-//                         cud.new_size.y = as<int>(as<f32>(remaining_px));
-//                     }
-//                 }
-//             } break;
-//             default: {
-//                 MLE_E("Weird enum value for target size y type: {}.", (int)cud.target_size.y.type);
-//                 continue;
-//             } break;
-//         }
-//
-//         if (cud.target_size.ydep.e != entt::null) {
-//             if (!self.o.getIdx(cud.target_size.ydep.e)) {
-//                 MLE_W("Child {} has invalid y size dependency on entity {}. Ignoring it.", centt.name(), as<u32>(cud.target_size.ydep.e));
-//                 continue;
-//             }
-//             const auto dep_entt = Entt{e.ui(), cud.target_size.ydep.e};
-//             const auto tb = cud.target_size.ydep.dep_tb;
-//             auto& dep_bounds = dep_entt.get<comp::Bounds>();
-//             switch (tb.type) {
-//                 case TargetBound::Type::PX: {
-//                     cud.new_size.y += as<int>(tb.val) + dep_bounds.parent_px.height();
-//                 } break;
-//                 case TargetBound::Type::DEFAULT:
-//                 case TargetBound::Type::RELATIVE:
-//                 case TargetBound::Type::RELATIVE_W: {
-//                     cud.new_size.y += as<int>(as<f32>(dep_bounds.parent_px.height()) * tb.val);
-//                 } break;
-//                 default: {
-//                     MLE_W("Invalid y size dependency target bound type: {}. Ignoring extra.", tb.type);
-//                 } break;
-//             }
-//         }
-//
-//         if (x_is_ar) {
-//             cud.new_size.x = as<int>(as<f32>(cud.new_size.y) * cud.target_aspect_ratio);
-//         }
-//
-//         if (x_is_fit || y_is_fit) {
-//             vec2u fit_max_size_px = {cud.new_size.x, cud.new_size.y};
-//
-//             if (fit_max_size_px.x <= 0) {
-//                 fit_max_size_px.x = padded_max_size_px.x - cud.new_position.x;
-//             }
-//             if (fit_max_size_px.y <= 0) {
-//                 fit_max_size_px.y = padded_max_size_px.y - cud.new_position.y;
-//             }
-//
-//             vec2u size_from_provider = cud.size_provider->calc(e, fit_max_size_px);
-//
-//             if (x_is_fit) {
-//                 cud.new_size.x = as<int>(size_from_provider.x);
-//             }
-//             if (y_is_fit) {
-//                 cud.new_size.y = as<int>(size_from_provider.y);
-//             }
-//         }
-//
-//         finishChildBounds(centt, cud);
-//     }
-// }
-// }  // namespace
-//
-//
-// }  // namespace mle::ui::comp
-// // std::vector<entt::entity> sortChildrenByDependency(UI& ui, std::span<const entt::entity> span) {
-//     enum class Mark : u8 { UNSEEN = 0, VISITING = 1, DONE = 2 };
-//     std::map<entt::entity, Mark> mark;
-//
-//     std::vector<entt::entity> out;
-//     out.reserve(span.size());
-//
-//     auto find_it = [](auto span, entt::entity e) { return std::find_if(span.begin(), span.end(), [e](entt::entity o) { return o == e; }); };
-//     // NOLINTNEXTLINE(misc-no-recursion) yeah, cool recursion
-//     auto dfs = [&](auto&& self, entt::entity e) {
-//         const auto mark_it = mark.find(e);
-//         if (mark_it != mark.end()) {
-//             if (mark_it->second == Mark::DONE) {
-//                 return true;
-//             }
-//             if (mark_it->second == Mark::VISITING) {
-//                 // NOLINTNEXTLINE(bugprone-lambda-function-name) just a log
-//                 MLE_ASSERT_LOG(false, "Cycle detected while sorting UI deps at entity {}", e);
-//                 return false;
-//             }
-//         }
-//
-//         mark[e] = Mark::VISITING;
-//
-//         Entt ee(ui, e);
-//
-//         std::array<entt::entity, 4> deps{};
-//         usize n = 0;
-//         auto push_unique = [&](entt::entity d) {
-//             if (d == entt::null) {
-//                 return;
-//             }
-//             for (usize i = 0; i < n; ++i) {
-//                 if (deps.at(i) == d) {
-//                     return;
-//                 }
-//             }
-//             if (n < deps.size()) {
-//                 deps.at(n++) = d;
-//             }
-//         };
-//
-//         if (const auto* pos = ee.tryGet<comp::TargetPosition>()) {
-//             push_unique(pos->xdep.e);
-//             push_unique(pos->ydep.e);
-//         }
-//         if (const auto* size = ee.tryGet<comp::TargetSize>()) {
-//             push_unique(size->xdep.e);
-//             push_unique(size->ydep.e);
-//         }
-//
-//         for (usize i = 0; i < n; ++i) {
-//             const entt::entity d = deps.at(i);
-//             if (find_it(span, d) == span.end()) {
-//                 continue;  // skip deps outside of the span, maybe is a list child
-//             }
-//             if (!self(self, d)) {
-//                 return false;
-//             }
-//         }
-//
-//         mark[e] = Mark::DONE;
-//         out.push_back(e);
-//         return true;
-//     };
-//
-//     for (const auto& e : span) {
-//         if (!mark.contains(e)) {
-//             if (!dfs(dfs, e)) {
-//                 MLE_E("Cycle detected while sorting UI deps. Returning empty list.");
-//                 return {};
-//             }
-//         }
-//     }
-//
-//     MLE_ASSERT_LOG(out.size() == span.size(), "Sorted UI deps size mismatch. Check this. {}x{}", out.size(), span.size());
-//
-//     return out;
-// }

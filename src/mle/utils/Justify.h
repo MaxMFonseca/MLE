@@ -162,3 +162,28 @@ struct Justify {
 
 using JustifyInt = Justify<int>;
 }  // namespace mle
+
+namespace fmt {
+template <>
+class formatter<mle::JustifyInt::LineMode> : formatter<std::string> {
+    template <typename FormatContext>
+    constexpr auto format(const mle::JustifyInt::LineMode& mode, FormatContext& ctx) const {
+        switch (mode) {
+            case mle::JustifyInt::LineMode::START:
+                return format_to(ctx.out(), "START");
+            case mle::JustifyInt::LineMode::CENTER:
+                return format_to(ctx.out(), "CENTER");
+            case mle::JustifyInt::LineMode::END:
+                return format_to(ctx.out(), "END");
+            case mle::JustifyInt::LineMode::SPACE_BETWEEN:
+                return format_to(ctx.out(), "SPACE_BETWEEN");
+            case mle::JustifyInt::LineMode::SPACE_AROUND:
+                return format_to(ctx.out(), "SPACE_AROUND");
+            case mle::JustifyInt::LineMode::SPACE_EVENLY:
+                return format_to(ctx.out(), "SPACE_EVENLY");
+            default:
+                return format_to(ctx.out(), "UNKNOWN");
+        }
+    }
+};
+}  // namespace fmt

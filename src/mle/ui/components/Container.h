@@ -54,6 +54,10 @@ class Container {
     void setListCrossMaxFitSize(TargetBound tb) { list_cross_max_fit_size_ = tb; }
     [[nodiscard]] TargetBound getListCrossMaxFitSize() const { return list_cross_max_fit_size_; }
 
+    [[nodiscard]] bool getListDirectionIsReversed() const {
+        return list_direction_ == ListDirection::HORIZONTAL_REVERSED || list_direction_ == ListDirection::VERTICAL_REVERSED;
+    }
+
     void setType(std::string_view type) { setType(strToType(type)); }
     void setListDirection(std::string_view direction) { setListDirection(strToListDirection(direction)); }
     void setListJustify(std::string_view justify) { setListJustify(strToListJustify(justify)); }
@@ -78,12 +82,12 @@ class Container {
     static void destroyChild(const Entt& e, entt::entity child_e);
     static void destroyAllChildren(const Entt& e);
 
-  private:
     [[nodiscard]] static entt::entity createChildHnd(const Entt& e, usize idx = max<usize>());
     [[nodiscard]] static entt::entity getChildAt(const Entt& e, usize idx);
     [[nodiscard]] static Expected<usize> getChildIdx(const Entt& e, std::string_view name);
     [[nodiscard]] static entt::entity getChildByName(const Entt& e, std::string_view name);
     [[nodiscard]] static usize getChildrenCount(const Entt& e);
+    [[nodiscard]] static bool hasChild(const Entt& e, entt::entity child_e);
 
     void createChildren(const Entt& e, const sol::table& table);
     void createChild(const Entt& e, const sol::table& table);
@@ -106,3 +110,78 @@ class Container {
     TargetBound list_cross_max_fit_size_;
 };
 }  // namespace mle::ui::comp
+
+namespace fmt {
+template <>
+struct formatter<mle::ui::comp::Container::Type> : formatter<std::string> {
+    template <typename FormatContext>
+    constexpr auto format(mle::ui::comp::Container::Type type, FormatContext& ctx) const {
+        switch (type) {
+            case mle::ui::comp::Container::Type::HYBRID:
+                return format_to(ctx.out(), "HYBRID");
+            case mle::ui::comp::Container::Type::LIST:
+                return format_to(ctx.out(), "LIST");
+            case mle::ui::comp::Container::Type::FREE:
+                return format_to(ctx.out(), "FREE");
+            default:
+                return format_to(ctx.out(), "UNKNOWN");
+        }
+    }
+};
+
+template <>
+struct formatter<mle::ui::comp::Container::ListDirection> : formatter<std::string> {
+    template <typename FormatContext>
+    constexpr auto format(mle::ui::comp::Container::ListDirection direction, FormatContext& ctx) const {
+        switch (direction) {
+            case mle::ui::comp::Container::ListDirection::HORIZONTAL:
+                return format_to(ctx.out(), "HORIZONTAL");
+            case mle::ui::comp::Container::ListDirection::VERTICAL:
+                return format_to(ctx.out(), "VERTICAL");
+            case mle::ui::comp::Container::ListDirection::HORIZONTAL_REVERSED:
+                return format_to(ctx.out(), "HORIZONTAL_REVERSED");
+            case mle::ui::comp::Container::ListDirection::VERTICAL_REVERSED:
+                return format_to(ctx.out(), "VERTICAL_REVERSED");
+            default:
+                return format_to(ctx.out(), "UNKNOWN");
+        }
+    }
+};
+
+template <>
+struct formatter<mle::ui::comp::Container::ListWrapMode> : formatter<std::string> {
+    template <typename FormatContext>
+    constexpr auto format(mle::ui::comp::Container::ListWrapMode mode, FormatContext& ctx) const {
+        switch (mode) {
+            case mle::ui::comp::Container::ListWrapMode::NO:
+                return format_to(ctx.out(), "NO");
+            case mle::ui::comp::Container::ListWrapMode::WRAP:
+                return format_to(ctx.out(), "WRAP");
+            case mle::ui::comp::Container::ListWrapMode::WRAP_REVERSED:
+                return format_to(ctx.out(), "WRAP_REVERSED");
+            default:
+                return format_to(ctx.out(), "UNKNOWN");
+        }
+    }
+};
+
+template <>
+struct formatter<mle::ui::comp::Container::ListCrossAlign> : formatter<std::string> {
+    template <typename FormatContext>
+    constexpr auto format(mle::ui::comp::Container::ListCrossAlign align, FormatContext& ctx) const {
+        switch (align) {
+            case mle::ui::comp::Container::ListCrossAlign::START:
+                return format_to(ctx.out(), "START");
+            case mle::ui::comp::Container::ListCrossAlign::CENTER:
+                return format_to(ctx.out(), "CENTER");
+            case mle::ui::comp::Container::ListCrossAlign::END:
+                return format_to(ctx.out(), "END");
+            case mle::ui::comp::Container::ListCrossAlign::STRETCH:
+                return format_to(ctx.out(), "STRETCH");
+            default:
+                return format_to(ctx.out(), "UNKNOWN");
+        }
+    }
+};
+
+}  // namespace fmt

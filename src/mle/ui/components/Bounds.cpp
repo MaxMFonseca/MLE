@@ -139,7 +139,7 @@ void Dependency::set(const Entt& e, const sol::object& obj) {
     this->e = entt::null;
     dep_tb = {};
 
-    const auto& parent_c = e.getParentContainer();
+    Entt parent{e.ui(), e.getParent()};
 
     if (obj.is<std::string>()) {
         auto str = obj.as<std::string>();
@@ -149,7 +149,7 @@ void Dependency::set(const Entt& e, const sol::object& obj) {
             return;
         }
         std::string dep_name{splited[0]};
-        this->e = parent_c.o.getEFromName(dep_name);
+        this->e = comp::Container::getChildByName(parent, dep_name);
         if (this->e == entt::null) {
             MLE_E("Dependency target '{}' not found in parent container of entity {}", dep_name, e.e());
             return;
@@ -164,7 +164,7 @@ void Dependency::set(const Entt& e, const sol::object& obj) {
             return;
         }
         auto dep_name = *name_r;
-        this->e = parent_c.o.getEFromName(dep_name);
+        this->e = comp::Container::getChildByName(parent, dep_name);
         if (this->e == entt::null) {
             MLE_E("Dependency target '{}' not found in parent container of entity {}", dep_name, e.e());
             return;
@@ -196,21 +196,21 @@ TargetSize::TargetSize(const Entt& e, const sol::object& obj) {
         }
     } else {
         auto table = lua::as<sol::table>(obj);
-        auto x_r = lua::tryGetKeyOrIdx(table, "x", 1);
-        if (x_r) {
-            x.set(*x_r);
+        auto x_r = lua::getFirstKey(table, "x", 1);
+        if (x_r.valid()) {
+            x.set(x_r);
         }
-        auto y_r = lua::tryGetKeyOrIdx(table, "y", 2);
-        if (y_r) {
-            y.set(*y_r);
+        auto y_r = lua::getFirstKey(table, "y", 2);
+        if (y_r.valid()) {
+            y.set(y_r);
         }
-        auto dep_x_r = lua::tryGetKeyOrIdx(table, "dep_x", 3);
-        if (dep_x_r) {
-            xdep.set(e, *dep_x_r);
+        auto dep_x_r = lua::getFirstKey(table, "dep_x", 3);
+        if (dep_x_r.valid()) {
+            xdep.set(e, dep_x_r);
         }
-        auto dep_y_r = lua::tryGetKeyOrIdx(table, "dep_y", 4);
-        if (dep_y_r) {
-            ydep.set(e, *dep_y_r);
+        auto dep_y_r = lua::getFirstKey(table, "dep_y", 4);
+        if (dep_y_r.valid()) {
+            ydep.set(e, dep_y_r);
         }
     }
 }
@@ -260,21 +260,21 @@ TargetPosition::TargetPosition(const Entt& e, const sol::object& obj) {
         }
     } else {
         auto table = lua::as<sol::table>(obj);
-        auto x_r = lua::tryGetKeyOrIdx(table, "x", 1);
-        if (x_r) {
-            x.set(*x_r);
+        auto x_r = lua::getFirstKey(table, "x", 1);
+        if (x_r.valid()) {
+            x.set(x_r);
         }
-        auto y_r = lua::tryGetKeyOrIdx(table, "y", 2);
-        if (y_r) {
-            y.set(*y_r);
+        auto y_r = lua::getFirstKey(table, "y", 2);
+        if (y_r.valid()) {
+            y.set(y_r);
         }
-        auto dep_x_r = lua::tryGetKeyOrIdx(table, "dep_x", 3);
-        if (dep_x_r) {
-            xdep.set(e, *dep_x_r);
+        auto dep_x_r = lua::getFirstKey(table, "dep_x", 3);
+        if (dep_x_r.valid()) {
+            xdep.set(e, dep_x_r);
         }
-        auto dep_y_r = lua::tryGetKeyOrIdx(table, "dep_y", 4);
-        if (dep_y_r) {
-            ydep.set(e, *dep_y_r);
+        auto dep_y_r = lua::getFirstKey(table, "dep_y", 4);
+        if (dep_y_r.valid()) {
+            ydep.set(e, dep_y_r);
         }
     }
 }
@@ -319,21 +319,21 @@ TargetPadding::TargetPadding(const sol::object& obj) {
     }
     if (obj.is<sol::table>()) {
         auto table = obj.as<sol::table>();
-        auto t_r = lua::tryGetKeyOrIdx(table, "t", 1);
-        if (t_r) {
-            t.set(*t_r);
+        auto t_r = lua::getFirstKey(table, "t", 1);
+        if (t_r.valid()) {
+            t.set(t_r);
         }
-        auto b_r = lua::tryGetKeyOrIdx(table, "b", 2);
-        if (b_r) {
-            b.set(*b_r);
+        auto b_r = lua::getFirstKey(table, "b", 2);
+        if (b_r.valid()) {
+            b.set(b_r);
         }
-        auto l_r = lua::tryGetKeyOrIdx(table, "l", 3);
-        if (l_r) {
-            l.set(*l_r);
+        auto l_r = lua::getFirstKey(table, "l", 3);
+        if (l_r.valid()) {
+            l.set(l_r);
         }
-        auto r_r = lua::tryGetKeyOrIdx(table, "r", 4);
-        if (r_r) {
-            r.set(*r_r);
+        auto r_r = lua::getFirstKey(table, "r", 4);
+        if (r_r.valid()) {
+            r.set(r_r);
         }
         return;
     }
@@ -442,22 +442,23 @@ TargetMargin::TargetMargin(const sol::object& obj) {
     }
     if (obj.is<sol::table>()) {
         auto table = obj.as<sol::table>();
-        auto t_r = lua::tryGetKeyOrIdx(table, "t", 1);
-        if (t_r) {
-            t.set(*t_r);
+        auto t_r = lua::getFirstKey(table, "t", 1);
+        if (t_r.valid()) {
+            t.set(t_r);
         }
-        auto b_r = lua::tryGetKeyOrIdx(table, "b", 2);
-        if (b_r) {
-            b.set(*b_r);
+        auto b_r = lua::getFirstKey(table, "b", 2);
+        if (b_r.valid()) {
+            b.set(b_r);
         }
-        auto l_r = lua::tryGetKeyOrIdx(table, "l", 3);
-        if (l_r) {
-            l.set(*l_r);
+        auto l_r = lua::getFirstKey(table, "l", 3);
+        if (l_r.valid()) {
+            l.set(l_r);
         }
-        auto r_r = lua::tryGetKeyOrIdx(table, "r", 4);
-        if (r_r) {
-            r.set(*r_r);
+        auto r_r = lua::getFirstKey(table, "r", 4);
+        if (r_r.valid()) {
+            r.set(r_r);
         }
+
         return;
     }
     MLE_UNREACHABLE_LOG("Unexpected obj type for TargetMargin: {}", obj.get_type());
@@ -519,13 +520,13 @@ TargetOrigin::TargetOrigin(const sol::object& obj) {
     }
     if (obj.is<sol::table>()) {
         auto table = obj.as<sol::table>();
-        auto x_r = lua::tryGetKeyOrIdx(table, "x", 1);
-        if (x_r) {
-            o.x = lua::as<f32>(*x_r);
+        auto x_r = lua::getFirstKey(table, "x", 1);
+        if (x_r.valid()) {
+            o.x = lua::as<f32>(x_r);
         }
-        auto y_r = lua::tryGetKeyOrIdx(table, "y", 2);
-        if (y_r) {
-            o.y = lua::as<f32>(*y_r);
+        auto y_r = lua::getFirstKey(table, "y", 2);
+        if (y_r.valid()) {
+            o.y = lua::as<f32>(y_r);
         }
         return;
     }
@@ -573,17 +574,17 @@ void TargetBorder::setThickness(const sol::object& obj) {
     }
     if (obj.is<sol::table>()) {
         auto table = obj.as<sol::table>();
-        if (const auto t_r = lua::tryGetKeyOrIdx(table, "t", 1); t_r) {
-            t.set(*t_r);
+        if (const auto t_r = lua::getFirstKey(table, "t", 1); t_r.valid()) {
+            t.set(t_r);
         }
-        if (const auto b_r = lua::tryGetKeyOrIdx(table, "b", 2); b_r) {
-            b.set(*b_r);
+        if (const auto b_r = lua::getFirstKey(table, "b", 2); b_r.valid()) {
+            b.set(b_r);
         }
-        if (const auto l_r = lua::tryGetKeyOrIdx(table, "l", 3); l_r) {
-            l.set(*l_r);
+        if (const auto l_r = lua::getFirstKey(table, "l", 3); l_r.valid()) {
+            l.set(l_r);
         }
-        if (const auto r_r = lua::tryGetKeyOrIdx(table, "r", 4); r_r) {
-            r.set(*r_r);
+        if (const auto r_r = lua::getFirstKey(table, "r", 4); r_r.valid()) {
+            r.set(r_r);
         }
         return;
     }
@@ -600,17 +601,17 @@ void TargetBorder::setRound(const sol::object& obj) {
     }
     if (obj.is<sol::table>()) {
         auto table = obj.as<sol::table>();
-        if (const auto lt_r = lua::tryGetKeyOrIdx(table, "lt", 1); lt_r) {
-            round_lt.set(*lt_r);
+        if (const auto lt_r = lua::getFirstKey(table, "lt", 1); lt_r.valid()) {
+            round_lt.set(lt_r);
         }
-        if (const auto rt_r = lua::tryGetKeyOrIdx(table, "rt", 2); rt_r) {
-            round_rt.set(*rt_r);
+        if (const auto rt_r = lua::getFirstKey(table, "rt", 2); rt_r.valid()) {
+            round_rt.set(rt_r);
         }
-        if (const auto lb_r = lua::tryGetKeyOrIdx(table, "lb", 3); lb_r) {
-            round_lb.set(*lb_r);
+        if (const auto lb_r = lua::getFirstKey(table, "lb", 3); lb_r.valid()) {
+            round_lb.set(lb_r);
         }
-        if (const auto rb_r = lua::tryGetKeyOrIdx(table, "rb", 4); rb_r) {
-            round_rb.set(*rb_r);
+        if (const auto rb_r = lua::getFirstKey(table, "rb", 4); rb_r.valid()) {
+            round_rb.set(rb_r);
         }
         return;
     }

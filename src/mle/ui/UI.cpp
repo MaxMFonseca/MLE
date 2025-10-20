@@ -21,6 +21,7 @@ void UI::setRoot(const std::string& element_name) {
 
     root_ = registry_.create();
     ui::Entt root_entt{*this, root_};
+    root_entt.emplace<ui::comp::Relationship>();
     root_entt.applyTable(root_table);
     if (!root_entt.has<ui::comp::Container>()) {
         root_entt.emplace<ui::comp::Container>();
