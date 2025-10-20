@@ -45,11 +45,11 @@ sol::table UI::getTableFor(const std::string& element_name) {
 void UI::update() {
     bounds_system_.update();
 
-    // rendering_system_.update();
+    rendering_system_.update();
 }
 
-void UI::render() {
-    // rendering_system_.render();
+ImageRef UI::render() {
+    return rendering_system_.render();
 };
 
 }  // namespace mle

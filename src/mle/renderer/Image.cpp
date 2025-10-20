@@ -133,7 +133,7 @@ vk::ImageView Image::createView(const ViewCI& ci) {
     return vkhnd;
 }
 
-void Image::checkQueueOwnership(CommandBuffer& cmd) {
+void Image::checkQueueOwnership(const CommandBuffer& cmd) {
     if (queue_data_idx_ == NO_QUEUE) {
         queue_data_idx_ = cmd.queueDataIdx();
     }
@@ -141,7 +141,7 @@ void Image::checkQueueOwnership(CommandBuffer& cmd) {
                    cmd.queueDataIdx());
 }
 
-void Image::copyBuffer(CommandBuffer& cmd, Buffer& src, vec2u extent, vec2i offset) {
+void Image::copyBuffer(const CommandBuffer& cmd, Buffer& src, vec2u extent, vec2i offset) {
     checkQueueOwnership(cmd);
 
     if (extent.x == 0) {
@@ -170,7 +170,7 @@ void Image::copyBuffer(CommandBuffer& cmd, Buffer& src, vec2u extent, vec2i offs
     cmd().copyBufferToImage(src.get(), o_, vk::ImageLayout::eTransferDstOptimal, region);
 }
 
-void Image::copyImage(CommandBuffer& cmd, Image& src, vec2u extent, vec2i src_offset, vec2i dst_offset) {
+void Image::copyImage(const CommandBuffer& cmd, Image& src, vec2u extent, vec2i src_offset, vec2i dst_offset) {
     checkQueueOwnership(cmd);
     src.checkQueueOwnership(cmd);
 
@@ -210,7 +210,7 @@ void Image::copyImage(CommandBuffer& cmd, Image& src, vec2u extent, vec2i src_of
     cmd().copyImage2(copy_info);
 }
 
-void Image::blitImage(CommandBuffer& cmd, Image& src, Recti src_rect, Recti dst_rect) {
+void Image::blitImage(const CommandBuffer& cmd, Image& src, Recti src_rect, Recti dst_rect) {
     checkQueueOwnership(cmd);
     src.checkQueueOwnership(cmd);
 
@@ -310,7 +310,7 @@ BufferHnd Image::copyToBufferOTS(vec2u extent, vec2i offset) {
     return buffer;
 }
 
-void Image::clear(CommandBuffer& cmd, vk::ClearColorValue color) {
+void Image::clear(const CommandBuffer& cmd, vk::ClearColorValue color) {
     checkQueueOwnership(cmd);
 
     transitionState(cmd, State::TRANSFER_DST);
@@ -323,7 +323,7 @@ void Image::clear(CommandBuffer& cmd, vk::ClearColorValue color) {
     cmd().clearColorImage(o_, vk::ImageLayout::eTransferDstOptimal, color, range);
 }
 
-void Image::clear(CommandBuffer& cmd, vk::ClearDepthStencilValue depth) {
+void Image::clear(const CommandBuffer& cmd, vk::ClearDepthStencilValue depth) {
     checkQueueOwnership(cmd);
 
     transitionState(cmd, State::TRANSFER_DST);
@@ -397,7 +397,7 @@ Image::RawData Image::readFile(const std::string& path, int desired_channels) {
     }
 };
 
-void Image::transitionLayout(CommandBuffer& cmd, TransitionLayoutInfo info) {
+void Image::transitionLayout(const CommandBuffer& cmd, TransitionLayoutInfo info) {
     if (layout_ == info.new_layout) {
         return;
     }
@@ -464,7 +464,7 @@ constexpr Image::StateProps Image::getStateProps(State state) {
     }
 }
 
-void Image::transitionState(CommandBuffer& cmd, State state) {
+void Image::transitionState(const CommandBuffer& cmd, State state) {
     if (state == state_) {
         return;
     }
@@ -484,7 +484,7 @@ void Image::transitionState(CommandBuffer& cmd, State state) {
     state_ = state;
 }
 
-void Image::ownershipRelease(CommandBuffer& cmd, QueueDataIdx dst_queue_data_idx) {
+void Image::ownershipRelease(const CommandBuffer& cmd, QueueDataIdx dst_queue_data_idx) {
     if (dst_queue_data_idx == queue_data_idx_) {
         return;
     }
@@ -542,7 +542,7 @@ std::optional<Semaphore> Image::ownershipReleaseOTS(QueueDataIdx dst_queue_data_
     return semaphore;
 }
 
-void Image::ownershipAcquire(CommandBuffer& cmd, vk::PipelineStageFlags2 dst_stage_mask, vk::AccessFlags2 dst_access_mask) {
+void Image::ownershipAcquire(const CommandBuffer& cmd, vk::PipelineStageFlags2 dst_stage_mask, vk::AccessFlags2 dst_access_mask) {
     MLE_ASSERT_LOG(queue_data_idx_ == INVALID_QUEUE, "Release wasn't called.");
     MLE_ASSERT(prev_queue_data_idx_ != INVALID_QUEUE && prev_queue_data_idx_ != NO_QUEUE);
     auto next_queue_data_idx = cmd.queueDataIdx();

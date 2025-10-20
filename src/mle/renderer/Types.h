@@ -73,6 +73,14 @@ struct BufferSlice {
     vk::DeviceSize offset = 0;
 };
 
+struct AttachmentInfo {
+    ImageRef image{};
+    vk::ImageView view{};
+    vk::AttachmentLoadOp load_op = vk::AttachmentLoadOp::eLoad;
+    vk::AttachmentStoreOp store_op = vk::AttachmentStoreOp::eStore;
+    vk::ClearValue clear_value{};
+};
+
 }  // namespace mle
 
 namespace fmt {

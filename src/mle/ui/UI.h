@@ -3,6 +3,7 @@
 #include "mle/lua/Lua.h"
 #include "mle/ui/systems/Bounds.h"
 #include "mle/ui/systems/LuaElementOps.h"
+#include "mle/ui/systems/Rendering.h"
 #include "mle/utils/ECS.h"
 
 namespace mle {
@@ -23,7 +24,7 @@ class UI {
     [[nodiscard]] f32 getRootAspectRatio() const { return root_aspect_ratio_; }
 
     void update();
-    void render();
+    ImageRef render();
 
   private:
     entt::registry registry_;
@@ -34,6 +35,6 @@ class UI {
 
     ui::system::Bounds bounds_system_{*this};
     ui::system::LuaElementOps lua_element_ops_{*this};
-    // ui::system::Rendering rendering_system_{*this};
+    ui::system::Rendering rendering_system_{*this};
 };
 }  // namespace mle

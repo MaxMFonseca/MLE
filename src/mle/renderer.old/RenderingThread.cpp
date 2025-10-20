@@ -138,15 +138,6 @@ void RenderingThread::beginRendering(Recti render_area, bool can_clear) {
     in_rendering_ = true;
 }
 
-void RenderingThread::endRendering() {
-    if (in_rendering_) {
-        cmd_.endRendering();
-        in_rendering_ = false;
-        pipeline_ = nullptr;
-        viewport_ = {0.0F, 0.0F, 0.0F, 0.0F};
-    }
-}
-
 void RenderingThread::setViewport(const Rectf& viewport) {
     MLE_ASSERT(in_rendering_);
     MLE_T("Setting viewport: pos = {}, size = {}", viewport.pos, viewport.size);

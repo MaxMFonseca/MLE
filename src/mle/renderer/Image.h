@@ -66,24 +66,24 @@ class Image final {
     void init(const CI& ci);
     void initSwapchain(vk::Image o);
 
-    void copyBuffer(CommandBuffer& cmd, Buffer& src, vec2u extent = {0, 0}, vec2i offset = {0, 0});
-    void copyBuffer(CommandBuffer& cmd, Buffer& src, Recti rect) { copyBuffer(cmd, src, vec2u{rect.size()}, {rect.pos()}); }
-    void copyImage(CommandBuffer& cmd, Image& src, vec2u extent = {0, 0}, vec2i src_offset = {0, 0}, vec2i dst_offset = {0, 0});
-    void blitImage(CommandBuffer& cmd, Image& src, Recti src_rect = {0, 0, 0, 0}, Recti dst_rect = {0, 0, 0, 0});
+    void copyBuffer(const CommandBuffer& cmd, Buffer& src, vec2u extent = {0, 0}, vec2i offset = {0, 0});
+    void copyBuffer(const CommandBuffer& cmd, Buffer& src, Recti rect) { copyBuffer(cmd, src, vec2u{rect.size()}, {rect.pos()}); }
+    void copyImage(const CommandBuffer& cmd, Image& src, vec2u extent = {0, 0}, vec2i src_offset = {0, 0}, vec2i dst_offset = {0, 0});
+    void blitImage(const CommandBuffer& cmd, Image& src, Recti src_rect = {0, 0, 0, 0}, Recti dst_rect = {0, 0, 0, 0});
     BufferHnd copyToBufferOTS(vec2u extent = {0, 0}, vec2i offset = {0, 0});
 
     [[nodiscard]] BufferHnd copyRaw(CommandBuffer& cmd, const RawData& data, vec2i offset = {0, 0});
 
-    void clear(CommandBuffer& cmd, vk::ClearColorValue color);
-    void clear(CommandBuffer& cmd, const Color& color) { clear(cmd, toVkColor(color)); }
-    void clear(CommandBuffer& cmd, vk::ClearDepthStencilValue depth);
+    void clear(const CommandBuffer& cmd, vk::ClearColorValue color);
+    void clear(const CommandBuffer& cmd, const Color& color = Color::ZERO) { clear(cmd, toVkColor(color)); }
+    void clear(const CommandBuffer& cmd, vk::ClearDepthStencilValue depth);
 
-    void transitionState(CommandBuffer& cmd, State state);
+    void transitionState(const CommandBuffer& cmd, State state);
 
-    void ownershipRelease(CommandBuffer& cmd, QueueDataIdx dst_queue_data_idx);
+    void ownershipRelease(const CommandBuffer& cmd, QueueDataIdx dst_queue_data_idx);
     [[nodiscard]] std::optional<Semaphore> ownershipReleaseOTS(QueueDataIdx dst_queue_data_idx);
     void ownershipAcquireOTSWait(QueueDataIdx dst_queue_data_idx);
-    void ownershipAcquire(CommandBuffer& cmd, vk::PipelineStageFlags2 dst_stage_mask = vk::PipelineStageFlagBits2::eAllCommands,
+    void ownershipAcquire(const CommandBuffer& cmd, vk::PipelineStageFlags2 dst_stage_mask = vk::PipelineStageFlagBits2::eAllCommands,
                           vk::AccessFlags2 dst_access_mask = vk::AccessFlagBits2::eMemoryWrite | vk::AccessFlagBits2::eMemoryRead);
     [[nodiscard]] std::optional<Semaphore> ownershipReleaseOTSAcquire(CommandBuffer& cmd,
                                                                       vk::PipelineStageFlags2 dst_stage_mask = vk::PipelineStageFlagBits2::eAllCommands,
@@ -121,8 +121,8 @@ class Image final {
         vk::PipelineStageFlags2 dst_stage_mask;
         vk::AccessFlags2 dst_access_mask;
     };
-    void transitionLayout(CommandBuffer& cmd, TransitionLayoutInfo info);
-    void checkQueueOwnership(CommandBuffer& cmd);
+    void transitionLayout(const CommandBuffer& cmd, TransitionLayoutInfo info);
+    void checkQueueOwnership(const CommandBuffer& cmd);
 
     static constexpr StateProps getStateProps(State state);
 

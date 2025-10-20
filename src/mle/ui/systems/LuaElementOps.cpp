@@ -3,6 +3,7 @@
 #include "mle/ui/Entt.h"
 #include "mle/ui/UI.h"
 #include "mle/ui/components/Bounds.h"
+#include "mle/ui/renderable/Sprite.h"
 #include "mle/utils/String.h"
 
 namespace mle::ui::system {
@@ -81,10 +82,11 @@ LuaElementOps::LuaElementOps(UI& ui) :
     addKeyHandler("border_round_rb", comp::TargetBorder::applyRoundRB);
     addKeyHandler("origin", comp::TargetOrigin::apply);
     addKeyHandler("aspect_ratio", comp::TargetAspectRatio::apply);
+    addKeyHandler("background", comp::Background::apply);
+
+    addKeyHandler("sprite", ui::renderable::Sprite::apply);
 }
-// addLuaKeyHandler("background", background);
 // addLuaKeyHandler("blur", blur);
-// addLuaKeyHandler("rel", rel);
 // addLuaKeyHandler("root_image", rootImage);
 // addLuaKeyHandler("sprite", sprite);
 // addLuaKeyHandler("text", text);

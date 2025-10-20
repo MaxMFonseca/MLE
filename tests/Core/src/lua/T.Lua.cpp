@@ -47,10 +47,12 @@ TEST_F(LuaTest, UtilsTryGetKeyAnyKey) {
     tbl[1] = 8;
     auto v1 = lua::getFirstKey(tbl, "foo", 1);
     ASSERT_TRUE(v1.valid());
-    EXPECT_EQ(v1.as<int>(), 8);
-    auto v2 = lua::getFirstKey(tbl, "foo", 99);
+    EXPECT_EQ(v1.as<int>(), 7);
+    auto v2 = lua::getFirstKey(tbl, 99, 88, "hello", 1, "foo");
     ASSERT_TRUE(v2.valid());
-    EXPECT_EQ(v2.as<int>(), 7);
+    EXPECT_EQ(v2.as<int>(), 8);
+    auto v3 = lua::getFirstKey(tbl, "nonexistent", 2);
+    ASSERT_FALSE(v3.valid());
 }
 
 TEST_F(LuaTest, UtilsTypeConversions) {

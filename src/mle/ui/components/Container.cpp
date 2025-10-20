@@ -481,8 +481,6 @@ void Container::on_destroy(entt::registry& registry, const entt::entity entt) {
     registry.remove<SizeProvider>(entt);
 };
 
-//// ------------------------------------------------ Update Children Bounds ------------------------------------------------ ////
-
 namespace {
 struct ChildBoundsCalcData {
     struct {
@@ -972,13 +970,18 @@ struct ListCalculator {
                 case Container::ListCrossAlign::CENTER: {
                     csd.flex.margin.cross_a = .01;
                     csd.flex.margin.cross_b = .01;
+                    csd.state.margin_cross_a = ChildSizeCalcData::CalcState::FLEX;
+                    csd.state.margin_cross_b = ChildSizeCalcData::CalcState::FLEX;
                 } break;
                 case Container::ListCrossAlign::END: {
                     csd.flex.margin.cross_a = .02;
                     csd.flex.margin.cross_b = .00;
+                    csd.state.margin_cross_a = ChildSizeCalcData::CalcState::FLEX;
+                    csd.state.margin_cross_b = ChildSizeCalcData::CalcState::FLEX;
                 } break;
                 default: {
-                    MLE_NOOP;
+                    csd.state.margin_cross_a = ChildSizeCalcData::CalcState::DONE;
+                    csd.state.margin_cross_b = ChildSizeCalcData::CalcState::DONE;
                 } break;
             }
 
@@ -1007,7 +1010,7 @@ struct ListCalculator {
 
                 vec2u p_max_size =
                     main_is_x ? vec2u{as<u32>(fit_max_size_main), as<u32>(fit_max_size_cross)} : vec2u{as<u32>(fit_max_size_cross), as<u32>(fit_max_size_main)};
-                vec2u size_from_provider = cbcd.size_provider->calc(container_e, p_max_size);
+                vec2u size_from_provider = cbcd.size_provider->call(container_e, p_max_size);
                 u32 main_size_from_provider = main_is_x ? size_from_provider.x : size_from_provider.y;
                 u32 cross_size_from_provider = main_is_x ? size_from_provider.y : size_from_provider.x;
 
@@ -1029,7 +1032,7 @@ struct ListCalculator {
 
                     vec2u p_max_size =
                         main_is_x ? vec2u{as<u32>(csd.size_main), as<u32>(fit_max_size_cross)} : vec2u{as<u32>(fit_max_size_cross), as<u32>(csd.size_main)};
-                    vec2u size_from_provider = cbcd.size_provider->calc(container_e, p_max_size);
+                    vec2u size_from_provider = cbcd.size_provider->call(container_e, p_max_size);
                     u32 cross_size_from_provider = main_is_x ? size_from_provider.y : size_from_provider.x;
 
                     csd.size_cross = as<int>(cross_size_from_provider);
@@ -1133,7 +1136,14 @@ struct ListCalculator {
                            cld.state.border_cross_a == ChildSizeCalcData::CalcState::DONE && cld.state.border_cross_b == ChildSizeCalcData::CalcState::DONE;
 
                 if (!cld.done) {
-                    MLE_E("Could not resolve all size/margin/border for list child. Please fixe me!");
+                    MLE_E("Could not resolve all size/margin/border for list child {}. Please fixe me!", Entt{container_e.ui(), c}.fullName());
+                    MLE_E(
+                        "state.main: {}, state.cross: {}, state.margin_main_a: {}, state.margin_main_b: {}, state.margin_cross_a: {}, state.margin_cross_b: "
+                        "{}, "
+                        "state.border_main_a: {}, state.border_main_b: {}, state.border_cross_a: {}, state.border_cross_b: {}",
+                        (int)cld.state.main, (int)cld.state.cross, (int)cld.state.margin_main_a, (int)cld.state.margin_main_b, (int)cld.state.margin_cross_a,
+                        (int)cld.state.margin_cross_b, (int)cld.state.border_main_a, (int)cld.state.border_main_b, (int)cld.state.border_cross_a,
+                        (int)cld.state.border_cross_b);
                     cld.valid = false;
                     continue;
                 }
@@ -1498,7 +1508,7 @@ struct FreeCalculator {
                     fit_max_size_px.y = padded_size.y - cbcd.new_position.y;
                 }
 
-                vec2u size_from_provider = cbcd.size_provider->calc(centt, fit_max_size_px);
+                vec2u size_from_provider = cbcd.size_provider->call(centt, fit_max_size_px);
 
                 if (x_is_fit) {
                     cbcd.new_size.x = as<int>(size_from_provider.x);
@@ -1657,7 +1667,6 @@ vec2u accumulateChildrenExtent(const std::map<entt::entity, ChildBoundsCalcData>
             auto [free_children, list_children] = separateFreeListChildren(e.ui(), children);
             ListCalculator list_calculator{e, *this, padded_max_size, list_children, cbcds};
             FreeCalculator free_calculator{e, *this, padded_max_size, free_children, cbcds};
-            finishChildrenBounds(e, cbcds, children);
         } break;
         case Type::LIST: {
             ListCalculator list_calculator{e, *this, padded_max_size, children, cbcds};

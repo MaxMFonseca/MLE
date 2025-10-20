@@ -31,7 +31,10 @@ bool Entt::hasFitSize() const {
 
 std::string Entt::name() const {
     const auto* name_comp = tryGet<comp::Name>();
-    return name_comp ? name_comp->o : "<unnamed>";
+    if (name_comp) {
+        return name_comp->o;
+    }
+    return getRelationship().parent == entt::null ? "<root>" : "<unnamed>";
 };
 
 std::string Entt::parentName() const {

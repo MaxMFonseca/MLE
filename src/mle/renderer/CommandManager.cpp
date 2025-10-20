@@ -89,7 +89,11 @@ CommandBuffer ResetCommandPool::getSecondary() {
         cmd = cmds[0];
     }
     secondary_index_++;
-    check(cmd.begin({}));
+    vk::CommandBufferInheritanceInfo inheritance_info{};
+    vk::CommandBufferBeginInfo begin_info{};
+    begin_info.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit;
+    begin_info.setPInheritanceInfo(&inheritance_info);
+    check(cmd.begin(begin_info));
     return {cmd, queue_data_idx_, false};
 }
 

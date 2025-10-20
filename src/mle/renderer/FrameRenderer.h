@@ -26,6 +26,7 @@ class FrameRenderer final {
         std::vector<std::move_only_function<void(void)>> delete_stack;
         std::vector<BufferHnd> delete_buffers{};
         std::vector<ImageHnd> delete_images{};
+        std::vector<CommandBuffer> secondary_cmd_buffers{};
         std::map<vk::BufferUsageFlags, std::vector<std::pair<BufferHnd, usize>>> host_visible_buffers;
     };
 
@@ -48,6 +49,7 @@ class FrameRenderer final {
         return current_primary_cmd_();
     }
     CommandBuffer getSecondaryCommandBuffer();
+    void releaseSecondaryCommandBuffer(CommandBuffer&& cmd);
 
     BufferSlice getHostVisibleBuffer(usize size, vk::BufferUsageFlags usage);
 

@@ -46,28 +46,14 @@ struct Bounds {
 
 struct Border {
     int round_lt = 0, round_rt = 0, round_lb = 0, round_rb = 0;
-    int t, b, l, r;
+    int t = 0, b = 0, l = 0, r = 0;
     Color color = Color::ZERO;
-};
-
-struct TargetSize {
-    TargetBound x, y;
-    Dependency xdep, ydep;
-
-    TargetSize() = default;
-    explicit TargetSize(const Entt& e, const sol::object& obj);
-
-    static void apply(const Entt& e, const sol::object& obj);
-    static void applyX(const Entt& e, const sol::object& obj);
-    static void applyY(const Entt& e, const sol::object& obj);
-    static void applyXDep(const Entt& e, const sol::object& obj);
-    static void applyYDep(const Entt& e, const sol::object& obj);
 };
 
 struct SizeProvider {
     using Fn = std::move_only_function<vec2u(const Entt& e, vec2u max_size)>;
 
-    vec2u calc(const Entt& e, vec2u max_size) {
+    vec2u call(const Entt& e, vec2u max_size) {
         if (!done()) {
             size_ = fn_(e, max_size);
         }
@@ -83,6 +69,20 @@ struct SizeProvider {
   private:
     vec2u size_{};
     mutable Fn fn_;
+};
+
+struct TargetSize {
+    TargetBound x, y;
+    Dependency xdep, ydep;
+
+    TargetSize() = default;
+    explicit TargetSize(const Entt& e, const sol::object& obj);
+
+    static void apply(const Entt& e, const sol::object& obj);
+    static void applyX(const Entt& e, const sol::object& obj);
+    static void applyY(const Entt& e, const sol::object& obj);
+    static void applyXDep(const Entt& e, const sol::object& obj);
+    static void applyYDep(const Entt& e, const sol::object& obj);
 };
 
 struct TargetPosition {

@@ -287,7 +287,7 @@ Result FrameRenderer::createSwapchain() {
 
     MLE_I("Swapchain created successfully!");
 
-    // FIXME: dispatch swapchain recreated event
+    // TODO: dispatch swapchain recreated event
 
     return Result::OK;
 }
@@ -323,6 +323,10 @@ Result FrameRenderer::beginFrame() {
     next_frame.delete_buffers.clear();
     next_frame.delete_images.clear();
     next_frame.host_visible_buffers.clear();
+
+    for (auto& cmd : next_frame.secondary_cmd_buffers) {
+        next_frame.cmd_pool.reclaim(std::move(cmd));
+    }
 
     for (auto& it : std::ranges::reverse_view(next_frame.delete_stack)) {
         it();
@@ -477,6 +481,11 @@ CommandBuffer FrameRenderer::getSecondaryCommandBuffer() {
     assertInFrame();
     return getCurrentFrame().cmd_pool.getSecondary();
 };
+
+void FrameRenderer::releaseSecondaryCommandBuffer(CommandBuffer&& cmd) {
+    assertInFrame();
+    getCurrentFrame().secondary_cmd_buffers.push_back(std::move(cmd));
+}
 
 BufferSlice FrameRenderer::getHostVisibleBuffer(usize size, vk::BufferUsageFlags usage) {
     usage |= vk::BufferUsageFlagBits::eTransferSrc | vk::BufferUsageFlagBits::eTransferDst;

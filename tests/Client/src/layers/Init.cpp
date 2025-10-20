@@ -12,7 +12,7 @@ void InitLayer::update() {
 };
 
 ImageRef InitLayer::render([[maybe_unused]] f64 dt) {
-    ui_.render();
-    return nullptr;
+    auto* ui_image = ui_.render();
+    return ui_image;
 };
 }  // namespace mle::user

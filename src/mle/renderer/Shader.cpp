@@ -98,6 +98,7 @@ void reflectVertexInput(auto& reflection, auto& vertex_attributes_, auto& vertex
     if (reflection.EnumerateInputVariables(&count, input_vars.data()) != SPV_REFLECT_RESULT_SUCCESS) {
         Core::i().unrecoverable("Failed to enumerate input variables");
     }
+
     std::ranges::sort(input_vars, [](const SpvReflectInterfaceVariable* a, const SpvReflectInterfaceVariable* b) { return a->location < b->location; });
 
     u32 last_location = max<u32>();
@@ -136,7 +137,7 @@ void reflectVertexInput(auto& reflection, auto& vertex_attributes_, auto& vertex
     }
 
     bool has_instance_attributes = first_instance_attribute_location_ != max<uint>();
-    bool has_vertex_attributes = !has_instance_attributes || first_instance_attribute_location_ > 0;
+    bool has_vertex_attributes = !vertex_attributes_.empty() && (!has_instance_attributes || first_instance_attribute_location_ > 0);
     u32 last_vertex_attribute = has_instance_attributes ? first_instance_attribute_location_ - 1 : vertex_attributes_.size() - 1;
     u32 vert_bind_stride = 0;
 

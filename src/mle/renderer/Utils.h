@@ -11,9 +11,7 @@ inline bool isVkError(vk::Result result) {
 }
 
 inline void check(vk::Result result) {
-    if (isVkError(result)) {
-        Core::i().unrecoverable("Vulkan error: {}", result);
-    }
+    Core::check(!isVkError(result), "Vulkan error: {}", result);
 }
 
 inline void check(VkResult result) {
