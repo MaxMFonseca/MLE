@@ -23,10 +23,9 @@ class Entt {
     void destroy() const;
 
     [[nodiscard]] auto& getRelationship() const { return get<comp::Relationship>(); }
-    [[nodiscard]] entt::entity getParent() const { return getRelationship().parent; }
+    [[nodiscard]] entt::entity getParent() const { return getRelationship().getParent(); }
     [[nodiscard]] bool hasFitSize() const;
     [[nodiscard]] std::string name() const;
-    [[nodiscard]] std::string parentName() const;
     [[nodiscard]] std::string fullName() const;
 
     template <typename T>

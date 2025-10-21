@@ -176,8 +176,8 @@ inline T getKeyAs(const sol::table& table, const std::string& key) {
  * @param out Output reference to store the extracted value.
  * @return True if the value was successfully extracted, false otherwise.
  */
-template <typename T>
-inline bool tryGetKeyAs(const sol::table& table, const std::string& key, T& out) {
+template <typename T, typename V>
+inline bool tryGetKeyAs(const sol::table& table, const V& key, T& out) {
     return tryAs(table[key], out);
 }
 
@@ -200,6 +200,12 @@ sol::object getFirstKey(const sol::table& table, const Keys&... keys) {
     (check(keys), ...);
 
     return result;
+}
+
+template <typename T, typename... Keys>
+bool tryGetFirstKeyAs(const sol::table& table, T& ret, const Keys&... keys) {
+    sol::object obj = getFirstKey(table, keys...);
+    return tryAs<T>(obj, ret);
 }
 
 /**

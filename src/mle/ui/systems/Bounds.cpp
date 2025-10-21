@@ -50,8 +50,8 @@ void Bounds::update() {
     for (auto [e] : external_bounds_changed_storage_.each()) {
         Entt ee{ui_, e};
         auto& relationship = ee.getRelationship();
-        if (relationship.parent != entt::null) {
-            containers_to_update.insert(relationship.parent);
+        if (relationship.getParent() != entt::null) {
+            containers_to_update.insert(relationship.getParent());
         } else {
             containers_to_update.insert(e);
         }
@@ -90,9 +90,12 @@ void Bounds::checkContainerNeedsUpdate(entt::entity e, const std::set<entt::enti
 
     Entt ee(ui_, e);
 
-    for (const auto& child : comp::Container::getChildren(ee)) {
+    auto& self_relationship = ee.getRelationship();
+    auto self_children = self_relationship.getChildren(ee);
+
+    for (const auto& child : self_children) {
         Entt cee(ui_, child);
-        if (cee.getRelationship().child_count > 0) {
+        if (cee.getRelationship().getChildCount() > 0) {
             checkContainerNeedsUpdate(child, containers_to_update);
         }
     }

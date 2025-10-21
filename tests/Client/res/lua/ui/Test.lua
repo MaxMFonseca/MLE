@@ -1,19 +1,20 @@
 return {
 	background = "NQW",
+	padding_x = 0.1,
 	container = {
 		type = "hybrid",
-		min_gap = "5px",
-		dir = "v_r",
-		wrap = "y_r",
-		cross_max_size = "40px",
+		dir = "v",
+		wrap = "y",
+		cross_max_size = "80px",
+		cross_align = "e",
+		main_min_gap = "10px",
 		cross_gap = 0.1,
-		main_min_gap = "2px",
 		justify = "se",
-		justify_last = "e",
+		justify_last = "b",
 	},
 	c = {
 		{
-			size = "40px",
+			size = "80px",
 			background = "RED",
 		},
 		{

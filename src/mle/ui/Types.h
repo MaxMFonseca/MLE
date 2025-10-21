@@ -10,8 +10,14 @@ class UI;
 namespace ui {
 class Entt;
 
+struct PaddingPx {
+    int t = 0, b = 0, l = 0, r = 0;
+
+    [[nodiscard]] vec2i removeFrom(vec2i size) const;
+};
+
 namespace comp {
-struct Relationship;
+class Relationship;
 struct Name;
 struct Bounds;
 struct Border;

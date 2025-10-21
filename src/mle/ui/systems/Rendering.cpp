@@ -6,6 +6,7 @@
 #include "mle/renderer/Renderer.h"
 #include "mle/renderer/RenderingThread.h"
 #include "mle/renderer/Types.h"
+#include "mle/ui/components/Base.h"
 #include "mle/ui/components/Bounds.h"
 #include "mle/ui/components/Renderable.h"
 #include "mle/utils/ECS.h"
@@ -64,7 +65,8 @@ Rendering::Packet::Node Rendering::createPacketNode(entt::entity entity, usize d
         return node;
     }
 
-    auto children = comp::Container::getChildren(ew);
+    auto& self_rel = ew.getRelationship();
+    auto children = self_rel.getChildren(ew);
     for (auto child : children) {
         node.children.push_back(createPacketNode(child, depth + 1));
     }

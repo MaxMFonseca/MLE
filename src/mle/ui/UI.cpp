@@ -40,7 +40,6 @@ void UI::resizeRoot(const vec2u& size) {
     e.addFlag<ui::comp::ContainerNeedsInternalBoundsUpdateFlag>();
     root_size_ = size;
     root_aspect_ratio_ = static_cast<f32>(size.x) / static_cast<f32>(size.y);
-    MLE_VC(root_size_);
 };
 
 sol::table UI::getTableFor(const std::string& element_name) {

@@ -1,6 +1,7 @@
 #include "Entt.h"
 
 #include "UI.h"
+#include "mle/ui/components/Base.h"
 #include "mle/ui/components/Bounds.h"
 
 namespace mle::ui {
@@ -30,36 +31,25 @@ bool Entt::hasFitSize() const {
 }
 
 std::string Entt::name() const {
-    const auto* name_comp = tryGet<comp::Name>();
-    if (name_comp) {
+    if (const auto* name_comp = tryGet<comp::Name>(); name_comp) {
         return name_comp->o;
     }
-    return getRelationship().parent == entt::null ? "<root>" : "<unnamed>";
+    return getRelationship().getParent() == entt::null ? "<root>" : "<unnamed>";
 };
 
-std::string Entt::parentName() const {
-    auto parent_r = getParent();
-    if (parent_r == entt::null) {
-        return "<no parent>";
-    }
-    Entt parent_entt{ui_, parent_r};
-    return parent_entt.name();
-}
-
-// NOLINTNEXTLINE(misc-no-recursion) cool recursion
+// NOLINTNEXTLINE(misc-no-recursion) No problem
 std::string Entt::fullName() const {
-    auto parent_r = getParent();
-    if (parent_r != entt::null) {
-        Entt parent_entt{ui_, parent_r};
-        return parent_entt.fullName() + "." + name();
+    auto parent = getParent();
+    if (parent == entt::null) {
+        return "<root>";
     }
-    return name();
+    return Entt{ui_, parent}.fullName() + "." + name();
 }
 
 void Entt::destroy() const {
     auto& relationship = getRelationship();
-    if (relationship.parent != entt::null) {
-        comp::Container::destroyChild(Entt{ui_, relationship.parent}, e_);
+    if (relationship.getParent() != entt::null) {
+        relationship.destroyChild(Entt{ui_, relationship.getParent()}, e_);
     } else {
         ui_.clear();
     }

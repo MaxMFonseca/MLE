@@ -46,7 +46,7 @@ struct Justify {
         if (sizes.empty() || 0 >= sizes.size()) {
             return {};
         }
-        if (sizes[0] > line_max_size) {
+        if (sizes[0] >= line_max_size) {
             return {0};
         }
 

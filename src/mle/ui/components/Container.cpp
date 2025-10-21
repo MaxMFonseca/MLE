@@ -5,7 +5,9 @@
 #include "mle/core/Result.h"
 #include "mle/lua/Utils.h"
 #include "mle/ui/Entt.h"
+#include "mle/ui/Types.h"
 #include "mle/ui/UI.h"
+#include "mle/ui/components/Base.h"
 #include "mle/ui/components/Bounds.h"
 #include "mle/utils/ECS.h"
 #include "mle/utils/ID.h"
@@ -140,7 +142,7 @@ Container::ListDirection Container::strToListDirection(std::string_view str) {
 
 Container::ListJustify Container::strToListJustify(std::string_view str) {
     auto s = toLower(str);
-    if (matchAny(s, "start", "s")) {
+    if (matchAny(s, "start", "s", "b")) {
         return JustifyInt::LineMode::START;
     }
     if (matchAny(s, "center", "centre", "c")) {
@@ -165,13 +167,13 @@ Container::ListJustify Container::strToListJustify(std::string_view str) {
 
 Container::ListCrossAlign Container::strToListCrossAlign(std::string_view str) {
     auto s = toLower(str);
-    if (matchAny(s, "start", "flex_start")) {
+    if (matchAny(s, "start", "s", "b")) {
         return ListCrossAlign::START;
     }
     if (matchAny(s, "center", "centre", "c")) {
         return ListCrossAlign::CENTER;
     }
-    if (matchAny(s, "end", "flex_end")) {
+    if (matchAny(s, "end", "e")) {
         return ListCrossAlign::END;
     }
     if (matchAny(s, "stretch")) {
@@ -198,253 +200,19 @@ Container::ListWrapMode Container::strToListWrapMode(std::string_view str) {
     return ListWrapMode::NO;
 }
 
-std::vector<entt::entity> Container::getChildren(const Entt& e) {
-    std::vector<entt::entity> children;
-    auto& self_relationship = e.getRelationship();
-    entt::entity ichild = self_relationship.first_child;
-    for (usize i = 0; i < self_relationship.child_count; ++i) {
-        children.push_back(ichild);
-        Entt child{e.ui(), ichild};
-        ichild = child.getRelationship().right;
-    }
-    return children;
-}
-
-entt::entity Container::getChildAt(const Entt& e, usize idx) {
-    auto& self_relationship = e.getRelationship();
-    if (self_relationship.first_child == entt::null) {
-        return entt::null;
-    }
-
-    if (idx >= self_relationship.child_count) {
-        MLE_E("Tried to get child at invalid idx {} in Container at entity {} with {} children.", idx, e.fullName(), self_relationship.child_count);
-        return entt::null;
-    }
-
-    auto ichild = self_relationship.first_child;
-    for (usize i = 0; i < idx; ++i) {
-        auto child_relationship = Entt{e.ui(), ichild}.getRelationship();
-        ichild = child_relationship.right;
-    }
-    return ichild;
-}
-
-Expected<usize> Container::getChildIdx(const Entt& e, std::string_view name) {
-    auto& self_relationship = e.getRelationship();
-    entt::entity ichild = self_relationship.first_child;
-    for (usize i = 0; i < self_relationship.child_count; ++i) {
-        Entt child{e.ui(), ichild};
-        if (child.name() == name) {
-            return i;
-        }
-        ichild = child.getRelationship().right;
-    }
-    MLE_E("Tried to get index of child named '{}' in Container at entity {} but no such child exists.", name, e.fullName());
-    return std::unexpected(Result::NOT_FOUND);
-}
-
-entt::entity Container::getChildByName(const Entt& e, std::string_view name) {
-    auto idx_r = getChildIdx(e, name);
-    if (!idx_r) {
-        MLE_E("Tried to get child named '{}' in Container at entity {} but no such child exists.", name, e.fullName());
-        return entt::null;
-    }
-    return getChildAt(e, *idx_r);
-}
-
-usize Container::getChildrenCount(const Entt& e) {
-    return e.getRelationship().child_count;
-}
-
-bool Container::hasChild(const Entt& e, entt::entity child_e) {
-    auto& self_relationship = e.getRelationship();
-    entt::entity ichild = self_relationship.first_child;
-    for (usize i = 0; i < self_relationship.child_count; ++i) {
-        if (ichild == child_e) {
-            return true;
-        }
-        Entt child{e.ui(), ichild};
-        ichild = child.getRelationship().right;
-    }
-    return false;
-}
-
-entt::entity Container::createChildHnd(const Entt& e, usize idx) {
-    auto& self_relationship = e.getRelationship();
-
-    if (self_relationship.first_child == entt::null) {
-        Entt new_child{e.ui(), e.ui().getRegistry().create()};
-        auto& new_child_relationship = new_child.emplace<comp::Relationship>();
-        new_child_relationship.parent = e.e();
-        self_relationship.first_child = new_child.e();
-        new_child_relationship.left = new_child.e();
-        new_child_relationship.right = new_child.e();
-        self_relationship.child_count += 1;
-        return new_child.e();
-    }
-
-    if (idx == max<usize>()) {
-        Entt new_child{e.ui(), e.ui().getRegistry().create()};
-        auto& new_child_relationship = new_child.emplace<comp::Relationship>();
-        new_child_relationship.parent = e.e();
-        new_child_relationship.right = self_relationship.first_child;
-        Entt right_sibling{e.ui(), new_child_relationship.right};
-        auto& right_relationship = right_sibling.getRelationship();
-        new_child_relationship.left = right_relationship.left;
-        Entt left_sibling{e.ui(), new_child_relationship.left};
-        auto& left_relationship = left_sibling.getRelationship();
-        left_relationship.right = new_child.e();
-        right_relationship.left = new_child.e();
-        self_relationship.child_count += 1;
-        return new_child.e();
-    }
-
-    auto right_sibling_e = getChildAt(e, idx);
-    if (right_sibling_e == entt::null) {
-        MLE_E("Tried to create child at invalid idx {} in Container at entity {}.", idx, e.name());
-        return entt::null;
-    }
-
-    Entt new_child{e.ui(), e.ui().getRegistry().create()};
-    auto& new_child_relationship = new_child.emplace<comp::Relationship>();
-    new_child_relationship.parent = e.e();
-
-    new_child_relationship.right = right_sibling_e;
-    Entt right_sibling{e.ui(), new_child_relationship.right};
-    auto& right_relationship = right_sibling.getRelationship();
-    new_child_relationship.left = right_relationship.left;
-    Entt left_sibling{e.ui(), new_child_relationship.left};
-    auto& left_relationship = left_sibling.getRelationship();
-    left_relationship.right = new_child.e();
-    right_relationship.left = new_child.e();
-
-    if (idx == 0) {
-        self_relationship.first_child = new_child.e();
-    }
-
-    self_relationship.child_count += 1;
-    return new_child.e();
-}
-
-void Container::destroyChild(const Entt& e, entt::entity child_e) {
-    auto& self_relationship = e.getRelationship();
-
-    Entt removing_child{e.ui(), child_e};
-    auto& removing_child_relationship = removing_child.getRelationship();
-
-    if (removing_child_relationship.parent != e.e()) {
-        MLE_E("Tried to destroy child entity {}({}) from Container at entity {} but it is not a child of it.", as<u32>(child_e), removing_child.fullName(),
-              e.fullName());
-        return;
-    }
-
-    if (removing_child_relationship.right == child_e) {
-        self_relationship.first_child = entt::null;
-    } else {
-        Entt left_sibling{e.ui(), removing_child_relationship.left};
-        auto& left_relationship = left_sibling.getRelationship();
-        Entt right_sibling{e.ui(), removing_child_relationship.right};
-        auto& right_relationship = right_sibling.getRelationship();
-
-        left_relationship.right = removing_child_relationship.right;
-        right_relationship.left = removing_child_relationship.left;
-
-        if (self_relationship.first_child == child_e) {
-            self_relationship.first_child = removing_child_relationship.right;
-        }
-    }
-
-    self_relationship.child_count -= 1;
-
-    if (removing_child_relationship.child_count > 0) {
-        destroyAllChildren(removing_child);
-    }
-
-    e.ui().getRegistry().destroy(child_e);
-}
-
-// NOLINTNEXTLINE(misc-no-recursion) Cool recursion
-void Container::destroyAllChildren(const Entt& e) {
-    auto& self_relationship = e.getRelationship();
-    if (self_relationship.first_child == entt::null) {
-        return;
-    }
-
-    auto child_e = self_relationship.first_child;
-    for (usize i = 0; i < self_relationship.child_count; ++i) {
-        auto current_child_e = child_e;
-        auto& current_child_relationship = Entt{e.ui(), current_child_e}.getRelationship();
-        child_e = current_child_relationship.right;
-
-        if (current_child_relationship.child_count > 0) {
-            destroyAllChildren(Entt{e.ui(), current_child_e});
-        }
-
-        e.ui().getRegistry().destroy(current_child_e);
-    }
-
-    self_relationship.first_child = entt::null;
-    self_relationship.child_count = 0;
-}
-
 void Container::createChild(const Entt& e, const sol::table& table) {
-    auto idx = max<usize>();
-    if (const auto idx_r = lua::getFirstKey(table, "pos", "idx", 2); lua::valid<usize>(idx_r)) {
-        idx = lua::as<usize>(idx_r);
-    }
+    auto& self_relationship = e.getRelationship();
+    auto [child_e, comp_table] = self_relationship.createChildBase(e, table);
 
-    auto child_e = createChildHnd(e, idx);
-    if (child_e == entt::null) {
-        MLE_E("Failed to create child for Container {}.", e.fullName());
-        return;
-    }
-
-    Entt centt{e.ui(), child_e};
-
-    if (const auto name_r = lua::getFirstKey(table, "name", 1); lua::valid<std::string>(name_r)) {
-        centt.setName(lua::as<std::string>(name_r));
-    }
-
-    applyChildInitialTable(e, table, child_e);
+    applyChildInitialTable(e, comp_table, child_e);
 }
 
 void Container::createChildren(const Entt& e, const sol::table& table) {
-    std::vector<std::pair<sol::table, entt::entity>> new_children_data;
-    usize i = 0;
+    auto& self_relationship = e.getRelationship();
+    auto children_data = self_relationship.createChildrenBase(e, table);
 
-    for (auto& [name_r, child_table_r] : table) {
-        const auto child_table = lua::as<sol::table>(child_table_r);
-
-        auto idx = max<usize>();
-        if (const auto idx_r = lua::getFirstKey(child_table, "pos", "idx", 2); lua::valid<usize>(idx_r)) {
-            idx = lua::as<usize>(idx_r);
-        }
-
-        std::string name;
-        if (lua::valid<std::string>(name_r)) {
-            name = lua::as<std::string>(name_r);
-        } else if (const auto name_r = lua::getFirstKey(child_table, "name", 1); name_r && lua::valid<std::string>(name_r)) {
-            name = lua::as<std::string>(name_r);
-        }
-
-        auto child_e = createChildHnd(e, idx);
-        if (child_e == entt::null) {
-            MLE_E("Failed to create child hnd #{} for Container at entity {}. name={}, idx={}", i, e.fullName(), name, idx);
-            continue;
-        }
-        Entt centt{e.ui(), child_e};
-
-        if (!name.empty()) {
-            centt.setName(name);
-        }
-
-        new_children_data.emplace_back(child_table, child_e);
-        ++i;
-    }
-
-    // 2 steps so name dependencies can be resolved
-    for (const auto& [table, child_e] : new_children_data) {
-        applyChildInitialTable(e, table, child_e);
+    for (const auto& [child_e, comp_table] : children_data) {
+        applyChildInitialTable(e, comp_table, child_e);
     }
 }
 
@@ -457,7 +225,7 @@ void Container::applyChildInitialTable(const Entt& e, const sol::table& table, e
         final_table = table;
     }
     if (children_base_.valid()) {
-        final_table = e.ui().getLua().mergeTablesNew(final_table, children_base_);
+        final_table = e.ui().getLua().mergeTablesNew(children_base_, final_table);
     }
     centt.applyTable(final_table);
 }
@@ -524,14 +292,12 @@ struct ChildBoundsCalcData {
     };
 };
 
-void finishChildBounds(const Entt& centt, auto& cbcd) {
-    MLE_C("Finishing {} bounds", centt.name());
+void finishChildBounds(const Entt& centt, auto& cbcd, PaddingPx padding_px) {
+    vec2i origin_lt = {padding_px.l, padding_px.t};
 
     comp::Bounds new_bounds;
-    new_bounds.parent_px.setPos(cbcd.new_position);
+    new_bounds.parent_px.setPos(cbcd.new_position + origin_lt);
     new_bounds.parent_px.setSize(cbcd.new_size);
-
-    MLE_VC(new_bounds);
 
     centt.emplaceOrReplace<comp::Bounds>(new_bounds);
 
@@ -571,18 +337,16 @@ void finishChildBounds(const Entt& centt, auto& cbcd) {
         new_border.round_lb = roundc(cbcd.target.border.round_lb);
         new_border.round_rb = roundc(cbcd.target.border.round_rb);
 
-        MLE_VC(new_border);
-
         centt.emplaceOrReplace<comp::Border>(new_border);
     }
 };
 
-void finishChildrenBounds(const Entt& e, auto& children_data, std::span<const entt::entity> to_update) {
+void finishChildrenBounds(const Entt& e, auto& children_data, std::span<const entt::entity> to_update, PaddingPx padding_px) {
     for (auto c : to_update) {
         auto centt = Entt(e.ui(), c);
         auto& cud = children_data.at(c);
 
-        finishChildBounds(centt, cud);
+        finishChildBounds(centt, cud, padding_px);
     }
 }
 
@@ -657,7 +421,7 @@ struct ListCalculator {
     };
 
   public:
-    ListCalculator(Entt container_e, const Container& container, vec2i padded_size, const std::vector<entt::entity>& list_children,
+    ListCalculator(Entt container_e, const Container& container, vec2i padded_size, const std::vector<entt::entity>& list_children, PaddingPx padding_px,
                    std::map<entt::entity, ChildBoundsCalcData>& cbcds) :
         container_e(container_e),
         container(container),
@@ -682,10 +446,11 @@ struct ListCalculator {
         root_size_main_f(as<f32>(root_size_main)),
         root_size_cross_f(as<f32>(root_size_cross)),
         min_gap_main(calcMinGapMain(container.getListMainMinGap(), root_size_main_f, child_max_size_main_f, padded_size)),
-        cross_gap(calcCrossGap(container.getListCrossGap(), root_size_cross_f, child_max_size_cross_f, padded_size)) {
+        cross_gap(calcCrossGap(container.getListCrossGap(), root_size_cross_f, child_max_size_cross_f, padded_size)),
+        main_wrap(container.getListWrapMode() != Container::ListWrapMode::NO) {
         calculateChildrenSizes();
         calculateChildrenPositions();
-        finishChildrenBounds(container_e, cbcds, list_children);
+        finishChildrenBounds(container_e, cbcds, list_children, padding_px);
     }
 
     const Entt container_e;
@@ -718,6 +483,8 @@ struct ListCalculator {
 
     const int min_gap_main = 0;
     const int cross_gap = 0;
+
+    const bool main_wrap;
 
     static int calcChildMaxSizeCross(const TargetBound& target_max_size_cross, int padded_size_cross, f32 padded_size_cross_f, f32 root_size_cross_f,
                                      vec2i padded_size) {
@@ -850,16 +617,6 @@ struct ListCalculator {
                 ret_px = as<int>(target_size.val);
                 calc_state = CalcState::DONE;
             } break;
-            case TargetBound::Type::DEFAULT: {
-                if (aspect_ratio > 0) {
-                    calc_state = CalcState::AR;
-                } else if (has_size_provider) {
-                    calc_state = CalcState::FIT;
-                } else {
-                    ret_flex = target_size.val == 0.0F ? 1.0F : target_size.val;
-                    calc_state = CalcState::FLEX;
-                }
-            } break;
             case TargetBound::Type::RELATIVE: {
                 ret_px = is_main ? as<int>(child_max_size_main_f * target_size.val) : as<int>(child_max_size_cross_f * target_size.val);
                 calc_state = CalcState::DONE;
@@ -884,9 +641,19 @@ struct ListCalculator {
                 calc_state = CalcState::FIT;
             } break;
             default: {
-                MLE_W("Invalid size target bound type for size calculation: {}, treating as flex 1", target_size.type);
-                ret_flex = 1.0F;
-                calc_state = CalcState::FLEX;
+                if (aspect_ratio > 0) {
+                    calc_state = CalcState::AR;
+                } else if (has_size_provider) {
+                    calc_state = CalcState::FIT;
+                } else {
+                    if (main_wrap && is_main) {
+                        ret_px = as<int>((target_size.val == 0.0F ? 1.0F : target_size.val) * child_max_size_main_f);
+                        calc_state = CalcState::DONE;
+                    } else {
+                        ret_flex = target_size.val == 0.0F ? 1.0F : target_size.val;
+                        calc_state = CalcState::FLEX;
+                    }
+                }
             } break;
         };
         return calc_state == CalcState::DONE;
@@ -962,16 +729,26 @@ struct ListCalculator {
 
             switch (container.getListCrossAlign()) {
                 case Container::ListCrossAlign::CENTER: {
-                    csd.flex.margin.cross_a = .01;
-                    csd.flex.margin.cross_b = .01;
-                    csd.state.margin_cross_a = ChildSizeCalcData::CalcState::FLEX;
-                    csd.state.margin_cross_b = ChildSizeCalcData::CalcState::FLEX;
+                    f32 flex_cross_acc = csd.flex.size.cross + csd.flex.border.cross_a + csd.flex.border.cross_b;
+                    if (flex_cross_acc < 1) {
+                        f32 one_minux_flex_cross_acc = 1 - flex_cross_acc;
+                        csd.flex.margin.cross_a = one_minux_flex_cross_acc / 2;
+                        csd.flex.margin.cross_b = csd.flex.margin.cross_a;
+                        csd.state.margin_cross_a = ChildSizeCalcData::CalcState::FLEX;
+                        csd.state.margin_cross_b = ChildSizeCalcData::CalcState::FLEX;
+                        done = false;
+                    }
                 } break;
                 case Container::ListCrossAlign::END: {
-                    csd.flex.margin.cross_a = .02;
-                    csd.flex.margin.cross_b = .00;
-                    csd.state.margin_cross_a = ChildSizeCalcData::CalcState::FLEX;
-                    csd.state.margin_cross_b = ChildSizeCalcData::CalcState::FLEX;
+                    f32 flex_cross_acc = csd.flex.size.cross + csd.flex.border.cross_a + csd.flex.border.cross_b;
+                    if (flex_cross_acc < 1) {
+                        f32 one_minux_flex_cross_acc = 1 - flex_cross_acc;
+                        csd.flex.margin.cross_a = one_minux_flex_cross_acc;
+                        csd.flex.margin.cross_b = 0;
+                        csd.state.margin_cross_a = ChildSizeCalcData::CalcState::FLEX;
+                        csd.state.margin_cross_b = ChildSizeCalcData::CalcState::FLEX;
+                        done = false;
+                    }
                 } break;
                 default: {
                     csd.state.margin_cross_a = ChildSizeCalcData::CalcState::DONE;
@@ -1132,7 +909,8 @@ struct ListCalculator {
                 if (!cld.done) {
                     MLE_E("Could not resolve all size/margin/border for list child {}. Please fixe me!", Entt{container_e.ui(), c}.fullName());
                     MLE_E(
-                        "state.main: {}, state.cross: {}, state.margin_main_a: {}, state.margin_main_b: {}, state.margin_cross_a: {}, state.margin_cross_b: "
+                        "state.main: {}, state.cross: {}, state.margin_main_a: {}, state.margin_main_b: {}, state.margin_cross_a: {}, "
+                        "state.margin_cross_b: "
                         "{}, "
                         "state.border_main_a: {}, state.border_main_b: {}, state.border_cross_a: {}, state.border_cross_b: {}",
                         (int)cld.state.main, (int)cld.state.cross, (int)cld.state.margin_main_a, (int)cld.state.margin_main_b, (int)cld.state.margin_cross_a,
@@ -1143,8 +921,8 @@ struct ListCalculator {
                 }
             }
 
-            MLE_ASSERT_LOG(cld.size_main > 0 && cld.size_cross > 0, "Negative or zero size calculated for list child. main: {}, cross: {}", cld.size_main,
-                           cld.size_cross);
+            MLE_ASSERT_LOG(cld.size_main > 0 && cld.size_cross > 0, "Negative or zero size calculated for list child {}. main: {}, cross: {}",
+                           Entt{container_e.ui(), c}.fullName(), cld.size_main, cld.size_cross);
 
             if (main_is_x) {
                 cbud.new_size.x = cld.size_main;
@@ -1189,7 +967,6 @@ struct ListCalculator {
         const auto container_origin_main = main_reversed ? padded_size_main : 0;
         const auto container_origin_cross = cross_reversed ? padded_size_cross : 0;
 
-        const auto base_pos_main = container_origin_main;
         auto current_pos_cross = container_origin_cross;
         if (cross_reversed) {
             current_pos_cross -= child_max_size_cross;
@@ -1208,11 +985,15 @@ struct ListCalculator {
                     auto pos_main_beg = line[i];
                     auto c_size_main = children_main_sizes[i];
                     auto pos_main_end = pos_main_beg + c_size_main;
-                    auto new_pos_main = base_pos_main + (main_reversed ? -pos_main_end : pos_main_beg);
+                    auto new_pos_main = container_origin_main + (main_reversed ? -pos_main_end : pos_main_beg);
 
-                    cbcd.new_position = main_is_x ? vec2i{new_pos_main, current_pos_cross} : vec2i{current_pos_cross, new_pos_main};
-                    cbcd.new_position.x -= cbcd.new_margin.l + cbcd.new_border.l;
-                    cbcd.new_position.y -= cbcd.new_margin.t + cbcd.new_border.t;
+                    if (main_is_x) {
+                        cbcd.new_position.x = new_pos_main - cbcd.new_margin.l - cbcd.new_border.l;
+                        cbcd.new_position.y = current_pos_cross + cbcd.new_margin.t + cbcd.new_border.t;
+                    } else {
+                        cbcd.new_position.x = current_pos_cross + cbcd.new_margin.l + cbcd.new_border.l;
+                        cbcd.new_position.y = new_pos_main - cbcd.new_margin.t - cbcd.new_border.t;
+                    }
                 }
             } break;
             case Container::ListWrapMode::WRAP_REVERSED:
@@ -1227,11 +1008,15 @@ struct ListCalculator {
                     auto pos_main_beg = lines[line_index][child_index_in_line];
                     auto c_size_main = children_main_sizes[i];
                     auto pos_main_end = pos_main_beg + c_size_main;
-                    auto new_pos_main = base_pos_main + (main_reversed ? -pos_main_end : pos_main_beg);
+                    auto new_pos_main = container_origin_main + (main_reversed ? -pos_main_end : pos_main_beg);
 
-                    cbcd.new_position = main_is_x ? vec2i{new_pos_main, current_pos_cross} : vec2i{current_pos_cross, new_pos_main};
-                    cbcd.new_position.x -= cbcd.new_margin.l + cbcd.new_border.l;
-                    cbcd.new_position.y -= cbcd.new_margin.t + cbcd.new_border.t;
+                    if (main_is_x) {
+                        cbcd.new_position.x = new_pos_main - cbcd.new_margin.l - cbcd.new_border.l;
+                        cbcd.new_position.y = current_pos_cross + cbcd.new_margin.t + cbcd.new_border.t;
+                    } else {
+                        cbcd.new_position.x = current_pos_cross + cbcd.new_margin.l + cbcd.new_border.l;
+                        cbcd.new_position.y = new_pos_main - cbcd.new_margin.t - cbcd.new_border.t;
+                    }
 
                     child_index_in_line++;
                     if (child_index_in_line >= lines[line_index].size()) {
@@ -1251,7 +1036,7 @@ struct ListCalculator {
 struct FreeCalculator {
     // NOLINTNEXTLINE(readability-function-cognitive-complexity) Not that complex
     FreeCalculator(Entt container_e, [[maybe_unused]] const Container& container, vec2i padded_size, const std::vector<entt::entity>& free_children,
-                   std::map<entt::entity, ChildBoundsCalcData>& cbcds) {
+                   PaddingPx padding_px, std::map<entt::entity, ChildBoundsCalcData>& cbcds) {
         auto sorted_by_dependencies = sortByDependency(container_e.ui(), free_children);
 
         const auto root_size = container_e.ui().getRootSize();
@@ -1283,7 +1068,7 @@ struct FreeCalculator {
             }
 
             if (cbcd.target.position.xdep.e != entt::null) {
-                if (!Container::hasChild(container_e, centt.e())) {
+                if (!centt.getRelationship().isChildOf(container_e.e())) {
                     MLE_W("Child {} is not a child of the container. Ignoring x dependency.", centt.name());
                     continue;
                 }
@@ -1327,7 +1112,7 @@ struct FreeCalculator {
             }
 
             if (cbcd.target.position.ydep.e != entt::null) {
-                if (!Container::hasChild(container_e, centt.e())) {
+                if (!centt.getRelationship().isChildOf(container_e.e())) {
                     MLE_W("Child {} is not a child of the container. Ignoring y dependency.", centt.name());
                     continue;
                 }
@@ -1400,7 +1185,7 @@ struct FreeCalculator {
             }
 
             if (cbcd.target.size.xdep.e != entt::null) {
-                if (!Container::hasChild(container_e, centt.e())) {
+                if (!centt.getRelationship().isChildOf(container_e.e())) {
                     MLE_W("Child {} is not a child of the container. Ignoring x size dependency.", centt.name());
                     continue;
                 }
@@ -1470,7 +1255,7 @@ struct FreeCalculator {
             }
 
             if (cbcd.target.size.ydep.e != entt::null) {
-                if (!Container::hasChild(container_e, centt.e())) {
+                if (!centt.getRelationship().isChildOf(container_e.e())) {
                     MLE_W("Child {} is not a child of the container. Ignoring y size dependency.", centt.name());
                     continue;
                 }
@@ -1516,7 +1301,7 @@ struct FreeCalculator {
                 }
             }
 
-            finishChildBounds(centt, cbcd);
+            finishChildBounds(centt, cbcd, padding_px);
         }
     }
 
@@ -1645,7 +1430,8 @@ vec2u accumulateChildrenExtent(const std::map<entt::entity, ChildBoundsCalcData>
 }  // namespace
 
 [[nodiscard]] vec2u Container::calculateChildrenBounds(const Entt& e, vec2u max_size) const {
-    auto children = getChildren(e);
+    auto& self_rel = e.getRelationship();
+    auto children = self_rel.getChildren(e);
 
     const auto* padding_comp = e.tryGet<comp::TargetPadding>();
     PaddingPx padding_result{};
@@ -1663,14 +1449,14 @@ vec2u accumulateChildrenExtent(const std::map<entt::entity, ChildBoundsCalcData>
     switch (type_) {
         case Type::HYBRID: {
             auto [free_children, list_children] = separateFreeListChildren(e.ui(), children);
-            ListCalculator list_calculator{e, *this, padded_max_size, list_children, cbcds};
-            FreeCalculator free_calculator{e, *this, padded_max_size, free_children, cbcds};
+            ListCalculator list_calculator{e, *this, padded_max_size, list_children, padding_result, cbcds};
+            FreeCalculator free_calculator{e, *this, padded_max_size, free_children, padding_result, cbcds};
         } break;
         case Type::LIST: {
-            ListCalculator list_calculator{e, *this, padded_max_size, children, cbcds};
+            ListCalculator list_calculator{e, *this, padded_max_size, children, padding_result, cbcds};
         } break;
         case Type::FREE: {
-            FreeCalculator free_calculator{e, *this, padded_max_size, children, cbcds};
+            FreeCalculator free_calculator{e, *this, padded_max_size, children, padding_result, cbcds};
         } break;
     }
 

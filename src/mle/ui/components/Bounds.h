@@ -99,12 +99,6 @@ struct TargetPosition {
     static void applyYDep(const Entt& e, const sol::object& obj);
 };
 
-struct PaddingPx {
-    int t = 0, b = 0, l = 0, r = 0;
-
-    [[nodiscard]] vec2i removeFrom(vec2i size) const;
-};
-
 struct TargetPadding {
     TargetBound t, b, l, r;
 

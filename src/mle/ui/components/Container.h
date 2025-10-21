@@ -17,8 +17,6 @@ class Container {
 
     Container() = default;
 
-    [[nodiscard]] static std::vector<entt::entity> getChildren(const Entt& e);
-
     [[nodiscard]] vec2u calculateChildrenBounds(const Entt& e, vec2u max_size) const;
 
     void set(const Entt& e, const sol::table& table);
@@ -77,16 +75,6 @@ class Container {
     static ListJustify strToListJustify(std::string_view str);
     static ListCrossAlign strToListCrossAlign(std::string_view str);
     static ListWrapMode strToListWrapMode(std::string_view str);
-
-    static void destroyChild(const Entt& e, entt::entity child_e);
-    static void destroyAllChildren(const Entt& e);
-
-    [[nodiscard]] static entt::entity createChildHnd(const Entt& e, usize idx = max<usize>());
-    [[nodiscard]] static entt::entity getChildAt(const Entt& e, usize idx);
-    [[nodiscard]] static Expected<usize> getChildIdx(const Entt& e, std::string_view name);
-    [[nodiscard]] static entt::entity getChildByName(const Entt& e, std::string_view name);
-    [[nodiscard]] static usize getChildrenCount(const Entt& e);
-    [[nodiscard]] static bool hasChild(const Entt& e, entt::entity child_e);
 
     void createChildren(const Entt& e, const sol::table& table);
     void createChild(const Entt& e, const sol::table& table);

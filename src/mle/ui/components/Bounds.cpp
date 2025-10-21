@@ -149,7 +149,8 @@ void Dependency::set(const Entt& e, const sol::object& obj) {
             return;
         }
         std::string dep_name{splited[0]};
-        this->e = comp::Container::getChildByName(parent, dep_name);
+        auto& parent_rel = parent.getRelationship();
+        this->e = parent_rel.getChildByName(parent, dep_name);
         if (this->e == entt::null) {
             MLE_E("Dependency target '{}' not found in parent container of entity {}", dep_name, e.e());
             return;
@@ -164,7 +165,8 @@ void Dependency::set(const Entt& e, const sol::object& obj) {
             return;
         }
         auto dep_name = *name_r;
-        this->e = comp::Container::getChildByName(parent, dep_name);
+        auto& parent_rel = parent.getRelationship();
+        this->e = parent_rel.getChildByName(parent, dep_name);
         if (this->e == entt::null) {
             MLE_E("Dependency target '{}' not found in parent container of entity {}", dep_name, e.e());
             return;
@@ -699,10 +701,5 @@ void TargetBorder::applyRoundRB(const Entt& e, const sol::object& obj) {
     e.patchOrEmplace<TargetBorder>([&](TargetBorder& tb) { tb.round_rb.set(obj); });
 }
 
-[[nodiscard]] vec2i PaddingPx::removeFrom(vec2i size) const {
-    size.x -= l + r;
-    size.y -= t + b;
-    return size;
-}
 }  // namespace comp
 }  // namespace mle::ui
