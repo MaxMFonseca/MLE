@@ -53,7 +53,7 @@ void Container::set(const Entt& e, const sol::table& table) {
     if (const auto child_r = table["child"]; lua::valid<sol::table>(child_r)) {
         createChild(e, child_r);
     }
-    if (const auto type_r = lua::getFirstKey(table, "type", "container_type"); lua::valid<std::string>(type_r)) {
+    if (const auto type_r = lua::getFirstKey(table, "type"); lua::valid<std::string>(type_r)) {
         setType(lua::as<std::string>(type_r));
     }
     if (const auto scrollable_r = table["scrollable"]; lua::valid<bool>(scrollable_r)) {
@@ -71,42 +71,35 @@ void Container::set(const Entt& e, const sol::table& table) {
     if (const auto children_base_r = lua::getFirstKey(table, "children_base", "base"); lua::valid<sol::table>(children_base_r)) {
         setChildrenBase(lua::as<sol::table>(children_base_r));
     }
-    if (const auto list_direction_r = lua::getFirstKey(table, "list_direction", "direction"); lua::valid<std::string>(list_direction_r)) {
+    if (const auto list_direction_r = lua::getFirstKey(table, "direction", "dir"); lua::valid<std::string>(list_direction_r)) {
         setListDirection(lua::as<std::string>(list_direction_r));
     }
-    if (const auto list_justify_r = lua::getFirstKey(table, "list_justify", "justify"); lua::valid<std::string>(list_justify_r)) {
+    if (const auto list_justify_r = lua::getFirstKey(table, "justify"); lua::valid<std::string>(list_justify_r)) {
         setListJustify(lua::as<std::string>(list_justify_r));
     }
-    if (const auto list_align_cross_r = lua::getFirstKey(table, "list_cross_align", "cross_align"); lua::valid<std::string>(list_align_cross_r)) {
+    if (const auto list_justify_last_r = lua::getFirstKey(table, "justify_last"); lua::valid<std::string>(list_justify_last_r)) {
+        setListJustifyLast(lua::as<std::string>(list_justify_last_r));
+    }
+    if (const auto list_align_cross_r = lua::getFirstKey(table, "cross_align"); lua::valid<std::string>(list_align_cross_r)) {
         setListCrossAlign(lua::as<std::string>(list_align_cross_r));
     }
-    if (const auto list_wrap_mode_r = lua::getFirstKey(table, "list_wrap_mode", "wrap_mode"); lua::valid<std::string>(list_wrap_mode_r)) {
+    if (const auto list_wrap_mode_r = lua::getFirstKey(table, "wrap"); lua::valid<std::string>(list_wrap_mode_r)) {
         setListWrapMode(lua::as<std::string>(list_wrap_mode_r));
     }
-    if (const auto list_cross_max_size_r = lua::getFirstKey(table, "list_cross_max_size", "cross_max_size"); list_cross_max_size_r.valid()) {
+    if (const auto list_cross_max_size_r = lua::getFirstKey(table, "cross_max_size"); list_cross_max_size_r.valid()) {
         TargetBound tb{};
         tb.set(list_cross_max_size_r);
         setListCrossMaxSize(tb);
     }
-    if (const auto list_main_min_gap_r = lua::getFirstKey(table, "list_main_min_gap", "main_min_gap"); list_main_min_gap_r.valid()) {
+    if (const auto list_main_min_gap_r = lua::getFirstKey(table, "main_min_gap"); list_main_min_gap_r.valid()) {
         TargetBound tb{};
         tb.set(list_main_min_gap_r);
         setListMainMinGap(tb);
     }
-    if (const auto list_cross_gap_r = lua::getFirstKey(table, "list_cross_gap", "cross_gap"); list_cross_gap_r.valid()) {
+    if (const auto list_cross_gap_r = lua::getFirstKey(table, "cross_gap"); list_cross_gap_r.valid()) {
         TargetBound tb{};
         tb.set(list_cross_gap_r);
         setListCrossGap(tb);
-    }
-    if (const auto list_main_max_fit_size_r = lua::getFirstKey(table, "list_main_max_fit_size", "main_max_fit_size"); list_main_max_fit_size_r.valid()) {
-        TargetBound tb{};
-        tb.set(list_main_max_fit_size_r);
-        setListMainMaxFitSize(tb);
-    }
-    if (const auto list_cross_max_fit_size_r = lua::getFirstKey(table, "list_cross_max_fit_size", "cross_max_fit_size"); list_cross_max_fit_size_r.valid()) {
-        TargetBound tb{};
-        tb.set(list_cross_max_fit_size_r);
-        setListCrossMaxFitSize(tb);
     }
 }
 
@@ -134,10 +127,10 @@ Container::ListDirection Container::strToListDirection(std::string_view str) {
     if (matchAny(s, "vertical", "v", "col", "rows")) {
         return ListDirection::VERTICAL;
     }
-    if (matchAny(s, "horizontal_reversed", "h_reversed", "h_rev", "row_reversed", "row_rev", "cols_reversed", "cols_rev")) {
+    if (matchAny(s, "horizontal_reversed", "h_r", "h_r", "row_reversed", "row_r", "cols_reversed", "cols_r")) {
         return ListDirection::HORIZONTAL_REVERSED;
     }
-    if (matchAny(s, "vertical_reversed", "v_reversed", "v_rev", "col_reversed", "col_rev", "rows_reversed", "rows_rev")) {
+    if (matchAny(s, "vertical_reversed", "v_r", "col_reversed", "col_r", "rows_reversed", "rows_r")) {
         return ListDirection::VERTICAL_REVERSED;
     }
 
@@ -147,22 +140,22 @@ Container::ListDirection Container::strToListDirection(std::string_view str) {
 
 Container::ListJustify Container::strToListJustify(std::string_view str) {
     auto s = toLower(str);
-    if (matchAny(s, "start", "flex_start")) {
+    if (matchAny(s, "start", "s")) {
         return JustifyInt::LineMode::START;
     }
     if (matchAny(s, "center", "centre", "c")) {
         return JustifyInt::LineMode::CENTER;
     }
-    if (matchAny(s, "end", "flex_end")) {
+    if (matchAny(s, "end", "e")) {
         return JustifyInt::LineMode::END;
     }
-    if (matchAny(s, "space_between", "space-between", "sb")) {
+    if (matchAny(s, "space_between", "sb")) {
         return JustifyInt::LineMode::SPACE_BETWEEN;
     }
-    if (matchAny(s, "space_around", "space-around", "sa")) {
+    if (matchAny(s, "space_around", "sa")) {
         return JustifyInt::LineMode::SPACE_AROUND;
     }
-    if (matchAny(s, "space_evenly", "space-evenly", "se")) {
+    if (matchAny(s, "space_evenly", "se")) {
         return JustifyInt::LineMode::SPACE_EVENLY;
     }
 
@@ -191,13 +184,13 @@ Container::ListCrossAlign Container::strToListCrossAlign(std::string_view str) {
 
 Container::ListWrapMode Container::strToListWrapMode(std::string_view str) {
     auto s = toLower(str);
-    if (matchAny(s, "no", "none")) {
+    if (matchAny(s, "n", "no")) {
         return ListWrapMode::NO;
     }
-    if (matchAny(s, "wrap")) {
+    if (matchAny(s, "y", "yes", "wrap")) {
         return ListWrapMode::WRAP;
     }
-    if (matchAny(s, "wrap_reversed", "wrap-reversed", "wraprev", "wr")) {
+    if (matchAny(s, "y_r", "yes_reversed", "wrap_reversed", "wrap_r")) {
         return ListWrapMode::WRAP_REVERSED;
     }
 
@@ -689,7 +682,7 @@ struct ListCalculator {
         root_size_main_f(as<f32>(root_size_main)),
         root_size_cross_f(as<f32>(root_size_cross)),
         min_gap_main(calcMinGapMain(container.getListMainMinGap(), root_size_main_f, child_max_size_main_f, padded_size)),
-        gap_cross(calcGapCross(container.getListCrossGap(), root_size_cross_f, child_max_size_cross_f, padded_size)) {
+        cross_gap(calcCrossGap(container.getListCrossGap(), root_size_cross_f, child_max_size_cross_f, padded_size)) {
         calculateChildrenSizes();
         calculateChildrenPositions();
         finishChildrenBounds(container_e, cbcds, list_children);
@@ -724,7 +717,7 @@ struct ListCalculator {
     const f32 root_size_cross_f;
 
     const int min_gap_main = 0;
-    const int gap_cross = 0;
+    const int cross_gap = 0;
 
     static int calcChildMaxSizeCross(const TargetBound& target_max_size_cross, int padded_size_cross, f32 padded_size_cross_f, f32 root_size_cross_f,
                                      vec2i padded_size) {
@@ -782,29 +775,30 @@ struct ListCalculator {
         }
     }
 
-    static int calcGapCross(const TargetBound& gap_cross, const f32 root_size_cross_px_f, const f32 max_size_cross_px_f, const vec2i& padded_max_size_px) {
-        switch (gap_cross.type) {
+    [[nodiscard]] int calcCrossGap(const TargetBound& tb, const f32 root_size_cross_px_f, const f32 max_size_cross_px_f,
+                                   const vec2i& padded_max_size_px) const {
+        switch (tb.type) {
             case TargetBound::Type::PX: {
-                return as<int>(gap_cross.val);
+                return as<int>(tb.val);
             }
             case TargetBound::Type::ROOT: {
-                return as<int>(root_size_cross_px_f * gap_cross.val);
+                return as<int>(root_size_cross_px_f * tb.val);
             } break;
             case TargetBound::Type::DEFAULT: {
-                return as<int>(gap_cross.val);
+                return as<int>(child_max_size_cross_f * tb.val);
             } break;
             case TargetBound::Type::RELATIVE: {
-                return as<int>(max_size_cross_px_f * gap_cross.val);
+                return as<int>(max_size_cross_px_f * tb.val);
             } break;
             case TargetBound::Type::RELATIVE_W: {
-                return as<int>(as<f32>(padded_max_size_px.x) * gap_cross.val);
+                return as<int>(as<f32>(padded_max_size_px.x) * tb.val);
             } break;
             case TargetBound::Type::RELATIVE_H: {
-                return as<int>(as<f32>(padded_max_size_px.y) * gap_cross.val);
+                return as<int>(as<f32>(padded_max_size_px.y) * tb.val);
             } break;
             default: {
                 // NOLINTNEXTLINE(bugprone-lambda-function-name) not a problem
-                MLE_W("Invalid cross gap type: {}. Returning 0.", gap_cross.type);
+                MLE_W("Invalid cross gap type: {}. Returning 0.", tb.type);
                 return 0;
             } break;
         }
@@ -1190,12 +1184,16 @@ struct ListCalculator {
         }
 
         const auto main_reversed = container.getListDirectionIsReversed();
+        const auto cross_reversed = container.getListWrapMode() == Container::ListWrapMode::WRAP_REVERSED;
 
         const auto container_origin_main = main_reversed ? padded_size_main : 0;
-        const auto container_origin_cross = main_reversed ? padded_size_cross : 0;
+        const auto container_origin_cross = cross_reversed ? padded_size_cross : 0;
 
         const auto base_pos_main = container_origin_main;
         auto current_pos_cross = container_origin_cross;
+        if (cross_reversed) {
+            current_pos_cross -= child_max_size_cross;
+        }
 
         switch (container.getListWrapMode()) {
             case Container::ListWrapMode::NO: {
@@ -1219,7 +1217,8 @@ struct ListCalculator {
             } break;
             case Container::ListWrapMode::WRAP_REVERSED:
             case Container::ListWrapMode::WRAP: {
-                auto lines = JustifyInt::wrap(children_main_sizes, min_gap_main, container.getListJustify(), JustifyInt::LineMode::START, child_max_size_main);
+                auto lines =
+                    JustifyInt::wrap(children_main_sizes, min_gap_main, container.getListJustify(), container.getListJustifyLast(), child_max_size_main);
                 usize line_index = 0;
                 usize child_index_in_line = 0;
                 for (usize i = 0; i < list_children.size(); i++) {
@@ -1238,8 +1237,7 @@ struct ListCalculator {
                     if (child_index_in_line >= lines[line_index].size()) {
                         line_index++;
                         child_index_in_line = 0;
-                        current_pos_cross += (container.getListWrapMode() == Container::ListWrapMode::WRAP_REVERSED ? -(child_max_size_cross + gap_cross)
-                                                                                                                    : (child_max_size_cross + gap_cross));
+                        current_pos_cross += cross_reversed ? -(child_max_size_cross + cross_gap) : (child_max_size_cross + cross_gap);
                     }
                 }
             } break;

@@ -21,7 +21,8 @@ class Bounds final {
   private:
     UI& ui_;
 
-    entt::storage_for_t<entt::reactive>& storage_;
+    entt::storage_for_t<entt::reactive>& external_bounds_changed_storage_;
+    entt::storage_for_t<entt::reactive>& needs_internal_update_storage_;
 
     std::map<entt::entity, std::move_only_function<void()>> bound_providers_;
 };

@@ -281,6 +281,10 @@ void RenderingThread::beginRendering(Recti render_area) {
 void RenderingThread::draw(u32 vertex_count, u32 instance_count, u32 first_vertex, u32 first_instance) {
     MLE_ASSERT_LOG(in_rendering_ && pipeline_, "Draw can only be called inside rendering with a valid pipeline.");
 
+    if (scissor_.left() > render_area_.width() || scissor_.top() > render_area_.height()) {
+        return;
+    }
+
     if (viewport_.width() == 0.0F || viewport_.height() == 0.0F) {
         setViewport();
     }
@@ -293,6 +297,10 @@ void RenderingThread::draw(u32 vertex_count, u32 instance_count, u32 first_verte
 
 void RenderingThread::drawIndexed(u32 index_count, u32 instance_count, u32 first_index, int vertex_offset, u32 first_instance) {
     MLE_ASSERT_LOG(in_rendering_ && pipeline_, "DrawIndexed can only be called inside rendering with a valid pipeline.");
+
+    if (scissor_.left() > render_area_.width() || scissor_.top() > render_area_.height()) {
+        return;
+    }
 
     if (viewport_.width() == 0.0F || viewport_.height() == 0.0F) {
         setViewport();

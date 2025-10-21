@@ -39,6 +39,8 @@ class Container {
     [[nodiscard]] ListDirection getListDirection() const { return list_direction_; }
     void setListJustify(ListJustify justify) { list_justify_ = justify; }
     [[nodiscard]] ListJustify getListJustify() const { return list_justify_; }
+    void setListJustifyLast(ListJustify justify) { list_justify_last_ = justify; }
+    [[nodiscard]] ListJustify getListJustifyLast() const { return list_justify_last_; }
     void setListCrossAlign(ListCrossAlign align) { list_cross_align_ = align; }
     [[nodiscard]] ListCrossAlign getListCrossAlign() const { return list_cross_align_; }
     void setListWrapMode(ListWrapMode mode) { list_wrap_mode_ = mode; }
@@ -49,10 +51,6 @@ class Container {
     [[nodiscard]] TargetBound getListMainMinGap() const { return list_main_min_gap_; }
     void setListCrossGap(TargetBound tb) { list_cross_gap_ = tb; }
     [[nodiscard]] TargetBound getListCrossGap() const { return list_cross_gap_; }
-    void setListMainMaxFitSize(TargetBound tb) { list_main_max_fit_size_ = tb; }
-    [[nodiscard]] TargetBound getListMainMaxFitSize() const { return list_main_max_fit_size_; }
-    void setListCrossMaxFitSize(TargetBound tb) { list_cross_max_fit_size_ = tb; }
-    [[nodiscard]] TargetBound getListCrossMaxFitSize() const { return list_cross_max_fit_size_; }
 
     [[nodiscard]] bool getListDirectionIsReversed() const {
         return list_direction_ == ListDirection::HORIZONTAL_REVERSED || list_direction_ == ListDirection::VERTICAL_REVERSED;
@@ -61,6 +59,7 @@ class Container {
     void setType(std::string_view type) { setType(strToType(type)); }
     void setListDirection(std::string_view direction) { setListDirection(strToListDirection(direction)); }
     void setListJustify(std::string_view justify) { setListJustify(strToListJustify(justify)); }
+    void setListJustifyLast(std::string_view justify) { setListJustifyLast(strToListJustify(justify)); }
     void setListCrossAlign(std::string_view align) { setListCrossAlign(strToListCrossAlign(align)); }
     void setListWrapMode(std::string_view mode) { setListWrapMode(strToListWrapMode(mode)); }
 
@@ -101,13 +100,12 @@ class Container {
 
     ListDirection list_direction_ = ListDirection::VERTICAL;
     ListJustify list_justify_ = ListJustify::START;
+    ListJustify list_justify_last_ = ListJustify::START;
     ListCrossAlign list_cross_align_ = ListCrossAlign::START;
     ListWrapMode list_wrap_mode_ = ListWrapMode::NO;
     TargetBound list_cross_max_size_;
     TargetBound list_main_min_gap_;
     TargetBound list_cross_gap_;
-    TargetBound list_main_max_fit_size_;
-    TargetBound list_cross_max_fit_size_;
 };
 }  // namespace mle::ui::comp
 

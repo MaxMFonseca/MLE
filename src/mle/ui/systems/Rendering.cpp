@@ -87,11 +87,14 @@ void Rendering::update() {
 
 // NOLINTNEXTLINE(misc-no-recursion) Cool recursion
 void Rendering::renderNode(const Rendering::Packet::Node& node, RenderingContext& ctx) {
-    MLE_E("Rendering node with bounds: {}, boder: {}, bg: {}", node.bounds, node.border, node.bg);
-
     Rectf bounds_f = node.bounds.parent_px.asF32();
     Rectf viewport = ctx.current_viewport;
     viewport.move(bounds_f.pos());
+
+    if (viewport.pos().x >= ctx.current_viewport.width() || viewport.pos().y >= ctx.current_viewport.height()) {
+        return;
+    }
+
     vec2f max_size = viewport.size() - bounds_f.pos();
     viewport.setWidth(std::min(bounds_f.width(), max_size.x));
     viewport.setHeight(std::min(bounds_f.height(), max_size.y));
@@ -144,7 +147,6 @@ ImageRef Rendering::getImageForEntity(const Packet::Node& node) {
 
 ImageRef Rendering::render() {
     if (!atomic_data_.consumerHasNew()) {
-        MLE_I("No new rendering data to render. Using latest rendered image.");
         return last_rendered_image_;
     }
 

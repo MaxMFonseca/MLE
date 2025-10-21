@@ -5,11 +5,12 @@
 #include "mle/ui/systems/LuaElementOps.h"
 #include "mle/ui/systems/Rendering.h"
 #include "mle/utils/ECS.h"
+#include "mle/window/Events.h"
 
 namespace mle {
 class UI {
   public:
-    UI() = default;
+    UI();
 
     void setRoot(const std::string& element_name);
     void resizeRoot(const vec2u& size);
@@ -36,5 +37,7 @@ class UI {
     ui::system::Bounds bounds_system_{*this};
     ui::system::LuaElementOps lua_element_ops_{*this};
     ui::system::Rendering rendering_system_{*this};
+
+    window::ev::ResizeL window_resize_el_;
 };
 }  // namespace mle

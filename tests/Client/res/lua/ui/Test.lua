@@ -3,34 +3,142 @@ return {
 	container = {
 		type = "hybrid",
 		min_gap = "5px",
-		dir = "v",
-		justify = "c",
+		dir = "v_r",
+		wrap = "y_r",
+		cross_max_size = "40px",
+		cross_gap = 0.1,
+		main_min_gap = "2px",
+		justify = "se",
+		justify_last = "e",
 	},
 	c = {
-		hey = {
-			size = "10px",
-			pos = { dep_x = { "i", "2px" }, dep_y = "i:2px" },
+		{
+			size = "40px",
 			background = "RED",
 		},
-		world = {
-			size = { 0.1, 0.1 },
-			pos = { "30px", "30px" },
-			background = "GREEN",
+		{
+			size = "40px",
+			background = "BLACK",
 		},
-		i = {
-			size = { 0.02, 0.02 },
-			pos = { dep_x = { "world", "5px" }, dep_y = { "world", "5px" } },
-			background = "BLUE",
+		{
+			size = "40px",
+			background = "RED",
 		},
-		am = {
-			pos = 0.5,
-			background = "YELLOW",
+		{
+			size = "40px",
+			background = "BLACK",
 		},
-		Max = {
-			pos = { "2px", "2px" },
-			size = { dep_x = "am:0.2", dep_y = "am:0.2" },
-			background = "CYAN",
-			-- border = {thickness = "2px", color = "WHITE" },
+		{
+			size = "40px",
+			background = "RED",
+		},
+		{
+			size = "40px",
+			background = "BLACK",
+		},
+		{
+			size = "40px",
+			background = "RED",
+		},
+		{
+			size = "40px",
+			background = "BLACK",
+		},
+		{
+			size = "40px",
+			background = "RED",
+		},
+		{
+			size = "40px",
+			background = "BLACK",
+		},
+		{
+			size = "40px",
+			background = "RED",
+		},
+		{
+			size = "40px",
+			background = "BLACK",
+		},
+		{
+			size = "40px",
+			background = "RED",
+		},
+		{
+			size = "40px",
+			background = "BLACK",
+		},
+		{
+			size = "40px",
+			background = "RED",
+		},
+		{
+			size = "40px",
+			background = "BLACK",
+		},
+		{
+			size = "40px",
+			background = "RED",
+		},
+		{
+			size = "40px",
+			background = "BLACK",
+		},
+		{
+			size = "40px",
+			background = "RED",
+		},
+		{
+			size = "40px",
+			background = "BLACK",
+		},
+		{
+			size = "40px",
+			background = "RED",
+		},
+		{
+			size = "40px",
+			background = "BLACK",
+		},
+		{
+			size = "40px",
+			background = "RED",
+		},
+		{
+			size = "40px",
+			background = "BLACK",
+		},
+		{
+			size = "40px",
+			background = "RED",
+		},
+		{
+			size = "40px",
+			background = "BLACK",
+		},
+		{
+			size = "40px",
+			background = "RED",
+		},
+		{
+			size = "40px",
+			background = "BLACK",
+		},
+		{
+			size = "40px",
+			background = "RED",
+		},
+		{
+			size = "40px",
+			background = "BLACK",
+		},
+		{
+			size = "40px",
+			background = "RED",
+		},
+		{
+			size = "40px",
+			background = "BLACK",
 		},
 	},
 }
