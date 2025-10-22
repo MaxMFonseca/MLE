@@ -18,12 +18,10 @@ void Sprite::apply(const Entt& e, const sol::object& obj) {
         self_p = as<Sprite*>(renderable->impl.get());
     } else {
         MLE_ASSERT(renderable->impl);
-        if (renderable->impl->getType() != Sprite::type()) {
-            MLE_E("Renderable::apply called on entt {} with incompatible Renderable type. {}x{}", e.fullName(), renderable->impl->getType().data(),
-                  Sprite::type().data());
+        if (renderable->impl->getType() == Sprite::type()) {
+            MLE_E("Renderable::apply called on entt {} with incompatible Renderable type. {}x{}", e.fullName(), renderable->impl->getType(), Sprite::type());
             return;
         }
-
         self_p = as<Sprite*>(renderable->impl.get());
     }
     self_p->set(obj);
@@ -37,6 +35,7 @@ void Sprite::setTexture(const std::string& src) {
     } else if (load_r.error() != Result::NOT_READY) {
         MLE_E("Failed to load texture {}: {}", src, load_r.error());
         texture_id = {};
+        image = Renderer::i().textureCache().get(0).value();
     }
 }
 
@@ -53,6 +52,9 @@ void Sprite::set(const sol::object& obj) {
         auto table = obj.as<sol::table>();
         if (const auto texture_r = lua::getFirstKey(table, "texture", 1); lua::valid<std::string>(texture_r)) {
             setTexture(texture_r.as<std::string>());
+        }
+        if (const auto color_r = table["color"]; color_r.valid()) {
+            color = Color::fromLua(color_r);
         }
         return;
     }
@@ -107,7 +109,42 @@ void Sprite::render(Ctx& ctx) {
 
     thread.pushDescriptor(0, push_writes);
 
+    struct {
+        vec4f color;
+        vec4i rounding_corners_radius_px;
+        vec2i viewport_size;
+    } pc{};
+
+    pc.color = color;
+    pc.viewport_size = ctx.viewport_size;
+    pc.rounding_corners_radius_px = ctx.rounding_corners_radius_px;
+
+    thread.pushConstants(&pc);
+
     thread.draw(4, 1, 0, 0);
 };
 
+[[nodiscard]] vec2u Sprite::calculateBounds([[maybe_unused]] vec2u max_size) const {
+    vec2u image_extent{};
+
+    if (image) {
+        image_extent = image->getExtent();
+    } else {
+        auto& cache = Renderer::i().textureCache();
+        auto image_extent_r = cache.getExtent(texture_id);
+        image_extent = image_extent_r.has_value() ? image_extent_r.value() : cache.getExtent(0).value();
+    }
+
+    vec2f image_extent_f = image_extent;
+    f32 aspect_ratio = image_extent_f.x / image_extent_f.y;
+    max_size.y = as<u32>(as<f32>(max_size.x) / aspect_ratio);
+    if (image_extent.x <= max_size.x && image_extent.y <= max_size.y) {
+        return image_extent;
+    }
+    vec2f max_size_f = max_size;
+    f32 scale_x = max_size_f.x / image_extent_f.x;
+    f32 scale_y = max_size_f.y / image_extent_f.y;
+    f32 scale = std::min(scale_x, scale_y);
+    return vec2u{image_extent_f.x * scale, image_extent_f.y * scale};
+};
 }  // namespace mle::ui::renderable

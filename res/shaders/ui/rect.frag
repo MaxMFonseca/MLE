@@ -3,7 +3,7 @@
 layout(push_constant) uniform PC {
   vec4 color; // rgba
   ivec4 rounding_corners_radius_px; // lt, rt, rb, lb
-  ivec2 viewport_size_px; // w, h
+  ivec2 viewport_size; // w, h
 } pc;
 
 layout(location = 0) in vec2 in_frag_uv;
@@ -47,7 +47,7 @@ float roundedRectCoverage(vec2 p, vec2 size, vec4 r) {
 }
 
 void main() {
-  vec2 size = vec2(pc.viewport_size_px);
+  vec2 size = vec2(pc.viewport_size);
   vec2 p = in_frag_uv * size;
 
   vec4 r = vec4(pc.rounding_corners_radius_px);

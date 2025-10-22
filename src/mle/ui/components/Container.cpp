@@ -733,7 +733,7 @@ struct ListCalculator {
 
                 vec2u p_max_size =
                     main_is_x ? vec2u{as<u32>(fit_max_size_main), as<u32>(fit_max_size_cross)} : vec2u{as<u32>(fit_max_size_cross), as<u32>(fit_max_size_main)};
-                vec2u size_from_provider = cbcd.size_provider->call(container_e, p_max_size);
+                vec2u size_from_provider = cbcd.size_provider->call(centt, p_max_size);
                 u32 main_size_from_provider = main_is_x ? size_from_provider.x : size_from_provider.y;
                 u32 cross_size_from_provider = main_is_x ? size_from_provider.y : size_from_provider.x;
 
@@ -755,7 +755,7 @@ struct ListCalculator {
 
                     vec2u p_max_size =
                         main_is_x ? vec2u{as<u32>(csd.size_main), as<u32>(fit_max_size_cross)} : vec2u{as<u32>(fit_max_size_cross), as<u32>(csd.size_main)};
-                    vec2u size_from_provider = cbcd.size_provider->call(container_e, p_max_size);
+                    vec2u size_from_provider = cbcd.size_provider->call(centt, p_max_size);
                     u32 cross_size_from_provider = main_is_x ? size_from_provider.y : size_from_provider.x;
 
                     csd.size_cross = as<int>(cross_size_from_provider);

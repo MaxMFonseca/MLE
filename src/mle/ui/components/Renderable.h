@@ -4,6 +4,7 @@
 
 #include "mle/ui/Types.h"
 #include "mle/ui/renderable/RenderableI.h"
+#include "mle/utils/ECS.h"
 
 namespace mle::ui::comp {
 struct Renderable {
@@ -11,7 +12,7 @@ struct Renderable {
 
     [[nodiscard]] std::unique_ptr<RenderableI> clone() const { return impl->clone(); }
     [[nodiscard]] vec2u calculateBounds(vec2u max_size) const { return impl->calculateBounds(max_size); }
-    [[nodiscard]] entt::hashed_string getType() const { return impl->getType(); }
+    [[nodiscard]] entt::id_type getType() const { return impl->getType(); }
 
     explicit Renderable(std::unique_ptr<RenderableI> impl_) :
         impl(std::move(impl_)) {}

@@ -10,7 +10,10 @@ void Renderable::on_construct(entt::registry& registry, const entt::entity entt)
         MLE_W("An element shouldnt have multiple SizeProvider components.");
         return;
     }
-    registry.emplace<SizeProvider>(entt, [](const Entt& e, vec2u max_size) { return e.get<comp::Renderable>().impl->calculateBounds(max_size); });
+    registry.emplace<SizeProvider>(entt, [](const Entt& e, vec2u max_size) {
+        MLE_VC("HERE");
+        return e.get<comp::Renderable>().impl->calculateBounds(max_size);
+    });
 }
 
 void Renderable::on_destroy(entt::registry& registry, const entt::entity entt) {

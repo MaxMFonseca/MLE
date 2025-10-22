@@ -5,7 +5,7 @@ return {
 	styles = {
 		basic_round = {
 			border = {
-				roundness = "50%",
+				roundness = "10%",
 			},
 		},
 		basic_border = {
@@ -33,8 +33,8 @@ return {
 	},
 	c = {
 		{
-			size = "80px",
-			sprite = { "mle/ui/mle.png" },
+			-- size = "80px",
+			sprite = { "mle/ui/mle.png", color = "RED" },
 		},
 		{
 			size = { "30px", "35px" },

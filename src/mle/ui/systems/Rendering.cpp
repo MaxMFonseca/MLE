@@ -131,21 +131,15 @@ void Rendering::renderNode(const Rendering::Packet::Node& node, RenderingContext
 
         struct {
             vec4f color;
-            int round_lt = 0, round_rt = 0, round_lb = 0, round_rb = 0;
-            int border_t, border_b, border_l, border_r;
-            vec2i viewport_size_px;
+            vec4i rounging_corners_radius_px;
+            vec4i borders_tblr_px;
+            vec2i viewport_size;
         } pc{};
 
         pc.color = node.border.color;
-        pc.round_lt = node.border.round_lt;
-        pc.round_rt = node.border.round_rt;
-        pc.round_lb = node.border.round_lb;
-        pc.round_rb = node.border.round_rb;
-        pc.border_t = node.border.t;
-        pc.border_b = node.border.b;
-        pc.border_l = node.border.l;
-        pc.border_r = node.border.r;
-        pc.viewport_size_px = border_bounds.size();
+        pc.rounging_corners_radius_px = vec4i{node.border.round_lt, node.border.round_rt, node.border.round_lb, node.border.round_rb};
+        pc.borders_tblr_px = vec4i{node.border.t, node.border.b, node.border.l, node.border.r};
+        pc.viewport_size = border_bounds.size();
 
         ctx.rendering_thread.pushConstants(&pc);
 
@@ -160,16 +154,13 @@ void Rendering::renderNode(const Rendering::Packet::Node& node, RenderingContext
 
         struct {
             vec4f color;
-            int round_lt = 0, round_rt = 0, round_lb = 0, round_rb = 0;
-            vec2i size;
+            vec4i rounging_corners_radius_px;
+            vec2i viewport_size;
         } pc{};
 
         pc.color = node.bg;
-        pc.size = node.bounds.parent_px.size();
-        pc.round_lt = node.border.round_lt;
-        pc.round_rt = node.border.round_rt;
-        pc.round_lb = node.border.round_lb;
-        pc.round_rb = node.border.round_rb;
+        pc.rounging_corners_radius_px = vec4i{node.border.round_lt, node.border.round_rt, node.border.round_lb, node.border.round_rb};
+        pc.viewport_size = node.bounds.parent_px.size();
 
         ctx.rendering_thread.pushConstants(&pc);
 
@@ -177,7 +168,10 @@ void Rendering::renderNode(const Rendering::Packet::Node& node, RenderingContext
     }
 
     if (node.renderable) {
-        RenderableI::Ctx renderable_ctx{.thread = ctx.rendering_thread, .size = bounds.size()};
+        RenderableI::Ctx renderable_ctx{
+            .thread = ctx.rendering_thread,
+            .viewport_size = bounds.size(),
+            .rounding_corners_radius_px = vec4i{node.border.round_lt, node.border.round_rt, node.border.round_lb, node.border.round_rb}};
         node.renderable->render(renderable_ctx);
     }
 

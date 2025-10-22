@@ -24,6 +24,28 @@ void TextureCache::init() {
     sampler_ci.maxLod = VK_LOD_CLAMP_NONE;
 
     setSampler(entt::hashed_string{"default"}, sampler_ci);
+
+    Image::RawData default_image_data{};
+    default_image_data.extent = {10, 10};
+    default_image_data.channels = 4;
+    default_image_data.pixels.resize(as<u64>(default_image_data.extent.x) * default_image_data.extent.y * default_image_data.channels, 255);
+
+    for (u32 y = 0; y < default_image_data.extent.y; ++y) {
+        for (u32 x = 0; x < default_image_data.extent.x; ++x) {
+            auto idx = (y * default_image_data.extent.x + x) * default_image_data.channels;
+            if ((x / 5 + y / 5) % 2 == 0) {
+                default_image_data.pixels[idx + 0] = 0;
+                default_image_data.pixels[idx + 1] = 0;
+                default_image_data.pixels[idx + 2] = 0;
+            } else {
+                default_image_data.pixels[idx + 0] = 0;
+                default_image_data.pixels[idx + 1] = 255;
+                default_image_data.pixels[idx + 2] = 255;
+            }
+        }
+    }
+
+    default_texture_ = addTextureWait(entt::hashed_string{"default"}, default_image_data);
 }
 
 void TextureCache::shutdown() {
@@ -60,6 +82,9 @@ vk::Sampler TextureCache::getSampler(entt::id_type id) const {
 }
 
 Expected<ImageRef> TextureCache::get(entt::id_type id) {
+    if (id == 0 || id == entt::hashed_string{"default"}) {
+        return default_texture_;
+    }
     auto found = textures_.find(id);
     if (found != textures_.end()) {
         if (found->second.ready) {
@@ -67,6 +92,19 @@ Expected<ImageRef> TextureCache::get(entt::id_type id) {
         }
         MLE_T("Texture id:{} is not ready yet", id);
         return std::unexpected(Result::NOT_READY);
+    }
+    MLE_E("Texture id:{} not found", id);
+    return std::unexpected(Result::NOT_FOUND);
+};
+
+Expected<vec2u> TextureCache::getExtent(entt::id_type id) {
+    if (id == 0 || id == entt::hashed_string{"default"}) {
+        return default_texture_->getExtent();
+    }
+
+    auto found = textures_.find(id);
+    if (found != textures_.end()) {
+        return found->second.image->getExtent();
     }
     MLE_E("Texture id:{} not found", id);
     return std::unexpected(Result::NOT_FOUND);
@@ -128,6 +166,27 @@ void TextureCache::addTexture(entt::id_type id, const Image::RawData& raw_data) 
             textures_[id].ready = true;
         }
     });
+}
+
+ImageRef TextureCache::addTextureWait(entt::id_type id, const Image::RawData& raw_data) {
+    auto& cmd_mgr = Renderer::i().commandManager();
+    auto cmd = cmd_mgr.getOTS(GCmdType::TRANSFER);
+
+    auto staging_buffer = createTexture(cmd, id, raw_data);
+
+    cmd_mgr.submitOTSWait(std::move(cmd));
+
+    auto gcmd = cmd_mgr.getOTS(GCmdType::GRAPHICS);
+    textures_[id].image->ownershipAcquire(gcmd);
+    textures_[id].image->transitionState(gcmd, Image::State::FS_READ);
+    cmd_mgr.submitOTSWait(std::move(gcmd));
+
+    {
+        std::scoped_lock lock(mutex_);
+        textures_[id].ready = true;
+    }
+
+    return textures_[id].image.get();
 }
 
 Expected<ImageRef> TextureCache::loadTexture(const std::string& src) {

@@ -8,6 +8,7 @@
 
 namespace mle {
 const Color Color::ZERO = Color{0U};
+const Color Color::ONE = Color{MAX_U8, MAX_U8, MAX_U8, MAX_U8};
 const Color Color::BLACK = Color{0U, 0U, 0U};
 const Color Color::WHITE = Color{MAX_U8, MAX_U8, MAX_U8};
 const Color Color::RED = Color{MAX_U8, 0U, 0U};

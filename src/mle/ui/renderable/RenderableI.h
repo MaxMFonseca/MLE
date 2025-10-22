@@ -9,7 +9,8 @@ namespace mle::ui {
 struct RenderableI {
     struct Ctx {
         RenderingThread& thread;
-        vec2u size;
+        vec2i viewport_size;
+        vec4i rounding_corners_radius_px;
     };
 
     RenderableI() = default;
@@ -23,7 +24,7 @@ struct RenderableI {
     virtual void set(const sol::object& obj) = 0;
     [[nodiscard]] virtual std::unique_ptr<RenderableI> clone() const = 0;
     [[nodiscard]] virtual vec2u calculateBounds(vec2u max_size) const = 0;
-    [[nodiscard]] virtual entt::hashed_string getType() const { return {"RenderableI"}; }
+    [[nodiscard]] virtual entt::id_type getType() const { return entt::hashed_string{"RenderableI"}; }
 
     virtual void render(Ctx& ctx) = 0;
 };

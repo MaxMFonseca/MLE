@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../Types.h"
+#include "mle/core/Logger.h"
 #include "mle/math/Types2D.h"
 #include "mle/utils/Color.h"
 

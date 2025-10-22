@@ -117,6 +117,7 @@ struct Color : vec4f {
     static std::vector<Color> lerpCount(Color a, Color b, usize count);
 
     static const Color ZERO;     ///< Fully transparent black.
+    static const Color ONE;      ///< Opaque white.
     static const Color BLACK;    ///< Opaque black.
     static const Color WHITE;    ///< Opaque white.
     static const Color RED;      ///< Opaque red.
