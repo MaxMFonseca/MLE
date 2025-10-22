@@ -34,7 +34,8 @@ class Rendering {
 
     struct RenderingContext {
         RenderingThread rendering_thread;
-        Rectf current_viewport{};
+        Recti parent_viewport{};
+        Recti current_scissor{};
     };
 
   public:
@@ -64,6 +65,7 @@ class Rendering {
     ImageRef last_rendered_image_ = nullptr;
 
     const Pipeline* background_pipeline_ = nullptr;
+    const Pipeline* border_pipeline_ = nullptr;
 
     // I need a storage for destroyed entities so I can remove them from some maps later
 };

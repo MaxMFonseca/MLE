@@ -1,19 +1,30 @@
 #include "LuaElementOps.h"
 
+#include "mle/lua/Utils.h"
 #include "mle/ui/Entt.h"
 #include "mle/ui/UI.h"
+#include "mle/ui/components/Base.h"
 #include "mle/ui/components/Bounds.h"
 #include "mle/ui/renderable/Sprite.h"
 #include "mle/utils/String.h"
 
 namespace mle::ui::system {
 void LuaElementOps::applyTable(entt::entity e, const sol::table& table) {
+    if (const auto children_base_r = table["children_base"]; lua::valid<sol::table>(children_base_r)) {
+        Entt entt{ui_, e};
+        entt.emplaceOrReplace<comp::ChildrenBase>(lua::as<sol::table>(children_base_r));
+    }
+
     for (const auto& [key_r, value_r] : table) {
         if (!key_r.is<std::string>()) {
             MLE_E("Non-string key in element table! Skipping.");
             continue;
         }
-        applyObj(e, key_r.as<std::string>(), value_r);
+        auto key = lua::as<std::string>(key_r);
+        if (mle::matchAny(key, "children_base")) {
+            continue;
+        }
+        applyObj(e, key, value_r);
     }
 }
 
@@ -38,10 +49,11 @@ LuaElementOps::LuaElementOps(UI& ui) :
     auto ut = lua.newUsertype<Entt>("mle_ui_Entt", sol::no_constructor);
     ut["apply"] = &Entt::apply;
 
+    addKeyHandler("c", comp::Relationship::applyAddChildren);
+    addKeyHandler("children", comp::Relationship::applyAddChildren);
+    addKeyHandler("add_child", comp::Relationship::applyAddChildren);
+    addKeyHandler("child", comp::Relationship::applyAddChildren);
     addKeyHandler("container", comp::Container::apply);
-    addKeyHandler("child", comp::Container::applyAddChild);
-    addKeyHandler("c", comp::Container::applyAddChildren);
-    addKeyHandler("children", comp::Container::applyAddChildren);
     addKeyHandler("size", comp::TargetSize::apply);
     addKeyHandler("size_x", comp::TargetSize::applyX);
     addKeyHandler("size_y", comp::TargetSize::applyY);

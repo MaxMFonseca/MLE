@@ -1,145 +1,45 @@
 return {
-	background = "NQW",
-	padding_x = 0.1,
+	background = "NQB",
+	padding = "10px",
 	container = {
 		type = "hybrid",
 		dir = "v",
 		wrap = "y",
-		cross_max_size = "80px",
-		cross_align = "e",
+		cross_max_size = 0.2,
+		cross_align = "c",
 		main_min_gap = "10px",
 		cross_gap = 0.1,
 		justify = "se",
 		justify_last = "b",
 	},
+	children_base = {
+		border = {
+			thickness = "3px",
+			color = "CYAN",
+			roundness = { "50%", "50%", "10px", "10px" },
+		},
+		background = "BLACK",
+	},
 	c = {
 		{
-			size = "80px",
-			background = "RED",
+			size = { "30px", "35px" },
 		},
 		{
-			size = "40px",
-			background = "BLACK",
+			size = { "60px", "10px" },
 		},
 		{
-			size = "40px",
-			background = "RED",
+			size = { "80px", "60px" },
 		},
 		{
-			size = "40px",
-			background = "BLACK",
+			size = { "60px", "80px" },
 		},
 		{
-			size = "40px",
-			background = "RED",
+			size_x = 1,
+			aspect_ratio = 1,
 		},
 		{
-			size = "40px",
-			background = "BLACK",
-		},
-		{
-			size = "40px",
-			background = "RED",
-		},
-		{
-			size = "40px",
-			background = "BLACK",
-		},
-		{
-			size = "40px",
-			background = "RED",
-		},
-		{
-			size = "40px",
-			background = "BLACK",
-		},
-		{
-			size = "40px",
-			background = "RED",
-		},
-		{
-			size = "40px",
-			background = "BLACK",
-		},
-		{
-			size = "40px",
-			background = "RED",
-		},
-		{
-			size = "40px",
-			background = "BLACK",
-		},
-		{
-			size = "40px",
-			background = "RED",
-		},
-		{
-			size = "40px",
-			background = "BLACK",
-		},
-		{
-			size = "40px",
-			background = "RED",
-		},
-		{
-			size = "40px",
-			background = "BLACK",
-		},
-		{
-			size = "40px",
-			background = "RED",
-		},
-		{
-			size = "40px",
-			background = "BLACK",
-		},
-		{
-			size = "40px",
-			background = "RED",
-		},
-		{
-			size = "40px",
-			background = "BLACK",
-		},
-		{
-			size = "40px",
-			background = "RED",
-		},
-		{
-			size = "40px",
-			background = "BLACK",
-		},
-		{
-			size = "40px",
-			background = "RED",
-		},
-		{
-			size = "40px",
-			background = "BLACK",
-		},
-		{
-			size = "40px",
-			background = "RED",
-		},
-		{
-			size = "40px",
-			background = "BLACK",
-		},
-		{
-			size = "40px",
-			background = "RED",
-		},
-		{
-			size = "40px",
-			background = "BLACK",
-		},
-		{
-			size = "40px",
-			background = "RED",
-		},
-		{
-			size = "40px",
-			background = "BLACK",
+			size_x = 1,
+			aspect_ratio = 1,
 		},
 	},
 }

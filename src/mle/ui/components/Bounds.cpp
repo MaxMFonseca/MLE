@@ -1,8 +1,6 @@
 #include "Bounds.h"
 
 #include "../Entt.h"
-#include "Base.h"
-#include "Container.h"
 #include "mle/core/Assert.h"
 #include "mle/core/Logger.h"
 #include "mle/lua/Utils.h"
@@ -555,13 +553,13 @@ void TargetAspectRatio::apply(const Entt& e, const sol::object& obj) {
 TargetBorder::TargetBorder(const sol::object& obj) {
     auto table = lua::as<sol::table>(obj);
 
-    if (const auto thickness_r = table["thickness"]; thickness_r) {
+    if (const auto thickness_r = table["thickness"]; thickness_r.valid()) {
         setThickness(thickness_r);
     }
-    if (const auto color_r = table["color"]; color_r) {
+    if (const auto color_r = table["color"]; color_r.valid()) {
         setColor(color_r);
     }
-    if (const auto round_r = table["round"]; round_r) {
+    if (const auto round_r = table["roundness"]; round_r.valid()) {
         setRound(round_r);
     }
 }
@@ -570,8 +568,8 @@ void TargetBorder::setThickness(const sol::object& obj) {
     MLE_ASSERT(obj.valid());
 
     if (obj.is<f32>() || obj.is<std::string>()) {
-        f32 val = lua::as<f32>(obj);
-        t.val = b.val = l.val = r.val = val;
+        r.set(obj);
+        t = b = l = r;
         return;
     }
     if (obj.is<sol::table>()) {
@@ -597,8 +595,8 @@ void TargetBorder::setRound(const sol::object& obj) {
     MLE_ASSERT(obj.valid());
 
     if (obj.is<f32>() || obj.is<std::string>()) {
-        f32 val = lua::as<f32>(obj);
-        round_lt.val = round_rt.val = round_lb.val = round_rb.val = val;
+        round_rb.set(obj);
+        round_lt = round_rt = round_lb = round_rb;
         return;
     }
     if (obj.is<sol::table>()) {

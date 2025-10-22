@@ -171,6 +171,17 @@ class Rect {
         expand(other.max());
     }
 
+    constexpr void expandTop(T v) { setTop(top() + v); }
+    constexpr void expandBottom(T v) { setBottom(bottom() + v); }
+    constexpr void expandLeft(T v) { setLeft(left() + v); }
+    constexpr void expandRight(T v) { setRight(right() + v); }
+    constexpr void expandTBLR(T t, T b, T l, T r) {
+        expandTop(t);
+        expandBottom(b);
+        expandLeft(l);
+        expandRight(r);
+    }
+
     /// Creates a rectangle representing the intersection of this and another rectangle.
     [[nodiscard]] constexpr Rect<T> intersection(const Rect<T>& other) const {
         const vec2<T> a_min = pos_;
@@ -262,6 +273,25 @@ class Rect {
         ret.size_.x = to.size_.x / size_.x;
         ret.size_.y = to.size_.y / size_.y;
         return ret;
+    }
+
+    [[nodiscard]] Rect<T> constraintTo(const Rect<T>& bounds) const {
+        Rect<T> r = *this;
+
+        if (r.left() < bounds.left()) {
+            r.setLeft(bounds.left());
+        }
+        if (r.right() > bounds.right()) {
+            r.setRight(bounds.right());
+        }
+        if (r.top() < bounds.top()) {
+            r.setTop(bounds.top());
+        }
+        if (r.bottom() > bounds.bottom()) {
+            r.setBottom(bounds.bottom());
+        }
+
+        return r;
     }
 
     /// Returns a rectangle with the same position and size, but with floating-point precision.

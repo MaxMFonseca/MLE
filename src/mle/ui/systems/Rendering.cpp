@@ -32,6 +32,23 @@ Rendering::Rendering(UI& ui) :
     } else {
         background_pipeline_ = &Renderer::i().pipelineCache().getPipeline("mle_ui_background");
     }
+    static bool border_pipeline_created = false;
+    if (!border_pipeline_created) {
+        border_pipeline_created = true;
+        Pipeline::CI pipeline_ci{};
+        pipeline_ci.vertex_shader = &Renderer::i().shaderCache().get("mle/ui/rect.vert");
+        pipeline_ci.fragment_shader = &Renderer::i().shaderCache().get("mle/ui/border.frag");
+        std::array color_attachment_formats = {Renderer::i().vk().getVkImageFormat(ImageFormat::COLOR)};
+        pipeline_ci.color_attachment_formats = color_attachment_formats;
+        auto blend_attachments = Pipeline::makeDefaultBlendAttachments<1>();
+        pipeline_ci.blend_attachments = blend_attachments;
+        pipeline_ci.topology = vk::PrimitiveTopology::eTriangleStrip;
+        pipeline_ci.cull_mode = vk::CullModeFlagBits::eNone;
+
+        border_pipeline_ = &Renderer::i().pipelineCache().setPipeline("mle_ui_border", pipeline_ci);
+    } else {
+        border_pipeline_ = &Renderer::i().pipelineCache().getPipeline("mle_ui_border");
+    }
 }
 
 // NOLINTNEXTLINE(misc-no-recursion) Cool recursive function
@@ -89,28 +106,72 @@ void Rendering::update() {
 
 // NOLINTNEXTLINE(misc-no-recursion) Cool recursion
 void Rendering::renderNode(const Rendering::Packet::Node& node, RenderingContext& ctx) {
-    Rectf bounds_f = node.bounds.parent_px.asF32();
-    Rectf viewport = ctx.current_viewport;
-    viewport.move(bounds_f.pos());
+    // TODO: use the incoming scissor
 
-    if (viewport.pos().x >= ctx.current_viewport.width() || viewport.pos().y >= ctx.current_viewport.height()) {
-        return;
+    Recti bounds = node.bounds.parent_px;
+
+    Rectf viewport = bounds.asF32();
+    viewport.move(ctx.parent_viewport.pos());
+
+    Recti scissor = bounds.constraintTo(ctx.current_scissor);
+
+    if (node.border.color.a > 0) {
+        Recti border_bounds = bounds;
+        MLE_VC(border_bounds);
+        border_bounds.expandTBLR(-node.border.t, node.border.b, -node.border.l, node.border.r);
+        MLE_VC(border_bounds);
+
+        Rectf border_viewport = border_bounds.asF32();
+        viewport.move(ctx.parent_viewport.pos());
+
+        Recti border_scissor = border_bounds.constraintTo(ctx.current_scissor);
+
+        ctx.rendering_thread.setViewport(border_viewport);
+        ctx.rendering_thread.setScissor(border_scissor);
+
+        ctx.rendering_thread.setPipeline(border_pipeline_);
+
+        struct {
+            vec4f color;
+            int round_lt = 0, round_rt = 0, round_lb = 0, round_rb = 0;
+            int border_t, border_b, border_l, border_r;
+            vec2i viewport_size_px;
+        } pc{};
+
+        pc.color = node.border.color;
+        pc.round_lt = node.border.round_lt;
+        pc.round_rt = node.border.round_rt;
+        pc.round_lb = node.border.round_lb;
+        pc.round_rb = node.border.round_rb;
+        pc.border_t = node.border.t;
+        pc.border_b = node.border.b;
+        pc.border_l = node.border.l;
+        pc.border_r = node.border.r;
+        pc.viewport_size_px = border_bounds.size();
+
+        ctx.rendering_thread.pushConstants(&pc);
+
+        ctx.rendering_thread.draw(4, 1, 0, 0);
     }
 
-    vec2f max_size = viewport.size() - bounds_f.pos();
-    viewport.setWidth(std::min(bounds_f.width(), max_size.x));
-    viewport.setHeight(std::min(bounds_f.height(), max_size.y));
-
-    ctx.rendering_thread.setViewportAndScissor(viewport);
+    ctx.rendering_thread.setViewport(viewport);
+    ctx.rendering_thread.setScissor(scissor);
 
     if (node.bg.a > 0.0F) {
         ctx.rendering_thread.setPipeline(background_pipeline_);
 
-        struct PushConstants {
+        struct {
             vec4f color;
-        };
+            int round_lt = 0, round_rt = 0, round_lb = 0, round_rb = 0;
+            vec2i size;
+        } pc{};
 
-        PushConstants pc{.color = node.bg};
+        pc.color = node.bg;
+        pc.size = node.bounds.parent_px.size();
+        pc.round_lt = node.border.round_lt;
+        pc.round_rt = node.border.round_rt;
+        pc.round_lb = node.border.round_lb;
+        pc.round_rb = node.border.round_rb;
 
         ctx.rendering_thread.pushConstants(&pc);
 
@@ -162,7 +223,9 @@ ImageRef Rendering::render() {
     root_c0.image->clear(root_ctx.rendering_thread.cmd());
 
     root_ctx.rendering_thread.setColorAttachment(root_c0, 0);
-    root_ctx.current_viewport = Rectf{0, 0, as<f32>(root_c0.image->getExtent().x), as<f32>(root_c0.image->getExtent().y)};
+    root_ctx.current_scissor.setPos(0, 0);
+    root_ctx.current_scissor.setSize(root_c0.image->getExtent());
+    root_ctx.parent_viewport = root_ctx.current_scissor;
     root_ctx.rendering_thread.beginRendering();
 
     renderNode(latest_data.root, root_ctx);

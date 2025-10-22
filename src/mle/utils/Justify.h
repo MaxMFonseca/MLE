@@ -75,6 +75,10 @@ struct Justify {
             }
         }
 
+        if (count == 0) {
+            return {0};
+        }
+
         bool is_last_line = (count == sizes.size());
         auto chosen_mode = is_last_line ? mode_last_line : mode;
         auto sub = sizes.subspan(0, count);

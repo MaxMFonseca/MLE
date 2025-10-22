@@ -19,7 +19,7 @@ class Container {
 
     [[nodiscard]] vec2u calculateChildrenBounds(const Entt& e, vec2u max_size) const;
 
-    void set(const Entt& e, const sol::table& table);
+    void set(const sol::table& table);
 
     void setType(Type type) { type_ = type; }
     [[nodiscard]] Type getType() const { return type_; }
@@ -31,8 +31,6 @@ class Container {
     [[nodiscard]] i32 getOffsetX() const { return offset_.x; }
     void setOffsetY(i32 y) { offset_.y = y; }
     [[nodiscard]] i32 getOffsetY() const { return offset_.y; }
-    void setChildrenBase(sol::table table) { children_base_ = std::move(table); }
-    [[nodiscard]] sol::table getChildrenBase() const { return children_base_; }
     void setListDirection(ListDirection direction) { list_direction_ = direction; }
     [[nodiscard]] ListDirection getListDirection() const { return list_direction_; }
     void setListJustify(ListJustify justify) { list_justify_ = justify; }
@@ -62,8 +60,6 @@ class Container {
     void setListWrapMode(std::string_view mode) { setListWrapMode(strToListWrapMode(mode)); }
 
     static void apply(const Entt& e, const sol::object& obj);
-    static void applyAddChild(const Entt& e, const sol::object& obj);
-    static void applyAddChildren(const Entt& e, const sol::object& obj);
 
     // NOLINTBEGIN(readability-identifier-naming, readability-avoid-const-params-in-decls) Not my declaration
     static void on_construct(entt::registry& registry, const entt::entity entt);
@@ -76,15 +72,10 @@ class Container {
     static ListCrossAlign strToListCrossAlign(std::string_view str);
     static ListWrapMode strToListWrapMode(std::string_view str);
 
-    void createChildren(const Entt& e, const sol::table& table);
-    void createChild(const Entt& e, const sol::table& table);
-    void applyChildInitialTable(const Entt& e, const sol::table& table, entt::entity child_e);
-
   private:
     Type type_ = Type::HYBRID;
     bool scrollable_ = true;
     vec2i offset_ = {0, 0};
-    sol::table children_base_;
 
     ListDirection list_direction_ = ListDirection::VERTICAL;
     ListJustify list_justify_ = ListJustify::START;
