@@ -6,6 +6,7 @@
 #include "mle/ui/systems/Rendering.h"
 #include "mle/utils/ECS.h"
 #include "mle/window/Events.h"
+#include "sol/forward.hpp"
 
 namespace mle {
 class UI {
@@ -24,8 +25,14 @@ class UI {
     [[nodiscard]] vec2u getRootSize() const { return root_size_; }
     [[nodiscard]] f32 getRootAspectRatio() const { return root_aspect_ratio_; }
 
+    [[nodiscard]] Expected<std::reference_wrapper<const sol::table>> getStyle(std::string_view style_name);
+    void addStyle(const std::string& style_name, const sol::table& style_table);
+
     void update();
     ImageRef render();
+
+  private:
+    void addRootStyles(const sol::object& obj);
 
   private:
     entt::registry registry_;
@@ -33,6 +40,8 @@ class UI {
     vec2u root_size_{0};
     f32 root_aspect_ratio_ = 1;
     Lua lua_;
+
+    std::map<std::string, sol::table> styles_;
 
     ui::system::Bounds bounds_system_{*this};
     ui::system::LuaElementOps lua_element_ops_{*this};

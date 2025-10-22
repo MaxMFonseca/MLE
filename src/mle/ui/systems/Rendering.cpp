@@ -117,9 +117,7 @@ void Rendering::renderNode(const Rendering::Packet::Node& node, RenderingContext
 
     if (node.border.color.a > 0) {
         Recti border_bounds = bounds;
-        MLE_VC(border_bounds);
         border_bounds.expandTBLR(-node.border.t, node.border.b, -node.border.l, node.border.r);
-        MLE_VC(border_bounds);
 
         Rectf border_viewport = border_bounds.asF32();
         viewport.move(ctx.parent_viewport.pos());

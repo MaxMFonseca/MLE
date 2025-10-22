@@ -547,10 +547,7 @@ void TargetAspectRatio::apply(const Entt& e, const sol::object& obj) {
     e.emplaceOrReplace<TargetAspectRatio>(obj);
 }
 
-// thickness can be a table or a single value
-// round can be a table or a single value
-// color is a Color
-TargetBorder::TargetBorder(const sol::object& obj) {
+void TargetBorder::set(const sol::object& obj) {
     auto table = lua::as<sol::table>(obj);
 
     if (const auto thickness_r = table["thickness"]; thickness_r.valid()) {
@@ -625,7 +622,7 @@ void TargetBorder::setColor(const sol::object& obj) {
 
 void TargetBorder::apply(const Entt& e, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
-    e.emplaceOrReplace<TargetBorder>(obj);
+    e.patchOrEmplace<TargetBorder>([&](TargetBorder& tb) { tb.set(obj); });
 }
 
 void TargetBorder::applyThickness(const Entt& e, const sol::object& obj) {

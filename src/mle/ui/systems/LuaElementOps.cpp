@@ -15,6 +15,25 @@ void LuaElementOps::applyTable(entt::entity e, const sol::table& table) {
         entt.emplaceOrReplace<comp::ChildrenBase>(lua::as<sol::table>(children_base_r));
     }
 
+    if (const auto styles_r = table["style"]; lua::valid<sol::table>(styles_r)) {
+        Entt entt{ui_, e};
+        for (const auto& [_, value_r] : lua::as<sol::table>(styles_r)) {
+            if (value_r.is<std::string>()) {
+                auto style_r = ui_.getStyle(lua::as<std::string>(value_r));
+                if (!style_r) {
+                    MLE_E("Style '{}' not found.", lua::as<std::string>(value_r));
+                }
+                entt.applyTable(style_r->get());
+                continue;
+            }
+            if (value_r.is<sol::table>()) {
+                entt.applyTable(lua::as<sol::table>(value_r));
+                continue;
+            }
+            MLE_E("Invalid style entry in styles table for entity {}. Skipping.", e);
+        }
+    }
+
     for (const auto& [key_r, value_r] : table) {
         if (!key_r.is<std::string>()) {
             MLE_E("Non-string key in element table! Skipping.");
@@ -32,7 +51,7 @@ void LuaElementOps::applyObj(entt::entity e, const std::string& key, const sol::
     auto it = key_handlers_.find(key);
     if (it != key_handlers_.end()) {
         it->second(Entt(ui_, e), obj);
-    } else if (!matchAny(key, "name", "pos")) {
+    } else if (!matchAny(key, "name", "pos", "styles", "style")) {
         MLE_E("No handler for element key '{}'", key);
     }
 }

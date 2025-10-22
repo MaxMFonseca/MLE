@@ -8,10 +8,12 @@
 #include "mle/ui/components/Container.h"
 
 namespace mle::ui::system {
+using namespace entt::literals;  // NOLINT
+
 Bounds::Bounds(UI& ui) :
     ui_(ui),
-    external_bounds_changed_storage_(ui.getRegistry().storage<entt::reactive>()),
-    needs_internal_update_storage_(ui.getRegistry().storage<entt::reactive>()) {
+    external_bounds_changed_storage_(ui.getRegistry().storage<entt::reactive>("external_bounds_changed_storage"_hs)),
+    needs_internal_update_storage_(ui.getRegistry().storage<entt::reactive>("needs_internal_update_storage"_hs)) {
     MLE_I("Creating Bounds system");
 
     external_bounds_changed_storage_.on_construct<comp::RequestExternalBoundsUpdateFlag>()

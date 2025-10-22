@@ -1,6 +1,7 @@
 #include "UI.h"
 
 #include "Entt.h"
+#include "mle/lua/Utils.h"
 #include "mle/ui/components/Bounds.h"
 #include "mle/window/Window.h"
 
@@ -21,6 +22,8 @@ void UI::setRoot(const std::string& element_name) {
 
     auto root_table = getTableFor(element_name);
 
+    addRootStyles(root_table["styles"]);
+
     registry_.clear();
 
     root_ = registry_.create();
@@ -33,6 +36,26 @@ void UI::setRoot(const std::string& element_name) {
 
     resizeRoot(Window::i().getSize());
 };
+
+void UI::addStyle(const std::string& style_name, const sol::table& style_table) {
+    MLE_T("Adding style '{}': {}", style_name, style_table);
+    styles_.emplace(style_name, style_table);
+}
+
+void UI::addRootStyles(const sol::object& obj) {
+    if (!lua::valid<sol::table>(obj)) {
+        return;
+    }
+
+    auto table = lua::as<sol::table>(obj);
+    for (const auto& [key_r, value_r] : table) {
+        if (!key_r.is<std::string>() || !lua::valid<sol::table>(value_r)) {
+            MLE_E("Invalid style entry in root styles table, skipping.");
+            continue;
+        }
+        addStyle(lua::as<std::string>(key_r), lua::as<sol::table>(value_r));
+    }
+}
 
 void UI::resizeRoot(const vec2u& size) {
     ui::Entt e(*this, root_);
@@ -56,4 +79,10 @@ ImageRef UI::render() {
     return rendering_system_.render();
 };
 
+[[nodiscard]] Expected<std::reference_wrapper<const sol::table>> UI::getStyle(std::string_view style_name) {
+    if (auto it = styles_.find(std::string{style_name}); it != styles_.end()) {
+        return std::cref(it->second);
+    }
+    return std::unexpected(Result::NOT_FOUND);
+}
 }  // namespace mle

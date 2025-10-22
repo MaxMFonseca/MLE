@@ -137,7 +137,8 @@ struct TargetBorder {
     Color color = Color::ZERO;
 
     TargetBorder() = default;
-    explicit TargetBorder(const sol::object& obj);
+
+    void set(const sol::object& obj);
 
     void setColor(const sol::object& obj);
     void setThickness(const sol::object& obj);
