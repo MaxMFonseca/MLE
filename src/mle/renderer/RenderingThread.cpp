@@ -190,12 +190,12 @@ void RenderingThread::pushConstants(const void* push_constants) const {
     }
 };
 
-void RenderingThread::pushDescriptor(std::span<const vk::WriteDescriptorSet> writes) const {
+void RenderingThread::pushDescriptor(u32 set, std::span<const vk::WriteDescriptorSet> writes) const {
     MLE_ASSERT_LOG(pipeline_, "Pipeline must be set before pushing descriptor.");
     MLE_ASSERT_LOG(pipeline_->isCompute() || in_rendering_, "Push descriptor must be done inside rendering.");
 
-    cmd_().pushDescriptorSetKHR(pipeline_->isCompute() ? vk::PipelineBindPoint::eCompute : vk::PipelineBindPoint::eGraphics, pipeline_->getPipelineLayout(), 0,
-                                writes);
+    cmd_().pushDescriptorSetKHR(pipeline_->isCompute() ? vk::PipelineBindPoint::eCompute : vk::PipelineBindPoint::eGraphics, pipeline_->getPipelineLayout(),
+                                set, writes);
 }
 
 void RenderingThread::beginRendering(Recti render_area) {

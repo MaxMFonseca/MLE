@@ -31,8 +31,8 @@ void Pipeline::createPipelineLayout(const CI& ci) {
 
     std::vector<std::pair<u8, vk::DescriptorSetLayout>> set_layouts;
 
-    auto owning_sets = ci.compute_shader ? ci.compute_shader->getDescriptorSets() : ci.vertex_shader->mergeDescriptorSets(*ci.fragment_shader);
-    for (auto& i : owning_sets) {
+    ds_infos_ = ci.compute_shader ? ci.compute_shader->getDescriptorSets() : ci.vertex_shader->mergeDescriptorSets(*ci.fragment_shader);
+    for (auto& i : ds_infos_) {
         if (i.bindings.empty()) {
             continue;
         }
@@ -43,7 +43,7 @@ void Pipeline::createPipelineLayout(const CI& ci) {
 
         vk::DescriptorSetLayoutCreateInfo dsl_ci;
         dsl_ci.setBindings(i.bindings);
-        if (i.set == 0) {
+        if (ci.push_descriptor == i.set) {
             dsl_ci.setFlags(vk::DescriptorSetLayoutCreateFlagBits::ePushDescriptorKHR);
         }
         owned_dsls_.emplace_back(unwrap(Renderer::i().vkDevice().createDescriptorSetLayout(dsl_ci)));

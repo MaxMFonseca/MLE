@@ -232,7 +232,7 @@ void finishChildBounds(const Entt& centt, auto& cbcd, PaddingPx padding_px) {
     comp::Bounds new_bounds;
     new_bounds.parent_px.setPos(cbcd.new_position + origin_lt);
     new_bounds.parent_px.setSize(cbcd.new_size);
-    MLE_VC(new_bounds);
+    // MLE_VC(new_bounds);
 
     centt.emplaceOrReplace<comp::Bounds>(new_bounds);
 
@@ -272,7 +272,7 @@ void finishChildBounds(const Entt& centt, auto& cbcd, PaddingPx padding_px) {
         new_border.round_lb = roundc(cbcd.target.border.round_lb);
         new_border.round_rb = roundc(cbcd.target.border.round_rb);
 
-        MLE_VC(new_border);
+        // MLE_VC(new_border);
         centt.emplaceOrReplace<comp::Border>(new_border);
     }
 };
@@ -607,13 +607,11 @@ struct ListCalculator {
 
     void finishFlexCross(ChildSizeCalcData& cld) const {
         using CalcState = ChildSizeCalcData::CalcState;
-        MLE_VC("Here");
         f32 flex_acc_cross = cld.flex.size.cross + cld.flex.margin.cross_a + cld.flex.margin.cross_b + cld.flex.border.cross_a + cld.flex.border.cross_b;
         if (flex_acc_cross > 0.0F) {
             int px_cross = child_max_size_cross - cld.size_cross - cld.margin.cross_a - cld.margin.cross_b - cld.border.cross_a - cld.border.cross_b;
             px_cross = std::max(0, px_cross);
             f32 flex_share_size = as<f32>(px_cross) / std::max(1.F, flex_acc_cross);
-            MLE_VC("Here1");
             if (cld.state.cross == CalcState::FLEX) {
                 cld.size_cross = as<int>(cld.flex.size.cross * flex_share_size);
                 cld.state.cross = CalcState::DONE;
@@ -792,7 +790,6 @@ struct ListCalculator {
 
             if (csd.state.main == ChildSizeCalcData::CalcState::AR) {
                 if (csd.state.cross == ChildSizeCalcData::CalcState::DONE) {
-                    MLE_VC("HERE");
                     if (main_is_x) {
                         csd.size_main = as<int>(as<f32>(csd.size_cross) * cbcd.target.aspect_ratio);
                     } else {

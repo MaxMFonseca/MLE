@@ -109,7 +109,9 @@ class Image final {
 
     [[nodiscard]] int getChannelCount() const;
 
-    static RawData readFile(const std::string& path, int desired_channels = 0);
+    [[nodiscard]] vk::DescriptorImageInfo getDescriptorInfo(vk::Sampler sampler = nullptr, vk::ImageView view = nullptr) const;
+
+    static Expected<RawData> readFile(const std::string& path, int desired_channels = 0);
 
     static ImageHnd createHnd(const CI& ci);
 

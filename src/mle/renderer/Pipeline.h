@@ -2,6 +2,8 @@
 
 #include "Shader.h"
 #include "Types.h"
+#include "mle/core/Assert.h"
+#include "vulkan/vulkan.hpp"
 
 namespace mle {
 class Pipeline final {
@@ -20,6 +22,7 @@ class Pipeline final {
         bool depth = false;
         bool depth_write = true;
         bool depth_bias = false;
+        u8 push_descriptor = max<u8>();
 
         std::vector<std::pair<u8, vk::DescriptorSetLayout>> external_descriptor_set_layouts;
     };
@@ -60,6 +63,64 @@ class Pipeline final {
     }
 
   private:
+    template <typename Elem>
+    void setPayload(vk::WriteDescriptorSet& w, const Elem* ptr) const {
+        if constexpr (std::is_same_v<Elem, const vk::DescriptorBufferInfo>) {
+            w.pBufferInfo = ptr;
+        } else if constexpr (std::is_same_v<Elem, const vk::DescriptorImageInfo>) {
+            w.pImageInfo = ptr;
+        } else if constexpr (std::is_same_v<Elem, const vk::BufferView>) {
+            w.pTexelBufferView = ptr;
+        } else {
+            MLE_UNREACHABLE_LOG("Unsupported descriptor info type for WriteDescriptorSet. {}", __PRETTY_FUNCTION__);
+        }
+    }
+
+  public:
+    template <usize Size, typename... InfosPtr>
+    [[nodiscard]] std::array<vk::WriteDescriptorSet, Size> makeWrites(usize set, vk::DescriptorSet dst_set, const InfosPtr*... infos_ptrs) const {
+        static_assert(sizeof...(InfosPtr) == Size, "One pointer argument per binding is required.");
+
+        using Tup = std::tuple<const InfosPtr*...>;
+        const Tup tup{infos_ptrs...};
+
+        const auto it = std::ranges::find_if(ds_infos_, [set](const auto& ds) { return ds.set == set; });
+        if (it == ds_infos_.end()) {
+            MLE_E("Descriptor set {} not found in pipeline descriptor sets.", set);
+            return {};
+        }
+        const Shader::DescriptorSet& dsi = *it;
+        MLE_ASSERT_LOG(dsi.bindings.size() >= Size, "Requested {} writes but set {} has only {} bindings.", Size, set, dsi.bindings.size());
+
+        std::array<vk::WriteDescriptorSet, Size> writes{};
+
+        auto build_at = [&](auto Iconst) {
+            constexpr usize I = decltype(Iconst)::value;
+
+            const auto& b = dsi.bindings[I];
+
+            vk::WriteDescriptorSet w{};
+            w.dstSet = dst_set;
+            w.dstBinding = b.binding;
+            w.dstArrayElement = 0;
+            w.descriptorType = b.descriptorType;
+            w.descriptorCount = b.descriptorCount;
+
+            using Ptr = std::tuple_element_t<I, Tup>;
+            using Elem = std::remove_pointer_t<std::remove_cv_t<Ptr>>;
+            const Ptr info_ptr = std::get<I>(tup);
+
+            setPayload<Elem>(w, info_ptr);
+
+            writes[I] = w;
+        };
+
+        [&]<std::size_t... Is>(std::index_sequence<Is...>) { (build_at(std::integral_constant<std::size_t, Is>{}), ...); }(std::make_index_sequence<Size>{});
+
+        return writes;
+    }
+
+  private:
     friend PipelineCache;
     Pipeline() = default;
     PipelineHnd static createHnd(const CI& ci);
@@ -79,6 +140,7 @@ class Pipeline final {
     u8 first_instance_binding_ = max<u8>();             ///< First instance attribute binding location.
     bool compute_ = false;                              ///< Whether this is a compute pipeline.
 
+    std::vector<Shader::DescriptorSet> ds_infos_;      ///< Descriptor set infos for this pipeline.
     std::vector<vk::DescriptorSetLayout> owned_dsls_;  ///< Descriptor set layouts owned by this pipeline.
 };
 }  // namespace mle

@@ -46,7 +46,7 @@ class RenderingThread {
     void bindDescriptorSet(vk::DescriptorSet set, u32 binding) const;
 
     void pushConstants(const void* push_constants) const;
-    void pushDescriptor(std::span<const vk::WriteDescriptorSet> writes) const;
+    void pushDescriptor(u32 set, std::span<const vk::WriteDescriptorSet> writes) const;
 
     void beginRendering(Recti render_area = {});
     void endRendering();

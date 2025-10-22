@@ -6,6 +6,7 @@
 #include "ShaderCache.h"
 #include "SyncManager.h"
 #include "VkCtx.h"
+#include "mle/renderer/TextureCache.h"
 #include "mle/utils/Utils.h"
 
 namespace mle {
@@ -26,6 +27,7 @@ class Renderer {
     auto& shaderCache() { return shader_cache_; }
     auto& pipelineCache() { return pipeline_cache_; }
     auto& frameRenderer() { return frame_renderer_; }
+    auto& textureCache() { return texture_cache_; }
 
     template <class T>
     void destroy(T o) {
@@ -39,5 +41,6 @@ class Renderer {
     ShaderCache shader_cache_;
     PipelineCache pipeline_cache_;
     FrameRenderer frame_renderer_;
+    TextureCache texture_cache_{};
 };
 }  // namespace mle

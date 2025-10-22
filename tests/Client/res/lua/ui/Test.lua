@@ -33,6 +33,10 @@ return {
 	},
 	c = {
 		{
+			size = "80px",
+			sprite = { "mle/ui/mle.png" },
+		},
+		{
 			size = { "30px", "35px" },
 			background = "RED",
 		},

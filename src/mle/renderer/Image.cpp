@@ -133,6 +133,7 @@ vk::ImageView Image::createView(const ViewCI& ci) {
     return vkhnd;
 }
 
+// TODO: SHOULD I DO THIS AUTO?
 void Image::checkQueueOwnership(const CommandBuffer& cmd) {
     if (queue_data_idx_ == NO_QUEUE) {
         queue_data_idx_ = cmd.queueDataIdx();
@@ -354,9 +355,14 @@ BufferHnd Image::copyRaw(CommandBuffer& cmd, const RawData& data, vec2i offset) 
     return staging;
 }
 
-Image::RawData Image::readFile(const std::string& path, int desired_channels) {
+Expected<Image::RawData> Image::readFile(const std::string& path, int desired_channels) {
     MLE_ASSERT_LOG(!path.empty(), "Image path is empty");
-    MLE_ASSERT_LOG(std::filesystem::exists(path), "Image file does not exist: {}", path);
+
+    if (std::filesystem::exists(path) == false) {
+        MLE_E("File does not exist: {}", path);
+        return std::unexpected(Result::NOT_FOUND);
+    }
+
     int width = 0, height = 0, channels = 0;
     stbi_uc* pixels = stbi_load(path.c_str(), &width, &height, &channels, desired_channels);
     MLE_ASSERT_LOG(pixels && width > 0 && height > 0 && channels > 0, "Problem loading image: {}, pixels: {}, w: {}, h: {}, c: {}", path, as<void*>(pixels),
@@ -706,5 +712,13 @@ constexpr u32 Image::getFormatChannelCount(vk::Format format) noexcept {
         default:
             MLE_UNREACHABLE_LOG("Unsupported format: {}", to_string(format));
     }
+}
+
+[[nodiscard]] vk::DescriptorImageInfo Image::getDescriptorInfo(vk::Sampler sampler, vk::ImageView view) const {
+    vk::DescriptorImageInfo info{};
+    info.imageView = view ? view : getDefaultView();
+    info.sampler = sampler ? sampler : Renderer::i().textureCache().getSampler();
+    info.imageLayout = layout_;
+    return info;
 }
 }  // namespace mle

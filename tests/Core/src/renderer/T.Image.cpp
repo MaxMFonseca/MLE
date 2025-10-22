@@ -181,10 +181,18 @@ void loadAndCompareTest120Aux(Image::RawData& loaded) {
 
 TEST(Image, LoadAndCompare120) {
     auto loaded = Image::readFile("res/textures/i/test120.png");
-    loadAndCompareTest120Aux(loaded);
+    EXPECT_TRUE(loaded.has_value());
+    if (!loaded.has_value()) {
+        return;
+    }
+    loadAndCompareTest120Aux(loaded.value());
 }
 
 TEST(Image, LoadAndCompare120c3c) {
     auto loaded = Image::readFile("res/textures/i/test120c3c.png", 4);
-    loadAndCompareTest120Aux(loaded);
+    EXPECT_TRUE(loaded.has_value());
+    if (!loaded.has_value()) {
+        return;
+    }
+    loadAndCompareTest120Aux(loaded.value());
 }

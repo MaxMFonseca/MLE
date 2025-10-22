@@ -176,6 +176,11 @@ void Rendering::renderNode(const Rendering::Packet::Node& node, RenderingContext
         ctx.rendering_thread.draw(4, 1, 0, 0);
     }
 
+    if (node.renderable) {
+        RenderableI::Ctx renderable_ctx{.thread = ctx.rendering_thread, .size = bounds.size()};
+        node.renderable->render(renderable_ctx);
+    }
+
     for (const auto& child : node.children) {
         renderNode(child, ctx);
     }
