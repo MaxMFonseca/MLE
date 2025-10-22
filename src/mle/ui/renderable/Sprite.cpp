@@ -103,7 +103,7 @@ void Sprite::render(Ctx& ctx) {
     thread.setPipeline(pipeline);
 
     vk::DescriptorImageInfo b0_0_di = image->getDescriptorInfo();
-    auto push_writes = pipeline->makeWrites<1>(0, nullptr, &b0_0_di);
+    auto push_writes = pipeline->makeWrites(0, nullptr, &b0_0_di);
 
     thread.pushDescriptor(0, push_writes);
 

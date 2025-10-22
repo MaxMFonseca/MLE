@@ -77,9 +77,10 @@ class Pipeline final {
     }
 
   public:
-    template <usize Size, typename... InfosPtr>
-    [[nodiscard]] std::array<vk::WriteDescriptorSet, Size> makeWrites(usize set, vk::DescriptorSet dst_set, const InfosPtr*... infos_ptrs) const {
-        static_assert(sizeof...(InfosPtr) == Size, "One pointer argument per binding is required.");
+    template <typename... InfosPtr>
+    [[nodiscard]] auto makeWrites(usize set, vk::DescriptorSet dst_set, const InfosPtr*... infos_ptrs) const {
+        constexpr usize SIZE = sizeof...(InfosPtr);
+        using Ret = std::array<vk::WriteDescriptorSet, SIZE>;
 
         using Tup = std::tuple<const InfosPtr*...>;
         const Tup tup{infos_ptrs...};
@@ -87,12 +88,12 @@ class Pipeline final {
         const auto it = std::ranges::find_if(ds_infos_, [set](const auto& ds) { return ds.set == set; });
         if (it == ds_infos_.end()) {
             MLE_E("Descriptor set {} not found in pipeline descriptor sets.", set);
-            return {};
+            return Ret{};
         }
         const Shader::DescriptorSet& dsi = *it;
-        MLE_ASSERT_LOG(dsi.bindings.size() >= Size, "Requested {} writes but set {} has only {} bindings.", Size, set, dsi.bindings.size());
+        MLE_ASSERT_LOG(dsi.bindings.size() >= SIZE, "Requested {} writes but set {} has only {} bindings.", SIZE, set, dsi.bindings.size());
 
-        std::array<vk::WriteDescriptorSet, Size> writes{};
+        std::array<vk::WriteDescriptorSet, SIZE> writes{};
 
         auto build_at = [&](auto Iconst) {
             constexpr usize I = decltype(Iconst)::value;
@@ -115,7 +116,7 @@ class Pipeline final {
             writes[I] = w;
         };
 
-        [&]<std::size_t... Is>(std::index_sequence<Is...>) { (build_at(std::integral_constant<std::size_t, Is>{}), ...); }(std::make_index_sequence<Size>{});
+        [&]<std::size_t... Is>(std::index_sequence<Is...>) { (build_at(std::integral_constant<std::size_t, Is>{}), ...); }(std::make_index_sequence<SIZE>{});
 
         return writes;
     }
