@@ -165,6 +165,7 @@ struct Justify {
 };
 
 using JustifyInt = Justify<int>;
+using JustifyF32 = Justify<f32>;
 }  // namespace mle
 
 namespace fmt {
