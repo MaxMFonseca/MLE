@@ -11,7 +11,7 @@ struct Sprite : public RenderableI {
     void setTexture(const std::string& src);
 
     void set(const sol::object& obj) override;
-    [[nodiscard]] vec2u calculateBounds([[maybe_unused]] vec2u max_size) const override;
+    [[nodiscard]] vec2u calculateBounds(const Entt& e, [[maybe_unused]] vec2u max_size) override;
 
     [[nodiscard]] entt::id_type getType() const override { return type(); }
     static entt::id_type type() { return entt::hashed_string{"Sprite"}; }

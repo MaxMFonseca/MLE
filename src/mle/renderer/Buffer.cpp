@@ -190,7 +190,7 @@ BufferHnd Buffer::writeStaged(CommandBuffer& cmd, const void* data, usize size, 
     return staging_buffer;
 }
 
-vk::DescriptorBufferInfo Buffer::makeDescriptorInfo(CommandBuffer& cmd, usize size, usize offset) {
+vk::DescriptorBufferInfo Buffer::makeDescriptorInfo(const CommandBuffer& cmd, usize size, usize offset) {
     MLE_ASSERT(queue_data_idx_ != INVALID_QUEUE);
 
     if (size == max<usize>()) {

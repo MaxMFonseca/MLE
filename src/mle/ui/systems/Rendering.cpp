@@ -227,7 +227,7 @@ ImageRef Rendering::render() {
 
     renderNode(latest_data.root, root_ctx);
 
-    Renderer::i().frameRenderer().cmd().executeCommands(root_ctx.rendering_thread.end());
+    Renderer::i().frameRenderer().cmd()().executeCommands(root_ctx.rendering_thread.end());
 
     last_rendered_image_ = root_c0.image;
     return last_rendered_image_;

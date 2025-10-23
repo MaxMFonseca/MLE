@@ -11,7 +11,7 @@ struct Renderable {
     std::unique_ptr<RenderableI> impl;
 
     [[nodiscard]] std::unique_ptr<RenderableI> clone() const { return impl->clone(); }
-    [[nodiscard]] vec2u calculateBounds(vec2u max_size) const { return impl->calculateBounds(max_size); }
+    [[nodiscard]] vec2u calculateBounds(const Entt& e, vec2u max_size) const { return impl->calculateBounds(e, max_size); }
     [[nodiscard]] entt::id_type getType() const { return impl->getType(); }
 
     explicit Renderable(std::unique_ptr<RenderableI> impl_) :

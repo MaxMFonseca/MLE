@@ -124,7 +124,7 @@ void Sprite::render(Ctx& ctx) {
     thread.draw(4, 1, 0, 0);
 };
 
-[[nodiscard]] vec2u Sprite::calculateBounds([[maybe_unused]] vec2u max_size) const {
+[[nodiscard]] vec2u Sprite::calculateBounds([[maybe_unused]] const Entt& e, vec2u max_size) {
     vec2u image_extent{};
 
     if (image) {

@@ -1412,6 +1412,17 @@ vec2u accumulateChildrenExtent(const std::map<entt::entity, ChildBoundsCalcData>
         } break;
     }
 
+    for (auto c : children) {
+        Entt centt{e.ui(), c};
+        auto& cbcd = cbcds.at(c);
+        if (cbcd.size_provider) {
+            MLE_C("Using size provider for child {}", centt.fullName());
+            MLE_VC(cbcd.new_size);
+            auto ret = cbcd.size_provider->call(centt, cbcd.new_size);
+            MLE_VC(ret);
+        }
+    }
+
     return accumulateChildrenExtent(cbcds, padding_result);
 }
 }  // namespace mle::ui::comp

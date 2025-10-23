@@ -23,7 +23,7 @@ struct RenderableI {
 
     virtual void set(const sol::object& obj) = 0;
     [[nodiscard]] virtual std::unique_ptr<RenderableI> clone() const = 0;
-    [[nodiscard]] virtual vec2u calculateBounds(vec2u max_size) const = 0;
+    [[nodiscard]] virtual vec2u calculateBounds(const Entt& e, vec2u max_size) = 0;
     [[nodiscard]] virtual entt::id_type getType() const { return entt::hashed_string{"RenderableI"}; }
 
     virtual void render(Ctx& ctx) = 0;

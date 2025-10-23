@@ -374,8 +374,8 @@ Result FrameRenderer::beginFrame() {
 
     current_primary_cmd_ = f.cmd_pool.getPrimary();
 
-    cmd().resetQueryPool(f.query_pool, 0, 2);
-    cmd().writeTimestamp2(vk::PipelineStageFlagBits2::eBottomOfPipe, f.query_pool, 0);
+    cmd()().resetQueryPool(f.query_pool, 0, 2);
+    cmd()().writeTimestamp2(vk::PipelineStageFlagBits2::eBottomOfPipe, f.query_pool, 0);
 
     return Result::OK;
 }

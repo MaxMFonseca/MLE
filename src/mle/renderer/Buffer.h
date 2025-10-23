@@ -30,11 +30,11 @@ class Buffer {
     void* map();
     void unmap();
 
-    void write(const void* data, usize size, usize offset = 0);
+    void write(const void* data, usize size = max<u64>(), usize offset = 0);
     void copy(CommandBuffer& cmd, BufferRef src, usize size = max<usize>(), usize src_offset = 0, usize dst_offset = 0);
     [[nodiscard]] BufferHnd writeStaged(CommandBuffer& cmd, const void* data, usize size, usize src_offset = 0, usize dst_offset = 0);
 
-    [[nodiscard]] vk::DescriptorBufferInfo makeDescriptorInfo(CommandBuffer& cmd, usize size = max<usize>(), usize offset = 0);
+    [[nodiscard]] vk::DescriptorBufferInfo makeDescriptorInfo(const CommandBuffer& cmd, usize size = max<usize>(), usize offset = 0);
 
     [[nodiscard]] vk::Buffer get() { return o_; }
     [[nodiscard]] vk::BufferUsageFlags getUsage() const { return usage_; }

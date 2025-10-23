@@ -11,9 +11,11 @@ void Renderer::init() {
     shader_cache_.init();
     pipeline_cache_.init();
     texture_cache_.init();
+    font_cache_.init();
 }
 
 void Renderer::shutdown() {
+    font_cache_.shutdown();
     texture_cache_.shutdown();
     pipeline_cache_.shutdown();
     shader_cache_.shutdown();

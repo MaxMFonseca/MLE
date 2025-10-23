@@ -9,6 +9,10 @@
 namespace mle {
 class TextureCache {
   public:
+    MLE_NO_COPY_MOVE(TextureCache);
+    TextureCache() = default;
+    ~TextureCache() = default;
+
     void init();
     void shutdown();
 

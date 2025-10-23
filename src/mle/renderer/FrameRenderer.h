@@ -44,9 +44,9 @@ class FrameRenderer final {
     [[nodiscard]] auto getCurrentFrameId() const { return current_frame_; }
     [[nodiscard]] auto getDefaultClearColor() const { return default_clear_color_; }
 
-    [[nodiscard]] vk::CommandBuffer cmd() const {
+    [[nodiscard]] CommandBuffer& cmd() {
         assertInFrame();
-        return current_primary_cmd_();
+        return current_primary_cmd_;
     }
     CommandBuffer getSecondaryCommandBuffer();
     void releaseSecondaryCommandBuffer(CommandBuffer&& cmd);

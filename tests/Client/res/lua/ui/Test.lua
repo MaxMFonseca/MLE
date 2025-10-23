@@ -1,5 +1,5 @@
 return {
-	background = "WHITE",
+	background = "RED",
 	padding = "10px",
 
 	styles = {
@@ -20,7 +20,7 @@ return {
 		type = "hybrid",
 		dir = "v",
 		wrap = "y",
-		cross_max_size = 0.2,
+		-- cross_max_size = 0.2,
 		cross_align = "c",
 		main_min_gap = "10px",
 		cross_gap = 0.1,
@@ -35,6 +35,11 @@ return {
 		{
 			-- size = "80px",
 			sprite = { "mle/ui/mle.png", color = "RED" },
+		},
+		{
+			text = "Hello! World",
+			size_y = "100px",
+			size_x = "fit",
 		},
 		{
 			size = { "30px", "35px" },

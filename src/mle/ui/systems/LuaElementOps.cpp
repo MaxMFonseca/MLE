@@ -6,6 +6,7 @@
 #include "mle/ui/components/Base.h"
 #include "mle/ui/components/Bounds.h"
 #include "mle/ui/renderable/Sprite.h"
+#include "mle/ui/renderable/Text.h"
 #include "mle/utils/String.h"
 
 namespace mle::ui::system {
@@ -116,6 +117,7 @@ LuaElementOps::LuaElementOps(UI& ui) :
     addKeyHandler("background", comp::Background::apply);
 
     addKeyHandler("sprite", ui::renderable::Sprite::apply);
+    addKeyHandler("text", ui::renderable::Text::apply);
 }
 // addLuaKeyHandler("blur", blur);
 // addLuaKeyHandler("root_image", rootImage);

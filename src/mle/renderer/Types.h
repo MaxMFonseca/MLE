@@ -41,6 +41,14 @@ class Pipeline;
 using PipelineHnd = std::unique_ptr<Pipeline>;
 using PipelineRef = Pipeline*;
 
+class TextureAtlas;
+using TextureAtlasHnd = std::unique_ptr<TextureAtlas>;
+using TextureAtlasRef = TextureAtlas*;
+
+class Font;
+using FontHnd = std::unique_ptr<Font>;
+using FontRef = Font*;
+
 class PipelineCache;
 
 enum class GCmdType : u8 { GRAPHICS = 0, COMPUTE = 1, TRANSFER = 2, G = GRAPHICS, C = COMPUTE, T = TRANSFER };

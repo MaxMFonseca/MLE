@@ -92,7 +92,8 @@ class Image final {
     void ownershipReleaseOTSAcquireOTSWait(GCmdType type);
 
     [[nodiscard]] vk::Image get() const { return o_; }
-    [[nodiscard]] vk::Format getFormat() const { return vk_format_; }
+    [[nodiscard]] Format getFormat() const { return format_; }
+    [[nodiscard]] vk::Format getVkFormat() const { return vk_format_; }
     [[nodiscard]] vk::ImageUsageFlags getUsage() const { return usage_; }
     [[nodiscard]] vec2u getExtent() const { return extent_; }
     [[nodiscard]] State getCurrentState() const { return state_; }
