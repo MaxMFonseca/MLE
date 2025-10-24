@@ -12,7 +12,7 @@ class InitLayer : public mle::client::Layer {
     ~InitLayer() override = default;
 
     void init() override;
-    void shutdown() override {};
+    void shutdown() override;
 
     void update() override;
     ImageRef render([[maybe_unused]] f64 dt) override;

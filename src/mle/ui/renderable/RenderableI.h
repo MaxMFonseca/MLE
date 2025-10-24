@@ -3,6 +3,7 @@
 #include "../Types.h"
 #include "mle/math/Types.h"
 #include "mle/renderer/RenderingThread.h"
+#include "mle/utils/AtmoicTripleBuffer.h"
 #include "mle/utils/ECS.h"
 
 namespace mle::ui {
@@ -12,32 +13,21 @@ struct RenderablePacketI {
 
     MLE_NO_COPY_MOVE(RenderablePacketI);
 
-    struct Ctx {
-        RenderingThread& thread;
-        vec2i viewport_size;
-        vec4i rounding_corners_radius_px;
-    };
-
     usize version = max<usize>();
 
-    virtual void render(Ctx& ctx) = 0;
+    virtual void render(CompRenderingCtx& ctx) = 0;
 };
 
 struct RenderableI {
     RenderableI() = default;
     virtual ~RenderableI() = default;
 
+    MLE_NO_COPY_MOVE(RenderableI);
+
     usize version = 0;
     void versionUp() { ++version; }
 
-    RenderableI(const RenderableI&) = default;
-    RenderableI& operator=(const RenderableI&) = default;
-    RenderableI(RenderableI&&) = default;
-    RenderableI& operator=(RenderableI&&) = default;
-
     virtual void set(const sol::object& obj) = 0;
-
-    [[nodiscard]] virtual std::unique_ptr<RenderablePacketI> createPacket() const = 0;
 
     void updatePacket(RenderablePacketI* packet) {
         if (packet && packet->version != version) {

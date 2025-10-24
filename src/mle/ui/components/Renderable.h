@@ -10,8 +10,13 @@ namespace mle::ui::comp {
 struct Renderable {
     std::unique_ptr<RenderableI> impl;
 
-    [[nodiscard]] std::unique_ptr<RenderablePacketI> createPacket() const { return impl->createPacket(); }
-    void updatePacket(RenderablePacketI* packet) const { impl->updatePacket(packet); }
+    std::array<std::shared_ptr<RenderablePacketI>, 3> packet_buffers_;
+
+    [[nodiscard]] auto updatePacket(usize idx) const {
+        std::shared_ptr<RenderablePacketI> packet = packet_buffers_.at(idx);
+        impl->updatePacket(packet.get());
+        return packet;
+    }
     [[nodiscard]] vec2u calculateBounds(const Entt& e, vec2u max_size) const { return impl->calculateBounds(e, max_size); }
     [[nodiscard]] entt::id_type getType() const { return impl->getType(); }
 

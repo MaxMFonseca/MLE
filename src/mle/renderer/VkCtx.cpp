@@ -420,9 +420,11 @@ void VkCtx::pickImageFormats() {
     static constexpr vk::FormatFeatureFlags2 NORMALS_REQUIRED_FEATURES = vk::FormatFeatureFlagBits2::eColorAttachment |
                                                                          vk::FormatFeatureFlagBits2::eSampledImage | vk::FormatFeatureFlagBits2::eTransferSrc |
                                                                          vk::FormatFeatureFlagBits2::eTransferDst;
-    static constexpr vk::FormatFeatureFlags2 COLOR_REQUIRED_FEATURES =
-        vk::FormatFeatureFlagBits2::eColorAttachment | vk::FormatFeatureFlagBits2::eSampledImage | vk::FormatFeatureFlagBits2::eTransferSrc |
-        vk::FormatFeatureFlagBits2::eTransferDst | vk::FormatFeatureFlagBits2::eBlitSrc | vk::FormatFeatureFlagBits2::eBlitDst;
+    static constexpr vk::FormatFeatureFlags2 COLOR_REQUIRED_FEATURES = vk::FormatFeatureFlagBits2::eColorAttachment |
+                                                                       vk::FormatFeatureFlagBits2::eSampledImage | vk::FormatFeatureFlagBits2::eTransferSrc |
+                                                                       vk::FormatFeatureFlagBits2::eTransferDst | vk::FormatFeatureFlagBits2::eBlitSrc |
+                                                                       vk::FormatFeatureFlagBits2::eBlitDst | vk::FormatFeatureFlagBits2::eStorageImage;
+    // FIXME: FFS: this is dumb af
     static constexpr vk::FormatFeatureFlags2 STORAGE_REQUIRED_FEATURES =
         vk::FormatFeatureFlagBits2::eStorageImage | vk::FormatFeatureFlagBits2::eTransferSrc | vk::FormatFeatureFlagBits2::eTransferDst;
     static constexpr vk::FormatFeatureFlags2 STORAGE_4U8_REQUIRED_FEATURES = STORAGE_REQUIRED_FEATURES | vk::FormatFeatureFlagBits2::eSampledImage;
@@ -437,7 +439,7 @@ void VkCtx::pickImageFormats() {
                                                          vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst;
     static constexpr vk::ImageUsageFlags COLOR_USAGE = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled |
                                                        vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst |
-                                                       vk::ImageUsageFlagBits::eInputAttachment;
+                                                       vk::ImageUsageFlagBits::eInputAttachment | vk::ImageUsageFlagBits::eStorage;
     static constexpr vk::ImageUsageFlags STORAGE_4U8_USAGE =
         vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst;
     static constexpr vk::ImageUsageFlags STORAGE_USAGE =

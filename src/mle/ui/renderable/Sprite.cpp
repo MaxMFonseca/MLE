@@ -16,6 +16,9 @@ void Sprite::apply(const Entt& e, const sol::object& obj) {
     if (!renderable) {
         renderable = &e.emplace<comp::Renderable>(std::make_unique<Sprite>());
         self_p = as<Sprite*>(renderable->impl.get());
+        renderable->packet_buffers_.at(0) = std::make_shared<SpritePacket>();
+        renderable->packet_buffers_.at(1) = std::make_shared<SpritePacket>();
+        renderable->packet_buffers_.at(2) = std::make_shared<SpritePacket>();
     } else {
         MLE_ASSERT(renderable->impl);
         if (renderable->impl->getType() == Sprite::type()) {
@@ -78,7 +81,7 @@ auto getPipeline() {
 }
 }  // namespace
 
-void SpritePacket::render(Ctx& ctx) {
+void SpritePacket::render(CompRenderingCtx& ctx) {
     if (!image || texture_id_changed) {
         texture_id_changed = false;
         auto load_r = Renderer::i().textureCache().get(texture_id);
@@ -109,7 +112,7 @@ void SpritePacket::render(Ctx& ctx) {
     } pc{};
 
     pc.color = color;
-    pc.viewport_size = ctx.viewport_size;
+    pc.viewport_size = ctx.viewport.size();
     pc.rounding_corners_radius_px = ctx.rounding_corners_radius_px;
 
     thread.pushConstants(&pc);
@@ -123,18 +126,22 @@ void SpritePacket::render(Ctx& ctx) {
     auto& cache = Renderer::i().textureCache();
     auto image_extent_r = cache.getExtent(texture_id);
     image_extent = image_extent_r.has_value() ? image_extent_r.value() : cache.getExtent(0).value();
-
     vec2f image_extent_f = image_extent;
-    f32 aspect_ratio = image_extent_f.x / image_extent_f.y;
-    max_size.y = as<u32>(as<f32>(max_size.x) / aspect_ratio);
+
+    f32 image_ar = image_extent_f.x / image_extent_f.y;
+    f32 max_size_ar = as<f32>(max_size.x) / as<f32>(max_size.y);
+
+    if (max_size_ar > image_ar) {
+        max_size.x = as<u32>(as<f32>(max_size.y) * image_ar);
+    } else {
+        max_size.y = as<u32>(as<f32>(max_size.x) / image_ar);
+    }
+
     if (image_extent.x <= max_size.x && image_extent.y <= max_size.y) {
         return image_extent;
     }
-    vec2f max_size_f = max_size;
-    f32 scale_x = max_size_f.x / image_extent_f.x;
-    f32 scale_y = max_size_f.y / image_extent_f.y;
-    f32 scale = std::min(scale_x, scale_y);
-    return vec2u{image_extent_f.x * scale, image_extent_f.y * scale};
+
+    return max_size;
 };
 
 void Sprite::doUpdatePacket(RenderablePacketI* packet) {

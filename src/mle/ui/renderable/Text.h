@@ -29,7 +29,7 @@ struct TextPacket : public RenderablePacketI {
 
     MLE_NO_COPY_MOVE(TextPacket);
 
-    void render(Ctx& ctx) override;
+    void render(CompRenderingCtx& ctx) override;
 };
 
 struct Text : public RenderableI {
@@ -68,7 +68,6 @@ struct Text : public RenderableI {
     [[nodiscard]] entt::id_type getType() const override { return type(); }
     static entt::id_type type() { return entt::hashed_string{"Text"}; }
 
-    [[nodiscard]] std::unique_ptr<RenderablePacketI> createPacket() const override { return std::make_unique<TextPacket>(); }
     void doUpdatePacket(RenderablePacketI* packet) override;
 
     static void apply(const Entt& e, const sol::object& obj);

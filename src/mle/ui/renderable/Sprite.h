@@ -14,7 +14,7 @@ struct SpritePacket : public RenderablePacketI {
     entt::id_type texture_id{};
     bool texture_id_changed = false;
 
-    void render(Ctx& ctx) override;
+    void render(CompRenderingCtx& ctx) override;
 };
 
 struct Sprite : public RenderableI {
@@ -29,7 +29,6 @@ struct Sprite : public RenderableI {
     [[nodiscard]] entt::id_type getType() const override { return type(); }
     static entt::id_type type() { return entt::hashed_string{"Sprite"}; }
 
-    [[nodiscard]] std::unique_ptr<RenderablePacketI> createPacket() const override { return std::make_unique<SpritePacket>(); }
     void doUpdatePacket(RenderablePacketI* packet) override;
 
     static void apply(const Entt& e, const sol::object& obj);

@@ -6,6 +6,7 @@
 #include "mle/renderer/Renderer.h"
 #include "mle/renderer/RenderingThread.h"
 #include "mle/renderer/Types.h"
+#include "mle/ui/Types.h"
 #include "mle/ui/components/Base.h"
 #include "mle/ui/components/Bounds.h"
 #include "mle/ui/components/Renderable.h"
@@ -14,9 +15,7 @@
 
 namespace mle::ui::system {
 Rendering::Rendering(UI& ui) :
-    ui_(ui),
-    renderable_created_storage_(ui.getRegistry().storage<entt::reactive>(entt::hashed_string{"renderable_created_storage"})),
-    renderable_destroyed_storage_(ui.getRegistry().storage<entt::reactive>(entt::hashed_string{"renderable_destroyed_storage"})) {
+    ui_(ui) {
     static bool bg_pipeline_created = false;
     if (!bg_pipeline_created) {
         bg_pipeline_created = true;
@@ -51,13 +50,19 @@ Rendering::Rendering(UI& ui) :
     } else {
         border_pipeline_ = &Renderer::i().pipelineCache().getPipeline("mle_ui_border");
     }
+}
 
-    renderable_created_storage_.on_construct<comp::Renderable>();
-    renderable_destroyed_storage_.on_destroy<comp::Renderable>();
+void Rendering::clear() {
+    Renderer::i().frameRenderer().waitStoped();
+    dedicated_images_.clear();
+    atomic_data_.getUnsafe(0) = {};
+    atomic_data_.getUnsafe(1) = {};
+    atomic_data_.getUnsafe(2) = {};
+    next_packet_id_ = 0;
 }
 
 // NOLINTNEXTLINE(misc-no-recursion) Cool recursive function
-Rendering::Packet::Node Rendering::createPacketNode(entt::entity entity, usize depth) {
+Rendering::Packet::Node Rendering::createPacketNode(u8 atomic_buffer_id, entt::entity entity, usize depth) {
     Entt ew(ui_, entity);
 
     Packet::Node node;
@@ -73,15 +78,14 @@ Rendering::Packet::Node Rendering::createPacketNode(entt::entity entity, usize d
     if (const auto* background_r = ew.tryGet<comp::Background>(); background_r) {
         node.bg = background_r->color;
     }
-    if (const auto* shader_r = ew.tryGet<comp::Shader>(); shader_r) {
-        node.shader = *shader_r;
+    if (auto* renderable_r = ew.tryGet<comp::Renderable>(); renderable_r) {
+        node.renderable_packet = renderable_r->updatePacket(atomic_buffer_id);
     }
-    if (const auto* renderable_r = ew.tryGet<comp::Renderable>(); renderable_r) {
-        auto& packet_buffer = renderable_packets_[entity];
-        auto& packet = packet_buffer.producerAcquire();
-        renderable_r->updatePacket(packet.get());
-        packet_buffer.producerPublish();
-        node.renderable = true;
+    if (const auto* shader_r = ew.tryGet<comp::Shader>(); shader_r) {
+        node.shader_packet = shader_r->updatePacket(atomic_buffer_id);
+        node.shader_before_children = shader_r->before_children;
+        node.shader_dedicate_render_target = shader_r->dedicate_render_target;
+        node.shader_clear_color = shader_r->clear_color;
     }
 
     constexpr usize MAX_DEPTH = 64;
@@ -94,131 +98,80 @@ Rendering::Packet::Node Rendering::createPacketNode(entt::entity entity, usize d
     auto& self_rel = ew.getRelationship();
     auto children = self_rel.getChildren(ew);
     for (auto child : children) {
-        node.children.push_back(createPacketNode(child, depth + 1));
+        node.children.push_back(createPacketNode(atomic_buffer_id, child, depth + 1));
     }
 
     return node;
 };
 
-Rendering::Packet Rendering::createPacket() {
-    Packet packet;
-    packet.id = next_packet_id_++;
-    packet.root = createPacketNode(ui_.getRoot());
-    return packet;
-};
-
-void Rendering::updateRenderable() {
-    if (!renderable_created_storage_.empty()) {
-        for (auto [e] : renderable_created_storage_.each()) {
-            auto ew = Entt{ui_, e};
-            auto& renderable_comp = ew.get<comp::Renderable>();
-            auto& packet_buffer = renderable_packets_[e];
-            packet_buffer.getUnsafe(0) = renderable_comp.createPacket();
-            packet_buffer.getUnsafe(1) = renderable_comp.createPacket();
-            packet_buffer.getUnsafe(2) = renderable_comp.createPacket();
-            packet_buffer.producerAcquire();
-            packet_buffer.producerPublish();
-        }
-        renderable_created_storage_.clear();
-    }
-
-    if (!renderable_destroyed_storage_.empty()) {
-        for (auto [e] : renderable_destroyed_storage_.each()) {
-            renderable_packets_.erase(e);
-        }
-        renderable_destroyed_storage_.clear();
-    }
-};
-
 void Rendering::update() {
-    updateRenderable();
-    atomic_data_.producerAcquire() = createPacket();
+    auto& packet = atomic_data_.producerAcquire();
+    packet.id = next_packet_id_++;
+    packet.root = createPacketNode(atomic_data_.producerStagingIdx(), ui_.getRoot());
     atomic_data_.producerPublish();
 };
 
-// NOLINTNEXTLINE(misc-no-recursion) Cool recursion
-void Rendering::renderNode(const Rendering::Packet::Node& node, RenderingContext& ctx) {
-    // TODO: use the incoming scissor
+void Rendering::renderNodeBorder(const Rendering::Packet::Node& node, RenderingContext& ctx) {
+    Recti border_bounds = node.bounds.parent_px;
+    border_bounds.expandTBLR(-node.border.t, node.border.b, -node.border.l, node.border.r);
 
-    Recti bounds = node.bounds.parent_px;
+    Rectf border_viewport = border_bounds.asF32();
+    border_viewport.move(ctx.viewport.pos());
 
-    Rectf viewport = bounds.asF32();
-    viewport.move(ctx.parent_viewport.pos());
+    Recti border_scissor = border_bounds.constraintTo(ctx.current_scissor);
 
-    Recti scissor = bounds.constraintTo(ctx.current_scissor);
+    ctx.thread.setViewport(border_viewport);
+    ctx.thread.setScissor(border_scissor);
 
-    if (node.border.color.a > 0) {
-        Recti border_bounds = bounds;
-        border_bounds.expandTBLR(-node.border.t, node.border.b, -node.border.l, node.border.r);
+    ctx.thread.setPipeline(border_pipeline_);
 
-        Rectf border_viewport = border_bounds.asF32();
-        viewport.move(ctx.parent_viewport.pos());
+    struct {
+        vec4f color;
+        vec4i rounging_corners_radius_px;
+        vec4i borders_tblr_px;
+        vec2i viewport_size;
+    } pc{};
 
-        Recti border_scissor = border_bounds.constraintTo(ctx.current_scissor);
+    pc.color = node.border.color;
+    pc.rounging_corners_radius_px = vec4i{node.border.round_lt, node.border.round_rt, node.border.round_lb, node.border.round_rb};
+    pc.borders_tblr_px = vec4i{node.border.t, node.border.b, node.border.l, node.border.r};
+    pc.viewport_size = border_viewport.size();
 
-        ctx.rendering_thread.setViewport(border_viewport);
-        ctx.rendering_thread.setScissor(border_scissor);
+    ctx.thread.pushConstants(&pc);
 
-        ctx.rendering_thread.setPipeline(border_pipeline_);
+    ctx.thread.draw(4, 1, 0, 0);
+}
 
-        struct {
-            vec4f color;
-            vec4i rounging_corners_radius_px;
-            vec4i borders_tblr_px;
-            vec2i viewport_size;
-        } pc{};
+void Rendering::renderNodeBackground(const Rendering::Packet::Node& node, RenderingContext& ctx) {
+    Recti bg_bounds = node.bounds.parent_px;
 
-        pc.color = node.border.color;
-        pc.rounging_corners_radius_px = vec4i{node.border.round_lt, node.border.round_rt, node.border.round_lb, node.border.round_rb};
-        pc.borders_tblr_px = vec4i{node.border.t, node.border.b, node.border.l, node.border.r};
-        pc.viewport_size = border_bounds.size();
+    Rectf bg_viewport = bg_bounds.asF32();
+    bg_viewport.move(ctx.viewport.pos());
 
-        ctx.rendering_thread.pushConstants(&pc);
+    Recti border_scissor = bg_bounds.constraintTo(ctx.current_scissor);
 
-        ctx.rendering_thread.draw(4, 1, 0, 0);
-    }
+    ctx.thread.setViewport(bg_viewport);
+    ctx.thread.setScissor(border_scissor);
 
-    ctx.rendering_thread.setViewport(viewport);
-    ctx.rendering_thread.setScissor(scissor);
+    ctx.thread.setPipeline(background_pipeline_);
 
-    if (node.bg.a > 0.0F) {
-        ctx.rendering_thread.setPipeline(background_pipeline_);
+    struct {
+        vec4f color;
+        vec4i rounging_corners_radius_px;
+        vec2i viewport_size;
+    } pc{};
 
-        struct {
-            vec4f color;
-            vec4i rounging_corners_radius_px;
-            vec2i viewport_size;
-        } pc{};
+    pc.color = node.bg;
+    pc.rounging_corners_radius_px = vec4i{node.border.round_lt, node.border.round_rt, node.border.round_lb, node.border.round_rb};
+    pc.viewport_size = bg_viewport.size();
 
-        pc.color = node.bg;
-        pc.rounging_corners_radius_px = vec4i{node.border.round_lt, node.border.round_rt, node.border.round_lb, node.border.round_rb};
-        pc.viewport_size = node.bounds.parent_px.size();
+    ctx.thread.pushConstants(&pc);
 
-        ctx.rendering_thread.pushConstants(&pc);
-
-        ctx.rendering_thread.draw(4, 1, 0, 0);
-    }
-
-    if (node.renderable) {
-        auto packet_it = renderable_packets_.find(node.e_id);
-        if (packet_it != renderable_packets_.end()) {
-            auto& packet_buffer = packet_it->second;
-            auto& packet = packet_buffer.consumerGetLatest();
-            RenderablePacketI::Ctx renderable_packet_ctx{
-                .thread = ctx.rendering_thread,
-                .viewport_size = bounds.size(),
-                .rounding_corners_radius_px = vec4i{node.border.round_lt, node.border.round_rt, node.border.round_lb, node.border.round_rb}};
-            packet->render(renderable_packet_ctx);
-        }
-    }
-
-    for (const auto& child : node.children) {
-        renderNode(child, ctx);
-    }
-};
+    ctx.thread.draw(4, 1, 0, 0);
+}
 
 ImageRef Rendering::getImageForEntity(const Packet::Node& node) {
-    auto& image = root_images_[node.e_id];
+    auto& image = dedicated_images_[node.e_id];
 
     auto& frame_renderer = Renderer::i().frameRenderer();
 
@@ -226,6 +179,7 @@ ImageRef Rendering::getImageForEntity(const Packet::Node& node) {
         Image::CI image_ci{};
         image_ci.extent = node.bounds.parent_px.size();
         image_ci.format = Image::Format::COLOR;
+        image_ci.extra_usage |= vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst;
         image = Image::createHnd(image_ci);
     } else if (image->getExtent() != vec2u(node.bounds.parent_px.size())) {
         frame_renderer.deleteAfterFrame(std::move(image));
@@ -233,10 +187,103 @@ ImageRef Rendering::getImageForEntity(const Packet::Node& node) {
         Image::CI image_ci{};
         image_ci.extent = node.bounds.parent_px.size();
         image_ci.format = Image::Format::COLOR;
+        image_ci.extra_usage |= vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst;
         image = Image::createHnd(image_ci);
     }
 
     return image.get();
+};
+
+std::unique_ptr<Rendering::RenderingContext> Rendering::renderCreateNodeNewContext(const Rendering::Packet::Node& node) {
+    auto new_ctx = std::make_unique<RenderingContext>();
+    new_ctx->thread.init();
+
+    AttachmentInfo color_attachment{};
+    color_attachment.image = getImageForEntity(node);
+
+    color_attachment.image->clear(new_ctx->thread.cmd(), node.shader_clear_color);
+
+    new_ctx->thread.setColorAttachment(color_attachment, 0);
+    new_ctx->current_scissor.setPos(0, 0);
+    new_ctx->current_scissor.setSize(color_attachment.image->getExtent());
+    new_ctx->viewport = new_ctx->current_scissor;
+    new_ctx->thread.beginRendering();
+
+    return new_ctx;
+}
+
+void Rendering::renderNodeShader(const Rendering::Packet::Node& node, RenderingContext& pctx) {
+    CompRenderingCtx shader_packet_ctx{
+        .thread = pctx.thread,
+        .viewport = node.bounds.parent_px,
+        .rounding_corners_radius_px = vec4i{node.border.round_lt, node.border.round_rt, node.border.round_lb, node.border.round_rb}};
+    node.shader_packet->render(shader_packet_ctx);
+}
+
+void Rendering::renderNodeRenderable(const Rendering::Packet::Node& node, RenderingContext& ctx) {
+    CompRenderingCtx renderable_packet_ctx{
+        .thread = ctx.thread,
+        .viewport = node.bounds.parent_px,
+        .rounding_corners_radius_px = vec4i{node.border.round_lt, node.border.round_rt, node.border.round_lb, node.border.round_rb}};
+    node.renderable_packet->render(renderable_packet_ctx);
+}
+
+// NOLINTNEXTLINE(misc-no-recursion) Cool recursion
+void Rendering::renderNode(const Rendering::Packet::Node& node, RenderingContext& pctx) {
+    if (node.bounds.parent_px.left() > pctx.current_scissor.right() || node.bounds.parent_px.top() > pctx.current_scissor.bottom()) {
+        return;
+    }
+
+    if (node.border.color.a > 0) {
+        renderNodeBorder(node, pctx);
+    }
+    if (node.bg.a > 0) {
+        renderNodeBackground(node, pctx);
+    }
+
+    std::unique_ptr<RenderingContext> new_ctx;
+    if (node.shader_packet && node.shader_dedicate_render_target) {
+        new_ctx = renderCreateNodeNewContext(node);
+    }
+
+    RenderingContext* ctx_r = new_ctx ? new_ctx.get() : &pctx;
+    RenderingContext& ctx = *ctx_r;
+
+    Recti bounds = node.bounds.parent_px;
+
+    Rectf viewport = bounds.asF32();
+    viewport.move(ctx.viewport.pos());
+
+    Recti scissor = bounds.constraintTo(ctx.current_scissor);
+
+    ctx.thread.setViewport(viewport);
+    ctx.thread.setScissor(scissor);
+
+    if (node.shader_packet && node.shader_before_children) {
+        renderNodeShader(node, pctx);
+    }
+
+    if (node.renderable_packet) {
+        renderNodeRenderable(node, ctx);
+    }
+
+    for (const auto& child : node.children) {
+        renderNode(child, ctx);
+    }
+
+    if (node.shader_packet && !node.shader_before_children) {
+        renderNodeShader(node, pctx);
+    }
+
+    if (new_ctx) {
+        ctx.thread.endRendering();
+        ctx.thread.executeCommands();
+
+        ImageRef src_color = ctx.thread.getColor0();
+        ImageRef dst_color = pctx.thread.getColor0();
+
+        dst_color->copyImage(pctx.thread.cmd(), *src_color, src_color->getExtent(), {0, 0}, bounds.pos());
+    }
 };
 
 ImageRef Rendering::render() {
@@ -246,24 +293,13 @@ ImageRef Rendering::render() {
 
     const auto& latest_data = atomic_data_.consumerGetLatest();
 
-    RenderingContext root_ctx;
+    auto root_ctx = renderCreateNodeNewContext(latest_data.root);
 
-    AttachmentInfo root_c0{};
-    root_c0.image = getImageForEntity(latest_data.root);
+    renderNode(latest_data.root, *root_ctx);
 
-    root_c0.image->clear(root_ctx.rendering_thread.cmd());
+    root_ctx->thread.executeCommands();
 
-    root_ctx.rendering_thread.setColorAttachment(root_c0, 0);
-    root_ctx.current_scissor.setPos(0, 0);
-    root_ctx.current_scissor.setSize(root_c0.image->getExtent());
-    root_ctx.parent_viewport = root_ctx.current_scissor;
-    root_ctx.rendering_thread.beginRendering();
-
-    renderNode(latest_data.root, root_ctx);
-
-    Renderer::i().frameRenderer().cmd()().executeCommands(root_ctx.rendering_thread.end());
-
-    last_rendered_image_ = root_c0.image;
+    last_rendered_image_ = root_ctx->thread.getColor0();
     return last_rendered_image_;
 };
 }  // namespace mle::ui::system

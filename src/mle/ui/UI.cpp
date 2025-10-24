@@ -15,6 +15,7 @@ void UI::clear() {
     registry_.clear();
     root_ = entt::null;
     root_size_ = vec2u{0};
+    rendering_system_.clear();
 }
 
 void UI::setRoot(const std::string& element_name) {

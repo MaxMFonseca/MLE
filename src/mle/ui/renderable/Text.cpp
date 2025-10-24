@@ -3,6 +3,7 @@
 #include "mle/lua/Utils.h"
 #include "mle/renderer/Renderer.h"
 #include "mle/ui/Entt.h"
+#include "mle/ui/Types.h"
 #include "mle/ui/components/Renderable.h"
 #include "mle/utils/String.h"
 
@@ -39,6 +40,9 @@ void Text::apply(const Entt& e, const sol::object& obj) {
     if (!renderable) {
         renderable = &e.emplace<comp::Renderable>(std::make_unique<Text>());
         self_p = as<Text*>(renderable->impl.get());
+        renderable->packet_buffers_.at(0) = std::make_shared<TextPacket>();
+        renderable->packet_buffers_.at(1) = std::make_shared<TextPacket>();
+        renderable->packet_buffers_.at(2) = std::make_shared<TextPacket>();
     } else {
         MLE_ASSERT(renderable->impl);
         if (renderable->impl->getType() == Text::type()) {
@@ -208,7 +212,7 @@ void Text::doUpdatePacket(RenderablePacketI* packet) {
     p.color = color;
 };
 
-void TextPacket::render(Ctx& ctx) {
+void TextPacket::render(CompRenderingCtx& ctx) {
     auto& thread = ctx.thread;
 
     const auto* pipeline = getPipeline();

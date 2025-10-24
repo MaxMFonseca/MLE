@@ -15,4 +15,8 @@ ImageRef InitLayer::render([[maybe_unused]] f64 dt) {
     auto* ui_image = ui_.render();
     return ui_image;
 };
+
+void InitLayer::shutdown() {
+    ui_.shutdown();
+};
 }  // namespace mle::user
