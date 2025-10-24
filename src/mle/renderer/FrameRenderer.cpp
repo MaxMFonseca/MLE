@@ -10,6 +10,7 @@
 #include "CommandManager.h"
 #include "Renderer.h"
 #include "mle/client/Client.h"
+#include "mle/core/Assert.h"
 #include "mle/core/PerfTracker.h"
 #include "mle/core/RuntimeConfig.h"
 #include "mle/renderer/Types.h"
@@ -36,6 +37,11 @@ void FrameRenderer::init() {
     window_resize_listener_ = Window::i().getED().makeListener<window::ev::Resize>([this](const window::ev::Resize& ev) {
         MLE_I("Window resize event received: {}x{}", ev.size.x, ev.size.y);
         swapchain_dirty_.store(true, std::memory_order_relaxed);
+    });
+
+    window_close_listener_ = Window::i().getED().makeListener<window::ev::Close>([this](const window::ev::Close&) {
+        MLE_I("Window close event received.");
+        stopRun();
     });
 
     running_.store(true, std::memory_order_relaxed);
@@ -300,6 +306,7 @@ void FrameRenderer::logSwapchainInfo() {
 }
 
 Result FrameRenderer::beginFrame() {
+    MLE_PERF_SCOPE("FrameRenderer::beginFrame");
     if (iconified_) {
         MLE_I("Window is iconified, skipping frame.");
         return Result::FRAME_SKIP;
@@ -382,6 +389,7 @@ Result FrameRenderer::beginFrame() {
 }
 
 void FrameRenderer::endFrame(ImageRef frame_image) {
+    MLE_PERF_SCOPE("FrameRenderer::endFrame");
     auto& f = getCurrentFrame();
     auto& cmd = current_primary_cmd_;
 
@@ -478,7 +486,12 @@ Expected<u32> FrameRenderer::acquireNextImage() {
     return std::unexpected(Result::NOK);
 }
 
+void FrameRenderer::assertInRenderThread(const char* msg) {
+    MLE_ASSERT_LOG(run_thread_.get_id() == std::this_thread::get_id(), "This function can only be called from the FrameRenderer run thread. {}", msg);
+}
+
 CommandBuffer FrameRenderer::getSecondaryCommandBuffer() {
+    assertInRenderThread("getSecondaryCommandBuffer.");
     assertInFrame();
     return getCurrentFrame().cmd_pool.getSecondary();
 };
@@ -533,5 +546,11 @@ void FrameRenderer::addToFrameDeleteStack(std::move_only_function<void(void)>&& 
 
 void FrameRenderer::callOnNextFrameBegin(std::move_only_function<void(void)>&& func) {
     getNextFrame().call_on_frame_begin.emplace_back(std::move(func));
+}
+
+void FrameRenderer::waitStoped() {
+    if (run_thread_.joinable()) {
+        run_thread_.join();
+    }
 }
 }  // namespace mle

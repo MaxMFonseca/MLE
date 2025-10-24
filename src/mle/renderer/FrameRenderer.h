@@ -41,6 +41,8 @@ class FrameRenderer final {
     [[nodiscard]] bool inFrame() const { return current_frame_ != NO_FRAME; }
     void assertInFrame() const { MLE_ASSERT_LOG(inFrame(), "Not in frame!"); }
 
+    void waitStoped();
+
     [[nodiscard]] auto getSwapchainFormat() const { return surface_format_.format; }
     [[nodiscard]] auto getSwapchianImageUsage() const { return swapchain_usage_; }
     [[nodiscard]] auto getSwapchainExtent() const { return swapchain_extent_; }
@@ -64,6 +66,8 @@ class FrameRenderer final {
     void callOnNextFrameBegin(std::move_only_function<void(void)>&& func);
 
     [[nodiscard]] bool isRunning() const { return running_.load(std::memory_order_relaxed); }
+
+    void assertInRenderThread(const char* msg = "");
 
   private:
     friend class Renderer;
@@ -127,5 +131,6 @@ class FrameRenderer final {
     RuntimeConfigListenerHnd target_fps_rtcl_{};
 
     window::ev::ResizeL window_resize_listener_;
+    window::ev::CloseL window_close_listener_;
 };
 }  // namespace mle
