@@ -13,8 +13,8 @@ struct RectPacker {
     }
 
     // This will pock in order, and if not all fit, will return as many as possible. So it's up to the caller to check if all fit.
-    std::vector<vec2u> pack(std::span<const vec2u> rect_sizes);
-    std::optional<vec2u> tryPackOne(vec2u packing_size);
+    [[nodiscard]] std::vector<vec2u> pack(std::span<const vec2u> rect_sizes);
+    [[nodiscard]] std::optional<vec2u> tryPackOne(vec2u packing_size);
 
   private:
     vec2u padding_{};

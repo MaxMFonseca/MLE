@@ -14,7 +14,9 @@
 
 namespace mle::ui::system {
 Rendering::Rendering(UI& ui) :
-    ui_(ui) {
+    ui_(ui),
+    renderable_created_storage_(ui.getRegistry().storage<entt::reactive>(entt::hashed_string{"renderable_created_storage"})),
+    renderable_destroyed_storage_(ui.getRegistry().storage<entt::reactive>(entt::hashed_string{"renderable_destroyed_storage"})) {
     static bool bg_pipeline_created = false;
     if (!bg_pipeline_created) {
         bg_pipeline_created = true;
@@ -49,6 +51,9 @@ Rendering::Rendering(UI& ui) :
     } else {
         border_pipeline_ = &Renderer::i().pipelineCache().getPipeline("mle_ui_border");
     }
+
+    renderable_created_storage_.on_construct<comp::Renderable>();
+    renderable_destroyed_storage_.on_destroy<comp::Renderable>();
 }
 
 // NOLINTNEXTLINE(misc-no-recursion) Cool recursive function
@@ -72,7 +77,11 @@ Rendering::Packet::Node Rendering::createPacketNode(entt::entity entity, usize d
         node.shader = *shader_r;
     }
     if (const auto* renderable_r = ew.tryGet<comp::Renderable>(); renderable_r) {
-        node.renderable = renderable_r->clone();
+        auto& packet_buffer = renderable_packets_[entity];
+        auto& packet = packet_buffer.producerAcquire();
+        renderable_r->updatePacket(packet.get());
+        packet_buffer.producerPublish();
+        node.renderable = true;
     }
 
     constexpr usize MAX_DEPTH = 64;
@@ -98,9 +107,32 @@ Rendering::Packet Rendering::createPacket() {
     return packet;
 };
 
-void Rendering::update() {
-    atomic_data_.producerAcquire() = createPacket();
+void Rendering::updateRenderable() {
+    if (!renderable_created_storage_.empty()) {
+        for (auto [e] : renderable_created_storage_.each()) {
+            auto ew = Entt{ui_, e};
+            auto& renderable_comp = ew.get<comp::Renderable>();
+            auto& packet_buffer = renderable_packets_[e];
+            packet_buffer.getUnsafe(0) = renderable_comp.createPacket();
+            packet_buffer.getUnsafe(1) = renderable_comp.createPacket();
+            packet_buffer.getUnsafe(2) = renderable_comp.createPacket();
+            packet_buffer.producerAcquire();
+            packet_buffer.producerPublish();
+        }
+        renderable_created_storage_.clear();
+    }
 
+    if (!renderable_destroyed_storage_.empty()) {
+        for (auto [e] : renderable_destroyed_storage_.each()) {
+            renderable_packets_.erase(e);
+        }
+        renderable_destroyed_storage_.clear();
+    }
+};
+
+void Rendering::update() {
+    updateRenderable();
+    atomic_data_.producerAcquire() = createPacket();
     atomic_data_.producerPublish();
 };
 
@@ -168,11 +200,16 @@ void Rendering::renderNode(const Rendering::Packet::Node& node, RenderingContext
     }
 
     if (node.renderable) {
-        RenderableI::Ctx renderable_ctx{
-            .thread = ctx.rendering_thread,
-            .viewport_size = bounds.size(),
-            .rounding_corners_radius_px = vec4i{node.border.round_lt, node.border.round_rt, node.border.round_lb, node.border.round_rb}};
-        node.renderable->render(renderable_ctx);
+        auto packet_it = renderable_packets_.find(node.e_id);
+        if (packet_it != renderable_packets_.end()) {
+            auto& packet_buffer = packet_it->second;
+            auto& packet = packet_buffer.consumerGetLatest();
+            RenderablePacketI::Ctx renderable_packet_ctx{
+                .thread = ctx.rendering_thread,
+                .viewport_size = bounds.size(),
+                .rounding_corners_radius_px = vec4i{node.border.round_lt, node.border.round_rt, node.border.round_lb, node.border.round_rb}};
+            packet->render(renderable_packet_ctx);
+        }
     }
 
     for (const auto& child : node.children) {
@@ -181,28 +218,25 @@ void Rendering::renderNode(const Rendering::Packet::Node& node, RenderingContext
 };
 
 ImageRef Rendering::getImageForEntity(const Packet::Node& node) {
-    auto& images = root_images_[node.e_id];
+    auto& image = root_images_[node.e_id];
 
     auto& frame_renderer = Renderer::i().frameRenderer();
-    u32 frame_id = frame_renderer.getCurrentFrameId();
 
-    if (!images.at(frame_id)) {
+    if (!image) {
         Image::CI image_ci{};
         image_ci.extent = node.bounds.parent_px.size();
         image_ci.format = Image::Format::COLOR;
-
-        images.at(frame_id) = Image::createHnd(image_ci);
-    } else if (images.at(frame_id)->getExtent() != vec2u(node.bounds.parent_px.size())) {
-        frame_renderer.deleteAfterFrame(std::move(images.at(frame_id)));
+        image = Image::createHnd(image_ci);
+    } else if (image->getExtent() != vec2u(node.bounds.parent_px.size())) {
+        frame_renderer.deleteAfterFrame(std::move(image));
 
         Image::CI image_ci{};
         image_ci.extent = node.bounds.parent_px.size();
         image_ci.format = Image::Format::COLOR;
-
-        images.at(frame_id) = Image::createHnd(image_ci);
+        image = Image::createHnd(image_ci);
     }
 
-    return images.at(frame_id).get();
+    return image.get();
 };
 
 ImageRef Rendering::render() {

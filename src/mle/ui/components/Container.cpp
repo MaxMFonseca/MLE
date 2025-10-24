@@ -1416,10 +1416,8 @@ vec2u accumulateChildrenExtent(const std::map<entt::entity, ChildBoundsCalcData>
         Entt centt{e.ui(), c};
         auto& cbcd = cbcds.at(c);
         if (cbcd.size_provider) {
-            MLE_C("Using size provider for child {}", centt.fullName());
-            MLE_VC(cbcd.new_size);
-            auto ret = cbcd.size_provider->call(centt, cbcd.new_size);
-            MLE_VC(ret);
+            cbcd.size_provider->call(centt, cbcd.new_size);
+            cbcd.size_provider->reset();
         }
     }
 

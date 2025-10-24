@@ -7,6 +7,28 @@
 #include "mle/utils/String.h"
 
 namespace mle::ui::renderable {
+namespace {
+
+auto getPipeline() {
+    static const Pipeline* pipeline = nullptr;
+    if (pipeline == nullptr) {
+        Pipeline::CI pipeline_ci{};
+        pipeline_ci.vertex_shader = &Renderer::i().shaderCache().get("mle/ui/text.vert");
+        pipeline_ci.fragment_shader = &Renderer::i().shaderCache().get("mle/ui/text.frag");
+        std::array color_attachment_formats = {Renderer::i().vk().getVkImageFormat(ImageFormat::COLOR)};
+        pipeline_ci.color_attachment_formats = color_attachment_formats;
+        auto blend_attachments = Pipeline::makeDefaultBlendAttachments<1>();
+        pipeline_ci.blend_attachments = blend_attachments;
+        pipeline_ci.topology = vk::PrimitiveTopology::eTriangleStrip;
+        pipeline_ci.cull_mode = vk::CullModeFlagBits::eNone;
+        pipeline_ci.push_descriptor = 0;
+
+        pipeline = &Renderer::i().pipelineCache().setPipeline("mle_ui_text", pipeline_ci);
+    }
+    return pipeline;
+}
+}  // namespace
+
 void Text::apply(const Entt& e, const sol::object& obj) {
     if (!obj.valid()) {
         MLE_E("Invalid object provided to Text::apply for entt {}", e.e());
@@ -34,6 +56,11 @@ void Text::setText(std::u32string src) {
 
 void Text::setText(std::string_view src) {
     setText(toUtf32(src));
+}
+
+void Text::setColor(const Color& c) {
+    versionUp();
+    color = c;
 }
 
 void Text::setJustifyMode(std::string_view mode_str) {
@@ -65,8 +92,8 @@ void Text::set(const sol::object& obj) {
         if (const auto text_r = lua::getFirstKey(table, "text", 1); lua::valid<std::string>(text_r)) {
             setText(text_r.as<std::string>());
         }
-        if (const auto color_r = table["color"]; color_r.valid()) {
-            color = Color::fromLua(color_r);
+        if (const sol::object color_r = table["color"]; color_r.valid()) {
+            setColor(color_r);
         }
         if (const auto font_r = table["font"]; lua::valid<std::string>(font_r)) {
             setFont(lua::as<std::string>(font_r).c_str());
@@ -87,98 +114,6 @@ void Text::set(const sol::object& obj) {
     }
 
     MLE_W("Unsupported object type provided to Text::set");
-}
-
-namespace {
-auto getPipeline() {
-    static const Pipeline* pipeline = nullptr;
-    if (pipeline == nullptr) {
-        Pipeline::CI pipeline_ci{};
-        pipeline_ci.vertex_shader = &Renderer::i().shaderCache().get("mle/ui/text.vert");
-        pipeline_ci.fragment_shader = &Renderer::i().shaderCache().get("mle/ui/text.frag");
-        std::array color_attachment_formats = {Renderer::i().vk().getVkImageFormat(ImageFormat::COLOR)};
-        pipeline_ci.color_attachment_formats = color_attachment_formats;
-        auto blend_attachments = Pipeline::makeDefaultBlendAttachments<1>();
-        pipeline_ci.blend_attachments = blend_attachments;
-        pipeline_ci.topology = vk::PrimitiveTopology::eTriangleStrip;
-        pipeline_ci.cull_mode = vk::CullModeFlagBits::eNone;
-        pipeline_ci.push_descriptor = 0;
-
-        pipeline = &Renderer::i().pipelineCache().setPipeline("mle_ui_text", pipeline_ci);
-    }
-    return pipeline;
-}
-}  // namespace
-
-void Text::buildRenderingChars(vec2u element_size) {
-    auto& font = *Renderer::i().fontCache().get(font_id);
-    std::map<ImageRef, std::vector<RenderingChars>> image_to_chars_map;
-    auto rendered_size_f = as<vec2f>(rendered_text_px);
-    auto element_size_f = as<vec2f>(element_size);
-    auto size_scale_f = glm::min(element_size_f / rendered_size_f, vec2f{1.0F});
-    for (auto c : render_text.chars) {
-        std::pair<ImageRef, TextureAtlas::Entry> atlas_entry = font.getTextureAtlasEntryOnFrame(c.codepoint);
-        auto& new_char = image_to_chars_map[atlas_entry.first].emplace_back();
-        new_char.pos = c.rect.pos() * font_height_px_f;
-        new_char.size = c.rect.size() * font_height_px_f;
-        new_char.pos /= rendered_size_f;
-        new_char.size /= rendered_size_f;
-        new_char.pos *= size_scale_f;
-        new_char.size *= size_scale_f;
-        new_char.texture_pos = atlas_entry.second.pos();
-        new_char.texture_size = atlas_entry.second.size();
-    }
-    std::vector<RenderingChars> rendering_chars;
-    for (const auto& [image_ref, chars] : image_to_chars_map) {
-        image_refs.emplace_back(image_ref, std::make_pair(rendering_chars.size(), chars.size()));
-        rendering_chars.insert(rendering_chars.end(), chars.begin(), chars.end());
-    }
-    Buffer::CI buffer_ci{};
-    buffer_ci.size = as<usize>(rendering_chars.size() * sizeof(RenderingChars));
-    buffer_ci.usage = vk::BufferUsageFlagBits::eVertexBuffer;
-    buffer_ci.allocation_type = Buffer::CI::AllocationType::GPU_ONLY_HOST_WRITE_SEQ;
-    chars_buffer = new Buffer();
-    chars_buffer->create(buffer_ci);
-    chars_buffer->write(rendering_chars.data());
-}
-
-void Text::render(Ctx& ctx) {
-    if (text.empty()) {
-        return;
-    }
-
-    if (chars_buffer == nullptr) {
-        buildRenderingChars(ctx.viewport_size);
-    }
-
-    auto& thread = ctx.thread;
-
-    const auto* pipeline = getPipeline();
-
-    thread.setPipeline(pipeline);
-
-    for (auto& [image, range] : image_refs) {
-        vk::DescriptorImageInfo b0_0_di = image->getDescriptorInfo();
-        auto push_writes = pipeline->makeWrites(0, nullptr, &b0_0_di);
-
-        thread.pushDescriptor(0, push_writes);
-
-        // struct {
-        //     vec4f color;
-        //     vec4i rounding_corners_radius_px;
-        //     vec2i viewport_size;
-        // } pc{};
-        //
-        // pc.color = color;
-        // pc.viewport_size = ctx.viewport_size;
-        // pc.rounding_corners_radius_px = ctx.rounding_corners_radius_px;
-        //
-        // thread.pushConstants(&pc);
-
-        thread.bindVertexBuffer(chars_buffer, range.first * sizeof(RenderingChars));
-
-        thread.draw(4, range.second, 0, 0);
-    }
 }
 
 vec2u Text::calculateBounds(const Entt& e, vec2u max_size) {
@@ -223,18 +158,85 @@ vec2u Text::calculateBounds(const Entt& e, vec2u max_size) {
     rendered_text_px.x = as<u32>(render_text.line_max_width * as<f32>(font_height_px));
     rendered_text_px.y = as<u32>(as<f32>(font_height_px) * as<f32>(render_text.line_count));
 
-    return glm::min(rendered_text_px, max_size);
+    vec2u final_size = glm::min(rendered_text_px, max_size);
+
+    makeCharsBuffer(final_size);
+
+    versionUp();
+
+    return final_size;
 }
 
-// FIXME: ..
-// FIXME: ..
-// FIXME: ..
-// FIXME: ..
-// FIXME: ..
-// FIXME: ..
-Text::~Text() {
-    if (chars_buffer) {
-        Renderer::i().frameRenderer().deleteAfterFrame(std::unique_ptr<Buffer>{chars_buffer});
+void Text::makeCharsBuffer(vec2u element_size) {
+    auto& font = *Renderer::i().fontCache().get(font_id);
+    std::map<ImageRef, std::vector<TextPacket::CharsInstance>> image_to_chars_map;
+    auto rendered_size_f = as<vec2f>(rendered_text_px);
+    auto element_size_f = as<vec2f>(element_size);
+    auto size_scale_f = glm::min(element_size_f / rendered_size_f, vec2f{1.0F});
+    for (auto c : render_text.chars) {
+        std::pair<ImageRef, TextureAtlas::Entry> atlas_entry = font.getTextureEntry(c.codepoint);
+        auto& new_char = image_to_chars_map[atlas_entry.first].emplace_back();
+        new_char.pos = c.rect.pos() * font_height_px_f;
+        new_char.size = c.rect.size() * font_height_px_f;
+        new_char.pos /= rendered_size_f;
+        new_char.size /= rendered_size_f;
+        new_char.pos *= size_scale_f;
+        new_char.size *= size_scale_f;
+        new_char.texture_pos = atlas_entry.second.pos();
+        new_char.texture_size = atlas_entry.second.size();
     }
+    current_rendering_chars_instance_data.clear();
+    for (const auto& [image_ref, chars] : image_to_chars_map) {
+        per_image_data.push_back({image_ref, current_rendering_chars_instance_data.size(), chars.size()});
+        current_rendering_chars_instance_data.insert(current_rendering_chars_instance_data.end(), chars.begin(), chars.end());
+    }
+}
+
+void Text::doUpdatePacket(RenderablePacketI* packet) {
+    auto& p = *as<TextPacket*>(packet);
+
+    if (p.chars_buffer) {
+        Renderer::i().frameRenderer().deleteAfterFrame(std::move(p.chars_buffer));
+    }
+    Buffer::CI buffer_ci{};
+    buffer_ci.size = as<usize>(current_rendering_chars_instance_data.size() * sizeof(TextPacket::CharsInstance));
+    buffer_ci.usage = vk::BufferUsageFlagBits::eVertexBuffer;
+    buffer_ci.allocation_type = Buffer::CI::AllocationType::GPU_ONLY_HOST_WRITE_SEQ;
+    p.chars_buffer = Buffer::createHnd(buffer_ci);
+    p.chars_buffer->write(current_rendering_chars_instance_data.data());
+    p.per_image_data = per_image_data;
+    p.color = color;
 };
+
+void TextPacket::render(Ctx& ctx) {
+    auto& thread = ctx.thread;
+
+    const auto* pipeline = getPipeline();
+
+    thread.setPipeline(pipeline);
+
+    thread.bindVertexBuffer(chars_buffer.get());
+
+    for (auto& [image, instance_offset, instance_count] : per_image_data) {
+        vk::DescriptorImageInfo b0_0_di = image->getDescriptorInfo();
+        auto push_writes = pipeline->makeWrites(0, nullptr, &b0_0_di);
+
+        thread.pushDescriptor(0, push_writes);
+
+        // struct {
+        //     vec4f color;
+        //     vec4i rounding_corners_radius_px;
+        //     vec2i viewport_size;
+        // } pc{};
+        //
+        // pc.color = color;
+        // pc.viewport_size = ctx.viewport_size;
+        // pc.rounding_corners_radius_px = ctx.rounding_corners_radius_px;
+        //
+        // thread.pushConstants(&pc);
+
+        thread.draw(4, instance_count, 0, instance_offset);
+    }
+}
+
 }  // namespace mle::ui::renderable

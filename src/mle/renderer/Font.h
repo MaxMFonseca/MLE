@@ -63,8 +63,7 @@ class Font final {
 
     [[nodiscard]] auto getHeight() const { return height_; }
     [[nodiscard]] RenderText makeText(const MakeTextIn& in);
-    // TODO: make a non frame version
-    std::pair<ImageRef, TextureAtlas::Entry> getTextureAtlasEntryOnFrame(char32 codepoint);
+    std::pair<ImageRef, TextureAtlas::Entry> getTextureEntry(char32 codepoint);
 
   private:
     friend class FontCache;

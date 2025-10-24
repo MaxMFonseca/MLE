@@ -71,7 +71,7 @@ Result Font::init(const CI& ci) {
     default_char_.origin.y = ascent_ / 16 * 3 / height_;
 
     if (ci.init_load_ascii) {
-        loadString(U"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-_=+[]{}|;:'\",.<>?/\\`~ ");
+        loadString(U"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-_=+[]{}|;:'\",.<>?/\\`~");
     }
     return Result::OK;
 }
@@ -156,6 +156,7 @@ void Font::addTexture(char32 codepoint, const void* data, vec2u size) {
 
     std::scoped_lock lock(atlas_mutex_);
     atlas_.enqueueCopy(codepoint, raw_data);
+    atlas_.requestFlushOnFrame();
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity) I know
@@ -216,9 +217,6 @@ Font::RenderText Font::makeText(const MakeTextIn& in) {
         word_widths.emplace_back(word_width);
         --i;
     }
-    MLE_VC(text_lines.size());
-    MLE_VC(word_widths.size());
-    MLE_VC(char_word_positions.size());
 
     auto justify_mode = JustifyF32::LineMode(in.justify_mode);
     auto justify_mode_last_line = JustifyF32::LineMode(in.justify_mode == JustifyMode::SPACE_BETWEEN ? JustifyMode::START : in.justify_mode);
@@ -368,9 +366,8 @@ Font::RenderText Font::makeText(const MakeTextIn& in) {
     return ret;
 }
 
-std::pair<ImageRef, TextureAtlas::Entry> Font::getTextureAtlasEntryOnFrame(char32 codepoint) {
+std::pair<ImageRef, TextureAtlas::Entry> Font::getTextureEntry(char32 codepoint) {
     std::scoped_lock lock(atlas_mutex_);
-    atlas_.updateOnFrame();
     auto atlas_r = atlas_.get(codepoint);
     if (!atlas_r) {
         return atlas_.get(INVALID_CODEPOINT).value();

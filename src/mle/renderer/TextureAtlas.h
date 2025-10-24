@@ -1,6 +1,7 @@
 #pragma once
 
 #include <map>
+#include <optional>
 
 #include "mle/renderer/Buffer.h"
 #include "mle/renderer/Image.h"
@@ -30,23 +31,27 @@ class TextureAtlas {
     [[nodiscard]] Expected<std::pair<ImageRef, Entry>> get(entt::id_type id) const;
 
     void enqueueCopy(entt::id_type id, const Image::RawData& data);
-    void enqueueCopy(entt::id_type id, vec2u vec, BufferHnd&& buffer);
+    void enqueueCopy(entt::id_type id, vec2u size, BufferHnd&& buffer);
 
     Expected<std::pair<ImageRef, Entry>> copyOnFrame(entt::id_type id, const Image::RawData& data);
     Expected<std::pair<ImageRef, Entry>> copyOnFrame(entt::id_type id, ImageRef image);
 
     void updateOnFrame();
+    void requestFlushOnFrame();
 
   private:
-    void createChildAtlas();
+    TextureAtlas& getOrCreateNextAtlas();
+    void emplaceEntry(entt::id_type id, const Recti& region);
 
   private:
     ImageHnd image_{nullptr};
 
     std::map<entt::id_type, Entry> entries_;
-    std::vector<std::tuple<entt::id_type, vec2u, BufferHnd>> pending_data_;
+    std::vector<std::tuple<entt::id_type, Recti, BufferHnd>> pending_data_;
 
     TextureAtlasHnd next_atlas_{nullptr};
     RectPacker packer_;
+
+    bool flush_requested_ = false;
 };
 }  // namespace mle

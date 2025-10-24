@@ -23,11 +23,14 @@ class FrameRenderer final {
         vk::Fence render_finished_fence;
         vk::QueryPool query_pool;
 
+        std::mutex delete_stack_mutex;
         std::vector<std::move_only_function<void(void)>> delete_stack;
-        std::vector<BufferHnd> delete_buffers{};
-        std::vector<ImageHnd> delete_images{};
+
         std::vector<CommandBuffer> secondary_cmd_buffers{};
+
         std::map<vk::BufferUsageFlags, std::vector<std::pair<BufferHnd, usize>>> host_visible_buffers;
+
+        std::vector<std::move_only_function<void(void)>> call_on_frame_begin;
     };
 
   public:
@@ -57,6 +60,8 @@ class FrameRenderer final {
 
     void deleteAfterFrame(BufferHnd&& buffer);
     void deleteAfterFrame(ImageHnd&& image);
+
+    void callOnNextFrameBegin(std::move_only_function<void(void)>&& func);
 
     [[nodiscard]] bool isRunning() const { return running_.load(std::memory_order_relaxed); }
 

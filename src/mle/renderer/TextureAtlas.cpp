@@ -27,6 +27,27 @@ void TextureAtlas::init(const CreateInfo& ci) {
     return std::make_pair(image_.get(), it->second);
 }
 
+TextureAtlas& TextureAtlas::getOrCreateNextAtlas() {
+    if (!next_atlas_) {
+        next_atlas_ = std::make_unique<TextureAtlas>();
+        CreateInfo ci;
+        ci.extent = image_->getExtent();
+        ci.format = image_->getFormat();
+        next_atlas_->init(ci);
+    }
+    return *next_atlas_;
+}
+
+void TextureAtlas::emplaceEntry(entt::id_type id, const Recti& region) {
+    vec2f image_extent_f = vec2f{image_->getExtent()};
+
+    Entry entry;
+    entry.setPos(vec2f(region.pos()) / image_extent_f);
+    entry.setSize(vec2f(region.size()) / image_extent_f);
+    entries_.emplace(id, entry);
+}
+
+// NOLINTNEXTLINE(misc-no-recursion) Know
 void TextureAtlas::enqueueCopy(entt::id_type id, const Image::RawData& data) {
     if (data.extent.x > image_->getExtent().x || data.extent.y > image_->getExtent().y) {
         MLE_E("TextureAtlas::add: Data extent larger than atlas for id {}: data extent = ({}, {}), atlas extent = ({}, {})", id, data.extent.x, data.extent.y,
@@ -39,25 +60,43 @@ void TextureAtlas::enqueueCopy(entt::id_type id, const Image::RawData& data) {
         return;
     }
 
+    auto packer_r = packer_.tryPackOne(data.extent);
+
+    if (!packer_r) {
+        getOrCreateNextAtlas().enqueueCopy(id, data);
+        return;
+    }
+
     Buffer::CI buffer_ci;
     buffer_ci.size = data.pixels.size();
     buffer_ci.usage = vk::BufferUsageFlagBits::eTransferSrc;
     buffer_ci.allocation_type = Buffer::CI::AllocationType::STAGING;
     auto buffer = Buffer::createHnd(buffer_ci);
     buffer->write(data.pixels.data(), data.pixels.size());
-    pending_data_.emplace_back(id, data.extent, std::move(buffer));
+    pending_data_.emplace_back(id, Recti{packer_r.value(), data.extent}, std::move(buffer));
+    emplaceEntry(id, {packer_r.value(), data.extent});
 }
 
-void TextureAtlas::enqueueCopy(entt::id_type id, vec2u vec, BufferHnd&& buffer) {
-    if (vec.x > image_->getExtent().x || vec.y > image_->getExtent().y) {
-        MLE_E("TextureAtlas::add: Data extent larger than atlas for id {}: data extent = ({}, {}), atlas extent = ({}, {})", id, vec.x, vec.y,
+// NOLINTNEXTLINE(misc-no-recursion) Know
+void TextureAtlas::enqueueCopy(entt::id_type id, vec2u size, BufferHnd&& buffer) {
+    if (size.x > image_->getExtent().x || size.y > image_->getExtent().y) {
+        MLE_E("TextureAtlas::add: Data extent larger than atlas for id {}: data extent = ({}, {}), atlas extent = ({}, {})", id, size.x, size.y,
               image_->getExtent().x, image_->getExtent().y);
         return;
     }
 
-    pending_data_.emplace_back(id, vec, std::move(buffer));
+    auto packer_r = packer_.tryPackOne(size);
+
+    if (!packer_r) {
+        getOrCreateNextAtlas().enqueueCopy(id, size, std::move(buffer));
+        return;
+    }
+
+    pending_data_.emplace_back(id, Recti{packer_r.value(), size}, std::move(buffer));
+    emplaceEntry(id, {packer_r.value(), size});
 }
 
+// NOLINTNEXTLINE(misc-no-recursion) Know
 Expected<std::pair<ImageRef, TextureAtlas::Entry>> TextureAtlas::copyOnFrame(entt::id_type id, const Image::RawData& data) {
     if (data.extent.x > image_->getExtent().x || data.extent.y > image_->getExtent().y) {
         MLE_E("TextureAtlas::copyOnFrame: Data extent larger than atlas for id {}: data extent = ({}, {}), atlas extent = ({}, {})", id, data.extent.x,
@@ -71,13 +110,19 @@ Expected<std::pair<ImageRef, TextureAtlas::Entry>> TextureAtlas::copyOnFrame(ent
         return std::unexpected(Result::INVALID_ARGUMENT);
     }
 
+    auto packer_r = packer_.tryPackOne(data.extent);
+    if (!packer_r) {
+        return getOrCreateNextAtlas().copyOnFrame(id, data);
+    }
+    vec2u pos = *packer_r;
+
     Buffer::CI buffer_ci;
     buffer_ci.size = data.pixels.size();
     buffer_ci.usage = vk::BufferUsageFlagBits::eTransferSrc;
     buffer_ci.allocation_type = Buffer::CI::AllocationType::STAGING;
     auto buffer = Buffer::createHnd(buffer_ci);
     buffer->write(data.pixels.data(), data.pixels.size());
-    pending_data_.emplace_back(id, data.extent, std::move(buffer));
+    pending_data_.emplace_back(id, Recti{pos, data.extent}, std::move(buffer));
 
     updateOnFrame();
 
@@ -92,12 +137,14 @@ Expected<std::pair<ImageRef, TextureAtlas::Entry>> TextureAtlas::copyOnFrame(ent
         return std::unexpected(Result::INVALID_ARGUMENT);
     }
 
+    if (image->getFormat() != image_->getFormat()) {
+        MLE_E("TextureAtlas::copyOnFrame: format mismatch for id {}: image format = {}, atlas format = {}", id, image->getFormat(), image_->getFormat());
+        return std::unexpected(Result::INVALID_ARGUMENT);
+    }
+
     auto packed_r = packer_.tryPackOne(image->getExtent());
     if (!packed_r) {
-        if (!next_atlas_) {
-            createChildAtlas();
-        }
-        return next_atlas_->copyOnFrame(id, image);
+        return getOrCreateNextAtlas().copyOnFrame(id, image);
     }
     vec2u pos = *packed_r;
 
@@ -121,58 +168,31 @@ Expected<std::pair<ImageRef, TextureAtlas::Entry>> TextureAtlas::copyOnFrame(ent
 
 // NOLINTNEXTLINE(misc-no-recursion) Know
 void TextureAtlas::updateOnFrame() {
-    if (pending_data_.empty()) {
-        return;
-    }
-
-    auto pd_it = pending_data_.begin();
-    while (pd_it != pending_data_.end()) {
-        const vec2u size = std::get<vec2u>(*pd_it);
-        auto packed_r = packer_.tryPackOne(size);
-        if (!packed_r) {
-            break;
-        }
-
-        vec2u pos = *packed_r;
-
-        Recti region;
-        region.setPos(pos);
-        region.setSize(size);
-
-        image_->copyBuffer(Renderer::i().frameRenderer().cmd(), *std::get<BufferHnd>(*pd_it), region);
-
-        vec2f image_extent_f = vec2f{image_->getExtent()};
-
-        Entry entry;
-        entry.setPos(vec2f(region.pos()) / image_extent_f);
-        entry.setSize(vec2f(region.size()) / image_extent_f);
-        entries_.emplace(std::get<entt::id_type>(*pd_it), entry);
-        Renderer::i().frameRenderer().deleteAfterFrame(std::move(std::get<BufferHnd>(*pd_it)));
-        pd_it++;
-    }
-
-    pending_data_.erase(pending_data_.begin(), pd_it);
-
-    image_->transitionState(Renderer::i().frameRenderer().cmd(), Image::State::FS_READ);
-
     if (!pending_data_.empty()) {
-        if (!next_atlas_) {
-            createChildAtlas();
+        auto pd_it = pending_data_.begin();
+        while (pd_it != pending_data_.end()) {
+            image_->copyBuffer(Renderer::i().frameRenderer().cmd(), *std::get<BufferHnd>(*pd_it), std::get<Recti>(*pd_it));
+            Renderer::i().frameRenderer().deleteAfterFrame(std::move(std::get<BufferHnd>(*pd_it)));
+            pd_it++;
         }
 
-        for (auto& pd : pending_data_) {
-            next_atlas_->enqueueCopy(std::get<entt::id_type>(pd), std::get<vec2u>(pd), std::move(std::get<BufferHnd>(pd)));
-        }
         pending_data_.clear();
+
+        image_->transitionState(Renderer::i().frameRenderer().cmd(), Image::State::FS_READ);
+    }
+    if (next_atlas_) {
         next_atlas_->updateOnFrame();
     }
 }
 
-void TextureAtlas::createChildAtlas() {
-    next_atlas_ = std::make_unique<TextureAtlas>();
-    CreateInfo ci;
-    ci.extent = image_->getExtent();
-    ci.format = image_->getFormat();
-    next_atlas_->init(ci);
+void TextureAtlas::requestFlushOnFrame() {
+    if (flush_requested_) {
+        return;
+    }
+    Renderer::i().frameRenderer().callOnNextFrameBegin([this]() {
+        updateOnFrame();
+        flush_requested_ = false;
+    });
+    flush_requested_ = true;
 }
 }  // namespace mle

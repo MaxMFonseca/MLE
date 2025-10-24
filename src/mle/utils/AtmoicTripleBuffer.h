@@ -50,6 +50,8 @@ class AtomicTripleBuffer {
         return buf_[cons_current_idx_];
     }
 
+    auto& getUnsafe(u8 idx) { return buf_.at(idx); }
+
   private:
     struct Pub {
         u64 seq{0};

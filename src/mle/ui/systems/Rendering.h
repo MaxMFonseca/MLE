@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../Types.h"
+#include "mle/renderer/Buffer.h"
 #include "mle/renderer/Image.h"
 #include "mle/renderer/RenderingThread.h"
 #include "mle/renderer/Types.h"
@@ -26,7 +27,7 @@ class Rendering {
             Color bg{};
             comp::Shader shader{};
 
-            std::unique_ptr<RenderableI> renderable = nullptr;
+            bool renderable = true;
         };
 
         Node root{};
@@ -55,18 +56,23 @@ class Rendering {
 
     void renderNode(const Rendering::Packet::Node& node, RenderingContext& ctx);
 
+    void updateRenderable();
+
   private:
     [[maybe_unused]] UI& ui_;
     AtomicTripleBuffer<Packet> atomic_data_;
     u64 next_packet_id_ = 0;
 
-    std::map<entt::entity, std::array<ImageHnd, 2>> root_images_;
+    std::map<entt::entity, ImageHnd> root_images_;
+
+    std::unordered_map<entt::entity, AtomicTripleBuffer<std::unique_ptr<RenderablePacketI>>> renderable_packets_;
 
     ImageRef last_rendered_image_ = nullptr;
 
     const Pipeline* background_pipeline_ = nullptr;
     const Pipeline* border_pipeline_ = nullptr;
 
-    // I need a storage for destroyed entities so I can remove them from some maps later
+    entt::storage_for_t<entt::reactive>& renderable_created_storage_;
+    entt::storage_for_t<entt::reactive>& renderable_destroyed_storage_;
 };
 }  // namespace mle::ui::system

@@ -30,12 +30,9 @@ void Sprite::apply(const Entt& e, const sol::object& obj) {
 void Sprite::setTexture(const std::string& src) {
     texture_id = entt::hashed_string{src.c_str()};
     auto load_r = Renderer::i().textureCache().loadTexture(src);
-    if (load_r.has_value()) {
-        image = load_r.value();
-    } else if (load_r.error() != Result::NOT_READY) {
+    if (load_r.error() != Result::NOT_READY) {
         MLE_E("Failed to load texture {}: {}", src, load_r.error());
         texture_id = {};
-        image = Renderer::i().textureCache().get(0).value();
     }
 }
 
@@ -43,9 +40,7 @@ void Sprite::set(const sol::object& obj) {
     MLE_ASSERT(obj.valid());
 
     if (obj.is<std::string>()) {
-        auto texture_src = obj.as<std::string>();
-        texture_id = entt::hashed_string{texture_src.c_str()};
-        image = nullptr;
+        setTexture(obj.as<std::string>());
         return;
     }
     if (obj.is<sol::table>()) {
@@ -83,18 +78,16 @@ auto getPipeline() {
 }
 }  // namespace
 
-void Sprite::render(Ctx& ctx) {
-    if (texture_id == 0) {
-        return;
-    }
-    if (!image) {
+void SpritePacket::render(Ctx& ctx) {
+    if (!image || texture_id_changed) {
+        texture_id_changed = false;
         auto load_r = Renderer::i().textureCache().get(texture_id);
         if (load_r.has_value()) {
             image = load_r.value();
         } else if (load_r.error() != Result::NOT_READY) {
             MLE_E("Failed to get texture id {}: {}", texture_id, load_r.error());
             texture_id = 0;
-            return;
+            image = Renderer::i().textureCache().getDefaultTexture();
         }
     }
 
@@ -127,13 +120,9 @@ void Sprite::render(Ctx& ctx) {
 [[nodiscard]] vec2u Sprite::calculateBounds([[maybe_unused]] const Entt& e, vec2u max_size) {
     vec2u image_extent{};
 
-    if (image) {
-        image_extent = image->getExtent();
-    } else {
-        auto& cache = Renderer::i().textureCache();
-        auto image_extent_r = cache.getExtent(texture_id);
-        image_extent = image_extent_r.has_value() ? image_extent_r.value() : cache.getExtent(0).value();
-    }
+    auto& cache = Renderer::i().textureCache();
+    auto image_extent_r = cache.getExtent(texture_id);
+    image_extent = image_extent_r.has_value() ? image_extent_r.value() : cache.getExtent(0).value();
 
     vec2f image_extent_f = image_extent;
     f32 aspect_ratio = image_extent_f.x / image_extent_f.y;
@@ -147,4 +136,14 @@ void Sprite::render(Ctx& ctx) {
     f32 scale = std::min(scale_x, scale_y);
     return vec2u{image_extent_f.x * scale, image_extent_f.y * scale};
 };
+
+void Sprite::doUpdatePacket(RenderablePacketI* packet) {
+    auto* packet_p = as<SpritePacket*>(packet);
+    if (packet_p->texture_id != texture_id) {
+        packet_p->texture_id = texture_id;
+        packet_p->texture_id_changed = true;
+    }
+    packet_p->color = color;
+};
+
 }  // namespace mle::ui::renderable

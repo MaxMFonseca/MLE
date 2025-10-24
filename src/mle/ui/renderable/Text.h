@@ -5,6 +5,33 @@
 #include "mle/ui/renderable/RenderableI.h"
 
 namespace mle::ui::renderable {
+struct TextPacket : public RenderablePacketI {
+    struct CharsInstance {
+        vec2f pos;
+        vec2f size;
+        vec2f texture_pos;
+        vec2f texture_size;
+    };
+
+    struct PerImageData {
+        ImageRef image_ref;
+        usize instance_offset;
+        usize instance_count;
+    };
+
+    std::unique_ptr<Buffer> chars_buffer;
+    std::vector<PerImageData> per_image_data;
+
+    Color color = Color::ONE;
+
+    TextPacket() = default;
+    ~TextPacket() override = default;
+
+    MLE_NO_COPY_MOVE(TextPacket);
+
+    void render(Ctx& ctx) override;
+};
+
 struct Text : public RenderableI {
     std::u32string text;
     entt::id_type font_id{};
@@ -16,21 +43,13 @@ struct Text : public RenderableI {
 
     Font::RenderText render_text;
 
+    std::vector<TextPacket::PerImageData> per_image_data;
+    std::vector<TextPacket::CharsInstance> current_rendering_chars_instance_data;
+
     f32 font_height_px_f{};
     vec2u rendered_text_px{};
 
-    struct RenderingChars {
-        vec2f pos;
-        vec2f size;
-        vec2f texture_pos;
-        vec2f texture_size;
-    };
-    Buffer* chars_buffer;  // FIXME: I have to separate the description part of the renderable from the actural renderable to avoid having raw pointers here
-    std::vector<std::pair<ImageRef, std::pair<usize, usize>>> image_refs;
-
-    ~Text() override;
-
-    void buildRenderingChars(vec2u element_size);
+    void makeCharsBuffer(vec2u element_size);
 
     void setText(std::u32string src);
     void setText(std::string_view src);
@@ -40,15 +59,17 @@ struct Text : public RenderableI {
     void setJustifyMode(std::string_view mode_str);
     void setWrap(bool w = true) { wrap = w; }
 
+    void setColor(const Color& c);
+    void setColor(const sol::object& obj) { setColor(Color::fromLua(obj)); }
+
     void set(const sol::object& obj) override;
     [[nodiscard]] vec2u calculateBounds(const Entt& e, vec2u max_size) override;
 
     [[nodiscard]] entt::id_type getType() const override { return type(); }
     static entt::id_type type() { return entt::hashed_string{"Text"}; }
 
-    [[nodiscard]] std::unique_ptr<RenderableI> clone() const override { return std::make_unique<Text>(*this); }
-
-    void render(Ctx& ctx) override;
+    [[nodiscard]] std::unique_ptr<RenderablePacketI> createPacket() const override { return std::make_unique<TextPacket>(); }
+    void doUpdatePacket(RenderablePacketI* packet) override;
 
     static void apply(const Entt& e, const sol::object& obj);
 };

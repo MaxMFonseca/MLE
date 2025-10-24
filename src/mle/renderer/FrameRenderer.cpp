@@ -116,8 +116,6 @@ void FrameRenderer::shutdown() {
     }
     swapchain_images_.clear();
     for (auto& f : frames_) {
-        f.delete_images.clear();
-        f.delete_buffers.clear();
         for (auto& it : std::ranges::reverse_view(f.delete_stack)) {
             it();
         }
@@ -320,8 +318,6 @@ Result FrameRenderer::beginFrame() {
 
     MLE_T("Cleaning up next frame resources...");
 
-    next_frame.delete_buffers.clear();
-    next_frame.delete_images.clear();
     next_frame.host_visible_buffers.clear();
 
     for (auto& cmd : next_frame.secondary_cmd_buffers) {
@@ -376,6 +372,11 @@ Result FrameRenderer::beginFrame() {
 
     cmd()().resetQueryPool(f.query_pool, 0, 2);
     cmd()().writeTimestamp2(vk::PipelineStageFlagBits2::eBottomOfPipe, f.query_pool, 0);
+
+    for (auto& it : f.call_on_frame_begin) {
+        it();
+    }
+    f.call_on_frame_begin.clear();
 
     return Result::OK;
 }
@@ -511,26 +512,26 @@ BufferSlice FrameRenderer::getHostVisibleBuffer(usize size, vk::BufferUsageFlags
 }
 
 void FrameRenderer::deleteAfterFrame(BufferHnd&& buffer) {
-    if (inFrame()) {
-        getCurrentFrame().delete_buffers.emplace_back(std::move(buffer));
-    } else {
-        getNextFrame().delete_buffers.emplace_back(std::move(buffer));
-    }
+    addToFrameDeleteStack([b = std::move(buffer)]() mutable {});
 }
 
 void FrameRenderer::deleteAfterFrame(ImageHnd&& image) {
-    if (inFrame()) {
-        getCurrentFrame().delete_images.emplace_back(std::move(image));
-    } else {
-        getNextFrame().delete_images.emplace_back(std::move(image));
-    }
+    addToFrameDeleteStack([i = std::move(image)]() mutable {});
 }
 
 void FrameRenderer::addToFrameDeleteStack(std::move_only_function<void(void)>&& func) {
     if (inFrame()) {
-        getCurrentFrame().delete_stack.emplace_back(std::move(func));
+        auto& f = getCurrentFrame();
+        std::scoped_lock lock(f.delete_stack_mutex);
+        f.delete_stack.emplace_back(std::move(func));
     } else {
-        getNextFrame().delete_stack.emplace_back(std::move(func));
+        auto& f = getNextFrame();
+        std::scoped_lock lock(f.delete_stack_mutex);
+        f.delete_stack.emplace_back(std::move(func));
     }
+}
+
+void FrameRenderer::callOnNextFrameBegin(std::move_only_function<void(void)>&& func) {
+    getNextFrame().call_on_frame_begin.emplace_back(std::move(func));
 }
 }  // namespace mle

@@ -17,6 +17,7 @@ class TextureCache {
     void shutdown();
 
     Expected<ImageRef> get(entt::id_type id);
+    ImageRef getDefaultTexture() const { return default_texture_; }
     Expected<vec2u> getExtent(entt::id_type id);
 
     void addTexture(entt::id_type id, ImageHnd&& img);
