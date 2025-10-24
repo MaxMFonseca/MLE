@@ -19,12 +19,15 @@ class CommandBuffer {
     CommandBuffer& operator=(CommandBuffer&& other);
 
     CommandBuffer() = default;
-    ~CommandBuffer() { MLE_ASSERT_LOG(!o_, "Destroying a CommandBuffer that still owns a Vulkan command buffer. Did you forget to submit/reclaim it?"); }
+    ~CommandBuffer() {
+        MLE_ASSERT_LOG(!o_, "Destroying a CommandBuffer that still owns a Vulkan command buffer. Did you forget to submit/reclaim/invalidate(resetpool) it?");
+    }
 
     [[nodiscard]] vk::CommandBuffer get() const { return o_; }
     [[nodiscard]] bool isPrimary() const { return primary_; }
     [[nodiscard]] auto tid() const { return tid_; }
     [[nodiscard]] auto queueDataIdx() const { return queue_data_idx_; }
+    void invalidate() { o_ = nullptr; }  // TODO: idk man
 
     vk::CommandBuffer operator()() const {
         MLE_ASSERT_LOG(o_, "Attempting to use a null command buffer.");
@@ -64,9 +67,8 @@ class ResetCommandPool {
     CommandBuffer getPrimary();
     CommandBuffer getSecondary();
 
-    void submit(CommandBuffer&& cmd, vk::SubmitInfo2 submit_info, vk::Fence fence);
-    void submitWait(CommandBuffer&& cmd, vk::SubmitInfo2 submit_info);
-    void reclaim(CommandBuffer&& cmd);
+    void submit(CommandBuffer&& cmd, vk::SubmitInfo2 submit_info, vk::Fence fence) const;
+    void submitWait(CommandBuffer&& cmd, vk::SubmitInfo2 submit_info) const;
 
   private:
     friend RendererCommandManager;
@@ -77,8 +79,8 @@ class ResetCommandPool {
   private:
     vk::CommandPool o_{};
     QueueDataIdx queue_data_idx_ = INVALID_QUEUE;
-    std::vector<vk::CommandBuffer> available_primary_buffers_;
-    std::vector<vk::CommandBuffer> available_secondary_buffers_;
+    std::vector<vk::CommandBuffer> primary_buffers_;
+    std::vector<vk::CommandBuffer> secondary_buffers_;
     usize primary_index_{0};
     usize secondary_index_{0};
 };

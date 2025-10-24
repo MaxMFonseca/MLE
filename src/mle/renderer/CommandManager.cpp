@@ -32,16 +32,16 @@ ResetCommandPool& ResetCommandPool::operator=(ResetCommandPool&& other) {
         o_ = other.o_;
         other.o_ = nullptr;
         queue_data_idx_ = other.queue_data_idx_;
-        available_primary_buffers_ = std::move(other.available_primary_buffers_);
-        available_secondary_buffers_ = std::move(other.available_secondary_buffers_);
+        primary_buffers_ = std::move(other.primary_buffers_);
+        secondary_buffers_ = std::move(other.secondary_buffers_);
     }
     return *this;
 }
 
 ResetCommandPool::ResetCommandPool(ResetCommandPool&& other) :
     queue_data_idx_(other.queue_data_idx_),
-    available_primary_buffers_(std::move(other.available_primary_buffers_)),
-    available_secondary_buffers_(std::move(other.available_secondary_buffers_)) {
+    primary_buffers_(std::move(other.primary_buffers_)),
+    secondary_buffers_(std::move(other.secondary_buffers_)) {
     MLE_ASSERT_LOG(o_ == nullptr, "Trying to move to a ResetCommandPool that already owns a Vulkan command pool. Shutdown it first.");
     o_ = other.o_;
     other.o_ = nullptr;
@@ -57,9 +57,7 @@ void ResetCommandPool::shutdown() {
 
 CommandBuffer ResetCommandPool::getPrimary() {
     vk::CommandBuffer cmd;
-    if (primary_index_ < available_primary_buffers_.size()) {
-        cmd = available_primary_buffers_[primary_index_];
-    } else {
+    if (primary_index_ == primary_buffers_.size()) {
         auto alloc_info = vk::CommandBufferAllocateInfo{};
         alloc_info.commandPool = o_;
         alloc_info.level = vk::CommandBufferLevel::ePrimary;
@@ -67,8 +65,9 @@ CommandBuffer ResetCommandPool::getPrimary() {
 
         auto cmds = unwrap(Renderer::i().vk().getDevice().allocateCommandBuffers(alloc_info));
         MLE_ASSERT_LOG(cmds.size() == 1, "Expected to allocate exactly one command buffer, got: {}", cmds.size());
-        cmd = cmds[0];
+        primary_buffers_.push_back(cmds[0]);
     }
+    cmd = primary_buffers_[primary_index_];
     primary_index_++;
     check(cmd.begin(vk::CommandBufferBeginInfo{vk::CommandBufferUsageFlagBits::eOneTimeSubmit}));
     return {cmd, queue_data_idx_, true};
@@ -76,9 +75,7 @@ CommandBuffer ResetCommandPool::getPrimary() {
 
 CommandBuffer ResetCommandPool::getSecondary() {
     vk::CommandBuffer cmd;
-    if (secondary_index_ < available_secondary_buffers_.size()) {
-        cmd = available_secondary_buffers_[secondary_index_];
-    } else {
+    if (secondary_index_ == secondary_buffers_.size()) {
         auto alloc_info = vk::CommandBufferAllocateInfo{};
         alloc_info.commandPool = o_;
         alloc_info.level = vk::CommandBufferLevel::eSecondary;
@@ -86,8 +83,9 @@ CommandBuffer ResetCommandPool::getSecondary() {
 
         auto cmds = unwrap(Renderer::i().vk().getDevice().allocateCommandBuffers(alloc_info));
         MLE_ASSERT_LOG(cmds.size() == 1, "Expected to allocate exactly one command buffer, got: {}", cmds.size());
-        cmd = cmds[0];
+        secondary_buffers_.push_back(cmds[0]);
     }
+    cmd = secondary_buffers_[secondary_index_];
     secondary_index_++;
     vk::CommandBufferInheritanceInfo inheritance_info{};
     vk::CommandBufferBeginInfo begin_info{};
@@ -97,31 +95,23 @@ CommandBuffer ResetCommandPool::getSecondary() {
     return {cmd, queue_data_idx_, false};
 }
 
-void ResetCommandPool::submitWait(CommandBuffer&& cmd, vk::SubmitInfo2 submit_info) {
+// NOLINTNEXTLINE(cppcoreguidelines-rvalue-reference-param-not-moved) intentional
+void ResetCommandPool::submitWait(CommandBuffer&& cmd, vk::SubmitInfo2 submit_info) const {
     MLE_ASSERT_LOG(submit_info.commandBufferInfoCount == 1, "One, and only one, command buffer can be submitted here.");
     MLE_ASSERT(cmd.isPrimary());
 
     check(Renderer::i().cmdMgr().submit(queue_data_idx_, submit_info).wait());
 
-    reclaim(std::move(cmd));
+    cmd.o_ = nullptr;
 }
 
-void ResetCommandPool::submit(CommandBuffer&& cmd, vk::SubmitInfo2 submit_info, vk::Fence fence) {
+// NOLINTNEXTLINE(cppcoreguidelines-rvalue-reference-param-not-moved) intentional
+void ResetCommandPool::submit(CommandBuffer&& cmd, vk::SubmitInfo2 submit_info, vk::Fence fence) const {
     MLE_ASSERT_LOG(submit_info.commandBufferInfoCount == 1, "One, and only one, command buffer can be submitted here.");
     MLE_ASSERT(cmd.isPrimary());
 
     Renderer::i().cmdMgr().submit(queue_data_idx_, submit_info, fence);
 
-    reclaim(std::move(cmd));
-}
-
-// NOLINTNEXTLINE(cppcoreguidelines-rvalue-reference-param-not-moved) enforcing ownership transfer
-void ResetCommandPool::reclaim(CommandBuffer&& cmd) {
-    if (cmd.isPrimary()) {
-        available_primary_buffers_.push_back(cmd.get());
-    } else {
-        available_secondary_buffers_.push_back(cmd.get());
-    }
     cmd.o_ = nullptr;
 }
 
@@ -256,7 +246,7 @@ void RendererCommandManager::submitOTSWait(CommandBuffer&& cmd, vk::SubmitInfo2 
     Fence fence = submit(cmd.queue_data_idx_, submit_info);
 
     auto tid = cmd.tid();
-    MLE_ASSERT_LOG(tid == std::this_thread::get_id(), "Submitting thread must be the same as reclaiming thread.");
+    MLE_ASSERT_LOG(tid == std::this_thread::get_id(), "Submitting thread must be the same as eeclaiming thread.");
     // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic) safe
     MLE_ASSERT_LOG(submit_info.pCommandBufferInfos[0].commandBuffer == cmd.get(), "Submitted command buffer must be the same as the one provided.");
 

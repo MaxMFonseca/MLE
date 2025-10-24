@@ -1,10 +1,13 @@
 #include "RenderingThread.h"
 
+#include "mle/core/Assert.h"
 #include "mle/renderer/Renderer.h"
 
 namespace mle {
-RenderingThread::RenderingThread() :
-    cmd_(Renderer::i().frameRenderer().getSecondaryCommandBuffer()) {
+void RenderingThread::init() {
+    MLE_T("Initializing a RenderingThread");
+    MLE_ASSERT_LOG(cmd_.get() == nullptr, "RenderingThread already initialized.");
+    cmd_ = Renderer::i().frameRenderer().getSecondaryCommandBuffer();
 }
 
 void RenderingThread::setColorAttachments(std::span<const AttachmentInfo> attachments) {
@@ -319,13 +322,12 @@ void RenderingThread::dispatchCompute(int group_count_x, int group_count_y, int 
     cmd_().dispatch(group_count_x, group_count_y, group_count_z);
 }
 
-vk::CommandBuffer RenderingThread::end() {
-    MLE_ASSERT_LOG(cmd_.tid() == std::this_thread::get_id(), "RenderingThread::end() called from a different thread.");
+void RenderingThread::executeCommands() {
+    MLE_ASSERT_LOG(cmd_.tid() == std::this_thread::get_id(), "RenderingThread::executeCommands() must be called from the FrameRenderer main thread.");
 
     endRendering();
     check(cmd_().end());
-    auto ret = cmd_();
-    Renderer::i().frameRenderer().releaseSecondaryCommandBuffer(std::move(cmd_));
-    return ret;
+    Renderer::i().frameRenderer().cmd()().executeCommands(cmd_());
+    cmd_.invalidate();
 }
 }  // namespace mle

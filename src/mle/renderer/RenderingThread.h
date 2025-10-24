@@ -13,12 +13,16 @@ namespace mle {
 // So create and end MUST be called from the main thread.
 class RenderingThread {
   public:
-    MLE_NO_COPY_MOVE(RenderingThread);
-
-    RenderingThread();
+    RenderingThread() = default;
     ~RenderingThread() = default;
 
-    vk::CommandBuffer end();
+    MLE_NO_COPY(RenderingThread);
+
+    RenderingThread(RenderingThread&&) = default;
+    RenderingThread& operator=(RenderingThread&&) = default;
+
+    void init();
+    void executeCommands();
 
     const auto& cmd() { return cmd_; }
 
@@ -57,11 +61,11 @@ class RenderingThread {
 
     [[nodiscard]] Recti getRenderArea() const { return render_area_; }
     [[nodiscard]] Rectf getViewport() const { return viewport_; }
-    [[nodiscard]] Image& getColor0() const { return *color_attachments_.at(0).image; }
-    [[nodiscard]] vec2u getColor0Size() const { return getColor0().getExtent(); }
+    [[nodiscard]] ImageRef getColor0() const { return color_attachments_.at(0).image; }
+    [[nodiscard]] vec2u getColor0Size() const { return getColor0()->getExtent(); }
 
   private:
-    CommandBuffer cmd_;
+    CommandBuffer cmd_{};
 
     bool in_rendering_ = false;
 

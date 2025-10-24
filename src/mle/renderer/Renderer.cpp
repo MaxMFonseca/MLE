@@ -15,6 +15,8 @@ void Renderer::init() {
 }
 
 void Renderer::shutdown() {
+    std::ignore = vk_ctx_.getDevice().waitIdle();
+
     font_cache_.shutdown();
     texture_cache_.shutdown();
     pipeline_cache_.shutdown();

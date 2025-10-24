@@ -54,7 +54,6 @@ class FrameRenderer final {
         return current_primary_cmd_;
     }
     CommandBuffer getSecondaryCommandBuffer();
-    void releaseSecondaryCommandBuffer(CommandBuffer&& cmd);
 
     BufferSlice getHostVisibleBuffer(usize size, vk::BufferUsageFlags usage);
 
