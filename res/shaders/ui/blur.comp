@@ -1,0 +1,64 @@
+#version 450
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(set = 0, binding = 0) uniform sampler2D in_img;
+layout(set = 0, binding = 1) writeonly uniform image2D out_img;
+
+layout(push_constant) uniform PC {
+  ivec2 viewport_size;
+  ivec2 target_offset;
+  int pass;
+  float sigma;
+  int radius;
+} pc;
+
+vec2 clampUVToRect(vec2 uv, ivec2 src_pos, ivec2 src_size, ivec2 viewport_size) {
+  vec2 min_uv = (vec2(src_pos) + 0.5) / vec2(src_size);
+  vec2 max_uv = (vec2(src_pos + viewport_size) - 0.5) / vec2(src_size);
+  return clamp(uv, min_uv, max_uv);
+}
+
+void main() {
+  ivec2 gid = ivec2(gl_GlobalInvocationID.xy);
+
+  if (gid.x >= pc.viewport_size.x || gid.y >= pc.viewport_size.y) return;
+
+  const bool horiz = (pc.pass == 0);
+  ivec2 src_base = horiz ? pc.target_offset : ivec2(0);
+  ivec2 dst_base = horiz ? ivec2(0) : pc.target_offset;
+
+  ivec2 src_size = textureSize(in_img, 0);
+  vec2 inv_src_size = 1.0 / vec2(src_size);
+
+  vec2 src_px = vec2(src_base + gid) + 0.5;
+  vec2 uv = src_px * inv_src_size;
+
+  if (pc.radius == 0) {
+    imageStore(out_img, dst_base + gid, texture(in_img, uv));
+    return;
+  }
+
+  float two_sigma2 = 2.0 * pc.sigma * pc.sigma;
+  vec4 sum_c = texture(in_img, uv);
+  float sum_w = 1.0;
+
+  vec2 dir = horiz ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
+
+  for (int i = 1; i <= pc.radius; ++i) {
+    float w = exp(-float(i * i) / two_sigma2);
+    vec2 o = dir * (inv_src_size * float(i));
+
+    vec2 uv_p = clampUVToRect(uv + o, src_base, src_size, pc.viewport_size);
+    vec2 uv_m = clampUVToRect(uv - o, src_base, src_size, pc.viewport_size);
+
+    sum_c += texture(in_img, uv_p) * w;
+    sum_c += texture(in_img, uv_m) * w;
+    sum_w += 2.0 * w;
+  }
+
+  ivec2 dst_coord = dst_base + gid;
+  ivec2 dst_size = imageSize(out_img);
+  if (dst_coord.x < 0 || dst_coord.y < 0 || dst_coord.x >= dst_size.x || dst_coord.y >= dst_size.y) return;
+
+  imageStore(out_img, dst_coord, sum_c / sum_w);
+}
