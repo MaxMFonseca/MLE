@@ -198,7 +198,7 @@ Expected<ImageRef> TextureCache::loadTexture(const std::string& src) {
         return std::unexpected(Result::NOT_READY);
     }
 
-    auto raw_data_r = Image::readFile("res/textures/" + src);
+    auto raw_data_r = Image::readFile("res/textures/" + src, 4);
 
     if (!raw_data_r.has_value()) {
         MLE_E("Failed to load texture {}: {}", src, raw_data_r.error());
