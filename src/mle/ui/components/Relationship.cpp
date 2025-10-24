@@ -145,7 +145,7 @@ Relationship::NewChild Relationship::createChildBase(const Entt& e, const sol::t
 
 Relationship::NewChild Relationship::createChildBaseNamed(const Entt& e, const sol::table& table, const std::string& name) {
     auto pos = max<usize>();
-    lua::tryGetFirstKeyAs(table, pos, "pos", "idx", 2);
+    lua::tryGetFirstKeyAs(table, pos, "idx", 2);
 
     entt::entity child_e = createChildHndAt(e, pos);
     if (child_e == entt::null) {

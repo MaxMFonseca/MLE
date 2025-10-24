@@ -34,6 +34,8 @@ class AtomicTripleBuffer {
         storePub({prod_seq_, prod_staging_idx_}, std::memory_order_release);
     }
 
+    auto producerStagingIdx() const { return prod_staging_idx_; }
+
     [[nodiscard]] bool consumerHasNew() const {
         const Pub pub = loadPub(std::memory_order_acquire);
         return pub.seq != cons_seen_seq_;

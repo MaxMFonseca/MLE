@@ -52,7 +52,7 @@ void LuaElementOps::applyObj(entt::entity e, const std::string& key, const sol::
     auto it = key_handlers_.find(key);
     if (it != key_handlers_.end()) {
         it->second(Entt(ui_, e), obj);
-    } else if (!matchAny(key, "name", "pos", "styles", "style")) {
+    } else if (!matchAny(key, "name", "idx", "styles", "style")) {
         MLE_E("No handler for element key '{}'", key);
     }
 }
