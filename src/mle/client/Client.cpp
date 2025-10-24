@@ -106,11 +106,14 @@ void Client::update() {
 void Client::shutdown() {
     MLE_I("MLE Client shutting down after {}s", running_sw_.elapsedSecFloat());
     Stopwatch sw;
-    MLE_I("Calling {} shutdown callbacks", on_shutdown_callbacks_.size());
-    for (auto& cb : on_shutdown_callbacks_) {
-        cb();
+    {
+        std::scoped_lock lock(game_layer_render_mutex_);
+        if (game_layer_) {
+            MLE_I("Shutting down current game layer");
+            game_layer_->shutdown();
+            game_layer_.reset();
+        }
     }
-    state_ = SystemState::UNINITIALIZED;
     MLE_I("MLE Client shut down successfully after {}s", sw.elapsedSecFloat());
 }
 

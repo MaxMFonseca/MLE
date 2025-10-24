@@ -43,8 +43,6 @@ class Client final {
     Lua lua_;
     sol::table client_table_;
 
-    std::vector<std::move_only_function<void()>> on_shutdown_callbacks_;
-
     std::mutex game_layer_render_mutex_;
 
     std::unique_ptr<client::Layer> game_layer_;
