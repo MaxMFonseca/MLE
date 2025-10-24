@@ -28,6 +28,7 @@ void FontCache::init() {
 void FontCache::shutdown() {
     MLE_I("Shutting down FontCache, unloading {} fonts.", fonts_.size());
     fonts_.clear();
+    default_font_.reset();
 };
 
 void FontCache::add(entt::id_type font_id, const Font::CI& font_ci) {
