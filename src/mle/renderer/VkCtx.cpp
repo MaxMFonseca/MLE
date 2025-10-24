@@ -118,6 +118,18 @@ void VkCtx::shutdown() {
     }
 
     if (vma_) {
+        VmaTotalStatistics stats{};
+        vmaCalculateStatistics(vma_, &stats);
+
+        if (stats.total.statistics.allocationCount > 0) {
+            MLE_C("VMA leak detected: {} allocations still active.", stats.total.statistics.allocationCount);
+
+            char* stats_string = nullptr;
+            vmaBuildStatsString(vma_, &stats_string, VK_TRUE);
+            MLE_E("VMA Statistics:\n{}", stats_string);
+            vmaFreeStatsString(vma_, stats_string);
+        }
+
         vmaDestroyAllocator(vma_);
         vma_ = nullptr;
     }
