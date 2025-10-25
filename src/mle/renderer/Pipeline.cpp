@@ -8,6 +8,9 @@ Pipeline::~Pipeline() {
         Renderer::i().destroy(o_);
         Renderer::i().destroy(pipeline_layout_);
     }
+    for (auto& dsl : owned_dsls_) {
+        Renderer::i().destroy(dsl);
+    }
 };
 
 void Pipeline::init(const CI& ci) {
