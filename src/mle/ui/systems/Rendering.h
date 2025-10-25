@@ -39,8 +39,8 @@ class Rendering {
 
     struct RenderingContext {
         RenderingThread thread;
-        Recti viewport{};
-        Recti current_scissor{};
+        Recti parent_viewport{};
+        Recti parent_scissor{};
 
         // TODO: should I instead of rendering immediate add everything to this context and bind all pipelines once ?
         // YEAH sure

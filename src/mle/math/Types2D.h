@@ -275,7 +275,7 @@ class Rect {
         return ret;
     }
 
-    [[nodiscard]] Rect<T> constraintTo(const Rect<T>& bounds) const {
+    [[nodiscard]] Rect<T> clamp(const Rect<T>& bounds) const {
         Rect<T> r = *this;
 
         if (r.left() < bounds.left()) {

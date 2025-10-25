@@ -112,7 +112,7 @@ void SpritePacket::render(CompRenderingCtx& ctx) {
     } pc{};
 
     pc.color = color;
-    pc.viewport_size = ctx.viewport.size();
+    pc.viewport_size = vec2i(ctx.thread.getViewport().size());
     pc.rounding_corners_radius_px = ctx.rounding_corners_radius_px;
 
     thread.pushConstants(&pc);

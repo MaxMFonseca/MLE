@@ -13,7 +13,6 @@ class Entt;
 
 struct CompRenderingCtx {
     RenderingThread& thread;
-    Recti viewport;
     vec4i rounding_corners_radius_px;
 };
 

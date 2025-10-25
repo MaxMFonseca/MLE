@@ -998,7 +998,6 @@ struct FreeCalculator {
 
         for (auto c : sorted_by_dependencies) {
             Entt centt{container_e.ui(), c};
-            MLE_VC(centt.name());
             auto& cbcd = cbcds.at(c);
 
             switch (cbcd.target.position.x.type) {

@@ -116,9 +116,9 @@ void Rendering::renderNodeBorder(const Rendering::Packet::Node& node, RenderingC
     border_bounds.expandTBLR(-node.border.t, node.border.b, -node.border.l, node.border.r);
 
     Rectf border_viewport = border_bounds.asF32();
-    border_viewport.move(ctx.viewport.pos());
+    border_viewport.move(ctx.parent_viewport.pos());
 
-    Recti border_scissor = border_bounds.constraintTo(ctx.current_scissor);
+    Recti border_scissor = border_bounds.clamp(ctx.parent_scissor);
 
     ctx.thread.setViewport(border_viewport);
     ctx.thread.setScissor(border_scissor);
@@ -146,9 +146,9 @@ void Rendering::renderNodeBackground(const Rendering::Packet::Node& node, Render
     Recti bg_bounds = node.bounds.parent_px;
 
     Rectf bg_viewport = bg_bounds.asF32();
-    bg_viewport.move(ctx.viewport.pos());
+    bg_viewport.move(ctx.parent_viewport.pos());
 
-    Recti border_scissor = bg_bounds.constraintTo(ctx.current_scissor);
+    Recti border_scissor = bg_bounds.clamp(ctx.parent_scissor);
 
     ctx.thread.setViewport(bg_viewport);
     ctx.thread.setScissor(border_scissor);
@@ -204,9 +204,9 @@ std::unique_ptr<Rendering::RenderingContext> Rendering::renderCreateNodeNewConte
     color_attachment.image->clear(new_ctx->thread.cmd(), node.shader_clear_color);
 
     new_ctx->thread.setColorAttachment(color_attachment, 0);
-    new_ctx->current_scissor.setPos(0, 0);
-    new_ctx->current_scissor.setSize(color_attachment.image->getExtent());
-    new_ctx->viewport = new_ctx->current_scissor;
+    new_ctx->parent_scissor.setPos(0, 0);
+    new_ctx->parent_scissor.setSize(color_attachment.image->getExtent());
+    new_ctx->parent_viewport = new_ctx->parent_scissor;
     new_ctx->thread.beginRendering();
 
     return new_ctx;
@@ -214,23 +214,19 @@ std::unique_ptr<Rendering::RenderingContext> Rendering::renderCreateNodeNewConte
 
 void Rendering::renderNodeShader(const Rendering::Packet::Node& node, RenderingContext& pctx) {
     CompRenderingCtx shader_packet_ctx{
-        .thread = pctx.thread,
-        .viewport = node.bounds.parent_px,
-        .rounding_corners_radius_px = vec4i{node.border.round_lt, node.border.round_rt, node.border.round_lb, node.border.round_rb}};
+        .thread = pctx.thread, .rounding_corners_radius_px = vec4i{node.border.round_lt, node.border.round_rt, node.border.round_lb, node.border.round_rb}};
     node.shader_packet->render(shader_packet_ctx);
 }
 
 void Rendering::renderNodeRenderable(const Rendering::Packet::Node& node, RenderingContext& ctx) {
     CompRenderingCtx renderable_packet_ctx{
-        .thread = ctx.thread,
-        .viewport = node.bounds.parent_px,
-        .rounding_corners_radius_px = vec4i{node.border.round_lt, node.border.round_rt, node.border.round_lb, node.border.round_rb}};
+        .thread = ctx.thread, .rounding_corners_radius_px = vec4i{node.border.round_lt, node.border.round_rt, node.border.round_lb, node.border.round_rb}};
     node.renderable_packet->render(renderable_packet_ctx);
 }
 
 // NOLINTNEXTLINE(misc-no-recursion) Cool recursion
 void Rendering::renderNode(const Rendering::Packet::Node& node, RenderingContext& pctx) {
-    if (node.bounds.parent_px.left() > pctx.current_scissor.right() || node.bounds.parent_px.top() > pctx.current_scissor.bottom()) {
+    if (node.bounds.parent_px.left() > pctx.parent_scissor.right() || node.bounds.parent_px.top() > pctx.parent_scissor.bottom()) {
         return;
     }
 
@@ -252,9 +248,9 @@ void Rendering::renderNode(const Rendering::Packet::Node& node, RenderingContext
     Recti bounds = node.bounds.parent_px;
 
     Rectf viewport = bounds.asF32();
-    viewport.move(ctx.viewport.pos());
+    viewport.move(ctx.parent_viewport.pos());
 
-    Recti scissor = bounds.constraintTo(ctx.current_scissor);
+    Recti scissor = bounds.clamp(ctx.parent_scissor);
 
     ctx.thread.setViewport(viewport);
     ctx.thread.setScissor(scissor);

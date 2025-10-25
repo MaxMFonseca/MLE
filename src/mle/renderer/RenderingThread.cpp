@@ -104,6 +104,10 @@ void RenderingThread::setScissor(Recti scissor) {
         scissor.setHeight(render_area_.height() - scissor.top());
     }
 
+    MLE_ASSERT_LOG(scissor.right() <= int(getColor0()->getExtent().x) && scissor.bottom() <= int(getColor0()->getExtent().y),
+                   "Scissor exceeds color attachment extent: {}x{}, got right: {}, bottom: {}", getColor0()->getExtent().x, getColor0()->getExtent().y,
+                   scissor.right(), scissor.bottom());
+
     vk::Rect2D ss{};
     ss.offset.x = scissor.left();
     ss.offset.y = scissor.top();

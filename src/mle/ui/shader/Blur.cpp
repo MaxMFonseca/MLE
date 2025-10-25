@@ -72,10 +72,12 @@ void Blur::doUpdatePacket(ShaderPacketI* packet) {
 void BlurPacket::render(CompRenderingCtx& ctx) {
     auto& thread = ctx.thread;
 
-    if (!image || image->getExtent().x < as<u32>(ctx.viewport.width()) || image->getExtent().y < as<u32>(ctx.viewport.height())) {
+    auto viewport = ctx.thread.getViewport().asI32();
+
+    if (!image || image->getExtent().x < as<u32>(viewport.width()) || image->getExtent().y < as<u32>(viewport.height())) {
         Image::CI image_ci{};
         image_ci.format = thread.getColor0()->getFormat();
-        image_ci.extent = ctx.viewport.size();
+        image_ci.extent = viewport.size();
         if (image) {
             Renderer::i().frameRenderer().deleteAfterFrame(std::move(image));
         }
@@ -100,8 +102,8 @@ void BlurPacket::render(CompRenderingCtx& ctx) {
         int radius;
     } pc{};
 
-    pc.viewport_size = ctx.viewport.size();
-    pc.target_offset = ctx.viewport.pos();
+    pc.viewport_size = viewport.size();
+    pc.target_offset = viewport.pos();
     pc.rounding_corners_radius_px = ctx.rounding_corners_radius_px;
     pc.sigma = sigma;
     pc.radius = radius;
@@ -116,7 +118,7 @@ void BlurPacket::render(CompRenderingCtx& ctx) {
 
     thread.pushDescriptor(0, pass0_writes);
 
-    thread.dispatchCompute((ctx.viewport.width() / 16) + 1, (ctx.viewport.height() / 16) + 1, 1);
+    thread.dispatchCompute((viewport.width() / 16) + 1, (viewport.height() / 16) + 1, 1);
 
     image->transitionState(thread.cmd(), Image::State::COMPUTE_R);
     thread.getColor0()->transitionState(thread.cmd(), Image::State::COMPUTE_RW);
@@ -132,7 +134,7 @@ void BlurPacket::render(CompRenderingCtx& ctx) {
 
     thread.pushDescriptor(0, pass1_writes);
 
-    thread.dispatchCompute((ctx.viewport.width() / 16) + 1, (ctx.viewport.height() / 16) + 1, 1);
+    thread.dispatchCompute((viewport.width() / 16) + 1, (viewport.height() / 16) + 1, 1);
 
     thread.beginRendering();
 };

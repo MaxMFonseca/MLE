@@ -60,7 +60,9 @@ class RenderingThread {
     void dispatchCompute(int group_count_x, int group_count_y = 1, int group_count_z = 1) const;
 
     [[nodiscard]] Recti getRenderArea() const { return render_area_; }
-    [[nodiscard]] Rectf getViewport() const { return viewport_; }
+    [[nodiscard]] auto getViewport() const { return viewport_; }
+    [[nodiscard]] auto getScissor() const { return scissor_; }
+
     [[nodiscard]] ImageRef getColor0() const { return color_attachments_.at(0).image; }
     [[nodiscard]] vec2u getColor0Size() const { return getColor0()->getExtent(); }
 
