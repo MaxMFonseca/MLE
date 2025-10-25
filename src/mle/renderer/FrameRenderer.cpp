@@ -3,6 +3,7 @@
 #include <fmt/ranges.h>
 
 #include <atomic>
+#include <chrono>
 #include <ranges>
 #include <thread>
 #include <utility>
@@ -50,6 +51,15 @@ void FrameRenderer::init() {
     MLE_D("FrameRenderer initialized successfully!");
 }
 
+namespace {
+inline std::chrono::steady_clock::duration fpsToPeriod(u32 fps) {
+    if (fps == 0 || fps == max<u32>()) {
+        return std::chrono::steady_clock::duration::zero();
+    }
+    return std::chrono::nanoseconds(1'000'000'000ULL / fps);
+}
+}  // namespace
+
 // NOLINTNEXTLINE(performance-unnecessary-value-param) stop_token is small and cheap to copy
 void FrameRenderer::runLoop(std::stop_token st) {
     MLE_I("FrameRenderer run thread started.");
@@ -58,31 +68,85 @@ void FrameRenderer::runLoop(std::stop_token st) {
     auto force_swapchain_result = createSwapchain();
     MLE_ASSERT(force_swapchain_result == Result::OK);
 
+    u32 current_target_fps = target_fps_.load(std::memory_order_relaxed);
+    std::chrono::steady_clock::duration frame_period = fpsToPeriod(current_target_fps);
+    std::chrono::steady_clock::time_point next_deadline =
+        std::chrono::steady_clock::now() +
+        (frame_period == std::chrono::steady_clock::duration::zero() ? std::chrono::steady_clock::duration::zero() : frame_period);
+
     while (!st.stop_requested()) {
-        Stopwatch sw;
+        MLE_PERF_SCOPE("FrameRenderer");
 
-        MLE_PERF_SCOPE("FrameRenderer::runLoop");
-
-        const auto br = beginFrame();
-        if (br == Result::FRAME_SKIP || br == Result::SWAPCHAIN_NOT_VISIBLE) {
-            std::this_thread::sleep_for(50ms);
-            continue;
+        {
+            MLE_PERF_SCOPE("FrameRenderer.BeginFrame");
+            const auto br = beginFrame();
+            if (br == Result::FRAME_SKIP || br == Result::SWAPCHAIN_NOT_VISIBLE) {
+                std::this_thread::sleep_for(50ms);
+                continue;
+            }
+            if (isError(br)) {
+                Core::i().unrecoverable("beginFrame() failed with result: {}", as<Result>(br));
+                break;
+            }
         }
-        if (isError(br)) {
-            Core::i().unrecoverable("beginFrame() failed with result: {}", as<Result>(br));
-            break;
+
+        ImageRef frame_img = nullptr;
+        {
+            MLE_PERF_SCOPE("FrameRenderer.Client");
+            frame_img = Client::i().render();
         }
 
-        ImageRef frame_img = Client::i().render();
+        {
+            MLE_PERF_SCOPE("FrameRenderer.EndFrame");
+            endFrame(frame_img);
+        }
 
-        endFrame(frame_img);
+        const u32 new_target = target_fps_.load(std::memory_order_relaxed);
+        if (new_target != current_target_fps) {
+            if (new_target == 0 || new_target == max<u32>()) {
+                MLE_I("Target FPS changed from {} to unlimited", current_target_fps);
+            } else {
+                MLE_I("Target FPS changed from {} to {}", current_target_fps, new_target);
+            }
+            current_target_fps = new_target;
+            frame_period = fpsToPeriod(current_target_fps);
 
-        const u32 target = target_fps_.load(std::memory_order_relaxed);
-        if (target != max<u32>() && target > 0) {
-            const auto budget_ns = std::chrono::nanoseconds(1'000'000'000ULL / target);
-            const auto spent = sw.elapsed<std::chrono::nanoseconds>();
-            if (spent < budget_ns) {
-                std::this_thread::sleep_for(budget_ns - spent);
+            if (frame_period == std::chrono::steady_clock::duration::zero()) {
+                next_deadline = std::chrono::steady_clock::time_point{};
+            } else {
+                next_deadline = std::chrono::steady_clock::now() + frame_period;
+            }
+        }
+
+        if (frame_period != std::chrono::steady_clock::duration::zero()) {
+            if (next_deadline.time_since_epoch() == std::chrono::steady_clock::duration::zero()) {
+                next_deadline = std::chrono::steady_clock::now() + frame_period;
+            }
+
+            next_deadline += frame_period;
+
+            const auto now = std::chrono::steady_clock::now();
+            if (now > next_deadline) {
+                const auto behind = now - next_deadline;
+                if (frame_period.count() > 0) {
+                    const auto missed = (behind / frame_period) + 1;
+                    next_deadline += missed * frame_period;
+                } else {
+                    next_deadline = now;
+                }
+                continue;
+            }
+
+            {
+                MLE_PERF_SCOPE("FrameRenderer.Sleeping");
+                std::this_thread::sleep_until(next_deadline);
+            }
+
+            for (;;) {
+                if (std::chrono::steady_clock::now() >= next_deadline) {
+                    break;
+                }
+                std::this_thread::yield();
             }
         }
     }
@@ -306,7 +370,6 @@ void FrameRenderer::logSwapchainInfo() {
 }
 
 Result FrameRenderer::beginFrame() {
-    MLE_PERF_SCOPE("FrameRenderer::beginFrame");
     if (iconified_) {
         MLE_I("Window is iconified, skipping frame.");
         return Result::FRAME_SKIP;
@@ -337,7 +400,7 @@ Result FrameRenderer::beginFrame() {
         device.getQueryPoolResults(next_frame.query_pool, 0, 2, timestamps.size() * sizeof(u64), timestamps.data(), sizeof(u64), vk::QueryResultFlagBits::e64);
     if (query_result == vk::Result::eSuccess || query_result == vk::Result::eNotReady) {
         auto elapsed = std::chrono::nanoseconds(as<u64>(as<f32>(timestamps.at(1) - timestamps.at(0)) * Renderer::i().vk().getTimestampPeriod()));
-        static const PerfTracker::CounterId FRAME_TIME_COUNTER_ID = PerfTracker::i().registerCounter("Frame Time");
+        static const PerfTracker::CounterId FRAME_TIME_COUNTER_ID = PerfTracker::i().registerCounter("FrameRenderer.GPU");
         PerfTracker::i().record(FRAME_TIME_COUNTER_ID, elapsed);
         MLE_T("Frame GPU time: {} ns", elapsed.count());
     } else {
@@ -385,7 +448,6 @@ Result FrameRenderer::beginFrame() {
 }
 
 void FrameRenderer::endFrame(ImageRef frame_image) {
-    MLE_PERF_SCOPE("FrameRenderer::endFrame");
     auto& f = getCurrentFrame();
     auto& cmd = current_primary_cmd_;
 
