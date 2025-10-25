@@ -3,6 +3,7 @@
 #include "Types.h"
 #include "mle/core/Assert.h"
 #include "mle/math/Types2D.h"
+#include "mle/renderer/CommandManager.h"
 #include "mle/renderer/SyncManager.h"
 #include "mle/renderer/Utils.h"
 #include "mle/utils/Utils.h"
@@ -70,7 +71,9 @@ class Image final {
     void copyBuffer(const CommandBuffer& cmd, Buffer& src, Recti rect) { copyBuffer(cmd, src, vec2u{rect.size()}, {rect.pos()}); }
     void copyImage(const CommandBuffer& cmd, Image& src, vec2u extent = {0, 0}, vec2i src_offset = {0, 0}, vec2i dst_offset = {0, 0});
     void blitImage(const CommandBuffer& cmd, Image& src, Recti src_rect = {0, 0, 0, 0}, Recti dst_rect = {0, 0, 0, 0});
-    BufferHnd copyToBufferOTS(vec2u extent = {0, 0}, vec2i offset = {0, 0});
+    void blend(const CommandBuffer& cmd, Image& src, f32 opacity = 1, Recti src_rect = {0, 0, 0, 0}, Recti dst_rect = {0, 0, 0, 0});
+
+    [[nodiscard]] BufferHnd copyToBufferOTS(vec2u extent = {0, 0}, vec2i offset = {0, 0});
 
     [[nodiscard]] BufferHnd copyRaw(CommandBuffer& cmd, const RawData& data, vec2i offset = {0, 0});
 

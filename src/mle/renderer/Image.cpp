@@ -10,6 +10,7 @@
 #include "Utils.h"
 #include "VkCtx.h"
 #include "mle/renderer/Renderer.h"
+#include "vulkan/vulkan.hpp"
 
 namespace mle {
 ImageHnd Image::createHnd(const CI& ci) {
@@ -266,6 +267,112 @@ void Image::blitImage(const CommandBuffer& cmd, Image& src, Recti src_rect, Rect
     src.transitionState(cmd, State::TRANSFER_SRC);
     transitionState(cmd, State::TRANSFER_DST);
     cmd().blitImage2(blit_info);
+}
+
+namespace {
+const Pipeline* getBlendPipeline() {
+    static const Pipeline* pipeline;
+    if (pipeline == nullptr) {
+        Pipeline::CI pipeline_ci{};
+        pipeline_ci.vertex_shader = &Renderer::i().shaderCache().get("mle/ui/rect.vert");
+        pipeline_ci.fragment_shader = &Renderer::i().shaderCache().get("mle/blend.frag");
+        std::array color_attachment_formats = {Renderer::i().vk().getVkImageFormat(ImageFormat::COLOR)};
+        pipeline_ci.color_attachment_formats = color_attachment_formats;
+        auto blend_attachments = Pipeline::makeDefaultBlendAttachments<1>();
+        pipeline_ci.blend_attachments = blend_attachments;
+        pipeline_ci.topology = vk::PrimitiveTopology::eTriangleStrip;
+        pipeline_ci.cull_mode = vk::CullModeFlagBits::eNone;
+        pipeline_ci.push_descriptor = 0;
+
+        pipeline = &Renderer::i().pipelineCache().setPipeline("mle_ui_blend", pipeline_ci);
+    }
+    return pipeline;
+}
+}  // namespace
+
+void Image::blend(const CommandBuffer& cmd, Image& src, f32 opacity, Recti src_rect, Recti dst_rect) {
+    checkQueueOwnership(cmd);
+    src.checkQueueOwnership(cmd);
+
+    if (src_rect.width() <= 0) {
+        src_rect.setWidth(as<int>(src.getExtent().x) - src_rect.width());
+    }
+    if (src_rect.height() <= 0) {
+        src_rect.setHeight(as<int>(src.getExtent().y) - src_rect.height());
+    }
+    if (dst_rect.width() <= 0) {
+        dst_rect.setWidth(as<int>(extent_.x) - dst_rect.width());
+    }
+    if (dst_rect.height() <= 0) {
+        dst_rect.setHeight(as<int>(extent_.y) - dst_rect.height());
+    }
+
+    MLE_ASSERT(src_rect.width() > 0 && src_rect.height() > 0);
+    MLE_ASSERT(dst_rect.width() > 0 && dst_rect.height() > 0);
+    MLE_ASSERT(src_rect.pos().x + src_rect.width() <= as<int>(src.getExtent().x) && src_rect.pos().y + src_rect.height() <= as<int>(src.getExtent().y));
+    MLE_ASSERT(dst_rect.pos().x + dst_rect.width() <= as<int>(extent_.x) && dst_rect.pos().y + dst_rect.height() <= as<int>(extent_.y));
+
+    transitionState(cmd, State::COLOR_ATT);
+    src.transitionState(cmd, State::FS_READ);
+
+    vk::RenderingInfo ri{};
+    vk::RenderingAttachmentInfo color_att{};
+    color_att.imageView = this->getDefaultView();
+    color_att.imageLayout = vk::ImageLayout::eColorAttachmentOptimal;
+    color_att.loadOp = vk::AttachmentLoadOp::eLoad;
+    color_att.storeOp = vk::AttachmentStoreOp::eStore;
+
+    ri.setColorAttachments(color_att);
+    ri.renderArea.offset = vk::Offset2D{0, 0};
+    ri.renderArea.extent = toVkExtent2D(extent_);
+    ri.layerCount = 1;
+    ri.viewMask = 0;
+
+    cmd.get().beginRendering(ri);
+
+    auto dst_f = dst_rect.asF32();
+    vk::Viewport viewport;
+    viewport.x = dst_f.pos().x;
+    viewport.y = dst_f.pos().y;
+    viewport.width = dst_f.width();
+    viewport.height = dst_f.height();
+
+    vk::Rect2D scissor;
+    scissor.offset = vk::Offset2D{dst_rect.pos().x, dst_rect.pos().y};
+    scissor.extent = toVkExtent2D(dst_rect.size());
+
+    cmd.get().setViewport(0, viewport);
+    cmd.get().setScissor(0, scissor);
+
+    const auto* pipeline = getBlendPipeline();
+    cmd.get().bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline->get());
+
+    auto b0_0_in_tex = src.getDescriptorInfo();
+    auto s0 = pipeline->makeWrites(0, nullptr, &b0_0_in_tex);
+
+    cmd.get().pushDescriptorSet(vk::PipelineBindPoint::eGraphics, pipeline->getPipelineLayout(), 0, s0);
+
+    Rectf src_f = src_rect.asF32();
+    vec2f src_extent_f = vec2f(src.getExtent());
+
+    vec2f src_offset = src_f.pos() / src_extent_f;
+    vec2f src_size = src_f.size() / src_extent_f;
+
+    struct PC {
+        vec2f in_offset;
+        vec2f in_size;
+        f32 opacity;
+    } pc{};
+
+    pc.in_offset = src_offset;
+    pc.in_size = src_size;
+    pc.opacity = opacity;
+
+    cmd.get().pushConstants(pipeline->getPipelineLayout(), vk::ShaderStageFlagBits::eFragment, 0, sizeof(pc), &pc);
+
+    cmd.get().draw(4, 1, 0, 0);
+
+    cmd.get().endRendering();
 }
 
 BufferHnd Image::copyToBufferOTS(vec2u extent, vec2i offset) {
