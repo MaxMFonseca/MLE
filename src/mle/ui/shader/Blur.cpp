@@ -94,6 +94,7 @@ void BlurPacket::render(CompRenderingCtx& ctx) {
     struct PC {
         vec2i viewport_size;
         vec2i target_offset;
+        vec4i rounding_corners_radius_px;
         int pass;
         float sigma;
         int radius;
@@ -101,6 +102,7 @@ void BlurPacket::render(CompRenderingCtx& ctx) {
 
     pc.viewport_size = ctx.viewport.size();
     pc.target_offset = ctx.viewport.pos();
+    pc.rounding_corners_radius_px = ctx.rounding_corners_radius_px;
     pc.sigma = sigma;
     pc.radius = radius;
     pc.pass = 0;

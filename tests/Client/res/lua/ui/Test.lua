@@ -43,8 +43,8 @@ return {
 			origin = "c",
 			margin = "50px",
 			blur = {
-				radius = 20,
-				sigma = 10,
+				radius = 13,
+				sigma = 5,
 			},
 		},
 		blur2 = {
@@ -52,8 +52,8 @@ return {
 			size = { xrel = "blur", yrel = "blur:0.2" },
 			origin = "lc",
 			blur = {
-				radius = 3,
-				sigma = 2,
+				radius = 13,
+				sigma = 5,
 			},
 		},
 	},
