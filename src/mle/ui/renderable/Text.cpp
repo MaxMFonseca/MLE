@@ -6,6 +6,7 @@
 #include "mle/ui/Types.h"
 #include "mle/ui/components/Renderable.h"
 #include "mle/utils/String.h"
+#include "sol/forward.hpp"
 
 namespace mle::ui::renderable {
 namespace {
@@ -102,7 +103,7 @@ void Text::set(const sol::object& obj) {
         if (const auto font_r = table["font"]; lua::valid<std::string>(font_r)) {
             setFont(lua::as<std::string>(font_r).c_str());
         }
-        if (const auto font_height_r = table["font_height"]; font_height_r.valid()) {
+        if (const sol::object font_height_r = table["font_height"]; font_height_r.valid()) {
             font_height_tb.set(font_height_r);
         }
         if (const auto font_justify_r = table["justify_mode"]; lua::valid<std::string>(font_justify_r)) {

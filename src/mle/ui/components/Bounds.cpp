@@ -142,10 +142,6 @@ void Dependency::set(const Entt& e, const sol::object& obj) {
     if (obj.is<std::string>()) {
         auto str = obj.as<std::string>();
         auto splited = split(str, ':');
-        if (splited.size() != 2) {
-            MLE_E("Invalid dependency string: '{}'. Expected format is 'dep_name:val'.", str);
-            return;
-        }
         std::string dep_name{splited[0]};
         auto& parent_rel = parent.getRelationship();
         this->e = parent_rel.getChildByName(parent, dep_name);
@@ -153,13 +149,17 @@ void Dependency::set(const Entt& e, const sol::object& obj) {
             MLE_E("Dependency target '{}' not found in parent container of entity {}", dep_name, e.e());
             return;
         }
-        dep_tb.set(splited[1]);
+        if (splited.size() < 2) {
+            dep_tb.set(1);
+        } else {
+            dep_tb.set(splited[1]);
+        }
     } else if (obj.is<sol::table>()) {
         auto table = lua::as<sol::table>(obj);
         auto name_r = lua::tryAs<std::string>(table[1]);
-        auto val_r = table[2];
-        if (!name_r || !val_r.valid()) {
-            MLE_E("Invalid dependency table for entt {}. Expected format is {{dep_name, val}}.", e.name());
+        sol::object val_r = table[2];
+        if (!name_r) {
+            MLE_E("Invalid dependency table for entt {}. Expected format is {{dep_name<, val>}}.", e.name());
             return;
         }
         auto dep_name = *name_r;
@@ -169,7 +169,11 @@ void Dependency::set(const Entt& e, const sol::object& obj) {
             MLE_E("Dependency target '{}' not found in parent container of entity {}", dep_name, e.e());
             return;
         }
-        dep_tb.set(val_r);
+        if (val_r.valid()) {
+            dep_tb.set(val_r);
+        } else {
+            dep_tb.set(1);
+        }
     } else {
         MLE_UNREACHABLE_LOG("Unexpected obj type for Dependency: {}", obj.get_type());
     }
@@ -204,11 +208,11 @@ TargetSize::TargetSize(const Entt& e, const sol::object& obj) {
         if (y_r.valid()) {
             y.set(y_r);
         }
-        auto dep_x_r = lua::getFirstKey(table, "dep_x", 3);
+        auto dep_x_r = lua::getFirstKey(table, "xrel", "xdep", 3);
         if (dep_x_r.valid()) {
             xdep.set(e, dep_x_r);
         }
-        auto dep_y_r = lua::getFirstKey(table, "dep_y", 4);
+        auto dep_y_r = lua::getFirstKey(table, "yrel", "ydep", 4);
         if (dep_y_r.valid()) {
             ydep.set(e, dep_y_r);
         }
@@ -268,11 +272,11 @@ TargetPosition::TargetPosition(const Entt& e, const sol::object& obj) {
         if (y_r.valid()) {
             y.set(y_r);
         }
-        auto dep_x_r = lua::getFirstKey(table, "dep_x", 3);
+        auto dep_x_r = lua::getFirstKey(table, "xrel", "xdep", 3);
         if (dep_x_r.valid()) {
             xdep.set(e, dep_x_r);
         }
-        auto dep_y_r = lua::getFirstKey(table, "dep_y", 4);
+        auto dep_y_r = lua::getFirstKey(table, "yrel", "ydep", 4);
         if (dep_y_r.valid()) {
             ydep.set(e, dep_y_r);
         }

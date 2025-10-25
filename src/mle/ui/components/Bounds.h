@@ -23,7 +23,7 @@ struct TargetBound {
 
     TargetBound() = default;
 
-    void set(f32 v, Type t);
+    void set(f32 v, Type t = Type::DEFAULT);
     void set(const sol::object& obj);
     void set(std::string_view str);
 };
