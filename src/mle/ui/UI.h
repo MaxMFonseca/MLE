@@ -37,7 +37,7 @@ class UI {
 
   private:
     entt::registry registry_;
-    entt::entity root_{};
+    entt::entity root_ = entt::null;
     vec2u root_size_{0};
     f32 root_aspect_ratio_ = 1;
     Lua lua_;
@@ -48,6 +48,6 @@ class UI {
     ui::system::LuaElementOps lua_element_ops_{*this};
     ui::system::Rendering rendering_system_{*this};
 
-    window::ev::ResizeL window_resize_el_;
+    window::ev::ResizeL window_resize_el_;  // FIXME: This should not be here, the user should do this explicitly
 };
 }  // namespace mle

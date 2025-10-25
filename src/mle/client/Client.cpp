@@ -2,9 +2,12 @@
 
 #include <chrono>
 
+#include "mle/client/layers/PerfLayer.h"
 #include "mle/core/Assert.h"
 #include "mle/core/Logger.h"
 #include "mle/core/PerfTracker.h"
+#include "mle/renderer/Image.h"
+#include "mle/renderer/Renderer.h"
 #include "mle/utils/Color.h"
 #include "mle/utils/Stopwatch.h"
 #include "mle/window/TextBox.h"
@@ -37,6 +40,14 @@ void Client::init() {
     MLE_I("MLE Client initialized successfully.");
 }
 
+void Client::addPerfLayer() {
+    MLE_I("Adding PerfLayer");
+    auto r = debug_layers_.emplace("perf", std::make_unique<client::PerfLayer>());
+    if (r.second) {
+        r.first->second->init();
+    }
+}
+
 void Client::run() {
     using ns = std::chrono::nanoseconds;
     using namespace std::chrono_literals;
@@ -57,6 +68,8 @@ void Client::run() {
         MLE_W("No initial game layer set! Pushing empty layer.");
         pushGameLayer(std::make_unique<client::Layer>());
     }
+
+    addPerfLayer();
 
     while (state_ == SystemState::RUNNING) {
         const auto t_now = sw.elapsed<ns>();
@@ -89,16 +102,36 @@ void Client::run() {
 }
 
 void Client::update() {
-    MLE_PERF_SCOPE("Client::update");
+    MLE_PERF_SCOPE("ClientUpdate");
 
     checkNextGameLayer();
 
     Window::i().poolEvents();
     UserInputManager::i().update();
 
-    game_layer_->update();
+    {
+        MLE_PERF_SCOPE("ClientUpdate.game_layer");
+        game_layer_->update();
+    }
 
-    std::this_thread::sleep_for(1ms);
+    {
+        MLE_PERF_SCOPE("ClientUpdate.debug_layers");
+        for (auto& [_, dl] : debug_layers_) {
+            dl->update();
+        }
+
+        if (!debug_layers_to_remove_.empty()) {
+            std::scoped_lock lock(debug_layers_render_mutex_);
+            for (const auto& name : debug_layers_to_remove_) {
+                auto it = debug_layers_.find(name);
+                if (it != debug_layers_.end()) {
+                    MLE_I("Removing debug layer '{}'", name);
+                    debug_layers_.erase(it);
+                }
+            }
+            debug_layers_to_remove_.clear();
+        }
+    }
 
     UserInputManager::i().lateUpdate();
 }
@@ -139,11 +172,40 @@ void Client::checkNextGameLayer() {
 }
 
 ImageRef Client::render() {
-    std::scoped_lock lock(game_layer_render_mutex_);
     if (!game_layer_) {
         return nullptr;
     }
 
-    return game_layer_->render(0);
+    ImageRef game_layer_img = nullptr;
+
+    {
+        std::scoped_lock lock(game_layer_render_mutex_);
+        game_layer_img = game_layer_->render(0);
+    }
+    if (!game_layer_img) {
+        return nullptr;
+    }
+
+    {
+        std::scoped_lock lock(debug_layers_render_mutex_);
+        for (auto& [_, dl] : debug_layers_) {
+            ImageRef debug_layer_img = dl->render(0);
+            if (debug_layer_img) {
+                // TODO: this must be configurable, pos, size, copy, blit, maybe a shader.. for now blit full screen
+                game_layer_img->blitImage(Renderer::i().frameRenderer().cmd(), *debug_layer_img);
+            }
+        }
+    }
+
+    return game_layer_img;
 }
+
+void Client::addDebugLayer(const std::string& name, std::unique_ptr<client::Layer> layer) {
+    std::scoped_lock lock(debug_layers_render_mutex_);
+    debug_layers_.emplace(name, std::move(layer));
+};
+
+void Client::removeDebugLayer(const std::string& name) {
+    debug_layers_to_remove_.insert(name);
+};
 }  // namespace mle

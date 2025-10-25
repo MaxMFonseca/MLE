@@ -59,6 +59,9 @@ void UI::addRootStyles(const sol::object& obj) {
 }
 
 void UI::resizeRoot(const vec2u& size) {
+    if (root_ == entt::null) {
+        return;
+    }
     ui::Entt e(*this, root_);
     e.emplaceOrReplace<ui::comp::Bounds>(size);
     e.addFlag<ui::comp::ContainerNeedsInternalBoundsUpdateFlag>();
