@@ -1,11 +1,11 @@
 return {
 	background = "RED",
-	padding = "10px",
+	-- padding = "10px",
 
 	styles = {
 		basic_round = {
 			border = {
-				roundness = "10%",
+				roundness = "20px",
 			},
 		},
 		basic_border = {
@@ -28,22 +28,32 @@ return {
 		justify_last = "b",
 	},
 	children_base = {
-		-- style = { "basic_round", "basic_border" },
-		-- background = "GRAY",
+		style = { "basic_round", "basic_border" },
 	},
 	c = {
 		bg = {
 			idx = 0,
 			pos = { 0, 0 },
 			size = { 1, 1 },
-			sprite = { "i/ui/bg.png" },
+			sprite = { "i/ui/bg2.png" },
 		},
 		blur = {
-			pos = { 0, 0 },
-			size = 0.5,
+			pos = 0.5,
+			size = "400px",
+			origin = "c",
+			margin = "50px",
 			blur = {
 				radius = 20,
 				sigma = 10,
+			},
+		},
+		blur2 = {
+			pos = { xrel = "blur", yrel = "blur:c" },
+			size = { xrel = "blur", yrel = "blur:0.2" },
+			origin = "lc",
+			blur = {
+				radius = 3,
+				sigma = 2,
 			},
 		},
 	},

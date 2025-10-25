@@ -1,5 +1,6 @@
 #include "Container.h"
 
+#include <ranges>
 #include <string>
 
 #include "mle/lua/Utils.h"
@@ -232,7 +233,6 @@ void finishChildBounds(const Entt& centt, auto& cbcd, PaddingPx padding_px) {
     comp::Bounds new_bounds;
     new_bounds.parent_px.setPos(cbcd.new_position + origin_lt);
     new_bounds.parent_px.setSize(cbcd.new_size);
-    // MLE_VC(new_bounds);
 
     centt.emplaceOrReplace<comp::Bounds>(new_bounds);
 
@@ -272,7 +272,6 @@ void finishChildBounds(const Entt& centt, auto& cbcd, PaddingPx padding_px) {
         new_border.round_lb = roundc(cbcd.target.border.round_lb);
         new_border.round_rb = roundc(cbcd.target.border.round_rb);
 
-        // MLE_VC(new_border);
         centt.emplaceOrReplace<comp::Border>(new_border);
     }
 };
@@ -994,9 +993,12 @@ struct FreeCalculator {
         const auto root_size = container_e.ui().getRootSize();
         const auto root_size_f = vec2f{as<f32>(root_size.x), as<f32>(root_size.y)};
 
-        for (int i = 0; i < as<int>(sorted_by_dependencies.size()); i++) {
-            auto c = sorted_by_dependencies[i];
+        std::unordered_map<entt::entity, Recti> children_full_rect;
+        children_full_rect.reserve(free_children.size());
+
+        for (auto c : sorted_by_dependencies) {
             Entt centt{container_e.ui(), c};
+            MLE_VC(centt.name());
             auto& cbcd = cbcds.at(c);
 
             switch (cbcd.target.position.x.type) {
@@ -1022,24 +1024,32 @@ struct FreeCalculator {
             if (cbcd.target.position.xdep.e != entt::null) {
                 if (!centt.getRelationship().isChildOf(container_e.e())) {
                     MLE_W("Child {} is not a child of the container. Ignoring x dependency.", centt.name());
-                    continue;
-                }
-                const auto dep_entt = Entt{container_e.ui(), cbcd.target.position.ydep.e};
-                const auto tb = cbcd.target.position.xdep.dep_tb;
-                auto& dep_bounds = dep_entt.get<comp::Bounds>();
-                cbcd.new_position.x += dep_bounds.parent_px.left();
-                switch (tb.type) {
-                    case TargetBound::Type::PX: {
-                        cbcd.new_position.x += as<int>(tb.val) + dep_bounds.parent_px.width();
-                    } break;
-                    case TargetBound::Type::DEFAULT:
-                    case TargetBound::Type::RELATIVE:
-                    case TargetBound::Type::RELATIVE_W: {
-                        cbcd.new_position.x += as<int>(as<f32>(dep_bounds.parent_px.width()) * tb.val);
-                    } break;
-                    default: {
-                        MLE_W("Invalid x dependency target bound type: {}. Ignoring extra.", tb.type);
-                    } break;
+                } else {
+                    const auto dep_entt = Entt{container_e.ui(), cbcd.target.position.xdep.e};
+                    const auto tb = cbcd.target.position.xdep.dep_tb;
+                    Recti dep_rect;
+                    auto dep_it = children_full_rect.find(dep_entt.e());
+                    if (dep_it != children_full_rect.end()) {
+                        dep_rect = dep_it->second;
+                    } else {
+                        auto& dep_bounds = dep_entt.get<comp::Bounds>();
+                        dep_rect = dep_bounds.parent_px;
+                    }
+
+                    cbcd.new_position.x += dep_rect.left();
+                    switch (tb.type) {
+                        case TargetBound::Type::PX: {
+                            cbcd.new_position.x += as<int>(tb.val) + dep_rect.width();
+                        } break;
+                        case TargetBound::Type::DEFAULT:
+                        case TargetBound::Type::RELATIVE:
+                        case TargetBound::Type::RELATIVE_W: {
+                            cbcd.new_position.x += as<int>(as<f32>(dep_rect.width()) * tb.val);
+                        } break;
+                        default: {
+                            MLE_W("Invalid x dependency target bound type: {}. Ignoring extra.", tb.type);
+                        } break;
+                    }
                 }
             }
 
@@ -1066,24 +1076,31 @@ struct FreeCalculator {
             if (cbcd.target.position.ydep.e != entt::null) {
                 if (!centt.getRelationship().isChildOf(container_e.e())) {
                     MLE_W("Child {} is not a child of the container. Ignoring y dependency.", centt.name());
-                    continue;
-                }
-                const auto dep_entt = Entt{container_e.ui(), cbcd.target.position.ydep.e};
-                const auto tb = cbcd.target.position.ydep.dep_tb;
-                auto& dep_bounds = dep_entt.get<comp::Bounds>();
-                cbcd.new_position.y += dep_bounds.parent_px.top();
-                switch (tb.type) {
-                    case TargetBound::Type::PX: {
-                        cbcd.new_position.y += as<int>(tb.val) + dep_bounds.parent_px.height();
-                    } break;
-                    case TargetBound::Type::DEFAULT:
-                    case TargetBound::Type::RELATIVE:
-                    case TargetBound::Type::RELATIVE_W: {
-                        cbcd.new_position.y += as<int>(as<f32>(dep_bounds.parent_px.height()) * tb.val);
-                    } break;
-                    default: {
-                        MLE_W("Invalid y dependency target bound type: {}. Ignoring extra.", tb.type);
-                    } break;
+                } else {
+                    const auto dep_entt = Entt{container_e.ui(), cbcd.target.position.ydep.e};
+                    const auto tb = cbcd.target.position.ydep.dep_tb;
+                    Recti dep_rect;
+                    auto dep_it = children_full_rect.find(dep_entt.e());
+                    if (dep_it != children_full_rect.end()) {
+                        dep_rect = dep_it->second;
+                    } else {
+                        auto& dep_bounds = dep_entt.get<comp::Bounds>();
+                        dep_rect = dep_bounds.parent_px;
+                    }
+                    cbcd.new_position.y += dep_rect.top();
+                    switch (tb.type) {
+                        case TargetBound::Type::PX: {
+                            cbcd.new_position.y += as<int>(tb.val) + dep_rect.height();
+                        } break;
+                        case TargetBound::Type::DEFAULT:
+                        case TargetBound::Type::RELATIVE:
+                        case TargetBound::Type::RELATIVE_W: {
+                            cbcd.new_position.y += as<int>(as<f32>(dep_rect.height()) * tb.val);
+                        } break;
+                        default: {
+                            MLE_W("Invalid y dependency target bound type: {}. Ignoring extra.", tb.type);
+                        } break;
+                    }
                 }
             }
 
@@ -1139,23 +1156,30 @@ struct FreeCalculator {
             if (cbcd.target.size.xdep.e != entt::null) {
                 if (!centt.getRelationship().isChildOf(container_e.e())) {
                     MLE_W("Child {} is not a child of the container. Ignoring x size dependency.", centt.name());
-                    continue;
-                }
-                const auto dep_entt = Entt{container_e.ui(), cbcd.target.size.xdep.e};
-                const auto tb = cbcd.target.size.xdep.dep_tb;
-                auto& dep_bounds = dep_entt.get<comp::Bounds>();
-                switch (tb.type) {
-                    case TargetBound::Type::PX: {
-                        cbcd.new_size.x += as<int>(tb.val) + dep_bounds.parent_px.width();
-                    } break;
-                    case TargetBound::Type::DEFAULT:
-                    case TargetBound::Type::RELATIVE:
-                    case TargetBound::Type::RELATIVE_W: {
-                        cbcd.new_size.x += as<int>(as<f32>(dep_bounds.parent_px.width()) * tb.val);
-                    } break;
-                    default: {
-                        MLE_W("Invalid x size dependency target bound type: {}. Ignoring extra.", tb.type);
-                    } break;
+                } else {
+                    const auto dep_entt = Entt{container_e.ui(), cbcd.target.size.xdep.e};
+                    const auto tb = cbcd.target.size.xdep.dep_tb;
+                    Recti dep_rect;
+                    auto dep_it = children_full_rect.find(dep_entt.e());
+                    if (dep_it != children_full_rect.end()) {
+                        dep_rect = dep_it->second;
+                    } else {
+                        auto& dep_bounds = dep_entt.get<comp::Bounds>();
+                        dep_rect = dep_bounds.parent_px;
+                    }
+                    switch (tb.type) {
+                        case TargetBound::Type::PX: {
+                            cbcd.new_size.x += as<int>(tb.val) + dep_rect.width();
+                        } break;
+                        case TargetBound::Type::DEFAULT:
+                        case TargetBound::Type::RELATIVE:
+                        case TargetBound::Type::RELATIVE_W: {
+                            cbcd.new_size.x += as<int>(as<f32>(dep_rect.width()) * tb.val);
+                        } break;
+                        default: {
+                            MLE_W("Invalid x size dependency target bound type: {}. Ignoring extra.", tb.type);
+                        } break;
+                    }
                 }
             }
 
@@ -1209,23 +1233,30 @@ struct FreeCalculator {
             if (cbcd.target.size.ydep.e != entt::null) {
                 if (!centt.getRelationship().isChildOf(container_e.e())) {
                     MLE_W("Child {} is not a child of the container. Ignoring y size dependency.", centt.name());
-                    continue;
-                }
-                const auto dep_entt = Entt{container_e.ui(), cbcd.target.size.ydep.e};
-                const auto tb = cbcd.target.size.ydep.dep_tb;
-                auto& dep_bounds = dep_entt.get<comp::Bounds>();
-                switch (tb.type) {
-                    case TargetBound::Type::PX: {
-                        cbcd.new_size.y += as<int>(tb.val) + dep_bounds.parent_px.height();
-                    } break;
-                    case TargetBound::Type::DEFAULT:
-                    case TargetBound::Type::RELATIVE:
-                    case TargetBound::Type::RELATIVE_W: {
-                        cbcd.new_size.y += as<int>(as<f32>(dep_bounds.parent_px.height()) * tb.val);
-                    } break;
-                    default: {
-                        MLE_W("Invalid y size dependency target bound type: {}. Ignoring extra.", tb.type);
-                    } break;
+                } else {
+                    const auto dep_entt = Entt{container_e.ui(), cbcd.target.size.ydep.e};
+                    const auto tb = cbcd.target.size.ydep.dep_tb;
+                    Recti dep_rect;
+                    auto dep_it = children_full_rect.find(dep_entt.e());
+                    if (dep_it != children_full_rect.end()) {
+                        dep_rect = dep_it->second;
+                    } else {
+                        auto& dep_bounds = dep_entt.get<comp::Bounds>();
+                        dep_rect = dep_bounds.parent_px;
+                    }
+                    switch (tb.type) {
+                        case TargetBound::Type::PX: {
+                            cbcd.new_size.y += as<int>(tb.val) + dep_rect.height();
+                        } break;
+                        case TargetBound::Type::DEFAULT:
+                        case TargetBound::Type::RELATIVE:
+                        case TargetBound::Type::RELATIVE_W: {
+                            cbcd.new_size.y += as<int>(as<f32>(dep_rect.height()) * tb.val);
+                        } break;
+                        default: {
+                            MLE_W("Invalid y size dependency target bound type: {}. Ignoring extra.", tb.type);
+                        } break;
+                    }
                 }
             }
 
@@ -1252,6 +1283,56 @@ struct FreeCalculator {
                     cbcd.new_size.y = as<int>(size_from_provider.y);
                 }
             }
+            //////////////// MARGIN & BORDER CALCULATION ////////////////
+
+            auto calc_margin_border = [&](TargetBound tb, bool is_x) -> int {
+                switch (tb.type) {
+                    case TargetBound::Type::PX: {
+                        return as<int>(tb.val);
+                    } break;
+                    case TargetBound::Type::ROOT: {
+                        return as<int>((is_x ? root_size_f.x : root_size_f.y) * tb.val);
+                    } break;
+                    case TargetBound::Type::DEFAULT:
+                    case TargetBound::Type::RELATIVE: {
+                        if (is_x) {
+                            return as<int>(as<f32>(padded_size.x) * tb.val);
+                        }
+                        return as<int>(as<f32>(padded_size.y) * tb.val);
+                    } break;
+                    case TargetBound::Type::RELATIVE_W: {
+                        return as<int>(as<f32>(padded_size.x) * tb.val);
+                    } break;
+                    case TargetBound::Type::RELATIVE_H: {
+                        return as<int>(as<f32>(padded_size.y) * tb.val);
+                    } break;
+                    default: {
+                        MLE_W("Invalid target margin/border type: {}.", (int)tb.type);
+                        return 0;
+                    } break;
+                }
+            };
+
+            cbcd.new_margin.t = calc_margin_border(cbcd.target.margin.t, false);
+            cbcd.new_margin.b = calc_margin_border(cbcd.target.margin.b, false);
+            cbcd.new_margin.l = calc_margin_border(cbcd.target.margin.l, true);
+            cbcd.new_margin.r = calc_margin_border(cbcd.target.margin.r, true);
+            cbcd.new_border.t = calc_margin_border(cbcd.target.border.t, false);
+            cbcd.new_border.b = calc_margin_border(cbcd.target.border.b, false);
+            cbcd.new_border.l = calc_margin_border(cbcd.target.border.l, true);
+            cbcd.new_border.r = calc_margin_border(cbcd.target.border.r, true);
+
+            auto& this_margin = children_full_rect[c];
+            this_margin.setWidth(cbcd.new_size.x + cbcd.new_margin.l + cbcd.new_margin.r + cbcd.new_border.l + cbcd.new_border.r);
+            this_margin.setHeight(cbcd.new_size.y + cbcd.new_margin.t + cbcd.new_margin.b + cbcd.new_border.t + cbcd.new_border.b);
+
+            vec2f margin_origin = vec2f(this_margin.size()) * cbcd.target.origin;
+            this_margin.setPosX(cbcd.new_position.x - as<int>(margin_origin.x));
+            this_margin.setPosY(cbcd.new_position.y - as<int>(margin_origin.y));
+
+            cbcd.new_position.x = this_margin.left() + cbcd.new_margin.l + cbcd.new_border.l;
+
+            cbcd.new_position.y = this_margin.top() + cbcd.new_margin.t + cbcd.new_border.t;
 
             finishChildBounds(centt, cbcd, padding_px);
         }
