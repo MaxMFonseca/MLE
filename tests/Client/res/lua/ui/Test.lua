@@ -1,5 +1,5 @@
 return {
-	background = "RED",
+	-- background = "RED",
 	-- padding = "10px",
 
 	styles = {

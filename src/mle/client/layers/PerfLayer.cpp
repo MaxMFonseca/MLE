@@ -10,6 +10,8 @@ void PerfLayer::init() {
     });
     toggle_key_listener_ = std::make_unique<KeyListener>([this]() { toggle(); }, Key::A, KeyState::PRESSED);
     toggle_key_listener_2_ = std::make_unique<KeyListener>([this]() { toggle(); }, Key::F3, KeyState::PRESSED);
+
+    ui_.setRoot("mle/ui/perf_layer");
 }
 
 void PerfLayer::toggle() {
@@ -17,10 +19,15 @@ void PerfLayer::toggle() {
     MLE_I("Perf layer enabled: {}", enabled_);
 }
 
-void PerfLayer::shutdown() {};
+void PerfLayer::shutdown() {
+    ui_.clear();
+};
 
 void PerfLayer::update() {
-    if (!new_samples_.empty() && enabled_) {
+    if (!enabled_) {
+        return;
+    }
+    if (!new_samples_.empty()) {
         auto parsed = parseNewSamples();
         for (auto& c : parsed) {
             for (auto& sc : c.second) {
@@ -29,6 +36,7 @@ void PerfLayer::update() {
             }
         }
     };
+    ui_.update();
 }
 
 PerfLayer::ParsedSamples PerfLayer::parseNewSamples() {
@@ -54,7 +62,10 @@ PerfLayer::ParsedSamples PerfLayer::parseNewSamples() {
 }
 
 ImageRef PerfLayer::render([[maybe_unused]] f64 dt) {
-    return nullptr;
+    if (!enabled_) {
+        return nullptr;
+    }
+    return ui_.render();
 }
 
 }  // namespace mle::client

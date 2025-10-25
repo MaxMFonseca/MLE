@@ -147,6 +147,13 @@ void Client::shutdown() {
             game_layer_.reset();
         }
     }
+    {
+        std::scoped_lock lock(debug_layers_render_mutex_);
+        for (auto& [_, dl] : debug_layers_) {
+            dl->shutdown();
+        }
+        debug_layers_.clear();
+    }
     MLE_I("MLE Client shut down successfully after {}s", sw.elapsedSecFloat());
 }
 
@@ -186,13 +193,12 @@ ImageRef Client::render() {
         return nullptr;
     }
 
-    {
+    if (!debug_layers_.empty()) {
         std::scoped_lock lock(debug_layers_render_mutex_);
         for (auto& [_, dl] : debug_layers_) {
             ImageRef debug_layer_img = dl->render(0);
             if (debug_layer_img) {
-                // TODO: this must be configurable, pos, size, copy, blit, maybe a shader.. for now blit full screen
-                game_layer_img->blitImage(Renderer::i().frameRenderer().cmd(), *debug_layer_img);
+                game_layer_img->blend(Renderer::i().frameRenderer().cmd(), *debug_layer_img);
             }
         }
     }
