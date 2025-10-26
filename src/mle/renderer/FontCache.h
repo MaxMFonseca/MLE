@@ -38,7 +38,7 @@ class FontCache {
     std::map<entt::id_type, FontHnd> fonts_;
     FontHnd default_font_;
 
-    static constexpr const char* DEFAULT_FONT_NAME = "mle/DigitalDisco";
+    static constexpr const char* DEFAULT_FONT_NAME = "mle/JetBrainsMonoNerdFont-Regular";
 };
 
 }  // namespace mle
