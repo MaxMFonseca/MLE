@@ -189,6 +189,32 @@ class Flags {
     MaskType mask_;
 };
 
+// Trait to mark enum types as valid flag bits
+template <typename T>
+struct IsFlagBits : std::false_type {};
+template <typename T>
+inline constexpr bool IS_FLAG_BITS_V = IsFlagBits<T>::value;
+
+template <typename BitType>
+    requires(IS_FLAG_BITS_V<BitType>)
+constexpr Flags<BitType> operator|(BitType lhs, BitType rhs) noexcept {
+    using Mask = typename Flags<BitType>::MaskType;
+    return Flags<BitType>(Mask(lhs) | Mask(rhs));
+}
+
+template <typename BitType>
+    requires(IS_FLAG_BITS_V<BitType>)
+constexpr Flags<BitType> operator&(BitType lhs, BitType rhs) noexcept {
+    using Mask = typename Flags<BitType>::MaskType;
+    return Flags<BitType>(Mask(lhs) & Mask(rhs));
+}
+
+template <typename BitType>
+    requires(IS_FLAG_BITS_V<BitType>)
+constexpr Flags<BitType> operator^(BitType lhs, BitType rhs) noexcept {
+    using Mask = typename Flags<BitType>::MaskType;
+    return Flags<BitType>(Mask(lhs) ^ Mask(rhs));
+}
 }  // namespace mle
 
 /**
@@ -228,10 +254,12 @@ class Flags {
  *
  * @param name The prefix used for the flag type
  */
-#define MLE_FLAGS_END(name) \
-    }                       \
-    ;                       \
-    using name##Flags = Flags<name##FlagBits>
+#define MLE_FLAGS_END(name)                    \
+    }                                          \
+    ;                                          \
+    using name##Flags = Flags<name##FlagBits>; \
+    template <>                                \
+    struct IsFlagBits<name##FlagBits> : std::true_type {}
 
 /**
  * @brief [INTERNAL] Begins a custom fmt formatter specialization for a single flag bit.
