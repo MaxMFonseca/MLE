@@ -1,5 +1,5 @@
 return {
-	padding = "30px",
+	padding = "10px",
 	container = {
 		dir = "h",
 	},

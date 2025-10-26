@@ -11,8 +11,7 @@ void PerfLayer::init() {
         std::scoped_lock lock{new_samples_mutex_};
         new_samples_ = samples;
     });
-    toggle_key_listener_ = std::make_unique<KeyListener>([this]() { toggle(); }, Key::A, KeyState::PRESSED);
-    toggle_key_listener_2_ = std::make_unique<KeyListener>([this]() { toggle(); }, Key::F3, KeyState::PRESSED);
+    toggle_key_listener_ = std::make_unique<KeyListener>([this]() { toggle(); }, Key::F3, KeyState::PRESSED);
 
     ui_.setRoot("mle/ui/perf_layer");
 }
@@ -74,7 +73,7 @@ PerfLayer::ParsedSamples PerfLayer::parseNewSamples() {
 
     for (const auto& s : new_samples_) {
         std::string_view full{s.name};
-        const auto dot = full.find('.');
+        const auto dot = full.find_first_of('.');
 
         const std::string_view category_sv = (dot == std::string_view::npos) ? full : full.substr(0, dot);
 

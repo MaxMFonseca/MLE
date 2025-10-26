@@ -32,6 +32,7 @@ class TextBox final {
     void setChangedCallback(std::move_only_function<void()>&& callback) { changed_callback_ = std::move(callback); }
 
     void setNewLineCtrlEnter(bool enable);
+    void setAllowNewLine(bool allow) { allow_new_line_ = allow; }
 
     std::string makeSelectionString();
 
@@ -72,6 +73,7 @@ class TextBox final {
     usize selection_start_ = 0;
     usize selection_end_ = 0;
     bool focused_ = false;
+    bool allow_new_line_ = false;
     bool new_line_ctrl_enter_ = false;
 
     std::move_only_function<void()> changed_callback_;

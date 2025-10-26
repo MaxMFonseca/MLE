@@ -71,6 +71,7 @@ void Window::poolEvents() {
                 ed_.dispatch(window::ev::Close{});
             } break;
             case SDL_EVENT_KEY_DOWN: {
+                // FIXME: this should use key instead of scancode
                 auto key = systemKeyToKey(event.key.scancode);
                 UserInputManager::i().setPressed(key);
             } break;

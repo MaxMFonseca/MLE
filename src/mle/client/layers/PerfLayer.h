@@ -32,7 +32,7 @@ class PerfLayer : public mle::client::Layer {
   private:
     UI ui_;
 
-    bool enabled_ = true;
+    bool enabled_ = false;
 
     std::mutex new_samples_mutex_;
     PerfTracker::Samples new_samples_;
@@ -40,6 +40,5 @@ class PerfLayer : public mle::client::Layer {
     PerfNewSamplesListenerHnd perf_listener_;
 
     KeyListenerHnd toggle_key_listener_;
-    KeyListenerHnd toggle_key_listener_2_;
 };
 }  // namespace mle::client

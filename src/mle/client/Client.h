@@ -38,6 +38,7 @@ class Client final {
     void checkNextGameLayer();
 
     void addPerfLayer();
+    void addTerminalLayer();
 
   private:
     SystemState state_ = SystemState::UNINITIALIZED;

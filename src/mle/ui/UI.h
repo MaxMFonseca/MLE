@@ -14,6 +14,7 @@ class UI {
     UI();
 
     void setRoot(const std::string& element_name);
+    void setRoot(sol::table root_table);
     void resizeRoot(const vec2u& size);
     void clear();
     void shutdown() { clear(); }

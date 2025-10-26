@@ -18,6 +18,10 @@ class TextListener;
 using TextListenerHnd = std::unique_ptr<TextListener>;
 using TextListenerRef = TextListener*;
 
+class TextBox;
+using TextBoxRef = TextBox*;
+using TextBoxHnd = std::unique_ptr<TextBox>;
+
 enum class KeyState : u8 {
     UP,
     PRESSED,
@@ -103,6 +107,7 @@ struct formatter<mle::Keybinding> : formatter<std::string> {
         return format_to(ctx.out(), "(key: {}, state: {}, mods: {})", as<mle::u32>(kb.key), kb.state, kb.mods);
     }
 };
+
 }  // namespace fmt
 
 MLE_FLAGS_FMT_BEGIN(mle::KeyMod)

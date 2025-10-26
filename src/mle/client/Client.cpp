@@ -3,6 +3,7 @@
 #include <chrono>
 
 #include "mle/client/layers/PerfLayer.h"
+#include "mle/client/layers/TerminalLayer.h"
 #include "mle/core/Assert.h"
 #include "mle/core/Logger.h"
 #include "mle/core/PerfTracker.h"
@@ -31,11 +32,6 @@ void Client::init() {
 
     window_close_el_ = Window::i().getED().makeListener<window::ev::Close>([this](const auto&) { requestStop(); });
 
-    auto* tb = new TextBox;
-    tb->setText(U"Hello, World!");
-    tb->setChangedCallback([tb]() { MLE_I("TextBox changed: \n{}\n{}", tb->getTextUtf8(), tb->makeSelectionString()); });
-    tb->setFocused(true);
-
     state_ = SystemState::INITIALIZED;
     MLE_I("MLE Client initialized successfully.");
 }
@@ -43,6 +39,14 @@ void Client::init() {
 void Client::addPerfLayer() {
     MLE_I("Adding PerfLayer");
     auto r = debug_layers_.emplace("perf", std::make_unique<client::PerfLayer>());
+    if (r.second) {
+        r.first->second->init();
+    }
+}
+
+void Client::addTerminalLayer() {
+    MLE_I("Adding TerminalLayer");
+    auto r = debug_layers_.emplace("terminal", std::make_unique<client::TerminalLayer>());
     if (r.second) {
         r.first->second->init();
     }
@@ -70,6 +74,7 @@ void Client::run() {
     }
 
     addPerfLayer();
+    addTerminalLayer();
 
     while (state_ == SystemState::RUNNING) {
         const auto t_now = sw.elapsed<ns>();

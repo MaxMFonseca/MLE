@@ -18,10 +18,8 @@ void UI::clear() {
     rendering_system_.clear();
 }
 
-void UI::setRoot(const std::string& element_name) {
-    MLE_I("Setting UI root to element '{}'", element_name);
-
-    auto root_table = getTableFor(element_name);
+void UI::setRoot(sol::table root_table) {
+    MLE_I("Setting UI root from table: {}", root_table);
 
     addRootStyles(root_table["styles"]);
 
@@ -36,6 +34,11 @@ void UI::setRoot(const std::string& element_name) {
     }
 
     resizeRoot(Window::i().getSize());
+};
+
+void UI::setRoot(const std::string& element_name) {
+    auto root_table = getTableFor(element_name);
+    setRoot(root_table);
 };
 
 void UI::addStyle(const std::string& style_name, const sol::table& style_table) {

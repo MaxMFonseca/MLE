@@ -18,7 +18,7 @@ class Entt {
     [[nodiscard]] auto e() const { return e_; }
     void setE(entt::entity e) { e_ = e; }
 
-    void apply(const std::string& key, const sol::object& obj) const { ui_.getLuaElementOps().applyObj(e_, key, obj); }
+    void apply(const std::string& key, const sol::object& obj = {}) const { ui_.getLuaElementOps().applyObj(e_, key, obj); }
     void applyTable(const sol::table& table) const { ui_.getLuaElementOps().applyTable(e_, table); }
     void setName(const std::string& name) const;
     void destroy() const;

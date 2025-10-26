@@ -107,7 +107,7 @@ void TextBox::onEnd() {
 }
 
 void TextBox::onEnter() {
-    if (!focused_) {
+    if (!focused_ || !allow_new_line_) {
         return;
     }
 
