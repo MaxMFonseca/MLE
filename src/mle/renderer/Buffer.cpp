@@ -8,6 +8,30 @@
 #include "mle/renderer/Types.h"
 
 namespace mle {
+namespace {
+[[maybe_unused]] std::pair<std::mutex&, std::vector<Buffer*>&> getAliveObjects() {
+    static std::vector<Buffer*> alloc_info;
+    static std::mutex mutex;
+    return {mutex, alloc_info};
+}
+
+void addAliveObject(Buffer* self) {
+    if constexpr (IS_DEBUG_BUILD) {
+        auto [m, v] = getAliveObjects();
+        std::scoped_lock lock(m);
+        v.emplace_back(self);
+    }
+}
+
+void removeAliveObject(Buffer* self) {
+    if constexpr (IS_DEBUG_BUILD) {
+        auto [m, v] = getAliveObjects();
+        std::scoped_lock lock(m);
+        std::erase(v, self);
+    }
+}
+}  // namespace
+
 Buffer::Buffer(Buffer&& other) noexcept :
     o_(other.o_),
     usage_(other.usage_),
@@ -102,6 +126,7 @@ void Buffer::create(const CI& ci) {
     auto create_result = vmaCreateBuffer(vma, buffer_ci, &allocation_ci,  // NOLINT
                                          &temp_buffer, &allocation_, &allocation_info_);
     check(create_result);
+    addAliveObject(this);
 
     o_ = temp_buffer;
     size_ = ci.size;
@@ -118,6 +143,7 @@ Buffer::~Buffer() {
     }
     unmap();
     vmaDestroyBuffer(Renderer::i().vk().getVma(), o_, allocation_);
+    removeAliveObject(this);
 }
 
 void* Buffer::map() {
@@ -371,4 +397,19 @@ void Buffer::ownershipAcquireOTSWait(QueueDataIdx dst_queue_data_idx) {
 
     Renderer::i().cmdMgr().submitOTSWait(std::move(cmd));
 }
+
+void Buffer::logAliveObjects() {
+    if constexpr (IS_DEBUG_BUILD) {
+        auto [m, v] = getAliveObjects();
+        std::scoped_lock lock(m);
+        if (v.empty()) {
+            MLE_I("No alive buffers!");
+        } else {
+            for (const auto* i : v) {
+                MLE_C("Alive buffer: {}", *i);
+            }
+        }
+    }
+};
+
 }  // namespace mle

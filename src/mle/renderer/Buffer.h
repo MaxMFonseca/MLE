@@ -36,7 +36,7 @@ class Buffer {
 
     [[nodiscard]] vk::DescriptorBufferInfo makeDescriptorInfo(const CommandBuffer& cmd, usize size = max<usize>(), usize offset = 0);
 
-    [[nodiscard]] vk::Buffer get() { return o_; }
+    [[nodiscard]] vk::Buffer get() const { return o_; }
     [[nodiscard]] vk::BufferUsageFlags getUsage() const { return usage_; }
     [[nodiscard]] vk::DeviceSize getSize() const { return size_; }
     [[nodiscard]] bool isPersistent() const { return persistent_; }
@@ -58,6 +58,8 @@ class Buffer {
 
     [[nodiscard]] static BufferHnd createHnd(const CI& ci);
 
+    static void logAliveObjects();
+
   private:
     vk::Buffer o_;
 
@@ -72,3 +74,13 @@ class Buffer {
     bool can_be_mapped_ = false;
 };
 }  // namespace mle
+
+namespace fmt {
+template <>
+struct formatter<mle::Buffer> : formatter<std::string> {
+    template <typename FormatContext>
+    constexpr auto format(const mle::Buffer& v, FormatContext& ctx) const {
+        return fmt::format_to(ctx.out(), "vk: {}, usage: {}, size: {}", static_cast<void*>(v.get()), vk::to_string(v.getUsage()), v.getSize());
+    }
+};
+}  // namespace fmt

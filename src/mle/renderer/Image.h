@@ -119,6 +119,8 @@ class Image final {
 
     static ImageHnd createHnd(const CI& ci);
 
+    static void logAliveObjects();
+
   private:
     struct TransitionLayoutInfo {
         vk::ImageLayout new_layout;
@@ -180,4 +182,14 @@ struct formatter<mle::Image::State> : formatter<std::string> {
         MLE_TODO;
     }
 };
+
+template <>
+struct formatter<mle::Image> : formatter<std::string> {
+    template <typename FormatContext>
+    constexpr auto format(const mle::Image& v, FormatContext& ctx) const {
+        return fmt::format_to(ctx.out(), "vk: {}, format: {}, usage: {}, extent: {}", static_cast<void*>(v.get()), vk::to_string(v.getVkFormat()),
+                              vk::to_string(v.getUsage()), v.getExtent());
+    }
+};
+
 }  // namespace fmt

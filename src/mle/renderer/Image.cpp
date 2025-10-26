@@ -3,16 +3,43 @@
 #include <stb_image.h>
 
 #include <cstring>
+#include <mutex>
 #include <vulkan/vulkan_enums.hpp>
 #include <vulkan/vulkan_structs.hpp>
 
 #include "Buffer.h"
 #include "Utils.h"
 #include "VkCtx.h"
+#include "mle/core/Consts.h"
+#include "mle/core/Logger.h"
 #include "mle/renderer/Renderer.h"
 #include "vulkan/vulkan.hpp"
 
 namespace mle {
+namespace {
+[[maybe_unused]] std::pair<std::mutex&, std::vector<Image*>&> getAliveObjects() {
+    static std::vector<Image*> alloc_info;
+    static std::mutex mutex;
+    return {mutex, alloc_info};
+}
+
+void addAliveObject(Image* self) {
+    if constexpr (IS_DEBUG_BUILD) {
+        auto [m, v] = getAliveObjects();
+        std::scoped_lock lock(m);
+        v.emplace_back(self);
+    }
+}
+
+void removeAliveObject(Image* self) {
+    if constexpr (IS_DEBUG_BUILD) {
+        auto [m, v] = getAliveObjects();
+        std::scoped_lock lock(m);
+        std::erase(v, self);
+    }
+}
+}  // namespace
+
 ImageHnd Image::createHnd(const CI& ci) {
     auto img = std::make_unique<Image>();
     img->init(ci);
@@ -28,6 +55,7 @@ Image::~Image() {
     }
     if (allocation_) {
         vmaDestroyImage(Renderer::i().vk().getVma(), o_, allocation_);
+        removeAliveObject(this);
     }
 }
 
@@ -104,6 +132,7 @@ void Image::init(const CI& ci) {
         VkImage vk_image = VK_NULL_HANDLE;
 
         auto create_result = vmaCreateImage(Renderer::i().vk().getVma(), image_ci, &alloc_ci, &vk_image, &allocation_, &allocation_info_);
+        addAliveObject(this);
         check(create_result);
         o_ = vk_image;
 
@@ -828,4 +857,18 @@ constexpr u32 Image::getFormatChannelCount(vk::Format format) noexcept {
     info.imageLayout = layout_;
     return info;
 }
+
+void Image::logAliveObjects() {
+    if constexpr (IS_DEBUG_BUILD) {
+        auto [m, v] = getAliveObjects();
+        std::scoped_lock lock(m);
+        if (v.empty()) {
+            MLE_I("No alive images!");
+        } else {
+            for (const auto* i : v) {
+                MLE_C("Alive image: {}", *i);
+            }
+        }
+    }
+};
 }  // namespace mle
