@@ -27,7 +27,7 @@ struct RenderableI {
     usize version = 0;
     void versionUp() { ++version; }
 
-    virtual void set(const sol::object& obj) = 0;
+    virtual void set(const Entt& e, const sol::object& obj) = 0;
 
     void updatePacket(RenderablePacketI* packet) {
         if (packet && packet->version != version) {

@@ -120,6 +120,9 @@ LuaElementOps::LuaElementOps(UI& ui) :
 
     addKeyHandler("sprite", ui::renderable::Sprite::apply);
     addKeyHandler("text", ui::renderable::Text::apply);
+    addKeyHandler("text_input_enable", ui::renderable::Text::applyInputEnable);
+    addKeyHandler("text_input_disable", ui::renderable::Text::applyInputDisable);
+    addKeyHandler("text_input_clear", ui::renderable::Text::applyInputClear);
 
     addKeyHandler("blur", ui::shader::Blur::apply);
 }

@@ -4,8 +4,11 @@
 #include "mle/renderer/Renderer.h"
 #include "mle/ui/Entt.h"
 #include "mle/ui/Types.h"
+#include "mle/ui/components/Base.h"
 #include "mle/ui/components/Renderable.h"
 #include "mle/utils/String.h"
+#include "mle/window/TextBox.h"
+#include "mle/window/UserInputManager.h"
 #include "sol/forward.hpp"
 
 namespace mle::ui::renderable {
@@ -31,6 +34,21 @@ auto getPipeline() {
 }
 }  // namespace
 
+Text::~Text() = default;
+
+Expected<std::reference_wrapper<Text>> Text::getFromEntt(const Entt& e) {
+    auto* renderable = e.tryGet<comp::Renderable>();
+    if (!renderable) {
+        return std::unexpected(Result::NOT_FOUND);
+    }
+    MLE_ASSERT(renderable->impl);
+    if (renderable->impl->getType() != Text::type()) {
+        return std::unexpected(Result::INVALID_TYPE);
+    }
+    auto* text_comp = as<Text*>(renderable->impl.get());
+    return *text_comp;
+}
+
 void Text::apply(const Entt& e, const sol::object& obj) {
     if (!obj.valid()) {
         MLE_E("Invalid object provided to Text::apply for entt {}", e.e());
@@ -52,7 +70,46 @@ void Text::apply(const Entt& e, const sol::object& obj) {
         }
         self_p = as<Text*>(renderable->impl.get());
     }
-    self_p->set(obj);
+    self_p->set(e, obj);
+    e.addFlag<comp::RequestExternalBoundsUpdateFlag>();
+}
+
+void Text::applyInputEnable(const Entt& e, const sol::object& obj) {
+    auto* renderable = e.tryGet<comp::Renderable>();
+    if (!renderable || renderable->impl->getType() != Text::type()) {
+        MLE_E("Text::applyInputEnable called on entt {} without Text renderable.", e.fullName());
+        return;
+    }
+    auto* text_comp = as<Text*>(renderable->impl.get());
+    if (lua::valid<bool>(obj) && !obj.as<bool>()) {
+        text_comp->disableInputBox();
+    } else {
+        text_comp->enableInputBox();
+    }
+}
+
+void Text::applyInputDisable(const Entt& e, const sol::object& /*obj*/) {
+    auto* renderable = e.tryGet<comp::Renderable>();
+    if (!renderable || renderable->impl->getType() != Text::type()) {
+        MLE_E("Text::applyInputDisable called on entt {} without Text renderable.", e.fullName());
+        return;
+    }
+    auto* text_comp = as<Text*>(renderable->impl.get());
+    text_comp->disableInputBox();
+}
+
+void Text::applyInputClear(const Entt& e, const sol::object& /*obj*/) {
+    auto* renderable = e.tryGet<comp::Renderable>();
+    if (!renderable || renderable->impl->getType() != Text::type()) {
+        MLE_E("Text::applyInputClear called on entt {} without Text renderable.", e.fullName());
+        return;
+    }
+    auto* text_comp = as<Text*>(renderable->impl.get());
+    if (!text_comp->input_tb) {
+        MLE_W("Text::applyInputClear called on entt {} without TextBox.", e.fullName());
+        return;
+    }
+    text_comp->input_tb->setText(U"");
     e.addFlag<comp::RequestExternalBoundsUpdateFlag>();
 }
 
@@ -84,7 +141,7 @@ void Text::setJustifyMode(std::string_view mode_str) {
     }
 };
 
-void Text::set(const sol::object& obj) {
+void Text::set(const Entt& e, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
 
     if (obj.is<std::string>()) {
@@ -116,6 +173,9 @@ void Text::set(const sol::object& obj) {
         if (const auto line_max_aspect_r = table["line_max_aspect"]; lua::valid<f32>(line_max_aspect_r)) {
             line_max_aspect = lua::as<f32>(line_max_aspect_r);
         }
+        if (const sol::object input_box_r = table["input"]; input_box_r.valid()) {
+            makeInputBox(e, input_box_r);
+        }
         return;
     }
 
@@ -123,8 +183,15 @@ void Text::set(const sol::object& obj) {
 }
 
 vec2u Text::calculateBounds(const Entt& e, vec2u max_size) {
-    if (text.empty()) {
+    if (text.empty() && input_tb == nullptr) {
         return {0, 0};
+    }
+
+    std::u32string final_text;
+    if (input_tb != nullptr && !input_tb->getText().empty()) {
+        final_text = input_tb->getText();
+    } else {
+        final_text = text;
     }
 
     FontRef font = Renderer::i().fontCache().get(font_id);
@@ -158,7 +225,7 @@ vec2u Text::calculateBounds(const Entt& e, vec2u max_size) {
     }
 
     Font::MakeTextIn make_text_in{};
-    make_text_in.str = text;
+    make_text_in.str = final_text;
     make_text_in.justify_mode = justify_mode;
     make_text_in.wrap = wrap;
     make_text_in.line_max_aspect = as<f32>(max_size.x) / as<f32>(font_height_px);
@@ -255,4 +322,39 @@ void TextPacket::render(CompRenderingCtx& ctx) {
     }
 }
 
+void Text::makeInputBox(const Entt& e, const sol::object& obj) {
+    MLE_ASSERT(!input_tb);
+
+    input_tb = std::make_unique<TextBox>();
+    input_tb->setChangedCallback([e]() {
+        // FIXME: we need an internal one
+        MLE_C("TextBox changed callback called for entt {}", e.fullName());
+        e.addFlag<comp::RequestExternalBoundsUpdateFlag>();
+    });
+
+    bool multiline_input = false;
+    bool ctrl_enter_newline = false;
+    if (lua::valid<sol::table>(obj)) {
+        auto table = obj.as<sol::table>();
+        lua::tryGetKeyAs(table, "multiline", multiline_input);
+        lua::tryGetKeyAs(table, "ctrl_enter_newline", ctrl_enter_newline);
+    }
+
+    if (multiline_input) {
+        input_tb->setAllowNewLine(true);
+        input_tb->setNewLineCtrlEnter(ctrl_enter_newline);
+    }
+};
+
+void Text::enableInputBox() const {
+    if (!input_tb) {
+        MLE_W("Text::enableInputBox called but no input box found.");
+        return;
+    }
+    input_tb->setFocused(true);
+};
+
+void Text::disableInputBox() const {
+    input_tb->setFocused(false);
+};
 }  // namespace mle::ui::renderable

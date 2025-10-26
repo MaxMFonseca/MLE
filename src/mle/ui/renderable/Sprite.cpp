@@ -28,7 +28,7 @@ void Sprite::apply(const Entt& e, const sol::object& obj) {
         }
         self_p = as<Sprite*>(renderable->impl.get());
     }
-    self_p->set(obj);
+    self_p->set(e, obj);
     e.addFlag<comp::RequestExternalBoundsUpdateFlag>();
 };
 
@@ -41,7 +41,7 @@ void Sprite::setTexture(const std::string& src) {
     }
 }
 
-void Sprite::set(const sol::object& obj) {
+void Sprite::set(const Entt& /*unused*/, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
 
     if (obj.is<std::string>()) {

@@ -3,6 +3,7 @@
 #include "mle/renderer/Font.h"
 #include "mle/ui/components/Bounds.h"
 #include "mle/ui/renderable/RenderableI.h"
+#include "mle/window/Types.h"
 
 namespace mle::ui::renderable {
 struct TextPacket : public RenderablePacketI {
@@ -38,7 +39,6 @@ struct Text : public RenderableI {
     Color color = Color::ONE;
     TargetBound font_height_tb;
     Font::JustifyMode justify_mode = Font::JustifyMode::START;
-    bool wrap = false;
     f32 line_max_aspect = 0.F;
 
     Font::RenderText render_text;
@@ -48,10 +48,19 @@ struct Text : public RenderableI {
 
     f32 font_height_px_f{};
 
+    TextBoxHnd input_tb;
+
+    bool wrap = false;
+    bool multiline_input = false;
+
     void makeCharsBuffer();
 
     void setText(std::u32string src);
     void setText(std::string_view src);
+
+    void makeInputBox(const Entt& e, const sol::object& obj);
+    void enableInputBox() const;
+    void disableInputBox() const;
 
     void setFont(const char* cstr) { font_id = entt::hashed_string{cstr}; }
 
@@ -61,7 +70,7 @@ struct Text : public RenderableI {
     void setColor(const Color& c);
     void setColor(const sol::object& obj) { setColor(Color::fromLua(obj)); }
 
-    void set(const sol::object& obj) override;
+    void set(const Entt& e, const sol::object& obj) override;
     [[nodiscard]] vec2u calculateBounds(const Entt& e, vec2u max_size) override;
 
     [[nodiscard]] entt::id_type getType() const override { return type(); }
@@ -69,6 +78,13 @@ struct Text : public RenderableI {
 
     void doUpdatePacket(RenderablePacketI* packet) override;
 
+    ~Text() override;
+
     static void apply(const Entt& e, const sol::object& obj);
+    static void applyInputEnable(const Entt& e, const sol::object& obj);
+    static void applyInputDisable(const Entt& e, const sol::object& obj);
+    static void applyInputClear(const Entt& e, const sol::object& obj);
+
+    static Expected<std::reference_wrapper<Text>> getFromEntt(const Entt& e);
 };
 }  // namespace mle::ui::renderable
