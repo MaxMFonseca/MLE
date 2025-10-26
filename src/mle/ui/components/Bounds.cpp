@@ -248,7 +248,8 @@ TargetPosition::TargetPosition(const Entt& e, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
 
     if (obj.is<f32>()) {
-        x.val = y.val = obj.as<f32>();
+        x.set(obj);
+        y = x;
     } else if (obj.is<std::string>()) {
         auto str = obj.as<std::string>();
         auto c0 = str[0];

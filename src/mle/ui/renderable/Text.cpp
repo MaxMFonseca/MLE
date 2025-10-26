@@ -46,13 +46,14 @@ void Text::apply(const Entt& e, const sol::object& obj) {
         renderable->packet_buffers_.at(2) = std::make_shared<TextPacket>();
     } else {
         MLE_ASSERT(renderable->impl);
-        if (renderable->impl->getType() == Text::type()) {
+        if (renderable->impl->getType() != Text::type()) {
             MLE_E("Renderable::apply called on entt {} with incompatible Renderable type. {}x{}", e.fullName(), renderable->impl->getType(), Text::type());
             return;
         }
         self_p = as<Text*>(renderable->impl.get());
     }
     self_p->set(obj);
+    e.addFlag<comp::RequestExternalBoundsUpdateFlag>();
 }
 
 void Text::setText(std::u32string src) {
@@ -69,11 +70,11 @@ void Text::setColor(const Color& c) {
 }
 
 void Text::setJustifyMode(std::string_view mode_str) {
-    if (matchAny(mode_str, "start", "left")) {
+    if (matchAny(mode_str, "start", "left", "b", "l")) {
         justify_mode = Font::JustifyMode::START;
-    } else if (matchAny(mode_str, "center", "middle")) {
+    } else if (matchAny(mode_str, "center", "middle", "c")) {
         justify_mode = Font::JustifyMode::CENTER;
-    } else if (matchAny(mode_str, "end", "right")) {
+    } else if (matchAny(mode_str, "end", "right", "e", "r")) {
         justify_mode = Font::JustifyMode::END;
     } else if (matchAny(mode_str, "space_between", "justify")) {
         justify_mode = Font::JustifyMode::SPACE_BETWEEN;
@@ -103,10 +104,10 @@ void Text::set(const sol::object& obj) {
         if (const auto font_r = table["font"]; lua::valid<std::string>(font_r)) {
             setFont(lua::as<std::string>(font_r).c_str());
         }
-        if (const sol::object font_height_r = table["font_height"]; font_height_r.valid()) {
+        if (const sol::object font_height_r = table["height"]; font_height_r.valid()) {
             font_height_tb.set(font_height_r);
         }
-        if (const auto font_justify_r = table["justify_mode"]; lua::valid<std::string>(font_justify_r)) {
+        if (const auto font_justify_r = table["justify"]; lua::valid<std::string>(font_justify_r)) {
             setJustifyMode(lua::as<std::string>(font_justify_r));
         }
         if (const auto font_wrap_r = table["wrap"]; lua::valid<bool>(font_wrap_r)) {
@@ -122,6 +123,10 @@ void Text::set(const sol::object& obj) {
 }
 
 vec2u Text::calculateBounds(const Entt& e, vec2u max_size) {
+    if (text.empty()) {
+        return {0, 0};
+    }
+
     FontRef font = Renderer::i().fontCache().get(font_id);
 
     const int font_height_px = [&]() {
@@ -160,37 +165,35 @@ vec2u Text::calculateBounds(const Entt& e, vec2u max_size) {
 
     render_text = font->makeText(make_text_in);
 
-    rendered_text_px.x = as<u32>(render_text.line_max_width * as<f32>(font_height_px));
-    rendered_text_px.y = as<u32>(as<f32>(font_height_px) * as<f32>(render_text.line_count));
+    vec2u rendered_text_px = render_text.text_extent * as<f32>(font_height_px);
 
     vec2u final_size = glm::min(rendered_text_px, max_size);
 
-    makeCharsBuffer(final_size);
+    makeCharsBuffer();
 
     versionUp();
 
     return final_size;
 }
 
-void Text::makeCharsBuffer(vec2u element_size) {
+void Text::makeCharsBuffer() {
     auto& font = *Renderer::i().fontCache().get(font_id);
     std::map<ImageRef, std::vector<TextPacket::CharsInstance>> image_to_chars_map;
-    auto rendered_size_f = as<vec2f>(rendered_text_px);
-    auto element_size_f = as<vec2f>(element_size);
-    auto size_scale_f = glm::min(element_size_f / rendered_size_f, vec2f{1.0F});
+
     for (auto c : render_text.chars) {
+        if (c.codepoint == U' ') {
+            continue;
+        }
         std::pair<ImageRef, TextureAtlas::Entry> atlas_entry = font.getTextureEntry(c.codepoint);
         auto& new_char = image_to_chars_map[atlas_entry.first].emplace_back();
-        new_char.pos = c.rect.pos() * font_height_px_f;
-        new_char.size = c.rect.size() * font_height_px_f;
-        new_char.pos /= rendered_size_f;
-        new_char.size /= rendered_size_f;
-        new_char.pos *= size_scale_f;
-        new_char.size *= size_scale_f;
         new_char.texture_pos = atlas_entry.second.pos();
         new_char.texture_size = atlas_entry.second.size();
+
+        new_char.pos = c.rect.pos() / render_text.text_extent;
+        new_char.size = c.rect.size() / render_text.text_extent;
     }
     current_rendering_chars_instance_data.clear();
+    per_image_data.clear();
     for (const auto& [image_ref, chars] : image_to_chars_map) {
         per_image_data.push_back({image_ref, current_rendering_chars_instance_data.size(), chars.size()});
         current_rendering_chars_instance_data.insert(current_rendering_chars_instance_data.end(), chars.begin(), chars.end());
@@ -198,6 +201,10 @@ void Text::makeCharsBuffer(vec2u element_size) {
 }
 
 void Text::doUpdatePacket(RenderablePacketI* packet) {
+    if (text.empty()) {
+        return;
+    }
+
     auto& p = *as<TextPacket*>(packet);
 
     if (p.chars_buffer) {
@@ -214,6 +221,10 @@ void Text::doUpdatePacket(RenderablePacketI* packet) {
 };
 
 void TextPacket::render(CompRenderingCtx& ctx) {
+    if (!chars_buffer) {
+        return;
+    }
+
     auto& thread = ctx.thread;
 
     const auto* pipeline = getPipeline();

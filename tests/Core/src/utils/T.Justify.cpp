@@ -24,7 +24,7 @@ void expectVecNear(const std::vector<T>& got, const std::vector<T>& exp, T eps) 
 TEST(Justify, NoWrapBasic) {
     std::vector<f32> sizes{10.F, 20.F, 30.F};
     auto res = Justify<f32>::noWrap(sizes, 5.F);
-    expectVecNear(res, {0.F, 15.F, 40.F}, 1e-5F);
+    expectVecNear(res.first, {0.F, 15.F, 40.F}, 1e-5F);
 }
 
 TEST(Justify, WrapOneLineAllFitStart) {
@@ -62,7 +62,7 @@ TEST(Justify, WrapLinesMultiLine) {
 TEST(Justify, NoWrapEmpty) {
     std::vector<f32> sizes{};
     auto res = Justify<f32>::noWrap(sizes, 5.F);
-    EXPECT_TRUE(res.empty());
+    EXPECT_TRUE(res.first.empty());
 }
 
 TEST(Justify, JustifySpaceBetweenAllFit) {
@@ -143,7 +143,7 @@ TEST(Justify, IntegerTypeCenterUsesIntegerDivision) {
 TEST(Justify, NoWrapBasicInt) {
     std::vector<int> sizes{10, 20, 30};
     auto res = Justify<int>::noWrap(sizes, 5);
-    expectVecEq(res, std::vector<int>({0, 15, 40}));
+    expectVecEq(res.first, std::vector<int>({0, 15, 40}));
 }
 
 TEST(Justify, WrapOneLineAllFitStartInt) {
@@ -237,7 +237,7 @@ TEST(Justify, WrapLinesZeroGapInt2) {
 TEST(Justify, NoWrapSingleInt) {
     std::vector<int> sizes{17};
     auto res = Justify<int>::noWrap(sizes, 9);
-    expectVecEq(res, std::vector<int>({0}));
+    expectVecEq(res.first, std::vector<int>({0}));
 }
 
 TEST(Justify, WrapOneLineExactFitBoundaryInt) {

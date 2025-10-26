@@ -3,6 +3,7 @@
 #include "../Entt.h"
 #include "mle/lua/Utils.h"
 #include "mle/renderer/Renderer.h"
+#include "mle/ui/components/Base.h"
 #include "mle/ui/components/Renderable.h"
 
 namespace mle::ui::renderable {
@@ -21,13 +22,14 @@ void Sprite::apply(const Entt& e, const sol::object& obj) {
         renderable->packet_buffers_.at(2) = std::make_shared<SpritePacket>();
     } else {
         MLE_ASSERT(renderable->impl);
-        if (renderable->impl->getType() == Sprite::type()) {
+        if (renderable->impl->getType() != Sprite::type()) {
             MLE_E("Renderable::apply called on entt {} with incompatible Renderable type. {}x{}", e.fullName(), renderable->impl->getType(), Sprite::type());
             return;
         }
         self_p = as<Sprite*>(renderable->impl.get());
     }
     self_p->set(obj);
+    e.addFlag<comp::RequestExternalBoundsUpdateFlag>();
 };
 
 void Sprite::setTexture(const std::string& src) {

@@ -1,6 +1,9 @@
 #include "PerfLayer.h"
 
 #include "mle/core/PerfTracker.h"
+#include "mle/renderer/Renderer.h"
+#include "mle/ui/Entt.h"
+#include "mle/ui/renderable/Text.h"
 
 namespace mle::client {
 void PerfLayer::init() {
@@ -29,10 +32,37 @@ void PerfLayer::update() {
     }
     if (!new_samples_.empty()) {
         auto parsed = parseNewSamples();
+        std::string text;
         for (auto& c : parsed) {
+            text += c.first + ":";
+            if (c.second.contains("!")) {
+                auto& sc = c.second["!"];
+                text += fmt::format(" avg: {:.2f}us calls: {} ", sc.per_call_us, sc.calls_last_sec);
+                c.second.erase("!");
+            }
+            text += "\n";
             for (auto& sc : c.second) {
-                MLE_C("c: {}, sc: {}, last_sec_ns: {}, per_call_us: {}, calls: {}", c.first, sc.first, sc.second.last_sec_ns, sc.second.per_call_us,
-                      sc.second.calls_last_sec);
+                text += fmt::format("  {}: avg: {:.2f}us calls: {}\n", sc.first, sc.second.per_call_us, sc.second.calls_last_sec);
+            }
+        }
+
+        {
+            auto e_r = ui_.getE(std::array<const std::string_view, 2>{"left", "text"});
+            if (e_r.has_value()) {
+                auto& e = e_r.value();
+                e.apply("text", ui_.getLua().createObject(text));
+            } else {
+                MLE_W("PerfLayer: could not find entity to update performance info");
+            }
+        }
+
+        {
+            auto e_r = ui_.getE(std::array<const std::string_view, 2>{"right", "text"});
+            if (e_r.has_value()) {
+                auto& e = e_r.value();
+                e.apply("text", ui_.getLua().createObject(Renderer::i().vk().makePerfString()));
+            } else {
+                MLE_W("PerfLayer: could not find entity to update GPU performance info");
             }
         }
     };

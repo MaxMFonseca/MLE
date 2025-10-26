@@ -108,4 +108,18 @@ std::pair<f32, std::string_view> splitNumSuffix(std::string_view s) {
     return {value, suffix};
 }
 
+std::string bitsToString(u64 b) {
+    std::array u = {"B", "KB", "MB", "GB", "TB"};
+    int i = 0;
+    auto v = as<f64>(b);
+    while (v >= 1024.0 && i < 4) {
+        v /= 1024.0;
+        ++i;
+    }
+
+    if (i <= 1) {
+        return fmt::format("{:.0f} {}", v, u.at(i));
+    }
+    return fmt::format("{:.1f} {}", v, u.at(i));
+}
 }  // namespace mle

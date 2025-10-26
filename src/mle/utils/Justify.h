@@ -13,17 +13,18 @@ struct Justify {
     using Line = std::vector<T>;
     using Lines = std::vector<Line>;
 
-    static Line noWrap(std::span<T> sizes, T gap) {
-        Line ret;
+    static std::pair<Line, T> noWrap(std::span<T> sizes, T gap) {
         if (sizes.empty()) {
-            return ret;
+            return {{}, 0};
         }
+
+        Line ret;
         T total_size = 0;
         for (const T& s : sizes) {
             ret.push_back(total_size);
             total_size += s + gap;
         }
-        return ret;
+        return {ret, total_size - gap};
     }
 
     static Lines wrap(std::span<T> sizes, T min_gap, LineMode mode, LineMode mode_last_line, T line_max_size) {

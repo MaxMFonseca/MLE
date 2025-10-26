@@ -29,6 +29,10 @@ class Entt {
     [[nodiscard]] std::string name() const;
     [[nodiscard]] std::string fullName() const;
 
+    [[nodiscard]] Expected<Entt> getChild(std::span<const std::string_view> tree) const;
+
+    [[nodiscard]] Entt derive(entt::entity e) const { return {ui_, e}; }
+
     template <typename T>
     [[nodiscard]] T& get() const {
         return ui_.getRegistry().get<T>(e_);

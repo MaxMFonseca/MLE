@@ -32,6 +32,8 @@ class UI {
     void update();
     ImageRef render();
 
+    Expected<ui::Entt> getE(std::span<const std::string_view> tree = {});
+
   private:
     void addRootStyles(const sol::object& obj);
 

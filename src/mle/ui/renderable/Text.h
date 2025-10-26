@@ -47,9 +47,8 @@ struct Text : public RenderableI {
     std::vector<TextPacket::CharsInstance> current_rendering_chars_instance_data;
 
     f32 font_height_px_f{};
-    vec2u rendered_text_px{};
 
-    void makeCharsBuffer(vec2u element_size);
+    void makeCharsBuffer();
 
     void setText(std::u32string src);
     void setText(std::string_view src);

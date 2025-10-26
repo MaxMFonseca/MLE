@@ -73,9 +73,10 @@ void Bounds::update() {
 
 std::set<entt::entity> Bounds::fixFitContainersNeedsUpdate(const std::set<entt::entity>& containers_to_update) {
     std::set<entt::entity> ret;
+    auto root = ui_.getRoot();
     for (auto e : containers_to_update) {
         Entt ee(ui_, e);
-        while (ee.hasFitSize()) {
+        while (ee.e() != root && ee.hasFitSize()) {
             ee.setE(ee.getParent());
         }
         ret.insert(ee.e());

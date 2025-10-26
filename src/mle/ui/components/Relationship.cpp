@@ -120,6 +120,7 @@ std::vector<Relationship::NewChild> Relationship::createChildrenBase(const Entt&
     std::vector<NewChild> new_children;
 
     for (auto& [name_r, child_table_r] : table) {
+        MLE_ASSERT(lua::valid<sol::table>(child_table_r));
         const auto child_table = lua::as<sol::table>(child_table_r);
 
         std::string name;

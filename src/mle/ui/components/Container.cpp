@@ -229,12 +229,14 @@ struct ChildBoundsCalcData {
 
 void finishChildBounds(const Entt& centt, auto& cbcd, PaddingPx padding_px) {
     vec2i origin_lt = {padding_px.l, padding_px.t};
+    MLE_VC(origin_lt);
 
     comp::Bounds new_bounds;
     new_bounds.parent_px.setPos(cbcd.new_position + origin_lt);
     new_bounds.parent_px.setSize(cbcd.new_size);
 
     centt.emplaceOrReplace<comp::Bounds>(new_bounds);
+    MLE_VC(new_bounds);
 
     if (centt.has<comp::TargetBorder>()) {
         comp::Border new_border;
@@ -872,9 +874,6 @@ struct ListCalculator {
                 }
             }
 
-            MLE_ASSERT_LOG(cld.size_main > 0 && cld.size_cross > 0, "Negative or zero size calculated for list child {}. main: {}, cross: {}",
-                           Entt{container_e.ui(), c}.fullName(), cld.size_main, cld.size_cross);
-
             if (main_is_x) {
                 cbud.new_size.x = cld.size_main;
                 cbud.new_size.y = cld.size_cross;
@@ -1471,6 +1470,9 @@ vec2u accumulateChildrenExtent(const std::map<entt::entity, ChildBoundsCalcData>
         padding_result = padding_comp->calc(e.ui(), max_size);
     }
     vec2i padded_max_size = padding_result.removeFrom(max_size);
+
+    MLE_VC(e.fullName());
+    MLE_VC(padded_max_size);
 
     std::map<entt::entity, ChildBoundsCalcData> cbcds;
     for (const auto& c : children) {

@@ -53,7 +53,7 @@ class Font final {
         };
         std::vector<Char> chars{};
         u32 line_count = 0;
-        f32 line_max_width = 0;
+        vec2f text_extent{};
     };
 
   public:
@@ -94,3 +94,22 @@ class Font final {
     TextureAtlas atlas_{};
 };
 }  // namespace mle
+
+namespace fmt {
+template <>
+struct formatter<mle::Font::JustifyMode> : formatter<std::string> {
+    template <typename FormatContext>
+    constexpr auto format(const mle::Font::JustifyMode& v, FormatContext& ctx) const {
+        switch (v) {
+            case mle::Font::JustifyMode::START:
+                return format_to(ctx.out(), "START");
+            case mle::Font::JustifyMode::CENTER:
+                return format_to(ctx.out(), "CENTER");
+            case mle::Font::JustifyMode::END:
+                return format_to(ctx.out(), "END");
+            case mle::Font::JustifyMode::SPACE_BETWEEN:
+                return format_to(ctx.out(), "SPACE_BETWEEN");
+        }
+    }
+};
+}  // namespace fmt

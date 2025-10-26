@@ -112,16 +112,14 @@ void Rendering::update() {
 };
 
 void Rendering::renderNodeBorder(const Rendering::Packet::Node& node, RenderingContext& ctx) {
-    Recti border_bounds = node.bounds.parent_px;
-    border_bounds.expandTBLR(-node.border.t, node.border.b, -node.border.l, node.border.r);
+    Recti bounds = node.bounds.parent_px;
+    bounds.expandTBLR(-node.border.t, node.border.b, -node.border.l, node.border.r);
+    bounds.move(ctx.parent_viewport.pos());
+    Rectf viewport = bounds.asF32();
+    Recti scissor = bounds.clamp(ctx.parent_scissor);
 
-    Rectf border_viewport = border_bounds.asF32();
-    border_viewport.move(ctx.parent_viewport.pos());
-
-    Recti border_scissor = border_bounds.clamp(ctx.parent_scissor);
-
-    ctx.thread.setViewport(border_viewport);
-    ctx.thread.setScissor(border_scissor);
+    ctx.thread.setViewport(viewport);
+    ctx.thread.setScissor(scissor);
 
     ctx.thread.setPipeline(border_pipeline_);
 
@@ -135,7 +133,7 @@ void Rendering::renderNodeBorder(const Rendering::Packet::Node& node, RenderingC
     pc.color = node.border.color;
     pc.rounging_corners_radius_px = vec4i{node.border.round_lt, node.border.round_rt, node.border.round_lb, node.border.round_rb};
     pc.borders_tblr_px = vec4i{node.border.t, node.border.b, node.border.l, node.border.r};
-    pc.viewport_size = border_viewport.size();
+    pc.viewport_size = viewport.size();
 
     ctx.thread.pushConstants(&pc);
 
@@ -143,15 +141,13 @@ void Rendering::renderNodeBorder(const Rendering::Packet::Node& node, RenderingC
 }
 
 void Rendering::renderNodeBackground(const Rendering::Packet::Node& node, RenderingContext& ctx) {
-    Recti bg_bounds = node.bounds.parent_px;
+    Recti bounds = node.bounds.parent_px;
+    bounds.move(ctx.parent_viewport.pos());
+    Rectf viewport = bounds.asF32();
+    Recti scissor = bounds.clamp(ctx.parent_scissor);
 
-    Rectf bg_viewport = bg_bounds.asF32();
-    bg_viewport.move(ctx.parent_viewport.pos());
-
-    Recti border_scissor = bg_bounds.clamp(ctx.parent_scissor);
-
-    ctx.thread.setViewport(bg_viewport);
-    ctx.thread.setScissor(border_scissor);
+    ctx.thread.setViewport(viewport);
+    ctx.thread.setScissor(scissor);
 
     ctx.thread.setPipeline(background_pipeline_);
 
@@ -163,7 +159,7 @@ void Rendering::renderNodeBackground(const Rendering::Packet::Node& node, Render
 
     pc.color = node.bg;
     pc.rounging_corners_radius_px = vec4i{node.border.round_lt, node.border.round_rt, node.border.round_lb, node.border.round_rb};
-    pc.viewport_size = bg_viewport.size();
+    pc.viewport_size = viewport.size();
 
     ctx.thread.pushConstants(&pc);
 
@@ -206,7 +202,7 @@ std::unique_ptr<Rendering::RenderingContext> Rendering::renderCreateNodeNewConte
     new_ctx->thread.setColorAttachment(color_attachment, 0);
     new_ctx->parent_scissor.setPos(0, 0);
     new_ctx->parent_scissor.setSize(color_attachment.image->getExtent());
-    new_ctx->parent_viewport = new_ctx->parent_scissor;
+    new_ctx->parent_viewport = new_ctx->parent_scissor.asF32();
     new_ctx->thread.beginRendering();
 
     return new_ctx;
@@ -246,28 +242,31 @@ void Rendering::renderNode(const Rendering::Packet::Node& node, RenderingContext
     RenderingContext& ctx = *ctx_r;
 
     Recti bounds = node.bounds.parent_px;
-
+    bounds.move(ctx.parent_viewport.pos());
     Rectf viewport = bounds.asF32();
-    viewport.move(ctx.parent_viewport.pos());
-
     Recti scissor = bounds.clamp(ctx.parent_scissor);
 
-    ctx.thread.setViewport(viewport);
-    ctx.thread.setScissor(scissor);
-
     if (node.shader_packet && node.shader_before_children) {
+        ctx.thread.setViewport(viewport);
+        ctx.thread.setScissor(scissor);
         renderNodeShader(node, pctx);
     }
 
     if (node.renderable_packet) {
+        ctx.thread.setViewport(viewport);
+        ctx.thread.setScissor(scissor);
         renderNodeRenderable(node, ctx);
     }
 
     for (const auto& child : node.children) {
+        ctx.parent_viewport = viewport;
+        ctx.parent_scissor = scissor;
         renderNode(child, ctx);
     }
 
     if (node.shader_packet && !node.shader_before_children) {
+        ctx.thread.setViewport(viewport);
+        ctx.thread.setScissor(scissor);
         renderNodeShader(node, pctx);
     }
 

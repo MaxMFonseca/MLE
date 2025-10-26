@@ -172,6 +172,8 @@ Font::RenderText Font::makeText(const MakeTextIn& in) {
     std::vector<f32> char_word_positions;
     char_word_positions.resize(in.str.size(), 0.0F);
 
+    MLE_VC(in.justify_mode);
+
     text_lines.emplace_back();
     for (usize i = 0; i < in.str.size(); ++i) {
         auto& text_line = text_lines.back();
@@ -183,24 +185,28 @@ Font::RenderText Font::makeText(const MakeTextIn& in) {
             Word& word = text_line.emplace_back();
             word.space = true;
             word.start_char_idx = i;
-            usize word_len = 1;
+            usize word_len = 0;
             while (i < in.str.size() && in.str[i] == U' ') {
-                word.end_char_idx = i;
-                char_word_positions[i] = as<f32>(word_len - 1) * default_char_.advance;
+                char_word_positions[i] = as<f32>(word_len) * default_char_.advance;
                 word_len++;
                 ++i;
             }
-            word.word_idx = text_lines.size();
-            word_widths.emplace_back(as<f32>(word_len) * default_char_.advance);
+            word.end_char_idx = i;
             --i;
+
+            word.word_idx = word_widths.size();
+            word_widths.emplace_back(as<f32>(word_len) * default_char_.advance);
             continue;
         }
+
         Word& word = text_line.emplace_back();
         word.start_char_idx = i;
         while (i < in.str.size() && in.str[i] != U' ' && in.str[i] != U'\n') {
             ++i;
-            word.end_char_idx = i;
         }
+        word.end_char_idx = i;
+        --i;
+
         f32 word_width = 0;
         char32 last_cp = 0;
         for (usize j = word.start_char_idx; j < word.end_char_idx; ++j) {
@@ -213,13 +219,13 @@ Font::RenderText Font::makeText(const MakeTextIn& in) {
             word_width += glyph.advance;
             last_cp = in.str[j];
         }
-        word.word_idx = text_lines.size();
+        word.word_idx = word_widths.size();
         word_widths.emplace_back(word_width);
-        --i;
     }
 
     auto justify_mode = JustifyF32::LineMode(in.justify_mode);
     auto justify_mode_last_line = JustifyF32::LineMode(in.justify_mode == JustifyMode::SPACE_BETWEEN ? JustifyMode::START : in.justify_mode);
+    f32 text_width = 0.0F;
 
     JustifyF32::Lines justified_lines;
     bool justify = false;
@@ -236,6 +242,7 @@ Font::RenderText Font::makeText(const MakeTextIn& in) {
             justified_lines.insert(justified_lines.end(), new_lines.begin(), new_lines.end());
             current_word_idx += as<isize>(text_line.size());
         }
+        text_width = in.line_max_aspect;
     } else if (in.wrap) {
         justify = true;
         isize current_word_idx = 0;
@@ -257,8 +264,10 @@ Font::RenderText Font::makeText(const MakeTextIn& in) {
             justified_lines.insert(justified_lines.end(), new_lines.begin(), new_lines.end());
             current_word_idx += as<isize>(text_line.size());
         }
+        text_width = in.line_max_aspect;
     } else {
         isize current_word_idx = 0;
+        std::vector<f32> line_widths;
         for (int i = 0; i < as<int>(text_lines.size()); ++i) {
             const auto& text_line = text_lines[i];
             if (text_line.empty()) {
@@ -266,12 +275,43 @@ Font::RenderText Font::makeText(const MakeTextIn& in) {
                 continue;
             }
             std::span<f32> word_sizes(word_widths.begin() + current_word_idx, text_line.size());
-            justified_lines.emplace_back(JustifyF32::noWrap(word_sizes, 0));
+            auto j_r = JustifyF32::noWrap(word_sizes, 0);
+            justified_lines.emplace_back(j_r.first);
+            line_widths.push_back(j_r.second);
             current_word_idx += as<isize>(text_line.size());
+            text_width = glm::max(text_width, j_r.second);
+        }
+        switch (in.justify_mode) {
+            case JustifyMode::START: {
+                MLE_NOOP;
+            } break;
+            case JustifyMode::CENTER: {
+                for (usize i = 0; i < justified_lines.size(); ++i) {
+                    f32 offset = (text_width - line_widths[i]) / 2.0F;
+                    for (auto& pos : justified_lines[i]) {
+                        pos += offset;
+                    }
+                }
+            } break;
+            case JustifyMode::END: {
+                for (usize i = 0; i < justified_lines.size(); ++i) {
+                    f32 offset = text_width - line_widths[i];
+                    for (auto& pos : justified_lines[i]) {
+                        pos += offset;
+                    }
+                }
+            } break;
+            case JustifyMode::SPACE_BETWEEN: {
+                MLE_W("Cannot use SPACE_BETWEEN justify mode without wrapping enabled.");
+            } break;
         }
     }
 
     RenderText ret;
+
+    ret.text_extent.x = text_width;
+    f32 line_count_f = as<f32>(justified_lines.size());
+    ret.text_extent.y = line_count_f + ((line_count_f - 1) * line_gap_);
 
     if (!justify) {
         usize current_word_on_justified_line_idx = 0;
@@ -282,6 +322,7 @@ Font::RenderText Font::makeText(const MakeTextIn& in) {
                 if (current_word_on_justified_line_idx >= current_justified_line_it->size()) {
                     current_justified_line_it++;
                     current_justified_line_idx++;
+                    current_word_on_justified_line_idx = 0;
                 }
 
                 auto word_offset = current_justified_line_it->at(current_word_on_justified_line_idx);
@@ -290,9 +331,9 @@ Font::RenderText Font::makeText(const MakeTextIn& in) {
                     Font::RenderText::Char chr;
                     chr.codepoint = in.str[j];
                     chr.idx = j;
-                    auto glyph = getGlyph(in.str[j]);
+                    auto glyph = in.str[j] == U' ' ? default_char_ : getGlyph(in.str[j]);
                     chr.rect.setPosX(word_offset + char_word_positions[j] + glyph.origin.x);
-                    chr.rect.setPosY(ascent_ + glyph.origin.y + (as<f32>(current_justified_line_idx) * (height_ + line_gap_)));
+                    chr.rect.setPosY(ascent_ + glyph.origin.y + (as<f32>(current_justified_line_idx) + line_gap_));
                     chr.rect.setSizeX(glyph.size.x);
                     chr.rect.setSizeY(glyph.size.y);
                     ret.chars.push_back(chr);
@@ -333,7 +374,7 @@ Font::RenderText Font::makeText(const MakeTextIn& in) {
                             chr.idx = j;
                             auto glyph = default_char_;
                             chr.rect.setPosX(word_offset + (as<f32>(j) * current_line_space_size));
-                            chr.rect.setPosY(ascent_ + glyph.origin.y + (as<f32>(current_justified_line_idx) * (height_ + line_gap_)));
+                            chr.rect.setPosY(ascent_ + glyph.origin.y + (as<f32>(current_justified_line_idx) + line_gap_));
                             chr.rect.setSizeX(current_line_space_size);
                             chr.rect.setSizeY(glyph.size.y);
                             ret.chars.push_back(chr);
@@ -347,7 +388,7 @@ Font::RenderText Font::makeText(const MakeTextIn& in) {
                         chr.idx = j;
                         auto glyph = getGlyph(in.str[j]);
                         chr.rect.setPosX(word_offset + char_word_positions[j] + glyph.origin.x);
-                        chr.rect.setPosY(ascent_ + glyph.origin.y + (as<f32>(current_justified_line_idx) * (height_ + line_gap_)));
+                        chr.rect.setPosY(ascent_ + glyph.origin.y + (as<f32>(current_justified_line_idx) + line_gap_));
                         chr.rect.setSizeX(glyph.size.x);
                         chr.rect.setSizeY(glyph.size.y);
                         ret.chars.push_back(chr);
@@ -358,11 +399,8 @@ Font::RenderText Font::makeText(const MakeTextIn& in) {
         }
     }
 
-    for (auto& chr : ret.chars) {
-        ret.line_max_width = glm::max(ret.line_max_width, chr.rect.pos().x + chr.rect.size().x);
-    }
-
     ret.line_count = as<u32>(justified_lines.size());
+
     return ret;
 }
 

@@ -3,6 +3,7 @@
 #include "UI.h"
 #include "mle/ui/components/Base.h"
 #include "mle/ui/components/Bounds.h"
+#include "mle/utils/ECS.h"
 
 namespace mle::ui {
 void Entt::setName(const std::string& name) const {
@@ -23,9 +24,12 @@ bool Entt::hasFitSize() const {
         if (size->x.type == TargetBound::Type::FIT || size->y.type == TargetBound::Type::FIT) {
             return true;
         }
-        if ((size->x.type == TargetBound::Type::DEFAULT || size->y.type == TargetBound::Type::DEFAULT) && has<comp::SizeProvider>()) {
+        if (((size->x.type == TargetBound::Type::DEFAULT && size->x.val == 0) || (size->y.type == TargetBound::Type::DEFAULT && size->y.val == 0)) &&
+            has<comp::SizeProvider>()) {
             return true;
         }
+    } else {
+        return true;
     }
     return false;
 }
@@ -53,5 +57,22 @@ void Entt::destroy() const {
     } else {
         ui_.clear();
     }
+}
+
+Expected<Entt> Entt::getChild(std::span<const std::string_view> tree) const {
+    MLE_ASSERT(!tree.empty());
+
+    entt::entity cur = e();
+    for (const std::string_view name : tree) {
+        Entt ew = derive(cur);
+
+        auto& relationship = ew.getRelationship();
+        auto next_e = relationship.getChildByName(ew, name);
+        if (next_e == entt::null) {
+            return std::unexpected(Result::NOT_FOUND);
+        }
+        cur = next_e;
+    }
+    return derive(cur);
 }
 }  // namespace mle::ui

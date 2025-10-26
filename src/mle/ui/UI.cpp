@@ -89,4 +89,11 @@ ImageRef UI::render() {
     }
     return std::unexpected(Result::NOT_FOUND);
 }
+Expected<ui::Entt> UI::getE(std::span<const std::string_view> tree) {
+    ui::Entt root_ew{*this, root_};
+    if (tree.empty()) {
+        return root_ew;
+    }
+    return root_ew.getChild(tree);
+};
 }  // namespace mle
