@@ -16,6 +16,7 @@
 #include "mle/core/RuntimeConfig.h"
 #include "mle/renderer/Types.h"
 #include "mle/renderer/Utils.h"
+#include "mle/utils/String.h"
 #include "mle/window/Window.h"
 #include "vulkan/vulkan.hpp"
 
@@ -23,16 +24,31 @@ namespace mle {
 void FrameRenderer::init() {
     MLE_I("Initializing FrameRenderer");
 
-    swapchain_rtcl0_ = RuntimeConfig::i().listen("renderer.swapchain.present_mode", [this]() { swapchain_dirty_.store(true, std::memory_order_relaxed); });
-    swapchain_rtcl1_ = RuntimeConfig::i().listen("renderer.swapchain.triple_buffer", [this]() { swapchain_dirty_.store(true, std::memory_order_relaxed); });
-
-    swapchain_default_clear_color_rtcl_ = RuntimeConfig::i().listen("renderer.swapchain.default_clear_color", [this]() {
-        auto color_str = RuntimeConfig::i().getString("renderer.swapchain.default_clear_color", "BLACK");
-        auto color = Color::fromString(color_str);
-        default_clear_color_ = toVkColor(color);
+    swapchain_rtcl0_ = RuntimeConfig::i().listen("renderer.swapchain.present_mode", [this](const std::string& /*value*/) {
+        swapchain_dirty_.store(true, std::memory_order_relaxed);
+        return false;
     });
-    default_clear_color_ = toVkColor(Color::fromString(RuntimeConfig::i().getString("renderer.swapchain.default_clear_color", "BLACK")));
+    swapchain_rtcl1_ = RuntimeConfig::i().listen("renderer.swapchain.triple_buffer", [this](const std::string& /*value*/) {
+        swapchain_dirty_.store(true, std::memory_order_relaxed);
+        return false;
+    });
 
+    swapchain_default_clear_color_rtcl_ = RuntimeConfig::i().listen("renderer.swapchain.default_clear_color", [this](const std::string& value) {
+        auto color = value.empty() ? Color::ZERO : Color::fromString(value);
+        default_clear_color_ = toVkColor(color);
+        return false;
+    });
+    default_clear_color_ = toVkColor(Color::fromString(RuntimeConfig::i().getString("renderer.swapchain.default_clear_color", "ZERO")));
+
+    target_fps_rtcl_ = RuntimeConfig::i().listen("renderer.target_fps", [this](const std::string& value) {
+        if (value.empty()) {
+            target_fps_.store(max<u32>(), std::memory_order_relaxed);
+        } else {
+            u32 fps = strTo<u32>(value).value_or(max<u32>());
+            target_fps_.store(fps, std::memory_order_relaxed);
+        }
+        return false;
+    });
     target_fps_.store(RuntimeConfig::i().getUInt("renderer.target_fps", max<u32>()), std::memory_order_relaxed);
 
     window_resize_listener_ = Window::i().getED().makeListener<window::ev::Resize>([this](const window::ev::Resize& ev) {
@@ -68,11 +84,12 @@ void FrameRenderer::runLoop(std::stop_token st) {
     auto force_swapchain_result = createSwapchain();
     MLE_ASSERT(force_swapchain_result == Result::OK);
 
-    u32 current_target_fps = target_fps_.load(std::memory_order_relaxed);
-    std::chrono::steady_clock::duration frame_period = fpsToPeriod(current_target_fps);
+    u32 target_fps = target_fps_.load(std::memory_order_relaxed);
+    std::chrono::steady_clock::duration frame_period = fpsToPeriod(target_fps);
     std::chrono::steady_clock::time_point next_deadline =
         std::chrono::steady_clock::now() +
         (frame_period == std::chrono::steady_clock::duration::zero() ? std::chrono::steady_clock::duration::zero() : frame_period);
+    bool unlimited_fps = target_fps == 0 || target_fps == max<u32>();
 
     while (!st.stop_requested()) {
         MLE_PERF_SCOPE("FrameRenderer");
@@ -102,52 +119,36 @@ void FrameRenderer::runLoop(std::stop_token st) {
         }
 
         const u32 new_target = target_fps_.load(std::memory_order_relaxed);
-        if (new_target != current_target_fps) {
-            if (new_target == 0 || new_target == max<u32>()) {
-                MLE_I("Target FPS changed from {} to unlimited", current_target_fps);
-            } else {
-                MLE_I("Target FPS changed from {} to {}", current_target_fps, new_target);
-            }
-            current_target_fps = new_target;
-            frame_period = fpsToPeriod(current_target_fps);
+        if (new_target != target_fps) {
+            target_fps = new_target;
+            unlimited_fps = (target_fps == 0 || target_fps == max<u32>());
+            frame_period = fpsToPeriod(target_fps);
 
-            if (frame_period == std::chrono::steady_clock::duration::zero()) {
-                next_deadline = std::chrono::steady_clock::time_point{};
-            } else {
+            if (!unlimited_fps) {
                 next_deadline = std::chrono::steady_clock::now() + frame_period;
+                MLE_I("Target FPS -> {}", target_fps);
+            } else {
+                next_deadline = std::chrono::steady_clock::time_point{};
+                MLE_I("Target FPS -> unlimited");
             }
         }
 
-        if (frame_period != std::chrono::steady_clock::duration::zero()) {
-            if (next_deadline.time_since_epoch() == std::chrono::steady_clock::duration::zero()) {
-                next_deadline = std::chrono::steady_clock::now() + frame_period;
+        if (!unlimited_fps) {
+            auto now = std::chrono::steady_clock::now();
+            if (next_deadline.time_since_epoch().count() == 0) {
+                next_deadline = now + frame_period;
             }
 
-            next_deadline += frame_period;
-
-            const auto now = std::chrono::steady_clock::now();
-            if (now > next_deadline) {
-                const auto behind = now - next_deadline;
-                if (frame_period.count() > 0) {
-                    const auto missed = (behind / frame_period) + 1;
-                    next_deadline += missed * frame_period;
-                } else {
-                    next_deadline = now;
-                }
-                continue;
-            }
-
-            {
-                MLE_PERF_SCOPE("FrameRenderer.Sleeping");
+            if (now < next_deadline) {
                 std::this_thread::sleep_until(next_deadline);
             }
 
-            for (;;) {
-                if (std::chrono::steady_clock::now() >= next_deadline) {
-                    break;
-                }
-                std::this_thread::yield();
-            }
+            now = std::chrono::steady_clock::now();
+            do {  // NOLINT(cppcoreguidelines-avoid-do-while) maybe disable this check
+                next_deadline += frame_period;
+            } while (next_deadline <= now);
+        } else {
+            std::this_thread::yield();
         }
     }
 
@@ -509,7 +510,6 @@ void FrameRenderer::endFrame(ImageRef frame_image) {
 }
 
 void FrameRenderer::recreateNextFrameImageAvailableSemaphore() {
-    MLE_VC(0);
     auto& next_frame = getNextFrame();
     Renderer::i().destroy(next_frame.image_available_semaphore);
     vk::SemaphoreCreateInfo semaphore_ci{};

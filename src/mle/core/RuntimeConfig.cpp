@@ -52,11 +52,11 @@ void RuntimeConfig::set(const std::string& key, const std::string& value) {
     map_[key] = value;
     auto it = key_listeners_.find(key);
     if (it != key_listeners_.end()) {
-        // Copy listeners to avoid issues if a callback removes itself.
-        auto listeners = it->second;
-        for (auto* listener : listeners) {
-            if (listener && listener->cb_) {
-                listener->cb_();
+        for (auto l_it = it->second.begin(); l_it != it->second.end(); ++l_it) {
+            auto remove = (*l_it)->cb_(value);
+            if (remove) {
+                l_it = it->second.erase(l_it);
+                --l_it;
             }
         }
     }

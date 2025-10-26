@@ -25,19 +25,19 @@ void Logger::init() {
     std::vector<spdlog::sink_ptr> sinks{file_sink_, stdout_sink_};
 
     // Listen for runtime changes to log.level.file
-    file_level_listener_ = mle::RuntimeConfig::i().listen("log.level.file", [this]() {
-        auto value = mle::RuntimeConfig::i().getString("log.level.file");
+    file_level_listener_ = mle::RuntimeConfig::i().listen("log.level.file", [this](const std::string& value) {
         int leveli = strTo<int>(value).value_or(as<int>(MAX_LOG_LEVEL));
         file_sink_->set_level(as<spdlog::level::level_enum>(leveli));
         MLE_I("file LogLevel changed {}", leveli);
+        return false;
     });
 
     // Listen for runtime changes to log.level.stdout
-    stdout_level_listener_ = mle::RuntimeConfig::i().listen("log.level.stdout", [this]() {
-        auto value = mle::RuntimeConfig::i().getString("log.level.stdout");
+    stdout_level_listener_ = mle::RuntimeConfig::i().listen("log.level.stdout", [this](const std::string& value) {
         int leveli = strTo<int>(value).value_or(as<int>(DEFAULT_LOG_LEVEL_STDOUT));
         stdout_sink_->set_level(as<spdlog::level::level_enum>(leveli));
         MLE_I("stdout LogLevel changed {}", leveli);
+        return false;
     });
 
     auto default_logger = std::make_shared<spdlog::logger>("MLELogger", sinks.begin(), sinks.end());

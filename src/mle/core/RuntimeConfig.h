@@ -10,6 +10,9 @@
 #include "mle/math/Types.h"
 #include "mle/utils/Utils.h"
 
+// TODO: This could use some love, I should probably refactor it
+// I should use 1 mutex per key
+// I need a hint system
 namespace mle {
 class RuntimeConfigListener;
 using RuntimeConfigListenerHnd = std::unique_ptr<RuntimeConfigListener>;
@@ -18,7 +21,7 @@ using RuntimeConfigListenerRef = RuntimeConfigListener*;
 class RuntimeConfig {
     MLE_SINGLETON(RuntimeConfig);
 
-    using ListenerCbFn = std::move_only_function<void()>;
+    using ListenerCbFn = std::move_only_function<bool(const std::string& value)>;
 
   public:
     void parseArgs(int argc, char** argv);
