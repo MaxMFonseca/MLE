@@ -190,6 +190,7 @@ void FrameRenderer::shutdown() {
         for (auto& it : std::ranges::reverse_view(f.delete_stack)) {
             it();
         }
+        f.delete_stack.clear();
         device.destroy(f.query_pool);
         device.destroy(f.image_available_semaphore);
         device.destroy(f.render_finished_fence);
