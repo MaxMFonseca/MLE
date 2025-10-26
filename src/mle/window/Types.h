@@ -29,16 +29,10 @@ enum class KeyState : u8 {
     RELEASED,
 };
 
-MLE_FLAGS_BEGIN(KeyMod, u16)
+MLE_FLAGS_BEGIN(KeyMod, u8)
 MLE_FLAG(KeyMod, SHIFT)
 MLE_FLAG(KeyMod, CTRL)
 MLE_FLAG(KeyMod, ALT)
-MLE_FLAG(KeyMod, SHIFT_NO)
-MLE_FLAG(KeyMod, CTRL_NO)
-MLE_FLAG(KeyMod, ALT_NO)
-MLE_FLAG(KeyMod, SHIFT_ANY)
-MLE_FLAG(KeyMod, CTRL_ANY)
-MLE_FLAG(KeyMod, ALT_ANY)
 MLE_FLAG(KeyMod, NONE)
 MLE_FLAG(KeyMod, ANY)
 MLE_FLAGS_END(KeyMod);
@@ -69,14 +63,10 @@ enum class Key : u8 {  // NOLINT
 };
 // clang-format on
 
-enum class TargetKeyModState : i8 { Y, N, ANY };
-
 struct Keybinding {
     Key key{Key::UNKNOWN};
     KeyState state{KeyState::PRESSED};
-    KeyModFlags mods{KeyModFlagBits::ANY};
-
-    static constexpr auto DEFAULT_TARGET_STATE = TargetKeyModState::ANY;
+    KeyModFlags mods{KeyModFlagBits::NONE};
 };
 }  // namespace mle
 
@@ -114,12 +104,6 @@ MLE_FLAGS_FMT_BEGIN(mle::KeyMod)
 MLE_FLAGS_FMT_CASE(mle::KeyMod, SHIFT)
 MLE_FLAGS_FMT_CASE(mle::KeyMod, CTRL)
 MLE_FLAGS_FMT_CASE(mle::KeyMod, ALT)
-MLE_FLAGS_FMT_CASE(mle::KeyMod, SHIFT_NO)
-MLE_FLAGS_FMT_CASE(mle::KeyMod, CTRL_NO)
-MLE_FLAGS_FMT_CASE(mle::KeyMod, ALT_NO)
-MLE_FLAGS_FMT_CASE(mle::KeyMod, SHIFT_ANY)
-MLE_FLAGS_FMT_CASE(mle::KeyMod, CTRL_ANY)
-MLE_FLAGS_FMT_CASE(mle::KeyMod, ALT_ANY)
 MLE_FLAGS_FMT_CASE(mle::KeyMod, NONE)
 MLE_FLAGS_FMT_CASE(mle::KeyMod, ANY)
 MLE_FLAGS_FMT_END(mle::KeyMod);

@@ -13,12 +13,12 @@
 
 namespace mle::client {
 void TerminalLayer::init() {
-    toggle_key_listener_ = std::make_unique<KeyListener>([this]() { toggle(); }, Key::M, KeyState::PRESSED,
-                                                         KeyModFlagBits::CTRL | KeyModFlagBits::CTRL_NO | KeyModFlagBits::ALT_NO);
+    toggle_key_listener_ = std::make_unique<KeyListener>([this]() { toggle(); }, Key::M, KeyState::PRESSED, KeyModFlagBits::CTRL);
     enter_key_listener_ = std::make_unique<KeyListener>([this]() { onEnter(); }, Key::ENTER, KeyState::PRESSED);
     up_key_listener_ = std::make_unique<KeyListener>([this]() { commandHistoryUp(); }, Key::UP, KeyState::PRESSED);
     down_key_listener_ = std::make_unique<KeyListener>([this]() { commandHistoryDown(); }, Key::DOWN, KeyState::PRESSED);
     clear_key_listener_ = std::make_unique<KeyListener>([this]() { clearCmd(); }, Key::ESCAPE, KeyState::PRESSED);
+    toggle_key_listener_->listen();
 
     ui_.setRoot("mle/ui/terminal_layer");
 
@@ -110,12 +110,22 @@ void TerminalLayer::enableInput() {
     ui::Entt e{ui_, terminal_text_entt_};
     e.apply("text_input_enable");
     current_command_idx_ = 0;
+
+    enter_key_listener_->listen();
+    up_key_listener_->listen();
+    down_key_listener_->listen();
+    clear_key_listener_->listen();
 }
 
 void TerminalLayer::disableInput() {
     ui::Entt e{ui_, terminal_text_entt_};
     e.apply("text_input_clear");
     e.apply("text_input_disable");
+
+    enter_key_listener_->unlisten();
+    up_key_listener_->unlisten();
+    down_key_listener_->unlisten();
+    clear_key_listener_->unlisten();
 }
 
 void TerminalLayer::onEnter() {

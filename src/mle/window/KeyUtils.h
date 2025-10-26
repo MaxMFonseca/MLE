@@ -1,9 +1,11 @@
 #pragma once
 
+#include <SDL3/SDL_keycode.h>
+
 #include "mle/window/Types.h"
 
 namespace mle {
-Key systemKeyToKey(int code);
+Key systemKeyToKey(SDL_Keycode kc);
 
 inline Key systemMouseButtonToKey(int code) {
     return Key(as<i32>(Key::MOUSE_ONE) + code - 1);
@@ -20,6 +22,5 @@ Expected<Key> toKey(std::string str);
 Expected<KeyState> toKeyState(char c);
 
 KeyModFlags toKeyModFlags(std::string_view str);
-KeyModFlags makeKeyModFlags(TargetKeyModState shift, TargetKeyModState ctrl, TargetKeyModState alt);
 
 }  // namespace mle

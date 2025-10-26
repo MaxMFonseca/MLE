@@ -10,30 +10,25 @@
 #include "mle/window/Window.h"
 
 namespace mle {
-namespace {
-bool isModOk(const KeyModFlags& mods, bool is_pressed, KeyModFlagBits mod_bit, KeyModFlagBits mod_bit_no) {
-    if (mods.have(mod_bit)) {
-        return is_pressed;
-    }
-    if (mods.have(mod_bit_no) || mods.have(KeyModFlagBits::NONE)) {
-        return !is_pressed;
-    }
-    // Any is default
-    return true;
-}
-}  // namespace
-
 bool KeyListener::checkMods(bool shift, bool ctrl, bool alt) const {
-    bool shift_ok = isModOk(kb_.mods, shift, KeyModFlagBits::SHIFT, KeyModFlagBits::SHIFT_NO);
-    bool ctrl_ok = isModOk(kb_.mods, ctrl, KeyModFlagBits::CTRL, KeyModFlagBits::CTRL_NO);
-    bool alt_ok = isModOk(kb_.mods, alt, KeyModFlagBits::ALT, KeyModFlagBits::ALT_NO);
-    return shift_ok && ctrl_ok && alt_ok;
+    if (kb_.mods & KeyModFlagBits::ANY) {
+        return true;
+    }
+    if (kb_.mods & KeyModFlagBits::NONE) {
+        return !(shift || ctrl || alt);
+    }
+    bool alt_ok = !as<bool>(as<bool>(kb_.mods & KeyModFlagBits::ALT) ^ alt);
+    bool ctrl_ok = !as<bool>(as<bool>(kb_.mods & KeyModFlagBits::CTRL) ^ ctrl);
+    bool shift_ok = !as<bool>(as<bool>(kb_.mods & KeyModFlagBits::SHIFT) ^ shift);
+    return alt_ok && ctrl_ok && shift_ok;
 }
 
-void KeyListener::tryCall(bool shift, bool ctrl, bool alt) {
+bool KeyListener::tryCall(bool shift, bool ctrl, bool alt) {
     if (checkMods(shift, ctrl, alt)) {
         call();
+        return true;
     }
+    return false;
 }
 
 KeyListener& KeyListener::setCallback(CallbackFn&& callback) {
@@ -105,7 +100,9 @@ void UserInputManager::update() {
             auto reverse_it = listeners->second.rbegin();
             for (; reverse_it != listeners->second.rend(); ++reverse_it) {
                 auto& l = **reverse_it;
-                l.tryCall(shift_, ctrl_, alt_);
+                if (l.tryCall(shift_, ctrl_, alt_)) {
+                    break;
+                }
             }
         }
 
@@ -116,7 +113,9 @@ void UserInputManager::update() {
                 for (; reverse_it != listeners->second.rend(); ++reverse_it) {
                     auto& l = **reverse_it;
                     if (l.repeat_) {
-                        l.tryCall(shift_, ctrl_, alt_);
+                        if (l.tryCall(shift_, ctrl_, alt_)) {
+                            break;
+                        }
                     }
                 }
             }

@@ -19,6 +19,8 @@
 #include "mle/utils/Types.h"
 #include "mle/utils/Utils.h"
 
+// TODO: Maybe run this on a separate thread.
+// along with window event handling
 namespace mle {
 class KeyListener final {
   public:
@@ -29,9 +31,7 @@ class KeyListener final {
 
     KeyListener(CallbackFn&& callback, Keybinding kb) :
         callback_(std::move(callback)),
-        kb_(kb) {
-        listen();
-    }
+        kb_(kb) {}
 
     KeyListener(CallbackFn&& callback, Key key, KeyState state = KeyState::PRESSED, KeyModFlags mods = KeyModFlagBits::ANY) :
         KeyListener(std::move(callback), Keybinding{.key = key, .state = state, .mods = mods}) {}
@@ -58,7 +58,7 @@ class KeyListener final {
   private:
     friend UserInputManager;
     [[nodiscard]] bool checkMods(bool shift, bool ctrl, bool alt) const;
-    void tryCall(bool shift, bool ctrl, bool alt);
+    [[nodiscard]] bool tryCall(bool shift, bool ctrl, bool alt);
     void call() { callback_(); }
 
   private:
@@ -76,9 +76,7 @@ class TextListener final {
     MLE_NO_COPY_MOVE(TextListener);
 
     explicit TextListener(CallbackFn&& callback) :
-        callback_(std::move(callback)) {
-        listen();
-    }
+        callback_(std::move(callback)) {}
 
     TextListener() = default;
 

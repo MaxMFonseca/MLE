@@ -12,6 +12,7 @@ void PerfLayer::init() {
         new_samples_ = samples;
     });
     toggle_key_listener_ = std::make_unique<KeyListener>([this]() { toggle(); }, Key::F3, KeyState::PRESSED);
+    toggle_key_listener_->listen();
 
     ui_.setRoot("mle/ui/perf_layer");
 }

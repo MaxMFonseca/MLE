@@ -33,18 +33,10 @@ TextBox::TextBox() {
 }
 
 void TextBox::onTextInput(char32 codepoint) {
-    if (!focused_) {
-        return;
-    }
-
     insertChar(codepoint);
 }
 
 void TextBox::onBackspace() {
-    if (!focused_) {
-        return;
-    }
-
     beginChange();
     if (selection_start_ != selection_end_) {
         deleteSelection();
@@ -57,10 +49,6 @@ void TextBox::onBackspace() {
 }
 
 void TextBox::onDelete() {
-    if (!focused_) {
-        return;
-    }
-
     beginChange();
 
     if (selection_start_ != selection_end_) {
@@ -75,39 +63,23 @@ void TextBox::onDelete() {
 }
 
 void TextBox::onLeft() {
-    if (!focused_) {
-        return;
-    }
-
     moveCursorLeft(UserInputManager::i().isShift());
 }
 
 void TextBox::onRight() {
-    if (!focused_) {
-        return;
-    }
-
     moveCursorRight(UserInputManager::i().isShift());
 }
 
 void TextBox::onHome() {
-    if (!focused_) {
-        return;
-    }
-
     moveCursorToStart(UserInputManager::i().isShift());
 }
 
 void TextBox::onEnd() {
-    if (!focused_) {
-        return;
-    }
-
     moveCursorToEnd(UserInputManager::i().isShift());
 }
 
 void TextBox::onEnter() {
-    if (!focused_ || !allow_new_line_) {
+    if (!allow_new_line_) {
         return;
     }
 
@@ -120,10 +92,6 @@ void TextBox::onEnter() {
 }
 
 void TextBox::onCtrlA() {
-    if (!focused_) {
-        return;
-    }
-
     beginChange();
     selection_start_ = 0;
     selection_end_ = text_.size();
@@ -131,10 +99,6 @@ void TextBox::onCtrlA() {
 }
 
 void TextBox::onCtrlC() {
-    if (!focused_) {
-        return;
-    }
-
     if (selection_start_ == selection_end_) {
         return;
     }
@@ -148,10 +112,6 @@ void TextBox::onCtrlC() {
 }
 
 void TextBox::onCtrlV() {
-    if (!focused_) {
-        return;
-    }
-
     char* clip = SDL_GetClipboardText();
     if (clip) {
         beginChange();
@@ -163,10 +123,6 @@ void TextBox::onCtrlV() {
 }
 
 void TextBox::onCtrlX() {
-    if (!focused_) {
-        return;
-    }
-
     beginChange();
     onCtrlC();
     deleteSelection();
@@ -177,10 +133,37 @@ void TextBox::onCtrlX() {
 // }
 
 void TextBox::setFocused(bool focused) {
-    focused_ = focused;
+    if (focused != focused_) {
+        focused_ = focused;
 
-    if (!focused) {
-        clearSelection();
+        if (!focused) {
+            clearSelection();
+            text_listener_->unlisten();
+            backspace_kl_->unlisten();
+            delete_kl_->unlisten();
+            left_kl_->unlisten();
+            right_kl_->unlisten();
+            home_kl_->unlisten();
+            enter_kl_->unlisten();
+            enter_kl_->unlisten();
+            ctrl_a_->unlisten();
+            ctrl_c_->unlisten();
+            ctrl_v_->unlisten();
+            ctrl_x_->unlisten();
+        } else {
+            text_listener_->listen();
+            backspace_kl_->listen();
+            delete_kl_->listen();
+            left_kl_->listen();
+            right_kl_->listen();
+            home_kl_->listen();
+            enter_kl_->listen();
+            enter_kl_->listen();
+            ctrl_a_->listen();
+            ctrl_c_->listen();
+            ctrl_v_->listen();
+            ctrl_x_->listen();
+        }
     }
 }
 

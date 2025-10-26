@@ -1,8 +1,9 @@
 #include "KeyUtils.h"
 
+#include <SDL3/SDL_keycode.h>
+
 #include <algorithm>
 
-#include "SDL3/SDL_scancode.h"
 #include "mle/utils/String.h"
 
 namespace mle {
@@ -40,28 +41,19 @@ namespace mle {
     X(COMMA, COMMA) X(PERIOD, PERIOD) X(SLASH, SLASH) X(BACKSLASH, BACKSLASH)
 // clang-format on
 
-namespace {
-constexpr std::array<Key, SDL_SCANCODE_COUNT> buildSdlToKey() {
-    std::array<Key, SDL_SCANCODE_COUNT> m{};
-    for (auto& k : m) {
-        k = Key::UNKNOWN;
-    }
-
-#define X(SC, K) m[SDL_SCANCODE_##SC] = Key::K;
-    SDL_KEY_MAP(X)
+Key systemKeyToKey(SDL_Keycode kc) {
+    switch (kc) {
+#define X(SDL_NAME, K)    \
+    case SDLK_##SDL_NAME: \
+        return Key::K;
+        SDL_KEY_MAP(X)
 #undef X
-
-    return m;
-}
-
-constexpr auto SDL_TO_KEY = buildSdlToKey();
-}  // namespace
-
-Key systemKeyToKey(int code) {
-    if (code < 0 || code >= SDL_SCANCODE_COUNT) {
-        return Key::UNKNOWN;
+        // Optional: map keypad Enter to ENTER as well
+        case SDLK_KP_ENTER:
+            return Key::ENTER;
+        default:
+            return Key::UNKNOWN;
     }
-    return SDL_TO_KEY.at(code);
 }
 
 Expected<Key> toKey(std::string str) {
@@ -173,59 +165,32 @@ KeyModFlags toKeyModFlags(std::string_view str) {
     if (str.empty()) {
         return KeyModFlagBits::NONE;
     }
+    if (matchAny(str, "n", "no", "none")) {
+        return KeyModFlagBits::NONE;
+    }
+    if (matchAny(str, "any", "*")) {
+        return KeyModFlagBits::ANY;
+    }
 
-    std::array<TargetKeyModState, 3> states = {Keybinding::DEFAULT_TARGET_STATE, Keybinding::DEFAULT_TARGET_STATE, Keybinding::DEFAULT_TARGET_STATE};
-
-    if (str.size() == 1) {
-        if (str[0] == 's') {
-            states[0] = TargetKeyModState::Y;
-        } else if (str[0] == 'c') {
-            states[1] = TargetKeyModState::Y;
-        } else if (str[0] == 'a') {
-            states[2] = TargetKeyModState::Y;
-        } else if (str[0] == '*') {
-            states[0] = TargetKeyModState::ANY;
-            states[1] = TargetKeyModState::ANY;
-            states[2] = TargetKeyModState::ANY;
-        }
-    } else if (str.size() == 3) {
-        for (i8 i = 0; i < 3; ++i) {
-            if (str[i] == '1' || str[i] == 'y') {
-                states.at(i) = TargetKeyModState::Y;
-            } else if (str[i] == '0' || str[i] == 'n') {
-                states.at(i) = TargetKeyModState::N;
-            } else if (str[i] == '*') {
-                states.at(i) = TargetKeyModState::ANY;
-            }
+    KeyModFlags ret;
+    for (auto c : str) {
+        switch (c) {
+            case 's':
+                ret |= KeyModFlagBits::SHIFT;
+                break;
+            case 'c':
+                ret |= KeyModFlagBits::CTRL;
+                break;
+            case 'a':
+                ret |= KeyModFlagBits::ALT;
+                break;
+            default:
+                MLE_W("Unknown modifier char: {}", c);
+                return KeyModFlagBits::NONE;
         }
     }
-    return makeKeyModFlags(states[0], states[1], states[2]);
-}
 
-KeyModFlags makeKeyModFlags(TargetKeyModState shift, TargetKeyModState ctrl, TargetKeyModState alt) {
-    KeyModFlags flags{};
-    if (shift == TargetKeyModState::Y) {
-        flags |= KeyModFlagBits::SHIFT;
-    } else if (shift == TargetKeyModState::ANY) {
-        flags |= KeyModFlagBits::SHIFT_ANY;
-    } else {
-        flags |= KeyModFlagBits::SHIFT_NO;
-    }
-    if (ctrl == TargetKeyModState::Y) {
-        flags |= KeyModFlagBits::CTRL;
-    } else if (ctrl == TargetKeyModState::ANY) {
-        flags |= KeyModFlagBits::CTRL_ANY;
-    } else {
-        flags |= KeyModFlagBits::CTRL_NO;
-    }
-    if (alt == TargetKeyModState::Y) {
-        flags |= KeyModFlagBits::ALT;
-    } else if (alt == TargetKeyModState::ANY) {
-        flags |= KeyModFlagBits::ALT_ANY;
-    } else {
-        flags |= KeyModFlagBits::ALT_NO;
-    }
-    return flags;
+    return ret;
 }
 
 }  // namespace mle
