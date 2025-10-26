@@ -7,6 +7,14 @@
 namespace mle {
 Key systemKeyToKey(SDL_Keycode kc);
 
+constexpr bool isPrintableKey(Key k) {
+    return k <= Key::LAST_PRINTABLE_CHAR;
+}
+
+constexpr bool isMouseKey(Key k) {
+    return k >= Key::MOUSE_ONE && k <= Key::MOUSE_EIGHT;
+}
+
 inline Key systemMouseButtonToKey(int code) {
     return Key(as<i32>(Key::MOUSE_ONE) + code - 1);
 }

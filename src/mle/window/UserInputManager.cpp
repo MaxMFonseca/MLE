@@ -23,10 +23,19 @@ bool KeyListener::checkMods(bool shift, bool ctrl, bool alt) const {
     return alt_ok && ctrl_ok && shift_ok;
 }
 
-bool KeyListener::tryCall(bool shift, bool ctrl, bool alt) {
+bool KeyListener::tryCall(bool shift, bool ctrl, bool alt, bool text_active) {
     if (checkMods(shift, ctrl, alt)) {
-        call();
-        return true;
+        if (!text_active) {
+            call();
+            return true;
+        }
+
+        bool is_ctrl_alt = as<bool>(kb_.mods & (KeyModFlagBits::CTRL | KeyModFlagBits::ALT));
+
+        if (is_ctrl_alt || isMouseKey(kb_.key) || !isPrintableKey(kb_.key)) {
+            call();
+            return true;
+        }
     }
     return false;
 }
@@ -92,6 +101,9 @@ void TextListener::unlisten() {
 
 void UserInputManager::update() {
     auto it = active_keys_.begin();
+
+    bool text_active = !text_listeners_.empty();
+
     while (it != active_keys_.end()) {
         auto& [key, state, sw] = *it;
 
@@ -100,7 +112,7 @@ void UserInputManager::update() {
             auto reverse_it = listeners->second.rbegin();
             for (; reverse_it != listeners->second.rend(); ++reverse_it) {
                 auto& l = **reverse_it;
-                if (l.tryCall(shift_, ctrl_, alt_)) {
+                if (l.tryCall(shift_, ctrl_, alt_, text_active)) {
                     break;
                 }
             }
@@ -113,7 +125,7 @@ void UserInputManager::update() {
                 for (; reverse_it != listeners->second.rend(); ++reverse_it) {
                     auto& l = **reverse_it;
                     if (l.repeat_) {
-                        if (l.tryCall(shift_, ctrl_, alt_)) {
+                        if (l.tryCall(shift_, ctrl_, alt_, text_active)) {
                             break;
                         }
                     }

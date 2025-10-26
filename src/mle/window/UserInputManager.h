@@ -58,7 +58,7 @@ class KeyListener final {
   private:
     friend UserInputManager;
     [[nodiscard]] bool checkMods(bool shift, bool ctrl, bool alt) const;
-    [[nodiscard]] bool tryCall(bool shift, bool ctrl, bool alt);
+    [[nodiscard]] bool tryCall(bool shift, bool ctrl, bool alt, bool text_active);
     void call() { callback_(); }
 
   private:
@@ -142,6 +142,7 @@ class UserInputManager {
     std::vector<std::tuple<Key, KeyState, Stopwatch>> active_keys_;
     std::unordered_map<u32, std::vector<KeyListenerRef>> listeners_;
     std::vector<TextListenerRef> text_listeners_;
+    std::vector<Key> text_input_;
 
     bool shift_ = false;
     bool ctrl_ = false;
