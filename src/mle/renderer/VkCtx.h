@@ -55,6 +55,8 @@ class VkCtx {
     [[nodiscard]] const auto& getInstance() const { return vk_instance_; }
     [[nodiscard]] const auto& getSurface() const { return surface_; }
 
+    std::string makePerfString();
+
     [[nodiscard]] auto getTimestampPeriod() const { return p_device_.properties.limits.timestampPeriod; }
 
   private:

@@ -1,11 +1,15 @@
 #include "VkCtx.h"
 
+#include <fmt/ranges.h>
+#include <vulkan/vulkan_core.h>
+
 #include <vulkan/vulkan_structs.hpp>
 
 #include "Utils.h"
 #include "mle/core/Assert.h"
 #include "mle/core/Logger.h"
 #include "mle/core/Unwrap.h"
+#include "mle/utils/String.h"
 #include "mle/window/Window.h"
 
 VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE;
@@ -623,4 +627,47 @@ void VkCtx::logDevice() {
 
     return 1;
 }
+
+std::string VkCtx::makePerfString() {
+    const auto& props = p_device_.properties;
+    const auto& heaps = p_device_.memory_properties.memoryHeaps;
+    const u32 heap_cnt = p_device_.memory_properties.memoryHeapCount;
+
+    auto ver_str = [](u32 v) { return fmt::format("{}.{}.{}", VK_API_VERSION_MAJOR(v), VK_API_VERSION_MINOR(v), VK_API_VERSION_PATCH(v)); };
+
+    std::vector<VmaBudget> budgets(heap_cnt);
+    vmaGetHeapBudgets(vma_, budgets.data());
+
+    u64 vram_used = 0, vram_budget = 0;
+    u64 sys_used = 0, sys_budget = 0;
+    for (u32 i = 0; i < heap_cnt; ++i) {
+        const bool dev_local = as<bool>(heaps.at(i).flags & vk::MemoryHeapFlagBits::eDeviceLocal);
+        if (dev_local) {
+            vram_used += budgets[i].usage;
+            vram_budget += budgets[i].budget;
+        } else {
+            sys_used += budgets[i].usage;
+            sys_budget += budgets[i].budget;
+        }
+    }
+
+    // VMA totals (allocs/blocks/bytes)
+    VmaTotalStatistics ts{};
+    vmaCalculateStatistics(vma_, &ts);
+    const auto& s = ts.total.statistics;
+
+    std::vector<std::string> lines;
+    lines.emplace_back(fmt::format("{} ({})", std::string(props.deviceName), vk::to_string(props.deviceType)));
+    lines.emplace_back(fmt::format("Driver {}", ver_str(props.driverVersion)));
+    lines.emplace_back(fmt::format("Vulkan {}", ver_str(props.apiVersion)));
+    lines.emplace_back(fmt::format("VMA allocs {} in {} blocks", s.allocationCount, s.blockCount));
+    lines.emplace_back(fmt::format("Allocated {}", bitsToString(s.allocationBytes)));
+    lines.emplace_back(fmt::format("VRAM {}/{}", bitsToString(vram_used), bitsToString(vram_budget)));
+    if (sys_budget > 0) {
+        lines.emplace_back(fmt::format("SysRAM {}/{}", bitsToString(sys_used), bitsToString(sys_budget)));
+    }
+
+    return fmt::format("{}", fmt::join(lines, "\n"));
+}
+
 }  // namespace mle
