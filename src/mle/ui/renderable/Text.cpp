@@ -109,6 +109,9 @@ void Text::applyInputClear(const Entt& e, const sol::object& /*obj*/) {
         MLE_W("Text::applyInputClear called on entt {} without TextBox.", e.fullName());
         return;
     }
+    if (text_comp->input_tb->getText().empty()) {
+        return;
+    }
     text_comp->input_tb->setText(U"");
     e.addFlag<comp::RequestExternalBoundsUpdateFlag>();
 }

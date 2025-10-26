@@ -73,8 +73,10 @@ void TextureAtlas::enqueueCopy(entt::id_type id, const Image::RawData& data) {
     buffer_ci.allocation_type = Buffer::CI::AllocationType::STAGING;
     auto buffer = Buffer::createHnd(buffer_ci);
     buffer->write(data.pixels.data(), data.pixels.size());
-    pending_data_.emplace_back(id, Recti{packer_r.value(), data.extent}, std::move(buffer));
     emplaceEntry(id, {packer_r.value(), data.extent});
+
+    std::scoped_lock lock(pending_data_mutex_);
+    pending_data_.emplace_back(id, Recti{packer_r.value(), data.extent}, std::move(buffer));
 }
 
 // NOLINTNEXTLINE(misc-no-recursion) Know
@@ -92,8 +94,10 @@ void TextureAtlas::enqueueCopy(entt::id_type id, vec2u size, BufferHnd&& buffer)
         return;
     }
 
-    pending_data_.emplace_back(id, Recti{packer_r.value(), size}, std::move(buffer));
     emplaceEntry(id, {packer_r.value(), size});
+
+    std::scoped_lock lock(pending_data_mutex_);
+    pending_data_.emplace_back(id, Recti{packer_r.value(), size}, std::move(buffer));
 }
 
 // NOLINTNEXTLINE(misc-no-recursion) Know
@@ -122,7 +126,11 @@ Expected<std::pair<ImageRef, TextureAtlas::Entry>> TextureAtlas::copyOnFrame(ent
     buffer_ci.allocation_type = Buffer::CI::AllocationType::STAGING;
     auto buffer = Buffer::createHnd(buffer_ci);
     buffer->write(data.pixels.data(), data.pixels.size());
-    pending_data_.emplace_back(id, Recti{pos, data.extent}, std::move(buffer));
+
+    {
+        std::scoped_lock lock(pending_data_mutex_);
+        pending_data_.emplace_back(id, Recti{pos, data.extent}, std::move(buffer));
+    }
 
     updateOnFrame();
 
@@ -169,6 +177,7 @@ Expected<std::pair<ImageRef, TextureAtlas::Entry>> TextureAtlas::copyOnFrame(ent
 // NOLINTNEXTLINE(misc-no-recursion) Know
 void TextureAtlas::updateOnFrame() {
     if (!pending_data_.empty()) {
+        std::scoped_lock lock(pending_data_mutex_);
         auto pd_it = pending_data_.begin();
         while (pd_it != pending_data_.end()) {
             image_->copyBuffer(Renderer::i().frameRenderer().cmd(), *std::get<BufferHnd>(*pd_it), std::get<Recti>(*pd_it));

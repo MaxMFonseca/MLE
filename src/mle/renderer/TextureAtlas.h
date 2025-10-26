@@ -48,6 +48,7 @@ class TextureAtlas {
 
     std::map<entt::id_type, Entry> entries_;
     std::vector<std::tuple<entt::id_type, Recti, BufferHnd>> pending_data_;
+    std::mutex pending_data_mutex_;
 
     TextureAtlasHnd next_atlas_{nullptr};
     RectPacker packer_;

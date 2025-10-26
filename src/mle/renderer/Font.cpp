@@ -172,8 +172,6 @@ Font::RenderText Font::makeText(const MakeTextIn& in) {
     std::vector<f32> char_word_positions;
     char_word_positions.resize(in.str.size(), 0.0F);
 
-    MLE_VC(in.justify_mode);
-
     text_lines.emplace_back();
     for (usize i = 0; i < in.str.size(); ++i) {
         auto& text_line = text_lines.back();

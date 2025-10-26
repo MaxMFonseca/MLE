@@ -154,7 +154,7 @@ void Image::copyBuffer(const CommandBuffer& cmd, Buffer& src, vec2u extent, vec2
     }
 
     MLE_ASSERT(extent.x > 0 && extent.y > 0);
-    MLE_ASSERT(offset.x + extent.x <= extent_.x && offset.y + extent.y <= extent_.y);
+    MLE_ASSERT_LOG(offset.x + extent.x <= extent_.x && offset.y + extent.y <= extent_.y, "{} {} {}", offset, extent, extent_);
 
     vk::BufferImageCopy region{};
     region.bufferOffset = 0;
