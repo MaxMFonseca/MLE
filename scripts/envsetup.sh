@@ -8,6 +8,8 @@ fi
 
 _MLE_ROOT="$(pwd)"
 
+MLE_SHADER_DIRS="${MLE_SHADER_DIRS:-${_MLE_ROOT}/res/shaders}"
+
 if [[ ! -f "${_MLE_ROOT}/README.md" ]]; then
   echo "Error: Please source this script from the project root directory."
   return 1
@@ -91,7 +93,7 @@ function mle_build() {
       ;;
     esac
   done
-
+  mle_compile_shaders_all
   cmake --build "${_MLE_ROOT}/build/${build_type}" -j "$(nproc --all)" "${args[@]}"
 }
 
@@ -204,20 +206,79 @@ function mle_nvim_dap() {
   echo "  NVIM_DAP_PROGRAM=$NVIM_DAP_PROGRAM"
 }
 
-function mle_compile_shaders() {
-  local shader_dir="${1:-${_MLE_ROOT}/res/shaders}"
+mle_add_shader_dirs() {
+  local d abs added=0
+  for d in "$@"; do
+    abs="$(
+      cd "$d" 2>/dev/null && pwd -P
+    )" || {
+      echo "Skip (not found): $d"
+      continue
+    }
 
-  find "$shader_dir" -type f \( \
-    -name "*.vert" -o -name "*.frag" -o -name "*.comp" -o -name "*.geom" -o -name "*.tesc" -o -name "*.tese" \
-    \) | while read -r shader; do
-    output="${shader}.spv"
-    echo "Compiling $(basename "$shader") -> $(basename "$output")"
-    glslangValidator -V "$shader" -o "$output"
-    if [ $? -ne 0 ]; then
-      echo "❌ Failed to compile: $shader"
-      return 1
+    if [[ ":${MLE_SHADER_DIRS}:" != *":${abs}:"* ]]; then
+      MLE_SHADER_DIRS="${MLE_SHADER_DIRS:+${MLE_SHADER_DIRS}:}${abs}"
+      added=1
+      echo "Added: ${abs}"
     fi
   done
+  export MLE_SHADER_DIRS
+  ((added)) && echo "Current MLE_SHADER_DIRS=${MLE_SHADER_DIRS}"
+}
+
+mle_compile_shaders_all() {
+  local force=0 jobs
+  jobs=$(nproc --all)
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+    -f | --force)
+      force=1
+      shift
+      ;;
+    -j)
+      jobs="$2"
+      shift 2
+      ;;
+    *)
+      echo "Unknown arg: $1"
+      return 2
+      ;;
+    esac
+  done
+
+  local IFS=':' dir
+  local -a files=()
+  for dir in $MLE_SHADER_DIRS; do
+    [[ -d "$dir" ]] || {
+      echo "Missing dir: $dir"
+      continue
+    }
+    while IFS= read -r -d '' f; do files+=("$f"); done < <(
+      find "$dir" -type f \( -name '*.vert' -o -name '*.frag' -o -name '*.comp' -o -name '*.geom' -o -name '*.tesc' -o -name '*.tese' \) -print0
+    )
+  done
+  [[ ${#files[@]} -eq 0 ]] && {
+    echo "No shaders found."
+    return 0
+  }
+
+  echo "Found ${#files[@]} shaders"
+
+  printf '%s\0' "${files[@]}" | xargs -0 -I{} -P"$jobs" bash -c '
+    shader="$1"; force="$2"; out="${shader}.spv"
+    if [[ "$force" == "1" || ! -f "$out" || "$shader" -nt "$out" ]]; then
+      echo "Compiling: $(basename "$shader")"
+      glslangValidator -V "$shader" -o "$out" || { echo "$shader"; exit 1; }
+    else
+      echo "Up-to-date: $(basename "$shader")"
+    fi
+  ' bash {} "$force" || {
+    echo "Some shaders failed."
+    return 1
+  }
+
+  echo "All done."
 }
 
 function mle_gen_docs() {
