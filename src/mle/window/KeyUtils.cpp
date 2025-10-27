@@ -96,7 +96,8 @@ Expected<Key> toKey(std::string str) {
         {"forwardslash", Key::SLASH}, {"backslash_key", Key::BACKSLASH},
         {"mouse1", Key::MOUSE_LEFT}, {"mouse2", Key::MOUSE_RIGHT}, {"mouse3", Key::MOUSE_MIDDLE},
         {"mouse4", Key::MOUSE_FOUR}, {"mouse5", Key::MOUSE_FIVE}, {"mouse6", Key::MOUSE_SIX},
-        {"mouse7", Key::MOUSE_SEVEN}, {"mouse8", Key::MOUSE_EIGHT}
+        {"mouse7", Key::MOUSE_SEVEN}, {"mouse8", Key::MOUSE_EIGHT}, {"lmb", Key::MOUSE_LEFT}, {"rmb", Key::MOUSE_RIGHT}, 
+    {"mmb", Key::MOUSE_MIDDLE}
     };
     // clang-format on
 
