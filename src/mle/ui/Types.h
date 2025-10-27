@@ -2,6 +2,7 @@
 
 #include <functional>
 
+#include "mle/lua/Lua.h"
 #include "mle/lua/Types.h"
 #include "mle/math/Types.h"
 #include "mle/renderer/RenderingThread.h"
@@ -18,6 +19,7 @@ enum class HoverState : u8 { NO, IN, HOVER, OUT };
 
 struct CompRenderingCtx {
     RenderingThread& thread;
+    Lua& lua;
     vec4i rounding_corners_radius_px;
 };
 

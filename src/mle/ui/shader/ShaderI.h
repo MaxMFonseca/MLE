@@ -23,10 +23,15 @@ struct ShaderI {
 
     MLE_NO_COPY_MOVE(ShaderI);
 
+    bool before_children = false;
+    bool dedicate_render_target = false;
+    Color clear_color = Color::ZERO;
+
     usize version = 0;
     void versionUp() { ++version; }
 
     virtual void set(const sol::object& obj) = 0;
+    void setBase(const sol::table& table);
 
     virtual void doUpdatePacket(ShaderPacketI* packet) = 0;
 

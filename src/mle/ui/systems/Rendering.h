@@ -65,9 +65,9 @@ class Rendering {
     std::unique_ptr<RenderingContext> renderCreateNodeNewContext(const Rendering::Packet::Node& node);
     void renderNodeBorder(const Rendering::Packet::Node& node, RenderingContext& ctx);
     void renderNodeBackground(const Rendering::Packet::Node& node, RenderingContext& ctx);
-    static void renderNodeRenderable(const Rendering::Packet::Node& node, RenderingContext& ctx);
+    void renderNodeRenderable(const Rendering::Packet::Node& node, RenderingContext& ctx);
     void renderNodeChildren(const Rendering::Packet::Node& node, RenderingContext& ctx);
-    static void renderNodeShader(const Rendering::Packet::Node& node, RenderingContext& ctx);
+    void renderNodeShader(const Rendering::Packet::Node& node, RenderingContext& ctx);
 
     void updateRenderable();
 
@@ -78,6 +78,7 @@ class Rendering {
 
   private:
     [[maybe_unused]] UI& ui_;
+    Lua lua_;
     AtomicTripleBuffer<Packet> atomic_data_;
     u64 next_packet_id_ = 0;
 

@@ -50,6 +50,7 @@ Rendering::Rendering(UI& ui) :
     } else {
         border_pipeline_ = &Renderer::i().pipelineCache().getPipeline("mle_ui_border");
     }
+    lua_.init();
 }
 
 void Rendering::clear() {
@@ -83,9 +84,9 @@ Rendering::Packet::Node Rendering::createPacketNode(u8 atomic_buffer_id, entt::e
     }
     if (const auto* shader_r = ew.tryGet<comp::Shader>(); shader_r) {
         node.shader_packet = shader_r->updatePacket(atomic_buffer_id);
-        node.shader_before_children = shader_r->before_children;
-        node.shader_dedicate_render_target = shader_r->dedicate_render_target;
-        node.shader_clear_color = shader_r->clear_color;
+        node.shader_before_children = shader_r->beforeChildren();
+        node.shader_dedicate_render_target = shader_r->dedicateRenderTarget();
+        node.shader_clear_color = shader_r->clearColor();
     }
 
     constexpr usize MAX_DEPTH = 64;
@@ -210,13 +211,18 @@ std::unique_ptr<Rendering::RenderingContext> Rendering::renderCreateNodeNewConte
 
 void Rendering::renderNodeShader(const Rendering::Packet::Node& node, RenderingContext& pctx) {
     CompRenderingCtx shader_packet_ctx{
-        .thread = pctx.thread, .rounding_corners_radius_px = vec4i{node.border.round_lt, node.border.round_rt, node.border.round_lb, node.border.round_rb}};
+        .thread = pctx.thread,
+        .lua = lua_,
+        .rounding_corners_radius_px = vec4i{node.border.round_lt, node.border.round_rt, node.border.round_lb, node.border.round_rb},
+    };
     node.shader_packet->render(shader_packet_ctx);
 }
 
 void Rendering::renderNodeRenderable(const Rendering::Packet::Node& node, RenderingContext& ctx) {
     CompRenderingCtx renderable_packet_ctx{
-        .thread = ctx.thread, .rounding_corners_radius_px = vec4i{node.border.round_lt, node.border.round_rt, node.border.round_lb, node.border.round_rb}};
+        .thread = ctx.thread,
+        .lua = lua_,
+        .rounding_corners_radius_px = vec4i{node.border.round_lt, node.border.round_rt, node.border.round_lb, node.border.round_rb}};
     node.renderable_packet->render(renderable_packet_ctx);
 }
 

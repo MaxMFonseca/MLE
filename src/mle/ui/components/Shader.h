@@ -7,10 +7,6 @@ namespace mle::ui::comp {
 struct Shader {
     std::unique_ptr<ShaderI> impl;
 
-    bool before_children = false;
-    bool dedicate_render_target = false;
-    Color clear_color = Color::ZERO;
-
     std::array<std::shared_ptr<ShaderPacketI>, 3> packet_buffers_;
 
     [[nodiscard]] auto updatePacket(usize idx) const {
@@ -18,6 +14,12 @@ struct Shader {
         impl->doUpdatePacket(packet.get());
         return packet;
     }
+
+    [[nodiscard]] bool beforeChildren() const { return impl->before_children; }
+    [[nodiscard]] bool dedicateRenderTarget() const { return impl->dedicate_render_target; }
+    [[nodiscard]] Color clearColor() const { return impl->clear_color; }
+
+    [[nodiscard]] entt::id_type getType() const { return impl->getType(); }
 
     explicit Shader(std::unique_ptr<ShaderI> impl_) :
         impl(std::move(impl_)) {}

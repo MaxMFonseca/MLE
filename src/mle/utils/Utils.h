@@ -75,4 +75,9 @@ constexpr T& rVoidAsRef(void* value) {
     return *rAs<T*>(value);
 }
 
+template <class... Ts>
+struct Overloaded : Ts... {
+    using Ts::operator()...;
+};
+
 }  // namespace mle

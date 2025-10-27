@@ -16,6 +16,7 @@ const Shader& ShaderCache::get(const std::string& name) {
     path /= name;
     path += ".spv";
 
+    MLE_I("Loading shader: {}", path.string());
     auto bytes = unwrap(readFileBytes(path));
     ShaderHnd shader{new Shader()};
 

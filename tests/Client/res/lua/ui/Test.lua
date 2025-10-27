@@ -27,21 +27,36 @@ return {
 		justify = "se",
 		justify_last = "b",
 	},
-	children_base = {
-		style = { "basic_round", "basic_border" },
-	},
 	c = {
 		bg = {
 			idx = 0,
 			pos = { 0, 0 },
 			size = { 1, 1 },
-			sprite = { "i/ui/bg2.png" },
+			shader = {
+				pipeline = {
+					name = "bg",
+					vert = "mle/ui/rect.vert",
+					frag = "i/ui/bg.frag",
+					colors = { "color" },
+					topology = "triangle_strip",
+					cull = "none",
+				},
+				params = {
+					pc_color = Color.fromString("RED"),
+				},
+				fn = "TODO",
+			},
 		},
 		blur = {
 			pos = 0.5,
 			size = "400px",
 			origin = "c",
 			margin = "50px",
+			style = { "basic_round" },
+			border = {
+				thickness = "3px",
+				color = "RED",
+			},
 			blur = {
 				radius = 13,
 				sigma = 5,
@@ -59,6 +74,7 @@ return {
 			pos = { xrel = "blur", yrel = "blur:c" },
 			size = { xrel = "blur", yrel = "blur:0.2" },
 			origin = "lc",
+			style = { "basic_round", "basic_border" },
 			blur = {
 				radius = 13,
 				sigma = 5,
@@ -88,8 +104,16 @@ return {
 				end,
 			},
 		},
+		health_bar = {
+			pos = "rt",
+			origin = "rt",
+			size = { 0.2, 0.05 },
+			margin = "20px",
+			style = { "basic_round", "basic_border" },
+		},
 	},
 }
+
 -- 		{
 -- 			-- size = "80px",
 -- 			sprite = { "mle/ui/mle.png", color = "RED" },

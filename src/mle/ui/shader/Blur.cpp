@@ -57,6 +57,7 @@ void Blur::set(const sol::object& obj) {
         if (const auto sigma_r = table["sigma"]; lua::valid<f32>(sigma_r)) {
             sigma = lua::as<f32>(sigma_r);
         }
+        setBase(table);
         return;
     }
 

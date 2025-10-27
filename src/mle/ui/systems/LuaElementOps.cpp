@@ -12,6 +12,7 @@
 #include "mle/ui/renderable/Sprite.h"
 #include "mle/ui/renderable/Text.h"
 #include "mle/ui/shader/Blur.h"
+#include "mle/ui/shader/LuaShader.h"
 #include "mle/utils/String.h"
 
 namespace mle::ui::system {
@@ -156,6 +157,8 @@ void LuaElementOps::addBuiltingApply() {
     addApplyKeyHandler("text_input_clear", ui::renderable::Text::applyInputClear);
 
     addApplyKeyHandler("blur", ui::shader::Blur::apply);
+    addApplyKeyHandler("shader", ui::shader::LuaShader::apply);
+    addApplyKeyHandler("shader_params", ui::shader::LuaShader::applyParams);
 }
 
 void LuaElementOps::addBuiltingGetters() {
