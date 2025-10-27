@@ -78,7 +78,7 @@ void Hoverable::applyOnKey(const Entt& ew, const sol::object& obj) {
     }
     std::string key = key_r.as<std::string>();
 
-    ew.patchOrEmplace<Hoverable>([&](Hoverable& c) { c.setKey(key, fn_r); });
+    ew.patchOrEmplace<Hoverable>([&](Hoverable& c) { c.setKey(ew, key, fn_r); });
 };
 
 void Hoverable::applyOnKeys(const Entt& ew, const sol::object& obj) {
@@ -88,7 +88,7 @@ void Hoverable::applyOnKeys(const Entt& ew, const sol::object& obj) {
         return;
     }
 
-    ew.patchOrEmplace<Hoverable>([&](Hoverable& c) { c.setKeys(lua::as<sol::table>(obj)); });
+    ew.patchOrEmplace<Hoverable>([&](Hoverable& c) { c.setKeys(ew, lua::as<sol::table>(obj)); });
 };
 
 void Hoverable::removeKey(const Keybinding& kb) {
@@ -98,19 +98,19 @@ void Hoverable::removeKey(const Keybinding& kb) {
     }
 }
 
-void Hoverable::setKey(const Keybinding& kb, const sol::function& fn) {
+void Hoverable::setKey(const Entt& e, const Keybinding& kb, const sol::function& fn) {
     auto kl_it = std::ranges::find_if(on_key, [&](const KeyListenerHnd& hnd) { return hnd->getKb() == kb; });
     if (kl_it != on_key.end()) {
-        (*kl_it)->setCallback(fn);
+        (*kl_it)->setCallback([e, fn]() { fn(e); });
     } else {
         auto kl = std::make_unique<KeyListener>();
         kl->setKeybinding(kb);
-        kl->setCallback(fn);
+        kl->setCallback([e, fn]() { fn(e); });
         on_key.emplace_back(std::move(kl));
     }
 }
 
-void Hoverable::setKey(const std::string& key, const sol::object& obj) {
+void Hoverable::setKey(const Entt& ew, const std::string& key, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
     const auto kb_r = toKeybinding(key);
     if (!kb_r) {
@@ -120,7 +120,7 @@ void Hoverable::setKey(const std::string& key, const sol::object& obj) {
     const auto& kb = *kb_r;
 
     if (obj.is<sol::function>()) {
-        setKey(kb, obj.as<sol::function>());
+        setKey(ew, kb, obj.as<sol::function>());
         return;
     }
     if (obj.is<bool>()) {
@@ -134,14 +134,14 @@ void Hoverable::setKey(const std::string& key, const sol::object& obj) {
     MLE_E("Hoverable::setKey expected a function or bool, got {}.", obj.get_type());
 }
 
-void Hoverable::setKeys(const sol::table& table) {
+void Hoverable::setKeys(const Entt& ew, const sol::table& table) {
     MLE_ASSERT(table.valid());
     for (const auto& [key, value] : table) {
         if (!lua::valid<std::string>(key)) {
             MLE_E("Hoverable::setKeys expected string keys, got {}.", key.get_type());
             continue;
         }
-        setKey(key.as<std::string>(), value);
+        setKey(ew, key.as<std::string>(), value);
     }
 };
 

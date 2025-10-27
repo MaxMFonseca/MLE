@@ -1,5 +1,7 @@
 #include "LuaElementOps.h"
 
+#include <filesystem>
+
 #include "mle/lua/Utils.h"
 #include "mle/renderer/Shader.h"
 #include "mle/ui/Entt.h"
@@ -52,17 +54,31 @@ void LuaElementOps::applyTable(entt::entity e, const sol::table& table) {
 }
 
 void LuaElementOps::applyObj(entt::entity e, const std::string& key, const sol::object& obj) {
-    auto it = key_handlers_.find(key);
-    if (it != key_handlers_.end()) {
+    auto it = apply_key_handlers_.find(key);
+    if (it != apply_key_handlers_.end()) {
         it->second(Entt(ui_, e), obj);
     } else if (!matchAny(key, "name", "idx", "styles", "style")) {
         MLE_E("No handler for element key '{}'", key);
     }
 }
 
-void LuaElementOps::addKeyHandler(const std::string& key, KeyHandlerFn fn) {
-    MLE_ASSERT_LOG(!key_handlers_.contains(key), "Key handler for '{}' already exists!", key);
-    key_handlers_[key] = fn;
+sol::object LuaElementOps::getKey(entt::entity e, const std::string& key) {
+    auto it = get_key_handlers_.find(key);
+    if (it != get_key_handlers_.end()) {
+        return it->second(Entt(ui_, e));
+    }
+    MLE_E("No handler for element key '{}'", key);
+    return {};
+};
+
+void LuaElementOps::addApplyKeyHandler(const std::string& key, ApplyKeyFn fn) {
+    MLE_ASSERT_LOG(!apply_key_handlers_.contains(key), "Key handler for '{}' already exists!", key);
+    apply_key_handlers_[key] = fn;
+};
+
+void LuaElementOps::addGetKeyHandler(const std::string& key, GetKeyFn fn) {
+    MLE_ASSERT_LOG(!get_key_handlers_.contains(key), "Get key handler for '{}' already exists!", key);
+    get_key_handlers_[key] = fn;
 };
 
 LuaElementOps::LuaElementOps(UI& ui) :
@@ -71,80 +87,78 @@ LuaElementOps::LuaElementOps(UI& ui) :
 
     auto ut = lua.newUsertype<Entt>("mle_ui_Entt", sol::no_constructor);
     ut["apply"] = &Entt::apply;
+    ut["get"] = &Entt::getKey;
+    ut["entt"] = &Entt::e;
+    ut["fullName"] = &Entt::fullName;
 
-    addKeyHandler("c", comp::Relationship::applyAddChildren);
-    addKeyHandler("children", comp::Relationship::applyAddChildren);
-    addKeyHandler("add_child", comp::Relationship::applyAddChildren);
-    addKeyHandler("child", comp::Relationship::applyAddChildren);
-    addKeyHandler("container", comp::Container::apply);
-    addKeyHandler("size", comp::TargetSize::apply);
-    addKeyHandler("size_x", comp::TargetSize::applyX);
-    addKeyHandler("size_y", comp::TargetSize::applyY);
-    addKeyHandler("size_x_dep", comp::TargetSize::applyXDep);
-    addKeyHandler("size_y_dep", comp::TargetSize::applyYDep);
-    addKeyHandler("pos", comp::TargetPosition::apply);
-    addKeyHandler("pos_x", comp::TargetPosition::applyX);
-    addKeyHandler("pos_y", comp::TargetPosition::applyY);
-    addKeyHandler("pos_x_dep", comp::TargetPosition::applyXDep);
-    addKeyHandler("pos_y_dep", comp::TargetPosition::applyYDep);
-    addKeyHandler("padding", comp::TargetPadding::apply);
-    addKeyHandler("padding_t", comp::TargetPadding::applyT);
-    addKeyHandler("padding_b", comp::TargetPadding::applyB);
-    addKeyHandler("padding_l", comp::TargetPadding::applyL);
-    addKeyHandler("padding_r", comp::TargetPadding::applyR);
-    addKeyHandler("padding_x", comp::TargetPadding::applyX);
-    addKeyHandler("padding_y", comp::TargetPadding::applyY);
-    addKeyHandler("margin", comp::TargetMargin::apply);
-    addKeyHandler("margin_t", comp::TargetMargin::applyT);
-    addKeyHandler("margin_b", comp::TargetMargin::applyB);
-    addKeyHandler("margin_l", comp::TargetMargin::applyL);
-    addKeyHandler("margin_r", comp::TargetMargin::applyR);
-    addKeyHandler("margin_x", comp::TargetMargin::applyX);
-    addKeyHandler("margin_y", comp::TargetMargin::applyY);
-    addKeyHandler("border", comp::TargetBorder::apply);
-    addKeyHandler("border_thickness", comp::TargetBorder::applyThickness);
-    addKeyHandler("border_color", comp::TargetBorder::applyColor);
-    addKeyHandler("border_round", comp::TargetBorder::applyRound);
-    addKeyHandler("border_t", comp::TargetBorder::applyT);
-    addKeyHandler("border_b", comp::TargetBorder::applyB);
-    addKeyHandler("border_l", comp::TargetBorder::applyL);
-    addKeyHandler("border_r", comp::TargetBorder::applyR);
-    addKeyHandler("border_x", comp::TargetBorder::applyX);
-    addKeyHandler("border_y", comp::TargetBorder::applyY);
-    addKeyHandler("border_round_lt", comp::TargetBorder::applyRoundLT);
-    addKeyHandler("border_round_rt", comp::TargetBorder::applyRoundRT);
-    addKeyHandler("border_round_lb", comp::TargetBorder::applyRoundLB);
-    addKeyHandler("border_round_rb", comp::TargetBorder::applyRoundRB);
-    addKeyHandler("origin", comp::TargetOrigin::apply);
-    addKeyHandler("aspect_ratio", comp::TargetAspectRatio::apply);
-    addKeyHandler("background", comp::Background::apply);
-    addKeyHandler("on_hover", comp::Hoverable::applyOnHover);
-    addKeyHandler("on_hover_in", comp::Hoverable::applyOnHoverIn);
-    addKeyHandler("on_hover_out", comp::Hoverable::applyOnHoverOut);
-    addKeyHandler("on_key", comp::Hoverable::applyOnKey);
-    addKeyHandler("on_keys", comp::Hoverable::applyOnKeys);
-
-    addKeyHandler("sprite", ui::renderable::Sprite::apply);
-    addKeyHandler("text", ui::renderable::Text::apply);
-    addKeyHandler("text_input_enable", ui::renderable::Text::applyInputEnable);
-    addKeyHandler("text_input_disable", ui::renderable::Text::applyInputDisable);
-    addKeyHandler("text_input_clear", ui::renderable::Text::applyInputClear);
-
-    addKeyHandler("blur", ui::shader::Blur::apply);
+    addBuiltingApply();
+    addBuiltingGetters();
 }
-// addLuaKeyHandler("blur", blur);
-// addLuaKeyHandler("root_image", rootImage);
-// addLuaKeyHandler("sprite", sprite);
-// addLuaKeyHandler("text", text);
-// addLuaKeyHandler("shader", shader);
-// addLuaKeyHandler("table", table);
-// addLuaKeyHandler("on_init", onInit);
-// addLuaKeyHandler("on_update", onUpdate);
-// addLuaKeyHandler("on_hover", collidable<comp::OnHover>);
-// addLuaKeyHandler("on_hover_enter", collidable<comp::OnHoverEnter>);
-// addLuaKeyHandler("on_hover_leave", collidable<comp::OnHoverLeave>);
-// addLuaKeyHandler("on_click", collidable<comp::OnLeftPressed, true>);
-// addLuaKeyHandler("on_left_pressed", collidable<comp::OnLeftPressed, true>);
-// addLuaKeyHandler("on_left_released", collidable<comp::OnLeftReleased, true>);
-// addLuaKeyHandler("on_left_down", collidable<comp::OnLeftDown, true>);
+
+void LuaElementOps::addBuiltingApply() {
+    addApplyKeyHandler("c", comp::Relationship::applyAddChildren);
+    addApplyKeyHandler("children", comp::Relationship::applyAddChildren);
+    addApplyKeyHandler("add_child", comp::Relationship::applyAddChildren);
+    addApplyKeyHandler("child", comp::Relationship::applyAddChildren);
+    addApplyKeyHandler("container", comp::Container::apply);
+    addApplyKeyHandler("size", comp::TargetSize::apply);
+    addApplyKeyHandler("size_x", comp::TargetSize::applyX);
+    addApplyKeyHandler("size_y", comp::TargetSize::applyY);
+    addApplyKeyHandler("size_x_dep", comp::TargetSize::applyXDep);
+    addApplyKeyHandler("size_y_dep", comp::TargetSize::applyYDep);
+    addApplyKeyHandler("pos", comp::TargetPosition::apply);
+    addApplyKeyHandler("pos_x", comp::TargetPosition::applyX);
+    addApplyKeyHandler("pos_y", comp::TargetPosition::applyY);
+    addApplyKeyHandler("pos_x_dep", comp::TargetPosition::applyXDep);
+    addApplyKeyHandler("pos_y_dep", comp::TargetPosition::applyYDep);
+    addApplyKeyHandler("padding", comp::TargetPadding::apply);
+    addApplyKeyHandler("padding_t", comp::TargetPadding::applyT);
+    addApplyKeyHandler("padding_b", comp::TargetPadding::applyB);
+    addApplyKeyHandler("padding_l", comp::TargetPadding::applyL);
+    addApplyKeyHandler("padding_r", comp::TargetPadding::applyR);
+    addApplyKeyHandler("padding_x", comp::TargetPadding::applyX);
+    addApplyKeyHandler("padding_y", comp::TargetPadding::applyY);
+    addApplyKeyHandler("margin", comp::TargetMargin::apply);
+    addApplyKeyHandler("margin_t", comp::TargetMargin::applyT);
+    addApplyKeyHandler("margin_b", comp::TargetMargin::applyB);
+    addApplyKeyHandler("margin_l", comp::TargetMargin::applyL);
+    addApplyKeyHandler("margin_r", comp::TargetMargin::applyR);
+    addApplyKeyHandler("margin_x", comp::TargetMargin::applyX);
+    addApplyKeyHandler("margin_y", comp::TargetMargin::applyY);
+    addApplyKeyHandler("border", comp::TargetBorder::apply);
+    addApplyKeyHandler("border_thickness", comp::TargetBorder::applyThickness);
+    addApplyKeyHandler("border_color", comp::TargetBorder::applyColor);
+    addApplyKeyHandler("border_round", comp::TargetBorder::applyRound);
+    addApplyKeyHandler("border_t", comp::TargetBorder::applyT);
+    addApplyKeyHandler("border_b", comp::TargetBorder::applyB);
+    addApplyKeyHandler("border_l", comp::TargetBorder::applyL);
+    addApplyKeyHandler("border_r", comp::TargetBorder::applyR);
+    addApplyKeyHandler("border_x", comp::TargetBorder::applyX);
+    addApplyKeyHandler("border_y", comp::TargetBorder::applyY);
+    addApplyKeyHandler("border_round_lt", comp::TargetBorder::applyRoundLT);
+    addApplyKeyHandler("border_round_rt", comp::TargetBorder::applyRoundRT);
+    addApplyKeyHandler("border_round_lb", comp::TargetBorder::applyRoundLB);
+    addApplyKeyHandler("border_round_rb", comp::TargetBorder::applyRoundRB);
+    addApplyKeyHandler("origin", comp::TargetOrigin::apply);
+    addApplyKeyHandler("aspect_ratio", comp::TargetAspectRatio::apply);
+    addApplyKeyHandler("background", comp::Background::apply);
+    addApplyKeyHandler("on_hover", comp::Hoverable::applyOnHover);
+    addApplyKeyHandler("on_hover_in", comp::Hoverable::applyOnHoverIn);
+    addApplyKeyHandler("on_hover_out", comp::Hoverable::applyOnHoverOut);
+    addApplyKeyHandler("on_key", comp::Hoverable::applyOnKey);
+    addApplyKeyHandler("on_keys", comp::Hoverable::applyOnKeys);
+    addApplyKeyHandler("table", comp::Table::apply);
+
+    addApplyKeyHandler("sprite", ui::renderable::Sprite::apply);
+    addApplyKeyHandler("text", ui::renderable::Text::apply);
+    addApplyKeyHandler("text_input_enable", ui::renderable::Text::applyInputEnable);
+    addApplyKeyHandler("text_input_disable", ui::renderable::Text::applyInputDisable);
+    addApplyKeyHandler("text_input_clear", ui::renderable::Text::applyInputClear);
+
+    addApplyKeyHandler("blur", ui::shader::Blur::apply);
+}
+
+void LuaElementOps::addBuiltingGetters() {
+    addGetKeyHandler("table", comp::Table::get);
+}
 }  // namespace mle::ui::system

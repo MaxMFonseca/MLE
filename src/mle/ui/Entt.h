@@ -6,6 +6,7 @@
 #include "mle/ui/components/Container.h"
 #include "mle/ui/components/Relationship.h"
 #include "mle/utils/ECS.h"
+#include "sol/forward.hpp"
 
 namespace mle::ui {
 class Entt {
@@ -19,6 +20,7 @@ class Entt {
     void setE(entt::entity e) { e_ = e; }
 
     void apply(const std::string& key, const sol::object& obj = {}) const { ui_.getLuaElementOps().applyObj(e_, key, obj); }
+    [[nodiscard]] sol::object getKey(const std::string& key) const { return ui_.getLuaElementOps().getKey(e_, key); }
     void applyTable(const sol::table& table) const { ui_.getLuaElementOps().applyTable(e_, table); }
     void setName(const std::string& name) const;
     void destroy() const;

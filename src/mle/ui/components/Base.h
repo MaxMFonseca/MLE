@@ -2,6 +2,7 @@
 
 #include "../Types.h"
 #include "mle/utils/Color.h"
+#include "sol/forward.hpp"
 
 namespace mle::ui::comp {
 struct Name {
@@ -14,6 +15,14 @@ struct Background {
     void set(const sol::object& obj) { color = Color::fromLua(obj); }
 
     static void apply(const Entt& e, const sol::object& obj);
+};
+
+struct Table {
+    sol::table o;
+
+    static void apply(const Entt& e, const sol::object& obj);
+
+    static sol::object get(const Entt& e);
 };
 
 // TODO: add unique ID(name) component that maps on the UI base

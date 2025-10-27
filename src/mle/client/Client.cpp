@@ -115,12 +115,12 @@ void Client::update() {
     UserInputManager::i().update();
 
     {
-        MLE_PERF_SCOPE("ClientUpdate.game_layer");
+        MLE_PERF_SCOPE("ClientUpdate.GameLayer");
         game_layer_->update();
     }
 
     {
-        MLE_PERF_SCOPE("ClientUpdate.debug_layers");
+        MLE_PERF_SCOPE("ClientUpdate.DebugLayers");
         for (auto& [_, dl] : debug_layers_) {
             dl->update();
         }

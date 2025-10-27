@@ -8,7 +8,6 @@ return {
 			size_y = 0.05,
 			pos = "lb",
 			origin = "lb",
-			background = "RED",
 			text = {
 				"Hello",
 				input = {},

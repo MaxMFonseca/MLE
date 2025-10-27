@@ -11,9 +11,9 @@ struct Hoverable {
     HoverFn on_hover_out;
     std::vector<KeyListenerHnd> on_key;
 
-    void setKeys(const sol::table& table);
-    void setKey(const std::string& key, const sol::object& obj);
-    void setKey(const Keybinding& kb, const sol::function& fn);
+    void setKeys(const Entt& ew, const sol::table& table);
+    void setKey(const Entt& ew, const std::string& key, const sol::object& obj);
+    void setKey(const Entt& ew, const Keybinding& kb, const sol::function& fn);
     void removeKey(const Keybinding& kb);
 
     void onHoverIn(const Entt& ew);

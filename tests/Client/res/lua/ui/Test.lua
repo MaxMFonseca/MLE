@@ -73,6 +73,21 @@ return {
 				print("on_hover_out")
 			end,
 		},
+		how = {
+			pos = "br",
+			origin = "br",
+			size = "30px",
+			background = "NQB",
+			table = { nnn = 0 },
+			on_keys = {
+				lmb = function(ew)
+					print(ew:fullName())
+					local t = ew:get("table")
+					print(t.nnn)
+					t.nnn = t.nnn + 1
+				end,
+			},
+		},
 	},
 }
 -- 		{

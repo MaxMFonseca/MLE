@@ -82,17 +82,17 @@ void UI::update() {
     MLE_PERF_SCOPE("GUIUpdate");
 
     {
-        MLE_PERF_SCOPE("GUIUpdate.hover");
+        MLE_PERF_SCOPE("GUIUpdate.Hover");
         hover_system_.update();
     }
 
     {
-        MLE_PERF_SCOPE("GUIUpdate.bounds");
+        MLE_PERF_SCOPE("GUIUpdate.Bounds");
         bounds_system_.update();
     }
 
     {
-        MLE_PERF_SCOPE("GUIUpdate.rendering");
+        MLE_PERF_SCOPE("GUIUpdate.Rendering");
         rendering_system_.update();
     }
 }

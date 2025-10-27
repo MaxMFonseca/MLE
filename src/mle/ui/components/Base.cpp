@@ -4,6 +4,7 @@
 #include "mle/lua/Utils.h"
 #include "mle/ui/Entt.h"
 #include "mle/ui/UI.h"
+#include "sol/forward.hpp"
 
 namespace mle::ui::comp {
 void Background::apply(const Entt& e, const sol::object& obj) {
@@ -11,4 +12,32 @@ void Background::apply(const Entt& e, const sol::object& obj) {
     e.patchOrEmplace<Background>([&](Background& bg) { bg.set(obj); });
 }
 
+void Table::apply(const Entt& e, const sol::object& obj) {
+    MLE_ASSERT(obj.valid());
+    if (!e.has<Table>()) {
+        auto& nt = e.emplace<Table>();
+        if (obj.is<sol::table>()) {
+            nt.o = e.ui().getLua().createTable(obj.as<sol::table>());
+        } else if (obj.is<bool>() && obj.as<bool>()) {
+            nt.o = e.ui().getLua().createTable();
+        } else {
+            MLE_E("Invalid obj/bool type passed to Table apply. {}", obj.get_type());
+        }
+    } else {
+        if (obj.is<sol::table>()) {
+            auto& t = e.get<Table>();
+            e.ui().getLua().mergeTables(t.o, obj.as<sol::table>());
+        } else {
+            MLE_E("Invalid obj type passed to Table apply. {}", obj.get_type());
+        }
+    }
+}
+
+sol::object Table::get(const Entt& e) {
+    if (!e.has<Table>()) {
+        auto& nt = e.emplace<Table>();
+        nt.o = e.ui().getLua().createTable();
+    }
+    return e.get<Table>().o;
+};
 }  // namespace mle::ui::comp
