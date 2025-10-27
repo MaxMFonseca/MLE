@@ -11,6 +11,8 @@
 #include "mle/core/Assert.h"
 #include "mle/core/Logger.h"
 #include "mle/core/Unwrap.h"
+#include "mle/renderer/Types.h"
+#include "mle/utils/ECS.h"
 #include "mle/utils/String.h"
 #include "mle/window/Window.h"
 
@@ -679,4 +681,14 @@ std::string VkCtx::makePerfString() {
     return fmt::format("{}", fmt::join(lines, "\n"));
 }
 
+Expected<ImageFormat> VkCtx::getFormat(const char* str) {
+    auto id = entt::hashed_string{str};
+    switch (id) {
+        case entt::hashed_string{"color"}:
+            return ImageFormat::COLOR;
+        default:
+            MLE_E("Unknown format string {}", str);
+            return std::unexpected(Result::INVALID_ARGUMENT);
+    }
+};
 }  // namespace mle

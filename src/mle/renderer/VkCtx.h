@@ -3,6 +3,7 @@
 #include <mutex>
 
 #include "Utils.h"
+#include "mle/renderer/Types.h"
 #include "mle/utils/Utils.h"
 
 namespace mle {
@@ -51,6 +52,7 @@ class VkCtx {
     [[nodiscard]] vk::DeviceSize getAlignmentForBufferUsage(vk::BufferUsageFlags flags) const;
     [[nodiscard]] auto getVkImageFormat(ImageFormat format) const { return image_formats_.at(as<usize>(format)); }
     [[nodiscard]] auto getVkImageUsage(ImageFormat format) const { return image_format_usages_.at(as<usize>(format)); }
+    [[nodiscard]] static Expected<ImageFormat> getFormat(const char* str);
     [[nodiscard]] const auto& getPhysicalDevice() const { return p_device_; }
     [[nodiscard]] const auto& getInstance() const { return vk_instance_; }
     [[nodiscard]] const auto& getSurface() const { return surface_; }
