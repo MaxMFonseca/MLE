@@ -6,6 +6,7 @@
 #include "mle/utils/String.h"
 #include "mle/utils/Utils.h"
 #include "mle/window/Types.h"
+#include "mle/window/UserInputManager.h"
 
 namespace mle {
 class TextBox final {
@@ -78,19 +79,19 @@ class TextBox final {
 
     std::move_only_function<void()> changed_callback_;
 
-    TextListenerHnd text_listener_;
+    TextListener text_listener_;
 
-    KeyListenerHnd backspace_kl_;
-    KeyListenerHnd delete_kl_;
-    KeyListenerHnd left_kl_;
-    KeyListenerHnd right_kl_;
-    KeyListenerHnd home_kl_;
-    KeyListenerHnd end_kl_;
-    KeyListenerHnd enter_kl_;
-    KeyListenerHnd ctrl_a_;
-    KeyListenerHnd ctrl_c_;
-    KeyListenerHnd ctrl_v_;
-    KeyListenerHnd ctrl_x_;
+    KeyListener backspace_kl_;
+    KeyListener delete_kl_;
+    KeyListener left_kl_;
+    KeyListener right_kl_;
+    KeyListener home_kl_;
+    KeyListener end_kl_;
+    KeyListener enter_kl_;
+    KeyListener ctrl_a_;
+    KeyListener ctrl_c_;
+    KeyListener ctrl_v_;
+    KeyListener ctrl_x_;
     // KeyListenerHnd ctrl_z_;
 };
 }  // namespace mle

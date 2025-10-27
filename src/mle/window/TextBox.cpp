@@ -12,24 +12,18 @@
 namespace mle {
 
 TextBox::TextBox() {
-    text_listener_ = std::make_unique<TextListener>([this](char32 codepoint) { onTextInput(codepoint); });
-    backspace_kl_ = std::make_unique<KeyListener>([this]() { onBackspace(); }, Key::BACKSPACE, KeyState::PRESSED);
-    backspace_kl_->setRepeat(true);
-    delete_kl_ = std::make_unique<KeyListener>([this]() { onDelete(); }, Key::DELETE, KeyState::PRESSED);
-    delete_kl_->setRepeat(true);
-    left_kl_ = std::make_unique<KeyListener>([this]() { onLeft(); }, Key::LEFT, KeyState::PRESSED);
-    left_kl_->setRepeat(true);
-    right_kl_ = std::make_unique<KeyListener>([this]() { onRight(); }, Key::RIGHT, KeyState::PRESSED);
-    right_kl_->setRepeat(true);
-    home_kl_ = std::make_unique<KeyListener>([this]() { onHome(); }, Key::HOME, KeyState::PRESSED);
-    end_kl_ = std::make_unique<KeyListener>([this]() { onEnd(); }, Key::END, KeyState::PRESSED);
-    enter_kl_ = std::make_unique<KeyListener>([this]() { onEnter(); }, Key::ENTER, KeyState::PRESSED);
-    end_kl_->setRepeat(true);
-    ctrl_a_ = std::make_unique<KeyListener>([this]() { onCtrlA(); }, Key::A, KeyState::PRESSED, KeyModFlagBits::CTRL);
-    ctrl_c_ = std::make_unique<KeyListener>([this]() { onCtrlC(); }, Key::C, KeyState::PRESSED, KeyModFlagBits::CTRL);
-    ctrl_v_ = std::make_unique<KeyListener>([this]() { onCtrlV(); }, Key::V, KeyState::PRESSED, KeyModFlagBits::CTRL);
-    ctrl_x_ = std::make_unique<KeyListener>([this]() { onCtrlX(); }, Key::X, KeyState::PRESSED, KeyModFlagBits::CTRL);
-    // ctrl_z_ = std::make_unique<KeyListener>([this]() { onCtrlZ(); }, Key::Z, KeyState::PRESSED, KeyModFlagBits::CTRL);
+    text_listener_.setCallback([this](char32 codepoint) { onTextInput(codepoint); });
+    backspace_kl_.setKey(Key::BACKSPACE).setState(KeyState::PRESSED).setCallback([this]() { onBackspace(); }).setRepeat(true);
+    delete_kl_.setKey(Key::DELETE).setState(KeyState::PRESSED).setCallback([this]() { onDelete(); }).setRepeat(true);
+    left_kl_.setKey(Key::LEFT).setState(KeyState::PRESSED).setCallback([this]() { onLeft(); }).setRepeat(true);
+    right_kl_.setKey(Key::RIGHT).setState(KeyState::PRESSED).setCallback([this]() { onRight(); }).setRepeat(true);
+    home_kl_.setKey(Key::HOME).setState(KeyState::PRESSED).setCallback([this]() { onHome(); });
+    end_kl_.setKey(Key::END).setState(KeyState::PRESSED).setCallback([this]() { onEnd(); }).setRepeat(true);
+    enter_kl_.setKey(Key::ENTER).setState(KeyState::PRESSED).setCallback([this]() { onEnter(); });
+    ctrl_a_.setKey(Key::A).setState(KeyState::PRESSED).setMods(KeyModFlagBits::CTRL).setCallback([this]() { onCtrlA(); });
+    ctrl_c_.setKey(Key::C).setState(KeyState::PRESSED).setMods(KeyModFlagBits::CTRL).setCallback([this]() { onCtrlC(); });
+    ctrl_v_.setKey(Key::V).setState(KeyState::PRESSED).setMods(KeyModFlagBits::CTRL).setCallback([this]() { onCtrlV(); });
+    ctrl_x_.setKey(Key::X).setState(KeyState::PRESSED).setMods(KeyModFlagBits::CTRL).setCallback([this]() { onCtrlX(); });
 }
 
 void TextBox::onTextInput(char32 codepoint) {
@@ -138,31 +132,31 @@ void TextBox::setFocused(bool focused) {
 
         if (!focused) {
             clearSelection();
-            text_listener_->unlisten();
-            backspace_kl_->unlisten();
-            delete_kl_->unlisten();
-            left_kl_->unlisten();
-            right_kl_->unlisten();
-            home_kl_->unlisten();
-            enter_kl_->unlisten();
-            enter_kl_->unlisten();
-            ctrl_a_->unlisten();
-            ctrl_c_->unlisten();
-            ctrl_v_->unlisten();
-            ctrl_x_->unlisten();
+            text_listener_.unlisten();
+            backspace_kl_.unlisten();
+            delete_kl_.unlisten();
+            left_kl_.unlisten();
+            right_kl_.unlisten();
+            home_kl_.unlisten();
+            enter_kl_.unlisten();
+            enter_kl_.unlisten();
+            ctrl_a_.unlisten();
+            ctrl_c_.unlisten();
+            ctrl_v_.unlisten();
+            ctrl_x_.unlisten();
         } else {
-            text_listener_->listen();
-            backspace_kl_->listen();
-            delete_kl_->listen();
-            left_kl_->listen();
-            right_kl_->listen();
-            home_kl_->listen();
-            enter_kl_->listen();
-            enter_kl_->listen();
-            ctrl_a_->listen();
-            ctrl_c_->listen();
-            ctrl_v_->listen();
-            ctrl_x_->listen();
+            text_listener_.listen();
+            backspace_kl_.listen();
+            delete_kl_.listen();
+            left_kl_.listen();
+            right_kl_.listen();
+            home_kl_.listen();
+            enter_kl_.listen();
+            enter_kl_.listen();
+            ctrl_a_.listen();
+            ctrl_c_.listen();
+            ctrl_v_.listen();
+            ctrl_x_.listen();
         }
     }
 }
