@@ -4,6 +4,7 @@
 #include "mle/ui/components/Bounds.h"
 #include "mle/ui/renderable/RenderableI.h"
 #include "mle/window/Types.h"
+#include "sol/forward.hpp"
 
 namespace mle::ui::renderable {
 struct TextPacket : public RenderablePacketI {
@@ -40,6 +41,8 @@ struct Text : public RenderableI {
     TargetBound font_height_tb;
     Font::JustifyMode justify_mode = Font::JustifyMode::START;
     f32 line_max_aspect = 0.F;
+    bool wrap = false;
+    bool multiline_input = false;
 
     Font::RenderText render_text;
 
@@ -50,41 +53,40 @@ struct Text : public RenderableI {
 
     TextBoxHnd input_tb;
 
-    bool wrap = false;
-    bool multiline_input = false;
-
     void makeCharsBuffer();
 
-    void setText(std::u32string src);
-    void setText(std::string_view src);
-
-    void makeInputBox(const Entt& e, const sol::object& obj);
+    void makeInputBox(const Entt& ew, const sol::object& obj);
     void enableInputBox() const;
     void disableInputBox() const;
 
-    void setFont(const char* cstr) { font_id = entt::hashed_string{cstr}; }
-
-    void setJustifyMode(std::string_view mode_str);
-    void setWrap(bool w = true) { wrap = w; }
-
+    void setText(const Entt& ew, std::u32string src);
+    void setText(const Entt& ew, std::string_view src);
+    void setFont(const Entt& ew, const char* cstr);
     void setColor(const Color& c);
     void setColor(const sol::object& obj) { setColor(Color::fromLua(obj)); }
+    void setFontHeight(const Entt& ew, const sol::object& obj);
+    void setJustifyMode(const Entt& ew, std::string_view mode_str);
+    void setLineMaxAspect(const Entt& ew, f32 v);
+    void setWrap(const Entt& ew, bool w = true);
 
-    void set(const Entt& e, const sol::object& obj) override;
-    [[nodiscard]] vec2u calculateBounds(const Entt& e, vec2u max_size) override;
+    void set(const Entt& ew, const sol::object& obj) override;
+    [[nodiscard]] vec2u calculateBounds(const Entt& ew, vec2u max_size) override;
 
     [[nodiscard]] entt::id_type getType() const override { return type(); }
     static entt::id_type type() { return entt::hashed_string{"Text"}; }
 
     void doUpdatePacket(RenderablePacketI* packet) override;
 
+    Text() = default;
     ~Text() override;
 
-    static void apply(const Entt& e, const sol::object& obj);
-    static void applyInputEnable(const Entt& e, const sol::object& obj);
-    static void applyInputDisable(const Entt& e, const sol::object& obj);
-    static void applyInputClear(const Entt& e, const sol::object& obj);
+    MLE_NO_COPY_MOVE(Text);
 
-    static Expected<std::reference_wrapper<Text>> getFromEntt(const Entt& e);
+    static void apply(const Entt& ew, const sol::object& obj);
+    static void applyInputEnable(const Entt& ew, const sol::object& obj);
+    static void applyInputDisable(const Entt& ew, const sol::object& obj);
+    static void applyInputClear(const Entt& ew, const sol::object& obj);
+
+    static Expected<std::reference_wrapper<Text>> getFromEntt(const Entt& ew);
 };
 }  // namespace mle::ui::renderable

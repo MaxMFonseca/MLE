@@ -5,6 +5,7 @@
 #include "mle/renderer/Renderer.h"
 #include "mle/ui/components/Base.h"
 #include "mle/ui/components/Renderable.h"
+#include "sol/forward.hpp"
 
 namespace mle::ui::renderable {
 void Sprite::apply(const Entt& e, const sol::object& obj) {
@@ -29,32 +30,37 @@ void Sprite::apply(const Entt& e, const sol::object& obj) {
         self_p = as<Sprite*>(renderable->impl.get());
     }
     self_p->set(e, obj);
-    e.addFlag<comp::RequestExternalBoundsUpdateFlag>();
 };
 
-void Sprite::setTexture(const std::string& src) {
+void Sprite::setTexture(const Entt& ew, const std::string& src) {
     texture_id = entt::hashed_string{src.c_str()};
     auto load_r = Renderer::i().textureCache().loadTexture(src);
     if (load_r.error() != Result::NOT_READY) {
         MLE_E("Failed to load texture {}: {}", src, load_r.error());
         texture_id = {};
     }
+    ew.requestInternalBoundsUpdate();
 }
 
-void Sprite::set(const Entt& /*unused*/, const sol::object& obj) {
+void Sprite::setColor(const Color& c) {
+    color = c;
+    versionUp();
+};
+
+void Sprite::set(const Entt& ew, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
 
     if (obj.is<std::string>()) {
-        setTexture(obj.as<std::string>());
+        setTexture(ew, obj.as<std::string>());
         return;
     }
     if (obj.is<sol::table>()) {
         auto table = obj.as<sol::table>();
         if (const auto texture_r = lua::getFirstKey(table, "texture", 1); lua::valid<std::string>(texture_r)) {
-            setTexture(texture_r.as<std::string>());
+            setTexture(ew, texture_r.as<std::string>());
         }
-        if (const auto color_r = table["color"]; color_r.valid()) {
-            color = Color::fromLua(color_r);
+        if (const sol::object color_r = table["color"]; color_r.valid()) {
+            setColor(color_r);
         }
         return;
     }

@@ -32,6 +32,10 @@ class Entt {
     [[nodiscard]] Expected<Entt> getChild(std::span<const std::string_view> tree) const;
 
     [[nodiscard]] Entt derive(entt::entity e) const { return {ui_, e}; }
+    [[nodiscard]] bool isRoot() const;
+
+    void requestInternalBoundsUpdate() const;
+    void requestExternalBoundsUpdate() const;
 
     template <typename T>
     [[nodiscard]] T& get() const {
@@ -86,7 +90,7 @@ class Entt {
     }
 
     template <typename T>
-    void eraseCheck() const {
+    void eraseChecked() const {
         ui_.getRegistry().remove<T>(e_);
     }
 

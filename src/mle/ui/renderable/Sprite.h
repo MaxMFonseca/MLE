@@ -21,7 +21,9 @@ struct Sprite : public RenderableI {
     entt::id_type texture_id{};
     Color color = Color::ONE;
 
-    void setTexture(const std::string& src);
+    void setTexture(const Entt& ew, const std::string& src);
+    void setColor(const Color& c);
+    void setColor(const sol::object& obj) { setColor(Color::fromLua(obj)); }
 
     void set(const Entt& e, const sol::object& obj) override;
     [[nodiscard]] vec2u calculateBounds(const Entt& e, [[maybe_unused]] vec2u max_size) override;

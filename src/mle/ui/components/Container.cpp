@@ -196,6 +196,8 @@ struct ChildBoundsCalcData {
         int t, b, l, r;
     } new_margin{}, new_border{};
 
+    bool has_target_border = false;
+
     explicit ChildBoundsCalcData(const Entt& e) :
         size_provider(e.tryGet<comp::SizeProvider>()) {
         MLE_T("Creating ChildBoundsUpdatingData for child: {}", e.fullName());
@@ -214,6 +216,7 @@ struct ChildBoundsCalcData {
         }
         if (const auto* target_border = e.tryGet<comp::TargetBorder>(); target_border) {
             target.border = *target_border;
+            has_target_border = true;
             MLE_VT(target.border);
         }
         if (const auto* ar_comp = e.tryGet<comp::TargetAspectRatio>(); ar_comp) {
@@ -227,18 +230,26 @@ struct ChildBoundsCalcData {
     };
 };
 
-void finishChildBounds(const Entt& centt, auto& cbcd, PaddingPx padding_px) {
+void finishChildBounds(const Entt& centt, ChildBoundsCalcData& cbcd, PaddingPx padding_px) {
     vec2i origin_lt = {padding_px.l, padding_px.t};
-    MLE_VC(origin_lt);
 
     comp::Bounds new_bounds;
     new_bounds.parent_px.setPos(cbcd.new_position + origin_lt);
     new_bounds.parent_px.setSize(cbcd.new_size);
 
-    centt.emplaceOrReplace<comp::Bounds>(new_bounds);
-    MLE_VC(new_bounds);
+    auto old_bounds = centt.get<comp::Bounds>();
 
-    if (centt.has<comp::TargetBorder>()) {
+    bool size_changed = old_bounds.parent_px.size() != new_bounds.parent_px.size();
+    bool pos_changed = old_bounds.parent_px.pos() != new_bounds.parent_px.pos();
+
+    if (size_changed && cbcd.size_provider) {
+        cbcd.size_provider->call(centt, new_bounds.parent_px.size());
+    }
+    if (size_changed || pos_changed) {
+        centt.replace<comp::Bounds>(new_bounds);
+    }
+
+    if (cbcd.has_target_border) {
         comp::Border new_border;
         new_border.t = cbcd.new_border.t;
         new_border.b = cbcd.new_border.b;
@@ -1471,9 +1482,6 @@ vec2u accumulateChildrenExtent(const std::map<entt::entity, ChildBoundsCalcData>
     }
     vec2i padded_max_size = padding_result.removeFrom(max_size);
 
-    MLE_VC(e.fullName());
-    MLE_VC(padded_max_size);
-
     std::map<entt::entity, ChildBoundsCalcData> cbcds;
     for (const auto& c : children) {
         Entt centt{e.ui(), c};
@@ -1492,15 +1500,6 @@ vec2u accumulateChildrenExtent(const std::map<entt::entity, ChildBoundsCalcData>
         case Type::FREE: {
             FreeCalculator free_calculator{e, *this, padded_max_size, children, padding_result, cbcds};
         } break;
-    }
-
-    for (auto c : children) {
-        Entt centt{e.ui(), c};
-        auto& cbcd = cbcds.at(c);
-        if (cbcd.size_provider) {
-            cbcd.size_provider->call(centt, cbcd.new_size);
-            cbcd.size_provider->reset();
-        }
     }
 
     return accumulateChildrenExtent(cbcds, padding_result);

@@ -14,13 +14,13 @@ class Relationship {
     Relationship() = default;
 
     [[nodiscard]] bool isChildOf(entt::entity potential_parent) const { return parent_ == potential_parent; }
-    [[nodiscard]] entt::entity getParent() { return parent_; }
+    [[nodiscard]] entt::entity getParent() const { return parent_; }
     [[nodiscard]] usize getChildCount() const { return child_count_; }
-    [[nodiscard]] std::vector<entt::entity> getChildren(const Entt& e);
+    [[nodiscard]] std::vector<entt::entity> getChildren(const Entt& e) const;
 
-    [[nodiscard]] entt::entity getChildAt(const Entt& e, usize idx);
-    [[nodiscard]] Expected<usize> getChildIdx(const Entt& e, std::string_view name);
-    [[nodiscard]] entt::entity getChildByName(const Entt& e, std::string_view name);
+    [[nodiscard]] entt::entity getChildAt(const Entt& e, usize idx) const;
+    [[nodiscard]] Expected<usize> getChildIdx(const Entt& e, std::string_view name) const;
+    [[nodiscard]] entt::entity getChildByName(const Entt& e, std::string_view name) const;
 
     [[nodiscard]] NewChild createChildBase(const Entt& e, const sol::table& table);
     [[nodiscard]] NewChild createChildBaseNamed(const Entt& e, const sol::table& table, const std::string& name);

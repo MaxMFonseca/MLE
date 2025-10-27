@@ -20,18 +20,24 @@ void Entt::setName(const std::string& name) const {
 }
 
 bool Entt::hasFitSize() const {
-    if (const auto* size = tryGet<comp::TargetSize>()) {
-        if (size->x.type == TargetBound::Type::FIT || size->y.type == TargetBound::Type::FIT) {
-            return true;
-        }
-        if (((size->x.type == TargetBound::Type::DEFAULT && size->x.val == 0) || (size->y.type == TargetBound::Type::DEFAULT && size->y.val == 0)) &&
-            has<comp::SizeProvider>()) {
-            return true;
-        }
-    } else {
+    if (isRoot()) {
+        return false;
+    }
+
+    const auto* target_size = tryGet<comp::TargetSize>();
+    if (!target_size) {
         return true;
     }
-    return false;
+
+    if (target_size->x.type == TargetBound::Type::FIT || target_size->y.type == TargetBound::Type::FIT) {
+        return true;
+    }
+    if (((target_size->x.type == TargetBound::Type::DEFAULT && target_size->x.val == 0) ||
+         (target_size->y.type == TargetBound::Type::DEFAULT && target_size->y.val == 0)) &&
+        has<comp::SizeProvider>()) {
+        return true;
+    }
+    return true;
 }
 
 std::string Entt::name() const {
@@ -75,4 +81,24 @@ Expected<Entt> Entt::getChild(std::span<const std::string_view> tree) const {
     }
     return derive(cur);
 }
+
+// NOLINTNEXTLINE(misc-no-recursion) No problem
+void Entt::requestInternalBoundsUpdate() const {
+    addFlag<comp::RequestInternalBoundsUpdateFlag>();
+    if (hasFitSize()) {
+        requestExternalBoundsUpdate();
+    }
+}
+
+// NOLINTNEXTLINE(misc-no-recursion) No problem
+void Entt::requestExternalBoundsUpdate() const {
+    auto& relationship = getRelationship();
+    MLE_ASSERT(!isRoot());
+    Entt parent_ew = derive(relationship.getParent());
+    parent_ew.requestInternalBoundsUpdate();
+}
+
+bool Entt::isRoot() const {
+    return e_ == ui_.getRoot();
+};
 }  // namespace mle::ui

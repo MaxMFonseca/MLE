@@ -36,8 +36,8 @@ auto getPipeline() {
 
 Text::~Text() = default;
 
-Expected<std::reference_wrapper<Text>> Text::getFromEntt(const Entt& e) {
-    auto* renderable = e.tryGet<comp::Renderable>();
+Expected<std::reference_wrapper<Text>> Text::getFromEntt(const Entt& ew) {
+    auto* renderable = ew.tryGet<comp::Renderable>();
     if (!renderable) {
         return std::unexpected(Result::NOT_FOUND);
     }
@@ -71,7 +71,6 @@ void Text::apply(const Entt& e, const sol::object& obj) {
         self_p = as<Text*>(renderable->impl.get());
     }
     self_p->set(e, obj);
-    e.addFlag<comp::RequestExternalBoundsUpdateFlag>();
 }
 
 void Text::applyInputEnable(const Entt& e, const sol::object& obj) {
@@ -88,48 +87,59 @@ void Text::applyInputEnable(const Entt& e, const sol::object& obj) {
     }
 }
 
-void Text::applyInputDisable(const Entt& e, const sol::object& /*obj*/) {
-    auto* renderable = e.tryGet<comp::Renderable>();
+void Text::applyInputDisable(const Entt& ew, const sol::object& /*obj*/) {
+    auto* renderable = ew.tryGet<comp::Renderable>();
     if (!renderable || renderable->impl->getType() != Text::type()) {
-        MLE_E("Text::applyInputDisable called on entt {} without Text renderable.", e.fullName());
+        MLE_E("Text::applyInputDisable called on entt {} without Text renderable.", ew.fullName());
         return;
     }
     auto* text_comp = as<Text*>(renderable->impl.get());
     text_comp->disableInputBox();
 }
 
-void Text::applyInputClear(const Entt& e, const sol::object& /*obj*/) {
-    auto* renderable = e.tryGet<comp::Renderable>();
+void Text::applyInputClear(const Entt& ew, const sol::object& /*obj*/) {
+    auto* renderable = ew.tryGet<comp::Renderable>();
     if (!renderable || renderable->impl->getType() != Text::type()) {
-        MLE_E("Text::applyInputClear called on entt {} without Text renderable.", e.fullName());
+        MLE_E("Text::applyInputClear called on entt {} without Text renderable.", ew.fullName());
         return;
     }
     auto* text_comp = as<Text*>(renderable->impl.get());
     if (!text_comp->input_tb) {
-        MLE_W("Text::applyInputClear called on entt {} without TextBox.", e.fullName());
+        MLE_W("Text::applyInputClear called on entt {} without TextBox.", ew.fullName());
         return;
     }
     if (text_comp->input_tb->getText().empty()) {
         return;
     }
     text_comp->input_tb->setText(U"");
-    e.addFlag<comp::RequestExternalBoundsUpdateFlag>();
+    ew.requestInternalBoundsUpdate();
 }
 
-void Text::setText(std::u32string src) {
+void Text::setText(const Entt& ew, std::u32string src) {
     text = std::move(src);
+    ew.requestInternalBoundsUpdate();
 }
 
-void Text::setText(std::string_view src) {
-    setText(toUtf32(src));
+void Text::setText(const Entt& ew, std::string_view src) {
+    setText(ew, toUtf32(src));
+}
+
+void Text::setFont(const Entt& ew, const char* cstr) {
+    font_id = entt::hashed_string{cstr};
+    ew.requestInternalBoundsUpdate();
 }
 
 void Text::setColor(const Color& c) {
-    versionUp();
     color = c;
+    versionUp();
 }
 
-void Text::setJustifyMode(std::string_view mode_str) {
+void Text::setFontHeight(const Entt& ew, const sol::object& obj) {
+    font_height_tb.set(obj);
+    ew.requestInternalBoundsUpdate();
+}
+
+void Text::setJustifyMode(const Entt& ew, std::string_view mode_str) {
     if (matchAny(mode_str, "start", "left", "b", "l")) {
         justify_mode = Font::JustifyMode::START;
     } else if (matchAny(mode_str, "center", "middle", "c")) {
@@ -142,42 +152,53 @@ void Text::setJustifyMode(std::string_view mode_str) {
         MLE_W("Unknown justify mode string provided to Text::setJustifyMode: {}", mode_str);
         justify_mode = Font::JustifyMode::START;
     }
+    ew.requestInternalBoundsUpdate();
 };
 
-void Text::set(const Entt& e, const sol::object& obj) {
+void Text::setLineMaxAspect(const Entt& ew, f32 v) {
+    line_max_aspect = v;
+    ew.requestInternalBoundsUpdate();
+};
+
+void Text::setWrap(const Entt& ew, bool w) {
+    wrap = w;
+    ew.requestInternalBoundsUpdate();
+};
+
+void Text::set(const Entt& ew, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
 
     if (obj.is<std::string>()) {
         auto text_src = obj.as<std::string>();
-        setText(toUtf32(text_src));
+        setText(ew, toUtf32(text_src));
         return;
     }
 
     if (obj.is<sol::table>()) {
         auto table = obj.as<sol::table>();
         if (const auto text_r = lua::getFirstKey(table, "text", 1); lua::valid<std::string>(text_r)) {
-            setText(text_r.as<std::string>());
+            setText(ew, text_r.as<std::string>());
         }
         if (const sol::object color_r = table["color"]; color_r.valid()) {
             setColor(color_r);
         }
         if (const auto font_r = table["font"]; lua::valid<std::string>(font_r)) {
-            setFont(lua::as<std::string>(font_r).c_str());
+            setFont(ew, lua::as<std::string>(font_r).c_str());
         }
         if (const sol::object font_height_r = table["height"]; font_height_r.valid()) {
-            font_height_tb.set(font_height_r);
+            setFontHeight(ew, font_height_r);
         }
         if (const auto font_justify_r = table["justify"]; lua::valid<std::string>(font_justify_r)) {
-            setJustifyMode(lua::as<std::string>(font_justify_r));
+            setJustifyMode(ew, lua::as<std::string>(font_justify_r));
         }
         if (const auto font_wrap_r = table["wrap"]; lua::valid<bool>(font_wrap_r)) {
-            wrap = lua::as<bool>(font_wrap_r);
+            setWrap(ew, lua::as<bool>(font_wrap_r));
         }
         if (const auto line_max_aspect_r = table["line_max_aspect"]; lua::valid<f32>(line_max_aspect_r)) {
-            line_max_aspect = lua::as<f32>(line_max_aspect_r);
+            setLineMaxAspect(ew, lua::as<f32>(line_max_aspect_r));
         }
         if (const sol::object input_box_r = table["input"]; input_box_r.valid()) {
-            makeInputBox(e, input_box_r);
+            makeInputBox(ew, input_box_r);
         }
         return;
     }
@@ -290,6 +311,38 @@ void Text::doUpdatePacket(RenderablePacketI* packet) {
     p.color = color;
 };
 
+void Text::makeInputBox(const Entt& e, const sol::object& obj) {
+    MLE_ASSERT(!input_tb);
+
+    input_tb = std::make_unique<TextBox>();
+    input_tb->setChangedCallback([e]() { e.requestInternalBoundsUpdate(); });
+
+    bool multiline_input = false;
+    bool ctrl_enter_newline = false;
+    if (lua::valid<sol::table>(obj)) {
+        auto table = obj.as<sol::table>();
+        lua::tryGetKeyAs(table, "multiline", multiline_input);
+        lua::tryGetKeyAs(table, "ctrl_enter_newline", ctrl_enter_newline);
+    }
+
+    if (multiline_input) {
+        input_tb->setAllowNewLine(true);
+        input_tb->setNewLineCtrlEnter(ctrl_enter_newline);
+    }
+};
+
+void Text::enableInputBox() const {
+    if (!input_tb) {
+        MLE_W("Text::enableInputBox called but no input box found.");
+        return;
+    }
+    input_tb->setFocused(true);
+};
+
+void Text::disableInputBox() const {
+    input_tb->setFocused(false);
+};
+
 void TextPacket::render(CompRenderingCtx& ctx) {
     if (!chars_buffer) {
         return;
@@ -325,39 +378,4 @@ void TextPacket::render(CompRenderingCtx& ctx) {
     }
 }
 
-void Text::makeInputBox(const Entt& e, const sol::object& obj) {
-    MLE_ASSERT(!input_tb);
-
-    input_tb = std::make_unique<TextBox>();
-    input_tb->setChangedCallback([e]() {
-        // FIXME: we need an internal one
-        MLE_C("TextBox changed callback called for entt {}", e.fullName());
-        e.addFlag<comp::RequestExternalBoundsUpdateFlag>();
-    });
-
-    bool multiline_input = false;
-    bool ctrl_enter_newline = false;
-    if (lua::valid<sol::table>(obj)) {
-        auto table = obj.as<sol::table>();
-        lua::tryGetKeyAs(table, "multiline", multiline_input);
-        lua::tryGetKeyAs(table, "ctrl_enter_newline", ctrl_enter_newline);
-    }
-
-    if (multiline_input) {
-        input_tb->setAllowNewLine(true);
-        input_tb->setNewLineCtrlEnter(ctrl_enter_newline);
-    }
-};
-
-void Text::enableInputBox() const {
-    if (!input_tb) {
-        MLE_W("Text::enableInputBox called but no input box found.");
-        return;
-    }
-    input_tb->setFocused(true);
-};
-
-void Text::disableInputBox() const {
-    input_tb->setFocused(false);
-};
 }  // namespace mle::ui::renderable

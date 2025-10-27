@@ -146,6 +146,9 @@ void TerminalLayer::onEnter() {
     if (text_comp.input_tb) {
         input_text = text_comp.input_tb->getText();
     }
+    if (input_text.empty()) {
+        return;
+    }
 
     if (command_history_.size() > COMMAND_HISTORY_MAX_SIZE) {
         command_history_.pop_back();

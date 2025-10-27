@@ -1,6 +1,7 @@
 #include "UI.h"
 
 #include "Entt.h"
+#include "mle/core/PerfTracker.h"
 #include "mle/lua/Utils.h"
 #include "mle/ui/components/Bounds.h"
 #include "mle/window/Window.h"
@@ -36,6 +37,17 @@ void UI::setRoot(sol::table root_table) {
     resizeRoot(Window::i().getSize());
 };
 
+void UI::resizeRoot(const vec2u& size) {
+    if (root_ == entt::null) {
+        return;
+    }
+    ui::Entt ew(*this, root_);
+    ew.emplaceOrReplace<ui::comp::Bounds>(size);
+    ew.addFlag<ui::comp::RequestInternalBoundsUpdateFlag>();
+    root_size_ = size;
+    root_aspect_ratio_ = as<f32>(size.x) / as<f32>(size.y);
+};
+
 void UI::setRoot(const std::string& element_name) {
     auto root_table = getTableFor(element_name);
     setRoot(root_table);
@@ -61,28 +73,26 @@ void UI::addRootStyles(const sol::object& obj) {
     }
 }
 
-void UI::resizeRoot(const vec2u& size) {
-    if (root_ == entt::null) {
-        return;
-    }
-    ui::Entt e(*this, root_);
-    e.emplaceOrReplace<ui::comp::Bounds>(size);
-    e.addFlag<ui::comp::ContainerNeedsInternalBoundsUpdateFlag>();
-    root_size_ = size;
-    root_aspect_ratio_ = static_cast<f32>(size.x) / static_cast<f32>(size.y);
-};
-
 sol::table UI::getTableFor(const std::string& element_name) {
     return lua_.require(element_name);
 }
 
 void UI::update() {
-    bounds_system_.update();
+    MLE_PERF_SCOPE("GUIUpdate");
 
-    rendering_system_.update();
+    {
+        MLE_PERF_SCOPE("GUIUpdate.bounds");
+        bounds_system_.update();
+    }
+
+    {
+        MLE_PERF_SCOPE("GUIUpdate.rendering");
+        rendering_system_.update();
+    }
 }
 
 ImageRef UI::render() {
+    MLE_PERF_SCOPE("GUIRender");
     return rendering_system_.render();
 };
 

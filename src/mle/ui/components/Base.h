@@ -18,7 +18,7 @@ struct Background {
 
 // TODO: add unique ID(name) component that maps on the UI base
 
-struct ContainerNeedsInternalBoundsUpdateFlag {};
+struct RequestInternalBoundsUpdateFlag {};
 struct RequestExternalBoundsUpdateFlag {};
 
 }  // namespace mle::ui::comp

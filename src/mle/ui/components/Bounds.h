@@ -3,6 +3,7 @@
 #include "../Types.h"
 #include "mle/core/Logger.h"
 #include "mle/math/Types2D.h"
+#include "mle/ui/components/Base.h"
 #include "mle/utils/Color.h"
 
 namespace mle::ui {
@@ -52,24 +53,23 @@ struct Border {
 };
 
 struct SizeProvider {
-    using Fn = std::move_only_function<vec2u(const Entt& e, vec2u max_size)>;
+    using Fn = std::move_only_function<vec2u(const Entt& ew, vec2u max_size)>;
 
-    vec2u call(const Entt& e, vec2u max_size) {
-        if (!done()) {
-            size_ = fn_(e, max_size);
+    vec2u call(const Entt& ew, vec2u max_size) {
+        if (!isDone()) {
+            size_ = fn_(ew, max_size);
         }
         return size_;
     }
-
+    bool isDone() { return size_ != vec2u{0, 0}; }
     void reset() { size_ = vec2u{0, 0}; }
-    bool done() { return size_ != vec2u{0, 0}; }
 
     explicit SizeProvider(Fn fn) :
         fn_(std::move(fn)) {}
 
   private:
     vec2u size_{};
-    mutable Fn fn_;
+    Fn fn_;
 };
 
 struct TargetSize {
@@ -84,6 +84,11 @@ struct TargetSize {
     static void applyY(const Entt& e, const sol::object& obj);
     static void applyXDep(const Entt& e, const sol::object& obj);
     static void applyYDep(const Entt& e, const sol::object& obj);
+
+    // NOLINTBEGIN(readability-identifier-naming, readability-avoid-const-params-in-decls) Not my declaration
+    static void on_construct(entt::registry& registry, const entt::entity entt) { registry.emplace_or_replace<comp::RequestExternalBoundsUpdateFlag>(entt); }
+    static void on_update(entt::registry& registry, const entt::entity entt) { registry.emplace_or_replace<comp::RequestExternalBoundsUpdateFlag>(entt); }
+    // NOLINTEND(readability-identifier-naming, readability-avoid-const-params-in-decls)
 };
 
 struct TargetPosition {
@@ -98,6 +103,11 @@ struct TargetPosition {
     static void applyY(const Entt& e, const sol::object& obj);
     static void applyXDep(const Entt& e, const sol::object& obj);
     static void applyYDep(const Entt& e, const sol::object& obj);
+
+    // NOLINTBEGIN(readability-identifier-naming, readability-avoid-const-params-in-decls) Not my declaration
+    static void on_construct(entt::registry& registry, const entt::entity entt) { registry.emplace_or_replace<comp::RequestExternalBoundsUpdateFlag>(entt); }
+    static void on_update(entt::registry& registry, const entt::entity entt) { registry.emplace_or_replace<comp::RequestExternalBoundsUpdateFlag>(entt); }
+    // NOLINTEND(readability-identifier-naming, readability-avoid-const-params-in-decls)
 };
 
 struct TargetPadding {
@@ -115,6 +125,11 @@ struct TargetPadding {
     static void applyY(const Entt& e, const sol::object& obj);
 
     [[nodiscard]] PaddingPx calc(const UI& ui, vec2u size) const;
+
+    // NOLINTBEGIN(readability-identifier-naming, readability-avoid-const-params-in-decls) Not my declaration
+    static void on_construct(entt::registry& registry, const entt::entity entt) { registry.emplace_or_replace<comp::RequestInternalBoundsUpdateFlag>(entt); }
+    static void on_update(entt::registry& registry, const entt::entity entt) { registry.emplace_or_replace<comp::RequestInternalBoundsUpdateFlag>(entt); }
+    // NOLINTEND(readability-identifier-naming, readability-avoid-const-params-in-decls)
 };
 
 struct TargetMargin {
@@ -130,6 +145,11 @@ struct TargetMargin {
     static void applyR(const Entt& e, const sol::object& obj);
     static void applyX(const Entt& e, const sol::object& obj);
     static void applyY(const Entt& e, const sol::object& obj);
+
+    // NOLINTBEGIN(readability-identifier-naming, readability-avoid-const-params-in-decls) Not my declaration
+    static void on_construct(entt::registry& registry, const entt::entity entt) { registry.emplace_or_replace<comp::RequestExternalBoundsUpdateFlag>(entt); }
+    static void on_update(entt::registry& registry, const entt::entity entt) { registry.emplace_or_replace<comp::RequestExternalBoundsUpdateFlag>(entt); }
+    // NOLINTEND(readability-identifier-naming, readability-avoid-const-params-in-decls)
 };
 
 struct TargetBorder {
@@ -159,6 +179,11 @@ struct TargetBorder {
     static void applyRoundRT(const Entt& e, const sol::object& obj);
     static void applyRoundLB(const Entt& e, const sol::object& obj);
     static void applyRoundRB(const Entt& e, const sol::object& obj);
+
+    // NOLINTBEGIN(readability-identifier-naming, readability-avoid-const-params-in-decls) Not my declaration
+    static void on_construct(entt::registry& registry, const entt::entity entt) { registry.emplace_or_replace<comp::RequestExternalBoundsUpdateFlag>(entt); }
+    static void on_update(entt::registry& registry, const entt::entity entt) { registry.emplace_or_replace<comp::RequestExternalBoundsUpdateFlag>(entt); }
+    // NOLINTEND(readability-identifier-naming, readability-avoid-const-params-in-decls)
 };
 
 struct TargetOrigin {
@@ -168,6 +193,11 @@ struct TargetOrigin {
     explicit TargetOrigin(const sol::object& obj);
 
     static void apply(const Entt& e, const sol::object& obj);
+
+    // NOLINTBEGIN(readability-identifier-naming, readability-avoid-const-params-in-decls) Not my declaration
+    static void on_construct(entt::registry& registry, const entt::entity entt) { registry.emplace_or_replace<comp::RequestExternalBoundsUpdateFlag>(entt); }
+    static void on_update(entt::registry& registry, const entt::entity entt) { registry.emplace_or_replace<comp::RequestExternalBoundsUpdateFlag>(entt); }
+    // NOLINTEND(readability-identifier-naming, readability-avoid-const-params-in-decls)
 };
 
 struct TargetAspectRatio {
@@ -177,6 +207,11 @@ struct TargetAspectRatio {
     explicit TargetAspectRatio(const sol::object& obj);
 
     static void apply(const Entt& e, const sol::object& obj);
+
+    // NOLINTBEGIN(readability-identifier-naming, readability-avoid-const-params-in-decls) Not my declaration
+    static void on_construct(entt::registry& registry, const entt::entity entt) { registry.emplace_or_replace<comp::RequestExternalBoundsUpdateFlag>(entt); }
+    static void on_update(entt::registry& registry, const entt::entity entt) { registry.emplace_or_replace<comp::RequestExternalBoundsUpdateFlag>(entt); }
+    // NOLINTEND(readability-identifier-naming, readability-avoid-const-params-in-decls)
 };
 
 }  // namespace comp

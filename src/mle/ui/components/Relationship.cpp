@@ -4,7 +4,7 @@
 #include "mle/lua/Utils.h"
 
 namespace mle::ui::comp {
-entt::entity Relationship::getChildAt(const Entt& e, usize idx) {
+entt::entity Relationship::getChildAt(const Entt& e, usize idx) const {
     if (first_child_ == entt::null) {
         return entt::null;
     }
@@ -22,8 +22,9 @@ entt::entity Relationship::getChildAt(const Entt& e, usize idx) {
     return ichild;
 }
 
-Expected<usize> Relationship::getChildIdx(const Entt& e, std::string_view name) {
+Expected<usize> Relationship::getChildIdx(const Entt& e, std::string_view name) const {
     entt::entity ichild = first_child_;
+
     for (usize i = 0; i < child_count_; ++i) {
         Entt child{e.ui(), ichild};
         if (child.name() == name) {
@@ -35,7 +36,7 @@ Expected<usize> Relationship::getChildIdx(const Entt& e, std::string_view name) 
     return std::unexpected(Result::NOT_FOUND);
 }
 
-entt::entity Relationship::getChildByName(const Entt& e, std::string_view name) {
+entt::entity Relationship::getChildByName(const Entt& e, std::string_view name) const {
     auto idx_r = getChildIdx(e, name);
     if (!idx_r) {
         MLE_E("Tried to get child named '{}' in Container at entity {} but no such child exists.", name, e.fullName());
@@ -105,7 +106,7 @@ void Relationship::destroyAllChildren(const Entt& e) {
     self_relationship.child_count_ = 0;
 }
 
-std::vector<entt::entity> Relationship::getChildren(const Entt& e) {
+std::vector<entt::entity> Relationship::getChildren(const Entt& e) const {
     std::vector<entt::entity> children;
     entt::entity ichild = first_child_;
     for (usize i = 0; i < child_count_; ++i) {
@@ -171,6 +172,7 @@ std::pair<Entt, Relationship&> Relationship::createChildHnd(const Entt& e) {
     auto child_e = e.ui().getRegistry().create();
     Entt child{e.ui(), child_e};
     auto& child_relationship = child.emplace<Relationship>();
+    child.emplace<comp::Bounds>();
     child_relationship.parent_ = e.e();
     child_count_ += 1;
     return {child, child_relationship};
