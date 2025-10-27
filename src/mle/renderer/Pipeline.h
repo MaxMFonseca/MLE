@@ -44,11 +44,28 @@ class Pipeline final {
     [[nodiscard]] auto getFirstInstanceBinding() const { return first_instance_binding_; }
     [[nodiscard]] auto isCompute() const { return compute_; }
     [[nodiscard]] const Shader::PushConstantField& getPushConstantField(std::string_view name) const;
+    [[nodiscard]] const auto& getPushConstantFields() const { return pc_fields_; }
 
     template <usize Size>
     static constexpr std::array<vk::PipelineColorBlendAttachmentState, Size> makeDefaultBlendAttachments() {
         std::array<vk::PipelineColorBlendAttachmentState, Size> blend_attachments{};
         for (usize i = 0; i < Size; i++) {
+            blend_attachments[i].blendEnable = VK_TRUE;
+            blend_attachments[i].srcColorBlendFactor = vk::BlendFactor::eSrcAlpha;
+            blend_attachments[i].dstColorBlendFactor = vk::BlendFactor::eOneMinusSrcAlpha;
+            blend_attachments[i].colorBlendOp = vk::BlendOp::eAdd;
+            blend_attachments[i].srcAlphaBlendFactor = vk::BlendFactor::eOne;
+            blend_attachments[i].dstAlphaBlendFactor = vk::BlendFactor::eZero;
+            blend_attachments[i].alphaBlendOp = vk::BlendOp::eAdd;
+            blend_attachments[i].colorWriteMask =
+                vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
+        }
+        return blend_attachments;
+    }
+    static constexpr std::vector<vk::PipelineColorBlendAttachmentState> makeDefaultBlendAttachments(usize size) {
+        std::vector<vk::PipelineColorBlendAttachmentState> blend_attachments{};
+        blend_attachments.resize(size);
+        for (usize i = 0; i < size; i++) {
             blend_attachments[i].blendEnable = VK_TRUE;
             blend_attachments[i].srcColorBlendFactor = vk::BlendFactor::eSrcAlpha;
             blend_attachments[i].dstColorBlendFactor = vk::BlendFactor::eOneMinusSrcAlpha;
