@@ -16,6 +16,7 @@ class Relationship {
     [[nodiscard]] bool isChildOf(entt::entity potential_parent) const { return parent_ == potential_parent; }
     [[nodiscard]] entt::entity getParent() const { return parent_; }
     [[nodiscard]] usize getChildCount() const { return child_count_; }
+    [[nodiscard]] bool hasChildren() const { return child_count_ > 0; }
     [[nodiscard]] std::vector<entt::entity> getChildren(const Entt& e) const;
 
     [[nodiscard]] entt::entity getChildAt(const Entt& e, usize idx) const;

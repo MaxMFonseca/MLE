@@ -6,6 +6,7 @@
 #include "mle/ui/UI.h"
 #include "mle/ui/components/Base.h"
 #include "mle/ui/components/Bounds.h"
+#include "mle/ui/components/Hoverable.h"
 #include "mle/ui/renderable/Sprite.h"
 #include "mle/ui/renderable/Text.h"
 #include "mle/ui/shader/Blur.h"
@@ -117,6 +118,11 @@ LuaElementOps::LuaElementOps(UI& ui) :
     addKeyHandler("origin", comp::TargetOrigin::apply);
     addKeyHandler("aspect_ratio", comp::TargetAspectRatio::apply);
     addKeyHandler("background", comp::Background::apply);
+    addKeyHandler("on_hover", comp::Hoverable::applyOnHover);
+    addKeyHandler("on_hover_in", comp::Hoverable::applyOnHoverIn);
+    addKeyHandler("on_hover_out", comp::Hoverable::applyOnHoverOut);
+    addKeyHandler("on_key", comp::Hoverable::applyOnKey);
+    addKeyHandler("on_keys", comp::Hoverable::applyOnKeys);
 
     addKeyHandler("sprite", ui::renderable::Sprite::apply);
     addKeyHandler("text", ui::renderable::Text::apply);

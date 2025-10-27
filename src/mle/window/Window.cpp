@@ -98,6 +98,12 @@ void Window::poolEvents() {
                     UserInputManager::i().pushChar(cp);
                 }
             } break;
+            case SDL_EVENT_WINDOW_MOUSE_ENTER: {
+                UserInputManager::i().setMouseInsideWindow(true);
+            } break;
+            case SDL_EVENT_WINDOW_MOUSE_LEAVE: {
+                UserInputManager::i().setMouseInsideWindow(false);
+            } break;
             case SDL_EVENT_WINDOW_RESIZED: {
                 MLE_I("Window resized to {}x{}", event.window.data1, event.window.data2);
                 ed_.dispatch(window::ev::Resize{.size = {event.window.data1, event.window.data2}});

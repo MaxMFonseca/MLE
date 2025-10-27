@@ -70,6 +70,8 @@ struct Keybinding {
     Key key{Key::UNKNOWN};
     KeyState state{KeyState::PRESSED};
     KeyModFlags mods{KeyModFlagBits::NONE};
+
+    bool operator==(const Keybinding& other) const { return key == other.key && state == other.state && mods == other.mods; }
 };
 }  // namespace mle
 

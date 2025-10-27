@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <utility>
 
+#include "mle/core/Result.h"
 #include "mle/window/KeyUtils.h"
 #include "mle/window/Types.h"
 #include "mle/window/Window.h"
@@ -255,5 +256,60 @@ void UserInputManager::pushChar(char32 codepoint) {
     for (auto& listener : text_listeners_) {
         listener->call(codepoint);
     }
+}
+
+void UserInputManager::setMouseInsideWindow(bool inside) {
+    mouse_inside_window_ = inside;
+
+    if (inside == false) {
+        cursor_pos_ = {NAN, NAN};
+        cursor_pos_normalized_ = {NAN, NAN};
+        cursor_pos_delta_ = {0.0, 0.0};
+        cursor_pos_delta_normalized_ = {0.0, 0.0};
+        scroll_offset_ = 0.0;
+        scroll_offset_next_ = 0.0;
+    }
+}
+
+[[nodiscard]] Expected<vec2f> UserInputManager::getCursorPos() const {
+    if (!mouse_inside_window_) {
+        return std::unexpected(Result::CURSOR_NOT_INSIDE_WINDOW);
+    }
+    return cursor_pos_;
+}
+
+[[nodiscard]] Expected<vec2f> UserInputManager::getCursorPosNormalized() const {
+    if (!mouse_inside_window_) {
+        return std::unexpected(Result::CURSOR_NOT_INSIDE_WINDOW);
+    }
+    return cursor_pos_normalized_;
+}
+
+[[nodiscard]] Expected<vec2f> UserInputManager::getCursorDelta() const {
+    if (!mouse_inside_window_) {
+        return std::unexpected(Result::CURSOR_NOT_INSIDE_WINDOW);
+    }
+    return cursor_pos_delta_;
+}
+
+[[nodiscard]] Expected<f32> UserInputManager::getScrollOffset() const {
+    if (!mouse_inside_window_) {
+        return std::unexpected(Result::CURSOR_NOT_INSIDE_WINDOW);
+    }
+    return scroll_offset_;
+}
+
+bool UserInputManager::isCursorInside(const Rectf& rect) {
+    if (!mouse_inside_window_) {
+        return false;
+    }
+    return rect.intersect(cursor_pos_);
+}
+
+bool UserInputManager::isCursorInsideNormalized(const Rectf& rect) {
+    if (!mouse_inside_window_) {
+        return false;
+    }
+    return rect.intersect(cursor_pos_normalized_);
 }
 }  // namespace mle

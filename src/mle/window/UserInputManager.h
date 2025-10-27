@@ -46,6 +46,7 @@ class KeyListener final {
     KeyListener& setMods(KeyModFlags mods);
     KeyListener& setKeybinding(Keybinding kb);
 
+    [[nodiscard]] auto getKb() const { return kb_; }
     [[nodiscard]] auto getKey() const { return kb_.key; }
     [[nodiscard]] auto getState() const { return kb_.state; }
     [[nodiscard]] auto getMods() const { return kb_.mods; }
@@ -102,16 +103,18 @@ class UserInputManager {
     void update();
     void lateUpdate();
 
+    [[nodiscard]] Expected<vec2f> getCursorPos() const;
+    [[nodiscard]] Expected<vec2f> getCursorPosNormalized() const;
+    [[nodiscard]] Expected<vec2f> getCursorDelta() const;
+    [[nodiscard]] Expected<f32> getScrollOffset() const;
+
     [[nodiscard]] KeyState getState(Key key) const;
-    [[nodiscard]] vec2f getCursorPos() const { return cursor_pos_; }
-    vec2f getCursorPosNormalized() const { return cursor_pos_normalized_; }
-    [[nodiscard]] vec2f getCursorDelta() const { return cursor_pos_delta_; }
-    [[nodiscard]] f32 getScrollOffset() const { return scroll_offset_; }
     bool isPressed(Key key) const;
     bool isReleased(Key key) const;
     bool isDown(Key key) const;
-    bool isCursorInside(const Rectf& rect) { return rect.intersect(cursor_pos_); }
-    bool isCursorInsideNormalized(const Rectf& rect) { return rect.intersect(cursor_pos_normalized_); }
+
+    bool isCursorInside(const Rectf& rect);
+    bool isCursorInsideNormalized(const Rectf& rect);
 
     bool isCtrl() const { return ctrl_; }
     bool isShift() const { return shift_; }
@@ -138,6 +141,8 @@ class UserInputManager {
     void listenText(TextListenerRef listener);
     void unlistenText(TextListenerRef listener);
 
+    void setMouseInsideWindow(bool inside);
+
   private:
     std::vector<std::tuple<Key, KeyState, Stopwatch>> active_keys_;
     std::unordered_map<u32, std::vector<KeyListenerRef>> listeners_;
@@ -147,6 +152,8 @@ class UserInputManager {
     bool shift_ = false;
     bool ctrl_ = false;
     bool alt_ = false;
+
+    bool mouse_inside_window_ = true;
 
     vec2f cursor_pos_ = {nan<f32>(), nan<f32>()};
     vec2f cursor_pos_prev_ = {nan<f32>(), nan<f32>()};

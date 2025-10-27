@@ -2,6 +2,7 @@
 
 #include "mle/lua/Lua.h"
 #include "mle/ui/systems/Bounds.h"
+#include "mle/ui/systems/Hover.h"
 #include "mle/ui/systems/LuaElementOps.h"
 #include "mle/ui/systems/Rendering.h"
 #include "mle/utils/ECS.h"
@@ -50,6 +51,7 @@ class UI {
     ui::system::Bounds bounds_system_{*this};
     ui::system::LuaElementOps lua_element_ops_{*this};
     ui::system::Rendering rendering_system_{*this};
+    ui::system::Hover hover_system_{*this};
 
     window::ev::ResizeL window_resize_el_;  // FIXME: This should not be here, the user should do this explicitly
 };

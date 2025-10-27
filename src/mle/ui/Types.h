@@ -1,5 +1,7 @@
 #pragma once
 
+#include <functional>
+
 #include "mle/lua/Types.h"
 #include "mle/math/Types.h"
 #include "mle/renderer/RenderingThread.h"
@@ -10,6 +12,9 @@ class UI;
 
 namespace ui {
 class Entt;
+
+using HoverFn = std::move_only_function<void(const Entt& e)>;
+enum class HoverState : u8 { NO, IN, HOVER, OUT };
 
 struct CompRenderingCtx {
     RenderingThread& thread;
@@ -31,3 +36,22 @@ class Container;
 }  // namespace comp
 }  // namespace ui
 }  // namespace mle
+
+namespace fmt {
+template <>
+struct formatter<mle::ui::HoverState> : formatter<std::string> {
+    template <typename FormatContext>
+    constexpr auto format(const mle::ui::HoverState v, FormatContext& ctx) const {
+        switch (v) {
+            case mle::ui::HoverState::NO:
+                return format_to(ctx.out(), "NO");
+            case mle::ui::HoverState::IN:
+                return format_to(ctx.out(), "IN");
+            case mle::ui::HoverState::HOVER:
+                return format_to(ctx.out(), "HOVER");
+            case mle::ui::HoverState::OUT:
+                return format_to(ctx.out(), "OUT");
+        }
+    }
+};
+}  // namespace fmt

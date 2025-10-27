@@ -9,6 +9,7 @@
 namespace mle {
 UI::UI() {
     window_resize_el_ = Window::i().getED().makeListener<window::ev::Resize>([this](const window::ev::Resize& ev) { resizeRoot(ev.size); });
+    lua_.init();
 }
 
 void UI::clear() {
@@ -79,6 +80,11 @@ sol::table UI::getTableFor(const std::string& element_name) {
 
 void UI::update() {
     MLE_PERF_SCOPE("GUIUpdate");
+
+    {
+        MLE_PERF_SCOPE("GUIUpdate.hover");
+        hover_system_.update();
+    }
 
     {
         MLE_PERF_SCOPE("GUIUpdate.bounds");

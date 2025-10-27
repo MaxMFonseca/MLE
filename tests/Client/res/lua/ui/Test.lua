@@ -46,6 +46,14 @@ return {
 				radius = 13,
 				sigma = 5,
 			},
+			on_keys = {
+				a = function()
+					print("hello world")
+				end,
+				b = function()
+					print("hello world BBBBBB")
+				end,
+			},
 		},
 		blur2 = {
 			pos = { xrel = "blur", yrel = "blur:c" },
@@ -55,6 +63,15 @@ return {
 				radius = 13,
 				sigma = 5,
 			},
+			on_hover = function()
+				return 12
+			end,
+			on_hover_in = function()
+				print("on_hover_in")
+			end,
+			on_hover_out = function()
+				print("on_hover_out")
+			end,
 		},
 	},
 }

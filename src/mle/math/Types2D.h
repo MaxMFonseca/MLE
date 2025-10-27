@@ -308,6 +308,8 @@ class Rect {
         return Intersect2D::intersect(*this, o, eps);
     }
 
+    [[nodiscard]] constexpr bool contains(vec2<T> p) const { return p.x >= left() && p.x <= right() && p.y >= top() && p.y <= bottom(); }
+
   private:
     /// Normalizes the rectangle to ensure positive width.
     constexpr void normalizeX() {

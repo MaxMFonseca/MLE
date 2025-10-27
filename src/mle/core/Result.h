@@ -17,11 +17,12 @@ namespace mle {
 
 /// Represents the outcome of an operation.
 enum class [[nodiscard]] Result : u8 {
-    OK,                     ///< Operation succeeded.
-    TIMEOUT,                ///< Operation timed out.
-    SWAPCHAIN_NOT_VISIBLE,  ///< Swapchain is not visible, e.g., window minimized or not focused.
-    FRAME_SKIP,             ///< Frame was skipped, e.g., due to swapchain not being visible.
-    NOT_READY,
+    OK,                        ///< Operation succeeded.
+    TIMEOUT,                   ///< Operation timed out.
+    SWAPCHAIN_NOT_VISIBLE,     ///< Swapchain is not visible, e.g., window minimized or not focused.
+    FRAME_SKIP,                ///< Frame was skipped, e.g., due to swapchain not being visible.
+    NOT_READY,                 ///< Resource or operation not ready yet, e.g., waiting for GPU.
+    CURSOR_NOT_INSIDE_WINDOW,  ///< Cursor is not inside the window.
 
     NOK,                ///< Generic Error. Try to avoid. Bad practice! Adding new fields here is easy!
     INVALID_ARGUMENT,   ///< Invalid argument provided.
@@ -44,6 +45,7 @@ static constexpr const char* toString(Result result) {
         CASE(SWAPCHAIN_NOT_VISIBLE);
         CASE(FRAME_SKIP);
         CASE(NOT_READY);
+        CASE(CURSOR_NOT_INSIDE_WINDOW);
 
         CASE(NOK);
         CASE(INVALID_ARGUMENT);
