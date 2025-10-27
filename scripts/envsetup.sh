@@ -93,7 +93,14 @@ function mle_build() {
       ;;
     esac
   done
-  mle_compile_shaders_all
+
+  if mle_compile_shaders_all; then
+    echo "Shader compilation succeeded."
+  else
+    echo "Shader compilation failed."
+    return 1
+  fi
+
   cmake --build "${_MLE_ROOT}/build/${build_type}" -j "$(nproc --all)" "${args[@]}"
 }
 
@@ -247,21 +254,23 @@ mle_compile_shaders_all() {
     esac
   done
 
-  local IFS=':' dir
+  local -a dir_list=()
+  if [[ -n "${ZSH_VERSION-}" ]]; then
+    dir_list=(${(s/:/)MLE_SHADER_DIRS})
+  else
+    IFS=':' read -r -a dir_list <<< "$MLE_SHADER_DIRS"
+  fi
+
   local -a files=()
-  for dir in $MLE_SHADER_DIRS; do
-    [[ -d "$dir" ]] || {
-      echo "Missing dir: $dir"
-      continue
-    }
+  local dir
+  for dir in "${dir_list[@]}"; do
+    [[ -d "$dir" ]] || { echo "Missing dir: $dir"; continue; }
     while IFS= read -r -d '' f; do files+=("$f"); done < <(
       find "$dir" -type f \( -name '*.vert' -o -name '*.frag' -o -name '*.comp' -o -name '*.geom' -o -name '*.tesc' -o -name '*.tese' \) -print0
     )
   done
-  [[ ${#files[@]} -eq 0 ]] && {
-    echo "No shaders found."
-    return 0
-  }
+
+   [[ ${#files[@]} -eq 0 ]] && { echo "No shaders found."; return 0; }
 
   echo "Found ${#files[@]} shaders"
 
