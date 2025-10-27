@@ -32,13 +32,16 @@ float roundedRectCoverage(vec2 p, vec2 size, vec4 r) {
   if (in_tl) {
     c = vec2(r.x, r.x);
     rad = r.x;
-  } else if (in_tr) {
+  }
+  else if (in_tr) {
     c = vec2(size.x - r.y, r.y);
     rad = r.y;
-  } else if (in_br) {
+  }
+  else if (in_br) {
     c = vec2(size.x - r.z, size.y - r.z);
     rad = r.z;
-  } else {
+  }
+  else {
     c = vec2(r.w, size.y - r.w);
     rad = r.w;
   }
@@ -47,59 +50,54 @@ float roundedRectCoverage(vec2 p, vec2 size, vec4 r) {
   return d < 0.0 ? 1.0 : 0.0;
 }
 
-vec2 clampUVToRect(vec2 uv, ivec2 src_pos, ivec2 src_size, ivec2 viewport_size) {
-  vec2 min_uv = (vec2(src_pos) + 0.5) / vec2(src_size);
-  vec2 max_uv = (vec2(src_pos + viewport_size) - 0.5) / vec2(src_size);
-  return clamp(uv, min_uv, max_uv);
+float gaussianWeight(int x, float sigma) {
+  if (sigma <= 0.0) {
+    return (x == 0) ? 1.0 : 0.0;
+  }
+  float s2 = 2.0 * sigma * sigma;
+  return exp(-(float(x * x)) / s2);
 }
 
 void main() {
   ivec2 gid = ivec2(gl_GlobalInvocationID.xy);
 
-  if (gid.x >= pc.viewport_size.x || gid.y >= pc.viewport_size.y) return;
-
-  const bool horiz = (pc.pass == 0);
-  ivec2 src_base = horiz ? pc.target_offset : ivec2(0);
-  ivec2 dst_base = horiz ? ivec2(0) : pc.target_offset;
-
-  ivec2 src_size = textureSize(in_img, 0);
-  vec2 inv_src_size = 1.0 / vec2(src_size);
-
-  vec2 src_px = vec2(src_base + gid) + 0.5;
-  vec2 uv = src_px * inv_src_size;
-
-  float cov = roundedRectCoverage(vec2(gid), vec2(pc.viewport_size), vec4(pc.rounding_corners_radius_px));
-
-  float two_sigma2 = 2.0 * pc.sigma * pc.sigma;
-  vec4 base_c = texture(in_img, uv);
-  vec4 sum_c = base_c;
-  float sum_w = 1.0;
-
-  vec2 dir = horiz ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
-
-  for (int i = 1; i <= pc.radius; ++i) {
-    float w = exp(-float(i * i) / two_sigma2);
-    vec2 o = dir * (inv_src_size * float(i));
-
-    vec2 px_p = src_px + o * vec2(src_size);
-    vec2 px_m = src_px - o * vec2(src_size);
-
-    float cov_p = roundedRectCoverage(px_p, vec2(pc.viewport_size), vec4(pc.rounding_corners_radius_px));
-    float cov_m = roundedRectCoverage(px_m, vec2(pc.viewport_size), vec4(pc.rounding_corners_radius_px));
-
-    vec2 uv_p = clampUVToRect(uv + o, src_base, src_size, pc.viewport_size);
-    vec2 uv_m = clampUVToRect(uv - o, src_base, src_size, pc.viewport_size);
-
-    sum_c += texture(in_img, uv_p) * w * cov_p;
-    sum_c += texture(in_img, uv_m) * w * cov_m;
-    sum_w += w * cov_p + w * cov_m;
+  if (gid.x >= pc.viewport_size.x || gid.y >= pc.viewport_size.y) {
+    return;
   }
 
-  ivec2 dst_coord = dst_base + gid;
-  ivec2 dst_size = imageSize(out_img);
-  if (dst_coord.x < 0 || dst_coord.y < 0 || dst_coord.x >= dst_size.x || dst_coord.y >= dst_size.y) return;
+  float cov = roundedRectCoverage(vec2(gid + 0.5), vec2(pc.viewport_size), vec4(pc.rounding_corners_radius_px));
+  if (cov <= 0.5) {
+    return;
+  }
 
-  vec4 blurred = sum_c / sum_w;
-  vec4 out_color = mix(base_c, blurred, cov);
-  imageStore(out_img, dst_coord, out_color);
+  ivec2 base_sample_uv = pc.pass == 0 ? pc.target_offset : ivec2(0);
+  ivec2 base_output_uv = pc.pass == 0 ? ivec2(0) : pc.target_offset;
+
+  ivec2 dir = (pc.pass == 0) ? ivec2(1, 0) : ivec2(0, 1);
+
+  vec4 sum = vec4(0.0);
+  float wsum = 0.0;
+
+  int r = pc.radius;
+  float s = pc.sigma;
+
+  for (int k = -r; k <= r; ++k) {
+    ivec2 local_sample_0 = gid + dir * k;
+    float cov = roundedRectCoverage(vec2(local_sample_0 + 0.5), vec2(pc.viewport_size), vec4(pc.rounding_corners_radius_px));
+    if (cov <= 0.5) {
+      continue;
+    }
+
+    ivec2 local_sample = base_sample_uv + local_sample_0;
+    local_sample = clamp(local_sample, ivec2(base_sample_uv), base_sample_uv + pc.viewport_size - ivec2(1, 1));
+
+    vec4 c = texelFetch(in_img, local_sample, 0);
+
+    float w = gaussianWeight(k, s);
+    sum += c * w;
+    wsum += w;
+  }
+
+  vec4 out_color = (wsum > 0.0) ? (sum / wsum) : texelFetch(in_img, base_output_uv + gid, 0);
+  imageStore(out_img, base_output_uv + gid, out_color);
 }
