@@ -106,6 +106,15 @@ class AudioEngine {
 
     std::jthread run_thread_{};
 
+    // TODO: make this lock-free
     TSQueue<audio::Cmd> cmd_queue_{};
+
+    // enum class RTCLTypes {LOAD, PLAY_ONE_SHOT, START_STREAM, STOP_STREAM, PAUSE_STREAM, RESUME_STREAM, SET_VOLUME, SET_LISTENER, SET_DISTANCE_PARAMS,
+    // STOP_ALL};
+
+    RuntimeConfigListener swapchain_rtcl0_;
+    RuntimeConfigListener swapchain_rtcl1_;
+    RuntimeConfigListener swapchain_default_clear_color_rtcl_;
+    RuntimeConfigListener target_fps_rtcl_;
 };
 }  // namespace mle

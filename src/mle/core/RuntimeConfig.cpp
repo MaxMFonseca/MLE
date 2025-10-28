@@ -8,6 +8,13 @@
 #include "mle/utils/String.h"
 
 namespace mle {
+void RuntimeConfig::addKey(const std::string& key, const std::string& desc) {
+    map_[key] = Key{
+        .value = "",
+        .description = desc,
+    };
+}
+
 void RuntimeConfig::parseArgs(int argc, char** argv) {
     for (int i = 1; i < argc; ++i) {
         // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
@@ -23,16 +30,31 @@ void RuntimeConfig::parseArgs(int argc, char** argv) {
                     ++i;
                 }
             }
-            map_[key] = value;
+            auto it = map_.find(key);
+            if (it != map_.end()) {
+                it->second.value = value;
+            } else {
+                std::cout << "unknown command line arg: " << key << '\n';
+                continue;
+            }
             std::cout << "command line arg: " << key << " = " << value << '\n';
         }
     }
 }
 
-void RuntimeConfig::logAll() const {
+void RuntimeConfig::logAllValues() const {
     std::lock_guard<std::mutex> lock(mutex_);
+    MLE_I("RuntimeConfig values:");
     for (const auto& [k, v] : map_) {
-        MLE_I("RuntimeConfig: {} = {}", k, v);
+        MLE_I("{}. value = {}", k, v.value);
+    }
+}
+
+void RuntimeConfig::logAllDescriptions() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    MLE_I("RuntimeConfig descriptions:");
+    for (const auto& [k, v] : map_) {
+        MLE_I("{}. desc = {}", k, v.description);
     }
 }
 
@@ -40,16 +62,22 @@ void RuntimeConfig::log(const std::string& key) const {
     std::lock_guard<std::mutex> lock(mutex_);
     auto it = map_.find(key);
     if (it != map_.end()) {
-        MLE_I("RuntimeConfig: {} = {}", it->first, it->second);
+        MLE_I("RuntimeConfig: {} = {}, desc = {}", key, it->second.value, it->second.description);
     } else {
-        MLE_I("RuntimeConfig: {} not set", key);
+        MLE_I("RuntimeConfig: key {} not found.", key);
     }
 }
 
 void RuntimeConfig::set(const std::string& key, const std::string& value) {
     std::lock_guard<std::mutex> lock(mutex_);
     MLE_I("RuntimeConfig set: {} = {}", key, value);
-    map_[key] = value;
+    auto kit = map_.find(key);
+    if (kit != map_.end()) {
+        kit->second.value = value;
+    } else {
+        MLE_W("RuntimeConfig set: key {} not found", key);
+        return;
+    }
     auto it = key_listeners_.find(key);
     if (it != key_listeners_.end()) {
         for (auto l_it = it->second.begin(); l_it != it->second.end(); ++l_it) {
@@ -62,52 +90,60 @@ void RuntimeConfig::set(const std::string& key, const std::string& value) {
     }
 }
 
-std::string RuntimeConfig::getString(const std::string& key, const std::string& def) const {
+std::optional<std::string> RuntimeConfig::get(const std::string& key) const {
     std::lock_guard<std::mutex> lock(mutex_);
     auto it = map_.find(key);
-    return it != map_.end() ? it->second : def;
+    if (it != map_.end() && !it->second.value.empty()) {
+        return it->second.value;
+    }
+    return std::nullopt;
 }
 
-bool RuntimeConfig::getBool(const std::string& key, bool def) const {
-    auto v = getString(key);
-    if (v.empty()) {
-        return def;
+std::optional<bool> RuntimeConfig::getBool(const std::string& key) const {
+    auto vr = get(key);
+    if (vr) {
+        std::string v = toLower(vr.value());
+        if (v == "1" || v == "true" || v == "y" || v == "yes" || v == "on") {
+            return true;
+        }
+        if (v == "0" || v == "false" || v == "n" || v == "no" || v == "off") {
+            return false;
+        }
     }
-    std::ranges::transform(v, v.begin(), [](unsigned char c) { return std::tolower(c); });
-    if (v == "1" || v == "true" || v == "y" || v == "yes" || v == "on") {
-        return true;
-    }
-    if (v == "0" || v == "false" || v == "n" || v == "no" || v == "off") {
-        return false;
-    }
-    return def;
+    return std::nullopt;
 }
 
-int RuntimeConfig::getInt(const std::string& key, int def) const {
-    auto val = getString(key);
-    if (val.empty()) {
-        return def;
+std::optional<int> RuntimeConfig::getInt(const std::string& key) const {
+    auto val = get(key);
+    if (val) {
+        auto v = strTo<int>(val.value());
+        if (v) {
+            return v.value();
+        }
     }
-    auto rv = strTo<int>(val);
-    return rv.has_value() ? rv.value() : def;
+    return std::nullopt;
 }
 
-u32 RuntimeConfig::getUInt(const std::string& key, u32 def) const {
-    auto val = getString(key);
-    if (val.empty()) {
-        return def;
+std::optional<u32> RuntimeConfig::getUInt(const std::string& key) const {
+    auto val = get(key);
+    if (val) {
+        auto v = strTo<u32>(val.value());
+        if (v) {
+            return v.value();
+        }
     }
-    auto rv = strTo<u32>(val);
-    return rv.has_value() ? rv.value() : def;
+    return std::nullopt;
 }
 
-float RuntimeConfig::getFloat(const std::string& key, f32 def) const {
-    auto val = getString(key);
-    if (val.empty()) {
-        return def;
+std::optional<float> RuntimeConfig::getFloat(const std::string& key) const {
+    auto val = get(key);
+    if (val) {
+        auto v = strTo<f32>(val.value());
+        if (v) {
+            return v.value();
+        }
     }
-    auto rv = strTo<f32>(val);
-    return rv.has_value() ? rv.value() : def;
+    return std::nullopt;
 }
 
 void RuntimeConfig::listen(RuntimeConfigListenerRef rtcl) {
@@ -116,6 +152,12 @@ void RuntimeConfig::listen(RuntimeConfigListenerRef rtcl) {
         return;
     }
     std::lock_guard<std::mutex> lock(mutex_);
+    if (!map_.contains(rtcl->key_)) {
+        map_[rtcl->key_] = Key{
+            .value = "",
+            .description = "<no>",
+        };
+    }
     auto& kls = key_listeners_[rtcl->key_];
     if (std::ranges::find(kls, rtcl) == kls.end()) {
         kls.push_back(rtcl);

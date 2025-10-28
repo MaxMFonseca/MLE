@@ -13,6 +13,12 @@
 // TODO: This could use some love, I should probably refactor it
 // I should use 1 mutex per key
 // I need a hint system
+
+// 1 mutex per key
+// valid keys must be declared
+// persistent config should be marked as such
+// listeners can have hints, and create a 'temporary' entry if the key doesn't exist yet
+
 namespace mle {
 class RuntimeConfigListener;
 using RuntimeConfigListenerHnd = std::unique_ptr<RuntimeConfigListener>;
@@ -24,29 +30,38 @@ class RuntimeConfig {
   public:
     using ListenerCbFn = std::move_only_function<bool(const std::string& value)>;
 
-  public:
-    void parseArgs(int argc, char** argv);
+  private:
+    struct Key {
+        std::string value;
+        std::string description;
+    };
 
-    void logAll() const;
-    void log(const std::string& key) const;
+  public:
+    void addKey(const std::string& key, const std::string& desc);
+
+    void parseArgs(int argc, char** argv);
 
     void set(const std::string& key, const std::string& value);
     void set(const std::string& key, int value) { set(key, std::to_string(value)); }
     void set(const std::string& key, f32 value) { set(key, std::to_string(value)); }
     void set(const std::string& key, bool value) { set(key, std::string(value ? "1" : "0")); }
 
-    std::string getString(const std::string& key, const std::string& def = "") const;
-    bool getBool(const std::string& key, bool def = false) const;
-    int getInt(const std::string& key, int def = 0) const;
-    u32 getUInt(const std::string& key, u32 def = 0) const;
-    float getFloat(const std::string& key, f32 def = 0.0F) const;
+    std::optional<std::string> get(const std::string& key) const;
+    std::optional<bool> getBool(const std::string& key) const;
+    std::optional<int> getInt(const std::string& key) const;
+    std::optional<u32> getUInt(const std::string& key) const;
+    std::optional<float> getFloat(const std::string& key) const;
 
     void listen(RuntimeConfigListenerRef rtcl);
     void unlisten(RuntimeConfigListenerRef rtcl);
 
+    void log(const std::string& key) const;
+    void logAllValues() const;
+    void logAllDescriptions() const;
+
   private:
     mutable std::mutex mutex_;
-    std::unordered_map<std::string, std::string> map_;
+    std::unordered_map<std::string, Key> map_;
     std::unordered_map<std::string, std::vector<RuntimeConfigListenerRef>> key_listeners_;
 };
 

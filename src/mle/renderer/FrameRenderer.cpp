@@ -60,8 +60,8 @@ void FrameRenderer::init() {
         })
         .listen();
 
-    default_clear_color_ = toVkColor(Color::fromString(RuntimeConfig::i().getString("renderer.swapchain.default_clear_color", "ZERO")));
-    target_fps_.store(RuntimeConfig::i().getUInt("renderer.target_fps", max<u32>()), std::memory_order_relaxed);
+    default_clear_color_ = toVkColor(Color::fromString(RuntimeConfig::i().get("renderer.swapchain.default_clear_color").value_or("ZERO")));
+    target_fps_.store(RuntimeConfig::i().getUInt("renderer.target_fps").value_or(max<u32>()), std::memory_order_relaxed);
 
     window_resize_listener_ = Window::i().getED().makeListener<window::ev::Resize>([this](const window::ev::Resize& ev) {
         MLE_I("Window resize event received: {}x{}", ev.size.x, ev.size.y);
@@ -280,7 +280,7 @@ vk::PresentModeKHR chooseSwapchainPresentMode(const auto& p_device) {
 
     vk::PresentModeKHR target_present_mode{};
 
-    std::string target_present_mode_str = RuntimeConfig::i().getString("renderer.swapchain.present_mode", "auto");
+    std::string target_present_mode_str = RuntimeConfig::i().get("renderer.swapchain.present_mode").value_or("auto");
     if (target_present_mode_str == "mailbox") {
         target_present_mode = vk::PresentModeKHR::eMailbox;
     } else if (target_present_mode_str == "immediate") {
@@ -306,7 +306,7 @@ u32 chooseSwapchainImageCount(const auto& p_device) {
     const auto surface_capabilities = unwrap(p_device.getSurfaceCapabilitiesKHR(Renderer::i().vk().getSurface()));
 
     u32 target_img_count = 3;
-    bool target_triple_buffer = RuntimeConfig::i().getBool("renderer.swapchain.triple_buffer", true);
+    bool target_triple_buffer = RuntimeConfig::i().getBool("renderer.swapchain.triple_buffer").value_or(true);
     if (!target_triple_buffer) {
         target_img_count = 2;
     }
