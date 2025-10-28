@@ -42,8 +42,8 @@ class AudioEngine {
         ALuint source{0};
 
         WavData wav{};
-        std::array<bool, BUFFER_COUNT> enqueued_buffers{false};
         usize current_buffer{0};
+        usize queued_buffer_count{0};
         bool looping{false};
         u8 bus = 0;
         bool active{false};
