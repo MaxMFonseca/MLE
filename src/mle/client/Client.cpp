@@ -3,6 +3,7 @@
 #include <chrono>
 
 #include "mle/audio/AudioEngine.h"
+#include "mle/audio/Types.h"
 #include "mle/audio/Utils.h"
 #include "mle/client/layers/PerfLayer.h"
 #include "mle/client/layers/TerminalLayer.h"
@@ -103,10 +104,10 @@ void Client::run() {
             accumulator %= FIXED_DT;
         }
 
-        if (testing_sw.elapsedMSFloat() > 1000) {
+        if (testing_sw.elapsedMSFloat() > 50) {
             testing_sw.reset();
 
-            AudioEngine::i().enqueueCmd(audio::cmd::Play{
+            AudioEngine::i().enqueueCmd(audio::cmd::PlayOneShot{
                 .sound_id = entt::hashed_string("mle/t").value(),
             });
         }
