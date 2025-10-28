@@ -37,13 +37,17 @@ class AudioEngine {
     struct Streaming {
         constexpr static usize BUFFER_COUNT = 4;
         constexpr static usize BUFFER_SIZE = 32768;
+        constexpr static usize SAMPLES_PER_BUFFER = BUFFER_SIZE / sizeof(f32);
 
         std::array<ALuint, BUFFER_COUNT> buffers{0};
         ALuint source{0};
+        usize queued_buffer_count{0};
+        usize current_buffer{0};
 
         WavData wav{};
-        usize current_buffer{0};
-        usize queued_buffer_count{0};
+        usize current_sample{0};
+        usize first_sample{0};
+        usize last_sample{0};
         bool looping{false};
         u8 bus = 0;
         bool active{false};
@@ -65,6 +69,7 @@ class AudioEngine {
     void updateSources();
 
     void stopStream(u8 id);
+    static void fillStreamingBuffer(Streaming& stream);
 
     void processCmds();
     void processCmd(const audio::Cmd& cmd);

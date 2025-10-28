@@ -3,6 +3,7 @@
 #include <AL/al.h>
 #include <AL/alext.h>
 
+#include <algorithm>
 #include <expected>
 #include <source_location>
 
@@ -196,7 +197,8 @@ void AudioEngine::stopStream(u8 id) {
     auto& stream = streaming_sources_.at(id);
     if (stream.active && stream.source != 0) {
         std::ignore = alCall(alSourceStop, stream.source);
-        std::ignore = alCall(alSourceUnqueueBuffers, stream.source, stream.queued_buffer_count, nullptr);
+        std::array<ALuint, Streaming::BUFFER_COUNT> unqueued{};
+        std::ignore = alCall(alSourceUnqueueBuffers, stream.source, stream.queued_buffer_count, unqueued.data());
         stream.current_buffer = 0;
         stream.wav = {};
         stream.looping = false;
@@ -298,41 +300,12 @@ void AudioEngine::updateSources() {
 
         ALint processed = 0;
         std::ignore = alCall(alGetSourcei, stream.source, AL_BUFFERS_PROCESSED, &processed);
-        if (processed <= 0) {
-            continue;
-        }
 
-        if (processed > 0) {
-            ALenum format = (stream.wav.channels == 1) ? AL_FORMAT_MONO_FLOAT32 : AL_FORMAT_STEREO_FLOAT32;
-            for (ALint i = 0; i < processed; ++i) {
-                ALuint buf = 0;
-                std::ignore = alCall(alSourceUnqueueBuffers, stream.source, 1, &buf);
-                stream.queued_buffer_count--;
-
-                usize samples_per_buffer = Streaming::BUFFER_SIZE / sizeof(f32);
-                usize offset = stream.current_buffer * samples_per_buffer;
-                usize total_samples = stream.wav.samples.size();
-                usize remain = (offset < total_samples) ? (total_samples - offset) : 0;
-                usize to_copy = std::min(samples_per_buffer, remain);
-
-                if (to_copy > 0) {
-                    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic) C buffer
-                    std::ignore = alCall(alBufferData, buf, format, stream.wav.samples.data() + offset, to_copy * sizeof(f32), stream.wav.sample_rate);
-                    std::ignore = alCall(alSourceQueueBuffers, stream.source, 1, &buf);
-                    stream.queued_buffer_count++;
-                    stream.current_buffer++;
-                } else if (stream.looping) {
-                    stream.current_buffer = 0;
-                    usize loop_to_copy = std::min(samples_per_buffer, total_samples);
-                    if (loop_to_copy > 0) {
-                        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic) C buffer
-                        std::ignore = alCall(alBufferData, buf, format, stream.wav.samples.data(), loop_to_copy * sizeof(f32), stream.wav.sample_rate);
-                        std::ignore = alCall(alSourceQueueBuffers, stream.source, 1, &buf);
-                        stream.queued_buffer_count++;
-                        stream.current_buffer = 1;
-                    }
-                }
-            }
+        for (ALint i = 0; i < processed; ++i) {
+            ALuint buf = 0;
+            std::ignore = alCall(alSourceUnqueueBuffers, stream.source, 1, &buf);
+            stream.queued_buffer_count--;
+            fillStreamingBuffer(stream);
         }
 
         int active = AL_STOPPED;
@@ -374,6 +347,8 @@ void AudioEngine::runLoop(std::stop_token st) {
         }
         std::this_thread::sleep_for(10ms);
     }
+
+    freeAllSources();
 
     std::ignore = alcCall(alcMakeContextCurrent, nullptr);
 }
@@ -542,34 +517,51 @@ void AudioEngine::processCmdStartStream(const audio::cmd::StartStream& cmd) {
 
     stream.wav = std::move(wav_data.value());
 
-    ALenum format = AL_NONE;
-    if (stream.wav.channels == 1) {
-        format = AL_FORMAT_MONO_FLOAT32;
-    } else if (stream.wav.channels == 2) {
-        format = AL_FORMAT_STEREO_FLOAT32;
-    } else {
-        MLE_E("Unsupported channel count on wav: {} file: {}", stream.wav.channels, path);
+    const usize total_samples = stream.wav.samples.size();
+    usize offset = 0;
+
+    if (cmd.params.start_offset_ms > 0) {
+        offset = (stream.wav.sample_rate * stream.wav.channels * cmd.params.start_offset_ms) / 1000;
+        if (offset > total_samples) {
+            MLE_E("Start offset {}ms exceeds total duration of sound ID: {}", cmd.params.start_offset_ms, cmd.sound_id);
+            return;
+        }
+    }
+
+    usize duration_samples = total_samples - offset;
+    if (cmd.params.duration_ms > 0) {
+        usize ndur_samples = (stream.wav.sample_rate * stream.wav.channels * cmd.params.duration_ms) / 1000;
+        if (ndur_samples == 0) {
+            MLE_E("Duration {}ms is too short for sound ID: {}", cmd.params.duration_ms, cmd.sound_id);
+            return;
+        }
+        if (offset + ndur_samples > total_samples) {
+            MLE_W("Duration {}ms exceeds total duration of sound ID: {} with offset {}ms, adjusting. Leave it as 0 if you want remaining duration.",
+                  cmd.params.duration_ms, cmd.sound_id, cmd.params.start_offset_ms);
+            ndur_samples = total_samples - offset;
+        }
+    }
+
+    if (total_samples <= Streaming::SAMPLES_PER_BUFFER) {
+        MLE_E("Sound ID: {} is too short to stream with offset_ms: {}, duration_ms: {}. {} samples.", cmd.sound_id, cmd.params.start_offset_ms,
+              cmd.params.duration_ms, total_samples);
         return;
     }
 
-    usize samples_per_buffer = Streaming::BUFFER_SIZE / sizeof(f32);
-    usize total_samples = stream.wav.samples.size();
-    usize offset = 0;
-    for (usize i = 0; i < Streaming::BUFFER_COUNT; ++i) {
-        usize remain = total_samples - offset;
-        usize to_copy = std::min(samples_per_buffer, remain);
-        if (to_copy == 0) {
-            break;
-        }
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic) C buffer
-        std::ignore = alCall(alBufferData, stream.buffers.at(i), format, stream.wav.samples.data() + offset, to_copy * sizeof(f32), stream.wav.sample_rate);
-        stream.current_buffer = i + 1;
-        offset += to_copy;
-    }
+    stream.first_sample = offset;
+    stream.current_sample = stream.first_sample;
+    stream.last_sample = stream.first_sample + duration_samples;
+    stream.current_buffer = 0;
+    stream.queued_buffer_count = 0;
+    stream.looping = cmd.loop;
+    stream.bus = cmd.params.bus;
+    stream.active = true;
 
     std::ignore = alCall(alSourcei, stream.source, AL_BUFFER, 0);
-    std::ignore = alCall(alSourceQueueBuffers, stream.source, stream.current_buffer, stream.buffers.data());
-    stream.queued_buffer_count = stream.current_buffer;
+
+    for (usize i = 0; i < Streaming::BUFFER_COUNT; ++i) {
+        fillStreamingBuffer(stream);
+    }
 
     std::ignore = alCall(alSourcef, stream.source, AL_PITCH, cmd.params.pitch);
     std::ignore = alCall(alSource3f, stream.source, AL_POSITION, cmd.params.position.x, cmd.params.position.y, cmd.params.position.z);
@@ -577,11 +569,45 @@ void AudioEngine::processCmdStartStream(const audio::cmd::StartStream& cmd) {
     std::ignore = alCall(alSourcef, stream.source, AL_GAIN, cmd.params.volume);
     std::ignore = alCall(alSourcei, stream.source, AL_LOOPING, AL_FALSE);
 
-    stream.looping = cmd.loop;
-    stream.bus = cmd.params.bus;
-    stream.active = true;
-
     std::ignore = alCall(alSourcePlay, stream.source);
+};
+
+void AudioEngine::fillStreamingBuffer(Streaming& stream) {
+    usize remain = stream.last_sample - stream.current_sample;
+    ALenum format = (stream.wav.channels == 1) ? AL_FORMAT_MONO_FLOAT32 : AL_FORMAT_STEREO_FLOAT32;
+
+    auto buf = stream.buffers.at(stream.current_buffer);
+
+    MLE_ASSERT(stream.active);
+
+    if (stream.looping) {
+        if (remain >= Streaming::SAMPLES_PER_BUFFER) {
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic) C buffer
+            std::ignore = alCall(alBufferData, buf, format, stream.wav.samples.data() + stream.current_sample, Streaming::SAMPLES_PER_BUFFER * sizeof(f32),
+                                 stream.wav.sample_rate);
+            stream.current_sample += Streaming::SAMPLES_PER_BUFFER;
+        } else {
+            std::array<f32, Streaming::SAMPLES_PER_BUFFER> temp_buffer{};
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic) C buffer
+            std::memcpy(temp_buffer.data(), stream.wav.samples.data() + stream.current_sample, remain * sizeof(f32));
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic) C buffer
+            std::memcpy(temp_buffer.data() + remain, stream.wav.samples.data() + stream.first_sample, (Streaming::SAMPLES_PER_BUFFER - remain) * sizeof(f32));
+            std::ignore = alCall(alBufferData, buf, format, temp_buffer.data(), Streaming::SAMPLES_PER_BUFFER * sizeof(f32), stream.wav.sample_rate);
+            stream.current_sample = stream.first_sample + (Streaming::SAMPLES_PER_BUFFER - remain);
+        }
+    } else {
+        usize to_copy = std::min(Streaming::SAMPLES_PER_BUFFER, remain);
+        if (to_copy == 0) {
+            return;
+        }
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic) C buffer
+        std::ignore = alCall(alBufferData, buf, format, stream.wav.samples.data() + stream.current_sample, to_copy * sizeof(f32), stream.wav.sample_rate);
+        stream.current_sample += to_copy;
+    }
+
+    std::ignore = alCall(alSourceQueueBuffers, stream.source, 1, &buf);
+    stream.current_buffer = (stream.current_buffer + 1) % Streaming::BUFFER_COUNT;
+    stream.queued_buffer_count++;
 };
 
 void AudioEngine::processCmdStop(const audio::cmd::StopStream& cmd) {

@@ -14,8 +14,10 @@ struct PlayParams {
     f32 volume = 1.0F;
     vec3f velocity{};
     f32 pitch = 1.0F;
-    f32 start_offset_s = 0.0F;
+    u32 start_offset_ms = 0;
+    u32 duration_ms = 0;
     u32 fade_in_ms = 0;
+    u32 fade_out_ms = 0;
     bool spatial = false;
     u8 bus = 0;
 };
@@ -35,9 +37,9 @@ struct PlayOneShot {
 
 struct StartStream {
     entt::id_type sound_id{};
-    PlayParams params{};
     bool loop = false;
     u8 id = 0;
+    PlayParams params{};
 };
 
 struct StopStream {
