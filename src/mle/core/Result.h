@@ -32,6 +32,7 @@ enum class [[nodiscard]] Result : u8 {
     ALLOCATION_FAILED,  ///< Memory allocation failed.
     FAILED_TO_CREATE,   ///< Failed to create a resource (e.g., texture, buffer).
     INVALID_TYPE,       ///< Invalid type encountered.
+    OAL_ERROR,          ///< OpenAL error occurred.
 };
 
 /// Converts a Result value to a string literal.
@@ -55,6 +56,7 @@ static constexpr const char* toString(Result result) {
         CASE(ALLOCATION_FAILED);
         CASE(FAILED_TO_CREATE);
         CASE(INVALID_TYPE);
+        CASE(OAL_ERROR);
     }
     std::unreachable();
 #undef CASE

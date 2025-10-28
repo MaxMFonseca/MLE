@@ -2,6 +2,8 @@
 
 #include <chrono>
 
+#include "mle/audio/AudioEngine.h"
+#include "mle/audio/Utils.h"
 #include "mle/client/layers/PerfLayer.h"
 #include "mle/client/layers/TerminalLayer.h"
 #include "mle/core/Assert.h"
@@ -29,6 +31,9 @@ void Client::init() {
 
     MLE_I("Window init");
     Window::i().init();
+
+    MLE_I("AudioEngine init");
+    Core::i().check(AudioEngine::i().init(), "Failed to initialize AudioEngine");
 
     window_close_el_ = Window::i().getED().makeListener<window::ev::Close>([this](const auto&) { requestStop(); });
 
@@ -68,6 +73,8 @@ void Client::run() {
     auto t_prev = running_sw_.elapsed<ns>();
     std::chrono::nanoseconds accumulator = 0ns;
 
+    int seconds_running = 0;
+
     if (!next_game_layer_) {
         MLE_W("No initial game layer set! Pushing empty layer.");
         pushGameLayer(std::make_unique<client::Layer>());
@@ -90,6 +97,11 @@ void Client::run() {
 
         if (updates == MAX_CATCH_UP && accumulator >= FIXED_DT) {
             accumulator %= FIXED_DT;
+        }
+
+        if (seconds_running < sw.elapsedSecInt()) {
+            seconds_running = sw.elapsedSecInt();
+            auto wav_data = loadWavFile("res/sounds/mle/t.wav");
         }
 
         // const f64 alpha = static_cast<f64>(accumulator.count()) / static_cast<f64>(FIXED_DT.count());
@@ -144,6 +156,7 @@ void Client::update() {
 void Client::shutdown() {
     MLE_I("MLE Client shutting down after {}s", running_sw_.elapsedSecFloat());
     Stopwatch sw;
+    AudioEngine::i().shutdown();
     {
         std::scoped_lock lock(game_layer_render_mutex_);
         if (game_layer_) {
