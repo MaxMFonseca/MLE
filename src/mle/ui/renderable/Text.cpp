@@ -299,7 +299,7 @@ void Text::doUpdatePacket(RenderablePacketI* packet) {
     auto& p = *as<TextPacket*>(packet);
 
     if (p.chars_buffer) {
-        Renderer::i().frameRenderer().deleteAfterFrame(std::move(p.chars_buffer));
+        Renderer::i().frameRenderer().addToGC(std::move(p.chars_buffer));
     }
     Buffer::CI buffer_ci{};
     buffer_ci.size = as<usize>(current_rendering_chars_instance_data.size() * sizeof(TextPacket::CharsInstance));

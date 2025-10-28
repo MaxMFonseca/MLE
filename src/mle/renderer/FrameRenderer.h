@@ -1,5 +1,7 @@
 #pragma once
 
+#include <functional>
+
 #include "Buffer.h"
 #include "CommandManager.h"
 #include "Image.h"
@@ -40,6 +42,7 @@ class FrameRenderer final {
 
     [[nodiscard]] bool inFrame() const { return current_frame_ != NO_FRAME; }
     void assertInFrame() const { MLE_ASSERT_LOG(inFrame(), "Not in frame!"); }
+    void assertNotInFrame() const { MLE_ASSERT_LOG(!inFrame(), "In frame!"); }
 
     void waitStoped();
 
@@ -58,9 +61,12 @@ class FrameRenderer final {
     BufferSlice getHostVisibleBuffer(usize size, vk::BufferUsageFlags usage);
 
     void addToFrameDeleteStack(std::move_only_function<void(void)>&& func);
-
     void deleteAfterFrame(BufferHnd&& buffer);
     void deleteAfterFrame(ImageHnd&& image);
+
+    void addToGC(std::move_only_function<void(void)>&& func);
+    void addToGC(BufferHnd&& buffer);
+    void addToGC(ImageHnd&& image);
 
     void callOnNextFrameBegin(std::move_only_function<void(void)>&& func);
 
@@ -78,6 +84,7 @@ class FrameRenderer final {
 
     void stopRun();
     void runLoop(std::stop_token st);
+    void runGC();
 
     Result beginFrame();
     void endFrame(ImageRef frame_image);
@@ -119,6 +126,9 @@ class FrameRenderer final {
     usize min_host_visible_buffer_size_ = 256UL * 1024;
 
     std::atomic<bool> swapchain_dirty_ = true;
+
+    std::mutex gc_mutex_;
+    std::vector<std::move_only_function<void(void)>> gc_;
 
     std::jthread run_thread_{};
     std::atomic<u32> target_fps_ = max<u32>();

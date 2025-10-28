@@ -3,7 +3,9 @@
 #include <fmt/ranges.h>
 
 #include <atomic>
+#include <cassert>
 #include <chrono>
+#include <functional>
 #include <ranges>
 #include <thread>
 #include <utility>
@@ -91,8 +93,18 @@ void FrameRenderer::runLoop(std::stop_token st) {
         (frame_period == std::chrono::steady_clock::duration::zero() ? std::chrono::steady_clock::duration::zero() : frame_period);
     bool unlimited_fps = target_fps == 0 || target_fps == max<u32>();
 
+    Stopwatch gc_sw;
+
     while (!st.stop_requested()) {
         MLE_PERF_SCOPE("FrameRenderer");
+
+        {
+            MLE_PERF_SCOPE("FrameRenderer.GC");
+            if (gc_sw.elapsedMSFloat() > 1000) {
+                gc_sw.reset();
+                runGC();
+            }
+        }
 
         {
             MLE_PERF_SCOPE("FrameRenderer.BeginFrame");
@@ -158,6 +170,15 @@ void FrameRenderer::runLoop(std::stop_token st) {
     MLE_I("FrameRenderer run loop exited.");
 }
 
+void FrameRenderer::runGC() {
+    Renderer::i().commandManager().waitIdle(GCmdType::G);
+    std::scoped_lock lock(gc_mutex_);
+    for (auto& fn : gc_) {
+        fn();
+    }
+    gc_.clear();
+}
+
 void FrameRenderer::stopRun() {
     if (!isRunning()) {
         return;
@@ -191,11 +212,16 @@ void FrameRenderer::shutdown() {
             it();
         }
         f.delete_stack.clear();
+
         device.destroy(f.query_pool);
         device.destroy(f.image_available_semaphore);
         device.destroy(f.render_finished_fence);
         f.cmd_pool.shutdown();
     }
+    for (auto& v : gc_) {
+        v();
+    }
+    gc_.clear();
 }
 
 void FrameRenderer::initFramesData() {
@@ -578,6 +604,13 @@ BufferSlice FrameRenderer::getHostVisibleBuffer(usize size, vk::BufferUsageFlags
     return BufferSlice{.buffer = er.first.get(), .size = size, .offset = 0};
 }
 
+void FrameRenderer::addToFrameDeleteStack(std::move_only_function<void(void)>&& func) {
+    assertInFrame();
+    auto& f = getCurrentFrame();
+    std::scoped_lock lock(f.delete_stack_mutex);
+    f.delete_stack.emplace_back(std::move(func));
+}
+
 void FrameRenderer::deleteAfterFrame(BufferHnd&& buffer) {
     addToFrameDeleteStack([b = std::move(buffer)]() mutable {});
 }
@@ -586,17 +619,18 @@ void FrameRenderer::deleteAfterFrame(ImageHnd&& image) {
     addToFrameDeleteStack([i = std::move(image)]() mutable {});
 }
 
-void FrameRenderer::addToFrameDeleteStack(std::move_only_function<void(void)>&& func) {
-    if (inFrame()) {
-        auto& f = getCurrentFrame();
-        std::scoped_lock lock(f.delete_stack_mutex);
-        f.delete_stack.emplace_back(std::move(func));
-    } else {
-        auto& f = getNextFrame();
-        std::scoped_lock lock(f.delete_stack_mutex);
-        f.delete_stack.emplace_back(std::move(func));
-    }
+void FrameRenderer::addToGC(std::move_only_function<void(void)>&& func) {
+    std::scoped_lock lock(gc_mutex_);
+    gc_.emplace_back(std::move(func));
 }
+
+void FrameRenderer::addToGC(ImageHnd&& image) {
+    addToGC([i = std::move(image)]() mutable {});
+};
+
+void FrameRenderer::addToGC(BufferHnd&& buffer) {
+    addToGC([b = std::move(buffer)]() mutable {});
+};
 
 void FrameRenderer::callOnNextFrameBegin(std::move_only_function<void(void)>&& func) {
     getNextFrame().call_on_frame_begin.emplace_back(std::move(func));
