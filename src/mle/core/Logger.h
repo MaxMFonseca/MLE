@@ -101,7 +101,7 @@ class Logger {
   private:
     std::shared_ptr<spdlog::sinks::sink> file_sink_;
     std::shared_ptr<spdlog::sinks::sink> stdout_sink_;
-    mle::RuntimeConfigListenerHnd file_level_listener_;
-    mle::RuntimeConfigListenerHnd stdout_level_listener_;
+    mle::RuntimeConfigListener file_level_listener_;
+    mle::RuntimeConfigListener stdout_level_listener_;
 };
 }  // namespace mle

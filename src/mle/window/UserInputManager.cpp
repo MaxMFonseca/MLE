@@ -71,6 +71,11 @@ KeyListener& KeyListener::setKeybinding(Keybinding kb) {
     return *this;
 }
 
+KeyListener& KeyListener::setRepeat(bool enable) {
+    repeat_ = enable;
+    return *this;
+}
+
 void KeyListener::listen() {
     if (listening_) {
         return;

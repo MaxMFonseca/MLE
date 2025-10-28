@@ -134,10 +134,10 @@ class FrameRenderer final {
     std::atomic<u32> target_fps_ = max<u32>();
     std::atomic<bool> running_{false};
 
-    RuntimeConfigListenerHnd swapchain_rtcl0_;
-    RuntimeConfigListenerHnd swapchain_rtcl1_;
-    RuntimeConfigListenerHnd swapchain_default_clear_color_rtcl_{};
-    RuntimeConfigListenerHnd target_fps_rtcl_{};
+    RuntimeConfigListener swapchain_rtcl0_;
+    RuntimeConfigListener swapchain_rtcl1_;
+    RuntimeConfigListener swapchain_default_clear_color_rtcl_{};
+    RuntimeConfigListener target_fps_rtcl_{};
 
     window::ev::ResizeL window_resize_listener_;
     window::ev::CloseL window_close_listener_;

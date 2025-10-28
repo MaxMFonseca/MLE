@@ -110,16 +110,21 @@ float RuntimeConfig::getFloat(const std::string& key, f32 def) const {
     return rv.has_value() ? rv.value() : def;
 }
 
-RuntimeConfigListenerHnd RuntimeConfig::listen(const std::string& key, ListenerCbFn cb) {
-    RuntimeConfigListenerHnd listener(new RuntimeConfigListener(key, std::move(cb)));
-    {
-        std::lock_guard<std::mutex> lock(mutex_);
-        key_listeners_[key].push_back(listener.get());
+void RuntimeConfig::listen(RuntimeConfigListenerRef rtcl) {
+    if (rtcl->key_.empty()) {
+        MLE_W("RTCL {} has empty key, cannot listen.", (void*)rtcl);
+        return;
     }
-    return listener;
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto& kls = key_listeners_[rtcl->key_];
+    if (std::ranges::find(kls, rtcl) == kls.end()) {
+        kls.push_back(rtcl);
+    } else {
+        MLE_W("RTCL {} already registered for key: {}", (void*)rtcl, rtcl->key_);
+    }
 }
 
-void RuntimeConfig::removeListener(RuntimeConfigListenerRef l) {
+void RuntimeConfig::unlisten(RuntimeConfigListenerRef l) {
     std::lock_guard<std::mutex> lock(mutex_);
     auto it = key_listeners_.find(l->key_);
     if (it != key_listeners_.end()) {
@@ -132,12 +137,39 @@ void RuntimeConfig::removeListener(RuntimeConfigListenerRef l) {
     }
 }
 
-RuntimeConfigListener::RuntimeConfigListener(std::string key, CbFn cb) :
-    key_(std::move(key)),
-    cb_(std::move(cb)) {
+RuntimeConfigListener::~RuntimeConfigListener() {
+    unlisten();
 }
 
-RuntimeConfigListener::~RuntimeConfigListener() {
-    RuntimeConfig::i().removeListener(this);
-}
+RuntimeConfigListener& RuntimeConfigListener::setKey(const std::string& key) {
+    unlisten();
+    key_ = key;
+    return *this;
+};
+
+RuntimeConfigListener& RuntimeConfigListener::setCallback(CbFn&& cb) {
+    unlisten();
+    cb_ = std::move(cb);
+    return *this;
+};
+
+void RuntimeConfigListener::unlisten() {
+    if (!listening_) {
+        return;
+    }
+    RuntimeConfig::i().unlisten(this);
+    listening_ = false;
+};
+
+void RuntimeConfigListener::listen() {
+    if (listening_) {
+        return;
+    }
+    if (key_.empty() || cb_ == nullptr) {
+        MLE_E("Cannot listen RTCL {} with empty key({}) or null callback({}).", (void*)this, key_.empty(), cb_ == nullptr);
+        return;
+    }
+    RuntimeConfig::i().listen(this);
+    listening_ = true;
+};
 }  // namespace mle

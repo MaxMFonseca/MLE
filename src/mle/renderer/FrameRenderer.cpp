@@ -26,31 +26,41 @@ namespace mle {
 void FrameRenderer::init() {
     MLE_I("Initializing FrameRenderer");
 
-    swapchain_rtcl0_ = RuntimeConfig::i().listen("renderer.swapchain.present_mode", [this](const std::string& /*value*/) {
-        swapchain_dirty_.store(true, std::memory_order_relaxed);
-        return false;
-    });
-    swapchain_rtcl1_ = RuntimeConfig::i().listen("renderer.swapchain.triple_buffer", [this](const std::string& /*value*/) {
-        swapchain_dirty_.store(true, std::memory_order_relaxed);
-        return false;
-    });
+    swapchain_rtcl0_.setKey("renderer.swapchain.present_mode")
+        .setCallback([this](const std::string& /*value*/) {
+            swapchain_dirty_.store(true, std::memory_order_relaxed);
+            return false;
+        })
+        .listen();
 
-    swapchain_default_clear_color_rtcl_ = RuntimeConfig::i().listen("renderer.swapchain.default_clear_color", [this](const std::string& value) {
-        auto color = value.empty() ? Color::ZERO : Color::fromString(value);
-        default_clear_color_ = toVkColor(color);
-        return false;
-    });
+    swapchain_rtcl1_.setKey("renderer.swapchain.triple_buffer")
+        .setCallback([this](const std::string& /*value*/) {
+            swapchain_dirty_.store(true, std::memory_order_relaxed);
+            return false;
+        })
+        .listen();
+
+    swapchain_default_clear_color_rtcl_.setKey("renderer.swapchain.default_clear_color")
+        .setCallback([this](const std::string& value) {
+            auto color = value.empty() ? Color::ZERO : Color::fromString(value);
+            default_clear_color_ = toVkColor(color);
+            return false;
+        })
+        .listen();
+
+    target_fps_rtcl_.setKey("renderer.target_fps")
+        .setCallback([this](const std::string& value) {
+            if (value.empty()) {
+                target_fps_.store(max<u32>(), std::memory_order_relaxed);
+            } else {
+                u32 fps = strTo<u32>(value).value_or(max<u32>());
+                target_fps_.store(fps, std::memory_order_relaxed);
+            }
+            return false;
+        })
+        .listen();
+
     default_clear_color_ = toVkColor(Color::fromString(RuntimeConfig::i().getString("renderer.swapchain.default_clear_color", "ZERO")));
-
-    target_fps_rtcl_ = RuntimeConfig::i().listen("renderer.target_fps", [this](const std::string& value) {
-        if (value.empty()) {
-            target_fps_.store(max<u32>(), std::memory_order_relaxed);
-        } else {
-            u32 fps = strTo<u32>(value).value_or(max<u32>());
-            target_fps_.store(fps, std::memory_order_relaxed);
-        }
-        return false;
-    });
     target_fps_.store(RuntimeConfig::i().getUInt("renderer.target_fps", max<u32>()), std::memory_order_relaxed);
 
     window_resize_listener_ = Window::i().getED().makeListener<window::ev::Resize>([this](const window::ev::Resize& ev) {

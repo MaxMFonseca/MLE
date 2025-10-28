@@ -21,6 +21,7 @@ using RuntimeConfigListenerRef = RuntimeConfigListener*;
 class RuntimeConfig {
     MLE_SINGLETON(RuntimeConfig);
 
+  public:
     using ListenerCbFn = std::move_only_function<bool(const std::string& value)>;
 
   public:
@@ -40,12 +41,10 @@ class RuntimeConfig {
     u32 getUInt(const std::string& key, u32 def = 0) const;
     float getFloat(const std::string& key, f32 def = 0.0F) const;
 
-    RuntimeConfigListenerHnd listen(const std::string& key, ListenerCbFn cb);
+    void listen(RuntimeConfigListenerRef rtcl);
+    void unlisten(RuntimeConfigListenerRef rtcl);
 
   private:
-    friend class RuntimeConfigListener;
-    void removeListener(RuntimeConfigListenerRef l);
-
     mutable std::mutex mutex_;
     std::unordered_map<std::string, std::string> map_;
     std::unordered_map<std::string, std::vector<RuntimeConfigListenerRef>> key_listeners_;
@@ -56,14 +55,21 @@ class RuntimeConfigListener {
     using CbFn = RuntimeConfig::ListenerCbFn;
 
   public:
+    RuntimeConfigListener() = default;
     ~RuntimeConfigListener();
 
     MLE_NO_COPY_MOVE(RuntimeConfigListener);
 
+    RuntimeConfigListener& setKey(const std::string& key);
+    RuntimeConfigListener& setCallback(CbFn&& cb);
+
+    void listen();
+    void unlisten();
+
   private:
     friend class RuntimeConfig;
-    RuntimeConfigListener(std::string key, CbFn cb);
-    const std::string key_;
+    std::string key_;
     CbFn cb_;
+    bool listening_ = false;
 };
 }  // namespace mle

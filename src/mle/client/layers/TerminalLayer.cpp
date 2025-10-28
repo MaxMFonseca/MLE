@@ -157,7 +157,7 @@ void TerminalLayer::onEnter() {
     current_command_idx_ = -1;
 
     for (const auto& i : command_history_) {
-        MLE_C("{}", toUtf8(i));
+        MLE_T("{}", toUtf8(i));
     }
 
     std::string input_text_utf8 = toUtf8(input_text);

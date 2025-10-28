@@ -45,6 +45,7 @@ class KeyListener final {
     KeyListener& setState(KeyState state);
     KeyListener& setMods(KeyModFlags mods);
     KeyListener& setKeybinding(Keybinding kb);
+    KeyListener& setRepeat(bool enable);
 
     [[nodiscard]] auto getKb() const { return kb_; }
     [[nodiscard]] auto getKey() const { return kb_.key; }
@@ -53,8 +54,6 @@ class KeyListener final {
 
     void listen();
     void unlisten();
-
-    void setRepeat(bool enable) { repeat_ = enable; }
 
   private:
     friend UserInputManager;
