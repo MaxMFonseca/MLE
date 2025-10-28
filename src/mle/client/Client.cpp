@@ -79,6 +79,15 @@ void Client::run() {
         .name = "mle/t",
         .stream = false,
     });
+    AudioEngine::i().enqueueCmd(audio::cmd::Load{
+        .name = "i/ambient7s",
+        .stream = true,
+    });
+    AudioEngine::i().enqueueCmd(audio::cmd::StartStream{
+        .sound_id = entt::hashed_string("i/ambient7s"),
+        .loop = true,
+        .id = 0,
+    });
 
     if (!next_game_layer_) {
         MLE_W("No initial game layer set! Pushing empty layer.");
@@ -107,9 +116,9 @@ void Client::run() {
         if (testing_sw.elapsedMSFloat() > 50) {
             testing_sw.reset();
 
-            AudioEngine::i().enqueueCmd(audio::cmd::PlayOneShot{
-                .sound_id = entt::hashed_string("mle/t").value(),
-            });
+            // AudioEngine::i().enqueueCmd(audio::cmd::PlayOneShot{
+            //     .sound_id = entt::hashed_string("mle/t").value(),
+            // });
         }
 
         // const f64 alpha = static_cast<f64>(accumulator.count()) / static_cast<f64>(FIXED_DT.count());

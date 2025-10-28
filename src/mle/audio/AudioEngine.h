@@ -37,8 +37,12 @@ class AudioEngine {
     struct Streaming {
         constexpr static usize BUFFER_COUNT = 4;
         constexpr static usize BUFFER_SIZE = 32768;
-        std::array<ALuint, BUFFER_COUNT> buffers{};
-        ALuint source{};
+
+        std::array<ALuint, BUFFER_COUNT> buffers{0};
+        ALuint source{0};
+
+        WavData wav{};
+        std::array<bool, BUFFER_COUNT> enqueued_buffers{false};
         usize current_buffer{0};
         bool looping{false};
         u8 bus = 0;
@@ -59,6 +63,8 @@ class AudioEngine {
     void runLoop(std::stop_token st);
     Result genSources(usize target = max<usize>());
     void updateSources();
+
+    void stopStream(u8 id);
 
     void processCmds();
     void processCmd(const audio::Cmd& cmd);
@@ -87,7 +93,7 @@ class AudioEngine {
     VolumeMixer mixer_{};
 
     std::unordered_map<entt::id_type, ALuint> loaded_sounds_{};
-    std::unordered_map<entt::id_type, std::string> stream_sounds_{};
+    std::unordered_map<entt::id_type, Path> stream_sounds_{};
 
     std::vector<OneShotSource> one_shot_sources_{};
 

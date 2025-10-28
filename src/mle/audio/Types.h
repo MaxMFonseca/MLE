@@ -36,6 +36,8 @@ struct PlayOneShot {
 struct StartStream {
     entt::id_type sound_id{};
     PlayParams params{};
+    bool loop = false;
+    u8 id = 0;
 };
 
 struct StopStream {

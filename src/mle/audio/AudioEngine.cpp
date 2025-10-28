@@ -187,14 +187,46 @@ Expected<std::vector<std::string>> AudioEngine::getAvailableDevices() {
     return ret;
 }
 
+void AudioEngine::stopStream(u8 id) {
+    if (id >= streaming_sources_.size()) {
+        MLE_E("Invalid streaming source id: {}", id);
+        return;
+    }
+
+    auto& stream = streaming_sources_.at(id);
+    if (stream.active && stream.source != 0) {
+        std::ignore = alCall(alSourceStop, stream.source);
+        for (usize i = 0; i < Streaming::BUFFER_COUNT; ++i) {
+            if (stream.enqueued_buffers.at(i)) {
+                std::ignore = alCall(alSourceUnqueueBuffers, stream.source, 1, &stream.buffers.at(i));
+                stream.enqueued_buffers.at(i) = false;
+            }
+        }
+        stream.current_buffer = 0;
+        stream.wav = {};
+        stream.looping = false;
+        stream.bus = 0;
+        stream.active = false;
+    }
+}
+
 void AudioEngine::freeAllSources() {
     MLE_D("Freeing all OpenAL sources.");
 
-    for (auto& source : streaming_sources_) {
-        if (source.source != 0) {
-            MLE_T("Deleted streaming source ID: {}", source.source);
-            std::ignore = alCall(alDeleteSources, 1, &source.source);
-            source.active = false;
+    for (usize i = 0; i < streaming_sources_.size(); i++) {
+        auto& ss = streaming_sources_.at(i);
+        if (ss.source != 0) {
+            stopStream(i);
+            for (usize j = 0; j < Streaming::BUFFER_COUNT; ++j) {
+                if (ss.buffers.at(j) != 0) {
+                    MLE_T("Deleted streaming buffer ID: {}", ss.buffers.at(j));
+                    std::ignore = alCall(alDeleteBuffers, 1, &ss.buffers.at(j));
+                    ss.buffers.at(j) = 0;
+                }
+            }
+            MLE_T("Deleted streaming source ID: {}", ss.source);
+            std::ignore = alCall(alDeleteSources, 1, &ss.source);
+            ss.active = false;
         }
     }
     streaming_sources_.fill({});
@@ -211,14 +243,15 @@ Result AudioEngine::genSources(usize target) {
 
     freeAllSources();
 
-    MLE_D("Streaming sources will use {} sources.", AudioEngine::MAX_STREAMING_SOURCES);
-    std::array<ALuint, AudioEngine::MAX_STREAMING_SOURCES> streaming_source_ids{};
-    if (!alcCall(alGenSources, AudioEngine::MAX_STREAMING_SOURCES, streaming_source_ids.data())) {
+    MLE_D("Streaming sources will use {} sources.", MAX_STREAMING_SOURCES);
+    std::array<ALuint, MAX_STREAMING_SOURCES> streaming_source_ids{};
+    if (!alcCall(alGenSources, MAX_STREAMING_SOURCES, streaming_source_ids.data())) {
         MLE_E("Failed to generate streaming sources.");
         return Result::OAL_ERROR;
     }
-    for (usize i = 0; i < AudioEngine::MAX_STREAMING_SOURCES; i++) {
+    for (usize i = 0; i < MAX_STREAMING_SOURCES; i++) {
         streaming_sources_.at(i).source = streaming_source_ids.at(i);
+        std::ignore = alcCall(alGenBuffers, Streaming::BUFFER_COUNT, streaming_sources_.at(i).buffers.data());
         MLE_T("Generated streaming source ID: {}", streaming_source_ids.at(i));
     }
 
@@ -247,6 +280,8 @@ Result AudioEngine::genSources(usize target) {
 }
 
 void AudioEngine::updateSources() {
+    // stream stuff
+
     for (auto& source : one_shot_sources_) {
         if (source.priority > 0) {
             ALint state = AL_STOPPED;
@@ -258,6 +293,55 @@ void AudioEngine::updateSources() {
             if (state == AL_STOPPED) {
                 source.priority = 0;
             }
+        }
+    }
+
+    for (usize sid = 0; sid < streaming_sources_.size(); sid++) {
+        auto& stream = streaming_sources_.at(sid);
+        if (!stream.active || stream.source == 0) {
+            continue;
+        }
+
+        ALint processed = 0;
+        std::ignore = alCall(alGetSourcei, stream.source, AL_BUFFERS_PROCESSED, &processed);
+        if (processed <= 0) {
+            continue;
+        }
+
+        if (processed > 0) {
+            ALenum format = (stream.wav.channels == 1) ? AL_FORMAT_MONO_FLOAT32 : AL_FORMAT_STEREO_FLOAT32;
+            for (ALint i = 0; i < processed; ++i) {
+                ALuint buf = 0;
+                std::ignore = alCall(alSourceUnqueueBuffers, stream.source, 1, &buf);
+
+                usize samples_per_buffer = Streaming::BUFFER_SIZE / sizeof(f32);
+                usize offset = stream.current_buffer * samples_per_buffer;
+                usize total_samples = stream.wav.samples.size();
+                usize remain = (offset < total_samples) ? (total_samples - offset) : 0;
+                usize to_copy = std::min(samples_per_buffer, remain);
+
+                if (to_copy > 0) {
+                    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic) C buffer
+                    std::ignore = alCall(alBufferData, buf, format, stream.wav.samples.data() + offset, to_copy * sizeof(f32), stream.wav.sample_rate);
+                    std::ignore = alCall(alSourceQueueBuffers, stream.source, 1, &buf);
+                    stream.current_buffer++;
+                } else if (stream.looping) {
+                    stream.current_buffer = 0;
+                    usize loop_to_copy = std::min(samples_per_buffer, total_samples);
+                    if (loop_to_copy > 0) {
+                        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic) C buffer
+                        std::ignore = alCall(alBufferData, buf, format, stream.wav.samples.data(), loop_to_copy * sizeof(f32), stream.wav.sample_rate);
+                        std::ignore = alCall(alSourceQueueBuffers, stream.source, 1, &buf);
+                        stream.current_buffer = 1;
+                    }
+                }
+            }
+        }
+
+        int active = AL_STOPPED;
+        std::ignore = alCall(alGetSourcei, stream.source, AL_SOURCE_STATE, &active);
+        if (active == AL_STOPPED) {
+            stopStream(as<u8>(sid));
         }
     }
 }
@@ -338,6 +422,16 @@ void AudioEngine::processCmdLoad(const audio::cmd::Load& cmd) {
     path /= cmd.name;
     path += ".wav";
 
+    entt::id_type sound_id = entt::hashed_string::value(cmd.name.c_str());
+
+    if (cmd.stream) {
+        if (stream_sounds_.contains(sound_id)) {
+            MLE_W("Stream sound already loaded: {} (ID: {}), replacing.", cmd.name, sound_id);
+        }
+        stream_sounds_[sound_id] = path;
+        return;
+    }
+
     Expected<WavData> wav_data = loadWavFile(path);
     if (!wav_data) {
         MLE_E("Failed to load WAV file: {}: {}", path, toString(wav_data.error()));
@@ -368,25 +462,14 @@ void AudioEngine::processCmdLoad(const audio::cmd::Load& cmd) {
         return;
     }
 
-    entt::id_type sound_id = entt::hashed_string::value(cmd.name.c_str());
-
-    if (cmd.stream) {
-        if (stream_sounds_.contains(sound_id)) {
-            MLE_W("Stream sound already loaded: {} (ID: {}), replacing.", cmd.name, sound_id);
-        }
-        stream_sounds_[sound_id] = path;
-        MLE_D("Loaded stream sound: {} (ID: {}), size: {} bytes, channels: {}, sample rate: {}", cmd.name, sound_id, wav.samples.size() * sizeof(f32),
-              wav.channels, wav.sample_rate);
-    } else {
-        if (loaded_sounds_.contains(sound_id)) {
-            MLE_W("Sound already loaded: {} (ID: {}), replacing.", cmd.name, sound_id);
-            ALuint old_buffer = loaded_sounds_.at(sound_id);
-            std::ignore = alCall(alDeleteBuffers, 1, &old_buffer);
-        }
-        loaded_sounds_.emplace(sound_id, buffer);
-        MLE_D("Loaded sound: {} (ID: {}), size: {} bytes, channels: {}, sample rate: {}", cmd.name, sound_id, wav.samples.size() * sizeof(f32), wav.channels,
-              wav.sample_rate);
+    if (loaded_sounds_.contains(sound_id)) {
+        MLE_W("Sound already loaded: {} (ID: {}), replacing.", cmd.name, sound_id);
+        ALuint old_buffer = loaded_sounds_.at(sound_id);
+        std::ignore = alCall(alDeleteBuffers, 1, &old_buffer);
     }
+    loaded_sounds_.emplace(sound_id, buffer);
+    MLE_D("Loaded sound: {} (ID: {}), size: {} bytes, channels: {}, sample rate: {}", cmd.name, sound_id, wav.samples.size() * sizeof(f32), wav.channels,
+          wav.sample_rate);
 };
 
 void AudioEngine::processCmdPlayOneShot(const audio::cmd::PlayOneShot& cmd) {
@@ -438,7 +521,69 @@ void AudioEngine::processCmdPlayOneShot(const audio::cmd::PlayOneShot& cmd) {
 };
 
 void AudioEngine::processCmdStartStream(const audio::cmd::StartStream& cmd) {
-    std::ignore = cmd;
+    auto path_it = stream_sounds_.find(cmd.sound_id);
+    if (path_it == stream_sounds_.end()) {
+        MLE_W("Stream sound ID: {} not loaded, cannot start stream.", cmd.sound_id);
+        return;
+    }
+    auto& path = path_it->second;
+
+    if (cmd.id >= streaming_sources_.size()) {
+        MLE_E("Invalid streaming source id: {}", cmd.id);
+        return;
+    }
+
+    stopStream(cmd.id);
+
+    auto& stream = streaming_sources_.at(cmd.id);
+
+    Expected<WavData> wav_data = loadWavFile(path);
+    if (!wav_data) {
+        MLE_E("Failed to load WAV file: {}: {}", path, toString(wav_data.error()));
+        return;
+    }
+
+    stream.wav = std::move(wav_data.value());
+
+    ALenum format = AL_NONE;
+    if (stream.wav.channels == 1) {
+        format = AL_FORMAT_MONO_FLOAT32;
+    } else if (stream.wav.channels == 2) {
+        format = AL_FORMAT_STEREO_FLOAT32;
+    } else {
+        MLE_E("Unsupported channel count on wav: {} file: {}", stream.wav.channels, path);
+        return;
+    }
+
+    usize samples_per_buffer = Streaming::BUFFER_SIZE / sizeof(f32);
+    usize total_samples = stream.wav.samples.size();
+    usize offset = 0;
+    for (usize i = 0; i < Streaming::BUFFER_COUNT; ++i) {
+        usize remain = total_samples - offset;
+        usize to_copy = std::min(samples_per_buffer, remain);
+        if (to_copy == 0) {
+            break;
+        }
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic) C buffer
+        std::ignore = alCall(alBufferData, stream.buffers.at(i), format, stream.wav.samples.data() + offset, to_copy * sizeof(f32), stream.wav.sample_rate);
+        stream.current_buffer = i + 1;
+        offset += to_copy;
+    }
+
+    std::ignore = alCall(alSourcei, stream.source, AL_BUFFER, 0);
+    std::ignore = alCall(alSourceQueueBuffers, stream.source, Streaming::BUFFER_COUNT, stream.buffers.data());
+
+    std::ignore = alCall(alSourcef, stream.source, AL_PITCH, cmd.params.pitch);
+    std::ignore = alCall(alSource3f, stream.source, AL_POSITION, cmd.params.position.x, cmd.params.position.y, cmd.params.position.z);
+    std::ignore = alCall(alSource3f, stream.source, AL_VELOCITY, cmd.params.velocity.x, cmd.params.velocity.y, cmd.params.velocity.z);
+    std::ignore = alCall(alSourcef, stream.source, AL_GAIN, cmd.params.volume);
+    std::ignore = alCall(alSourcei, stream.source, AL_LOOPING, AL_FALSE);
+
+    stream.looping = cmd.loop;
+    stream.bus = cmd.params.bus;
+    stream.active = true;
+
+    std::ignore = alCall(alSourcePlay, stream.source);
 };
 
 void AudioEngine::processCmdStop(const audio::cmd::StopStream& cmd) {
