@@ -1,10 +1,13 @@
 #include "AudioEngine.h"
 
 #include <AL/al.h>
+#include <AL/alext.h>
 
 #include <expected>
 #include <source_location>
 
+#include "mle/audio/Utils.h"
+#include "mle/core/Assert.h"
 #include "mle/core/Consts.h"
 #include "mle/core/Logger.h"
 #include "mle/core/PerfTracker.h"
@@ -79,7 +82,7 @@ template <typename F, typename... Args>
 
 template <typename F, typename... Args>
     requires(std::is_void_v<std::invoke_result_t<F&, Args...>>)
-bool alCallImpl(std::source_location loc, F&& f, Args&&... args) {
+[[nodiscard]] bool alCallImpl(std::source_location loc, F&& f, Args&&... args) {
     std::invoke(std::forward<F>(f), std::forward<Args>(args)...);
     return checkALError(loc);
 }
@@ -97,7 +100,7 @@ template <typename F, typename... Args>
 
 template <typename F, typename... Args>
     requires(std::is_void_v<std::invoke_result_t<F&, Args...>>)
-bool alcCallImpl(std::source_location loc, ALCdevice* device, F&& f, Args&&... args) {
+[[nodiscard]] bool alcCallImpl(std::source_location loc, ALCdevice* device, F&& f, Args&&... args) {
     std::invoke(std::forward<F>(f), std::forward<Args>(args)...);
     return checkALCError(device, loc);
 }
@@ -106,11 +109,11 @@ bool alcCallImpl(std::source_location loc, ALCdevice* device, F&& f, Args&&... a
 #define alCall(...) mle::alCallImpl(std::source_location::current(), __VA_ARGS__)
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define alcCall(...) mle::alcCallImpl(std::source_location::current(), device_, __VA_ARGS__)
-
 }  // namespace
 
 Result AudioEngine::init() {
     MLE_I("Initializing Audio Engine");
+
     device_ = alcOpenDevice(nullptr);
     if (!device_) {
         MLE_E("Failed to open OpenAL device");
@@ -150,6 +153,16 @@ void AudioEngine::logAvailableDevices() {
 
 void AudioEngine::shutdown() {
     MLE_I("Shutting down Audio Engine");
+    if (run_thread_.joinable()) {
+        run_thread_.request_stop();
+        run_thread_.join();
+    }
+
+    if (context_) {
+        std::ignore = alcCall(alcDestroyContext, context_);
+        context_ = nullptr;
+    }
+
     if (device_) {
         alcCloseDevice(device_);
         device_ = nullptr;
@@ -173,6 +186,39 @@ Expected<std::vector<std::string>> AudioEngine::getAvailableDevices() {
     return ret;
 }
 
+void AudioEngine::genSources(usize target) {
+    MLE_D("Generating OpenAL sources. target: {}", target);
+
+    sources_.clear();
+    sources_.reserve(target);
+    ALuint test_source = 0;
+    ALuint last_source = 888;
+    while (alcCall(alGenSources, 1, &test_source) && sources_.size() < target && test_source != last_source) {
+        sources_.emplace_back(test_source, 0);
+        last_source = test_source;
+        MLE_C("Generated source ID: {}", test_source);
+    }
+    sources_.shrink_to_fit();
+
+    MLE_C("Generated {} OpenAL sources.", sources_.size());
+}
+
+void AudioEngine::updateSources() {
+    for (auto& source : sources_) {
+        if (source.priority > 0) {
+            ALint state = AL_STOPPED;
+            auto r = alCall(alGetSourcei, source.id, AL_SOURCE_STATE, &state);
+            if (!r) {
+                MLE_E("Failed to get source state for source ID: {}", source.id);
+                continue;
+            }
+            if (state == AL_STOPPED) {
+                source.priority = 0;
+            }
+        }
+    }
+}
+
 // NOLINTNEXTLINE(performance-unnecessary-value-param) stop_token is small and cheap to copy
 void AudioEngine::runLoop(std::stop_token st) {
     if (const auto r = alcCall(alcMakeContextCurrent, context_); !r.has_value()) {
@@ -180,11 +226,205 @@ void AudioEngine::runLoop(std::stop_token st) {
         return;
     }
 
+    if (!alIsExtensionPresent("AL_EXT_FLOAT32")) {
+        // TODO: fallbacks
+        MLE_C("OpenAL device does not support AL_EXT_FLOAT32 extension. Falling back to 16-bit audio.");
+        return;
+    }
+
+    genSources();
+
     while (!st.stop_requested()) {
         {
             MLE_PERF_SCOPE("AudioEngine");
+
+            {
+                MLE_PERF_SCOPE("AudioEngine.CmdProcessing");
+                processCmds();
+            }
+
+            updateSources();
         }
-        std::this_thread::sleep_for(100ms);
+        std::this_thread::sleep_for(10ms);
+    }
+
+    std::ignore = alcCall(alcMakeContextCurrent, nullptr);
+}
+
+[[nodiscard]] float VolumeMixer::compute(u8 b, float source_linear) const {
+    float bus = 1.0F;
+    if (b < bus_volumes_db_.size()) {
+        bus = dbToLinear(bus_volumes_db_.at(b));
+    }
+    return std::clamp(master_ * bus * source_linear, 0.0F, 4.0F);
+}
+
+ID AudioEngine::enqueueCmd(const audio::Cmd& cmd) {
+    static std::atomic<ID> next_id{0};
+    auto id = next_id.fetch_add(1, std::memory_order_relaxed);
+    cmd_queue_.push({cmd, id});
+    return id;
+};
+
+void AudioEngine::processCmds() {
+    auto cmds = cmd_queue_.popAll();
+    for (const auto& [cmd, cmd_id] : cmds) {
+        processCmd(cmd, cmd_id);
     }
 }
+
+void AudioEngine::processCmd(const audio::Cmd& cmd, ID cmd_id) {
+    std::visit(Overloaded{
+                   [&](const audio::cmd::Load& l) { processCmdLoad(l, cmd_id); },
+                   [&](const audio::cmd::Play& p) { processCmdPlay(p, cmd_id); },
+                   [&](const audio::cmd::Stop& s) { processCmdStop(s, cmd_id); },
+                   [&](const audio::cmd::Pause& p) { processCmdPause(p, cmd_id); },
+                   [&](const audio::cmd::Resume& r) { processCmdResume(r, cmd_id); },
+                   [&](const audio::cmd::SetVolume& sv) { processCmdSetVolume(sv, cmd_id); },
+                   [&](const audio::cmd::SetListener& sl) { processCmdSetListener(sl, cmd_id); },
+                   [&](const audio::cmd::SetDistanceParams& sdp) { processCmdSetDistanceParams(sdp, cmd_id); },
+                   [&](const audio::cmd::StopAll& sa) { processCmdStopAll(sa, cmd_id); },
+               },
+               cmd);
+}
+
+void AudioEngine::processCmdLoad(const audio::cmd::Load& cmd, ID /*unused*/) {
+    Path path = ResPath::RES;
+    path /= ResPath::SOUNDS;
+    path /= cmd.name;
+    path += ".wav";
+
+    Expected<WavData> wav_data = loadWavFile(path);
+    if (!wav_data) {
+        MLE_E("Failed to load WAV file: {}: {}", path, toString(wav_data.error()));
+        return;
+    }
+    auto& wav = wav_data.value();
+
+    ALenum format = AL_NONE;
+    if (wav.channels == 1) {
+        format = AL_FORMAT_MONO_FLOAT32;
+    } else if (wav.channels == 2) {
+        format = AL_FORMAT_STEREO_FLOAT32;
+    } else {
+        MLE_E("Unsupported channel count on wav: {} file: {}", wav.channels, path);
+        return;
+    }
+
+    ALuint buffer = 0;
+    auto call_r = alCall(alGenBuffers, 1, &buffer);
+    if (!call_r) {
+        MLE_E("Failed to generate OpenAL buffer for wav: {}", path);
+        return;
+    }
+    call_r = alCall(alBufferData, buffer, format, wav.samples.data(), as<ALsizei>(wav.samples.size() * sizeof(f32)), wav.sample_rate);
+    if (!call_r) {
+        MLE_E("Failed to upload WAV data to OpenAL buffer for wav: {}", path);
+        std::ignore = alCall(alDeleteBuffers, 1, &buffer);
+        return;
+    }
+
+    entt::id_type sound_id = entt::hashed_string::value(cmd.name.c_str());
+
+    if (cmd.stream) {
+        if (stream_sounds_.contains(sound_id)) {
+            MLE_W("Stream sound already loaded: {} (ID: {}), replacing.", cmd.name, sound_id);
+        }
+        stream_sounds_[sound_id] = path;
+        MLE_D("Loaded stream sound: {} (ID: {}), size: {} bytes, channels: {}, sample rate: {}", cmd.name, sound_id, wav.samples.size() * sizeof(f32),
+              wav.channels, wav.sample_rate);
+    } else {
+        if (loaded_sounds_.contains(sound_id)) {
+            MLE_W("Sound already loaded: {} (ID: {}), replacing.", cmd.name, sound_id);
+            ALuint old_buffer = loaded_sounds_.at(sound_id);
+            std::ignore = alCall(alDeleteBuffers, 1, &old_buffer);
+        }
+        loaded_sounds_.emplace(sound_id, buffer);
+        MLE_D("Loaded sound: {} (ID: {}), size: {} bytes, channels: {}, sample rate: {}", cmd.name, sound_id, wav.samples.size() * sizeof(f32), wav.channels,
+              wav.sample_rate);
+    }
+};
+
+void AudioEngine::processCmdPlay(const audio::cmd::Play& cmd, ID /*unused*/) {
+    auto buffer_it = loaded_sounds_.find(cmd.sound_id);
+    if (buffer_it == loaded_sounds_.end()) {
+        MLE_W("Sound ID: {} not loaded, cannot play.", cmd.sound_id);
+        return;
+    }
+    if (cmd.priority == 0) {
+        MLE_W("Sound with 0 priority cannot be played. Sound ID: {}", cmd.sound_id);
+        return;
+    }
+
+    ALuint source = 0;
+    auto lowest_priority = max<usize>();
+    auto lowest_priority_idx = max<usize>();
+    for (usize i = 0; i < sources_.size(); i++) {
+        auto& s = sources_[i];
+        if (s.priority == 0) {
+            source = s.id;
+            s.priority = cmd.priority;
+            break;
+        }
+        if (s.priority < lowest_priority) {
+            lowest_priority = s.priority;
+            lowest_priority_idx = i;
+        }
+    }
+    if (source == 0) {
+        if (cmd.priority > lowest_priority) {
+            auto& s = sources_[lowest_priority_idx];
+            source = s.id;
+            s.priority = cmd.priority;
+            std::ignore = alCall(alSourceStop, source);
+        } else {
+            MLE_T("No available audio sources to play sound ID: {} with priority: {}", cmd.sound_id, cmd.priority);
+            return;
+        }
+    }
+
+    std::ignore = alCall(alSourcef, source, AL_PITCH, 1);
+    std::ignore = alCall(alSource3f, source, AL_POSITION, 0, 0, 0);
+    std::ignore = alCall(alSource3f, source, AL_VELOCITY, 0, 0, 0);
+    std::ignore = alCall(alSourcef, source, AL_GAIN, 1.0F);
+    std::ignore = alCall(alSourcei, source, AL_LOOPING, AL_FALSE);
+    std::ignore = alCall(alSourcei, source, AL_BUFFER, buffer_it->second);
+
+    std::ignore = alCall(alSourcePlay, source);
+};
+
+void AudioEngine::processCmdStop(const audio::cmd::Stop& cmd, ID cmd_id) {
+    std::ignore = cmd;
+    std::ignore = cmd_id;
+};
+
+void AudioEngine::processCmdPause(const audio::cmd::Pause& cmd, ID cmd_id) {
+    std::ignore = cmd;
+    std::ignore = cmd_id;
+};
+
+void AudioEngine::processCmdResume(const audio::cmd::Resume& cmd, ID cmd_id) {
+    std::ignore = cmd;
+    std::ignore = cmd_id;
+};
+
+void AudioEngine::processCmdSetVolume(const audio::cmd::SetVolume& cmd, ID cmd_id) {
+    std::ignore = cmd;
+    std::ignore = cmd_id;
+};
+
+void AudioEngine::processCmdSetListener(const audio::cmd::SetListener& cmd, ID cmd_id) {
+    std::ignore = cmd;
+    std::ignore = cmd_id;
+};
+
+void AudioEngine::processCmdSetDistanceParams(const audio::cmd::SetDistanceParams& cmd, ID cmd_id) {
+    std::ignore = cmd;
+    std::ignore = cmd_id;
+};
+
+void AudioEngine::processCmdStopAll(const audio::cmd::StopAll& cmd, ID cmd_id) {
+    std::ignore = cmd;
+    std::ignore = cmd_id;
+};
 }  // namespace mle

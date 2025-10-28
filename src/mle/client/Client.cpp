@@ -73,7 +73,11 @@ void Client::run() {
     auto t_prev = running_sw_.elapsed<ns>();
     std::chrono::nanoseconds accumulator = 0ns;
 
-    int seconds_running = 0;
+    Stopwatch testing_sw;
+    AudioEngine::i().enqueueCmd(audio::cmd::Load{
+        .name = "mle/t",
+        .stream = false,
+    });
 
     if (!next_game_layer_) {
         MLE_W("No initial game layer set! Pushing empty layer.");
@@ -99,9 +103,12 @@ void Client::run() {
             accumulator %= FIXED_DT;
         }
 
-        if (seconds_running < sw.elapsedSecInt()) {
-            seconds_running = sw.elapsedSecInt();
-            auto wav_data = loadWavFile("res/sounds/mle/t.wav");
+        if (testing_sw.elapsedMSFloat() > 1000) {
+            testing_sw.reset();
+
+            AudioEngine::i().enqueueCmd(audio::cmd::Play{
+                .sound_id = entt::hashed_string("mle/t").value(),
+            });
         }
 
         // const f64 alpha = static_cast<f64>(accumulator.count()) / static_cast<f64>(FIXED_DT.count());
