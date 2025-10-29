@@ -39,8 +39,9 @@ void Lua::init() {
 
     setGlobal("Utils", require("mle/utils"));
 
-    lua::newUTMathTypes(*this);
-    lua::newUTColor(*this);
+    lua::makeUTMathTypes(*this);
+    lua::makeUTStopwatch(*this);
+    lua::makeUTColor(*this);
 }
 
 sol::object Lua::require(const std::string& module_name) {

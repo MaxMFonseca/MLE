@@ -16,6 +16,7 @@
 #include <sol/state.hpp>
 
 #include "Types.h"
+#include "mle/core/Assert.h"
 #include "mle/core/Logger.h"
 #include "mle/utils/Utils.h"
 
@@ -63,6 +64,8 @@ class Lua {
     template <class T, class... Args>
     auto newUsertype(const std::string& name, Args&&... args) {
         MLE_I("Adding lua usertype: {}", name);
+        MLE_ASSERT_LOG(!name.empty(), "Lua usertype name must not be empty");
+        MLE_ASSERT_LOG(!sol_.get<sol::object>(name).valid(), "An object with the name '{}' already exists!", name);
         return sol_.new_usertype<T>(name, std::forward<Args>(args)...);
     }
 

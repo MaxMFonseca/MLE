@@ -92,6 +92,8 @@ LuaElementOps::LuaElementOps(UI& ui) :
     ut["entt"] = &Entt::e;
     ut["fullName"] = &Entt::fullName;
 
+    comp::Hovered::makeLuaUsertype(lua);
+
     addBuiltingApply();
     addBuiltingGetters();
 }
@@ -163,5 +165,6 @@ void LuaElementOps::addBuiltingApply() {
 
 void LuaElementOps::addBuiltingGetters() {
     addGetKeyHandler("table", comp::Table::get);
+    addGetKeyHandler("hovered", comp::Hovered::get);
 }
 }  // namespace mle::ui::system

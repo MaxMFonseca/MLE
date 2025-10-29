@@ -28,8 +28,14 @@ struct Hoverable {
 };
 
 struct Hovered {
-    HoverState state;
-    Stopwatch sw;
+    HoverState state{};
+    Stopwatch sw{};
+    vec2f pos_self{};
+    vec2f pos_self_norm{};
+
+    static sol::object get(const Entt& ew);
+
+    static void makeLuaUsertype(Lua& lua);
 };
 
 }  // namespace mle::ui::comp

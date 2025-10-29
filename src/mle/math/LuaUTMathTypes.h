@@ -5,7 +5,7 @@
 #include "mle/math/Types2D.h"
 
 namespace mle::lua {
-inline void newUTMathTypes(Lua& lua) {
+inline void makeUTMathTypes(Lua& lua) {
     lua.newUsertype<vec2i>("vec2i", sol::constructors<vec2i(i32, i32)>(), "x", &vec2i::x, "y", &vec2i::y);
     lua.newUsertype<vec3i>("vec3i", sol::constructors<vec3i(i32, i32, i32)>(), "x", &vec3i::x, "y", &vec3i::y, "z", &vec3i::z);
     lua.newUsertype<vec4i>("vec4i", sol::constructors<vec4i(i32, i32, i32, i32)>(), "x", &vec4i::x, "y", &vec4i::y, "z", &vec4i::z, "w", &vec4i::w);

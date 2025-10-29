@@ -12,8 +12,8 @@
 
 namespace mle::ui::system {
 namespace {
-bool contains(const std::vector<entt::entity>& vec, entt::entity e) {
-    return std::ranges::find_first_of(vec, std::views::single(e)) != vec.end();
+bool contains(std::vector<entt::entity>& arr, entt::entity e) {
+    return std::ranges::find(arr, e) != arr.end();
 }
 }  // namespace
 
@@ -21,16 +21,12 @@ void Hover::update() {
     auto& r = ui_.getRegistry();
     const auto mouse_pos_r = UserInputManager::i().getCursorPos();
     std::vector<entt::entity> inside_stack;
+    inside_stack.reserve(16);
+
     if (mouse_pos_r) {
-        inside_stack.reserve(16);
-        auto mouse_px = vec2i(mouse_pos_r.value());
-        inside_stack.push_back(ui_.getRoot());
-        for (entt::entity e = ui_.getRoot(); e != entt::null;) {
-            e = getFirstHoveredChild(e, mouse_px);
-            if (e != entt::null) {
-                inside_stack.push_back(e);
-            }
-        }
+        auto mouse_px = mouse_pos_r.value();
+        Entt ew{ui_, ui_.getRoot()};
+        hovered(ew, mouse_px, ew.get<comp::Bounds>(), inside_stack);
     }
 
     std::vector<entt::entity> to_remove;
@@ -51,14 +47,17 @@ void Hover::update() {
         r.remove<comp::Hovered>(e);
     }
     to_remove.clear();
+};
 
-    for (auto e : std::ranges::reverse_view(inside_stack)) {
-        auto* hov = r.try_get<comp::Hoverable>(e);
-        if (!hov) {
-            continue;
-        }
+// NOLINTNEXTLINE(misc-no-recursion) cool recursive function
+void Hover::hovered(const Entt& ew, vec2f pos_parent, const comp::Bounds& self_bounds, std::vector<entt::entity>& inside) {
+    vec2f pos_self = pos_parent + vec2f(self_bounds.parent_px.pos());
+    inside.push_back(ew.e());
 
-        Entt ew{ui_, e};
+    auto* hov = ew.tryGet<comp::Hoverable>();
+    if (hov) {
+        vec2f pos_self_norm = pos_self / vec2f(self_bounds.parent_px.size());
+
         auto* h = ew.tryGet<comp::Hovered>();
         if (!h) {
             h = &ew.emplace<comp::Hovered>();
@@ -69,16 +68,13 @@ void Hover::update() {
             h->state = HoverState::HOVER;
         }
 
+        h->pos_self = pos_self;
+        h->pos_self_norm = pos_self_norm;
         hov->onHover(ew);
     }
-};
 
-entt::entity Hover::getFirstHoveredChild(entt::entity e, vec2i pos) {
-    Entt ew{ui_, e};
     auto& relationship = ew.getRelationship();
-    auto& bounds = ew.get<comp::Bounds>();
-    pos += bounds.parent_px.pos();
-    if (relationship.getChildCount()) {
+    if (relationship.hasChildren()) {
         auto children = relationship.getChildren(ew);
         for (auto c : children) {
             Entt cew = ew.derive(c);
@@ -86,11 +82,10 @@ entt::entity Hover::getFirstHoveredChild(entt::entity e, vec2i pos) {
                 continue;
             }
             auto c_bounds = cew.get<comp::Bounds>();
-            if (c_bounds.parent_px.contains(pos)) {
-                return c;
+            if (c_bounds.parent_px.contains(pos_self)) {
+                hovered(cew, pos_self, c_bounds, inside);
             }
         }
     }
-    return entt::null;
 };
 }  // namespace mle::ui::system

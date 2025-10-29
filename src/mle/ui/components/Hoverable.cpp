@@ -169,4 +169,14 @@ void Hoverable::onHoverIn(const Entt& ew) {
     }
 };
 
+sol::object Hovered::get(const Entt& ew) {
+    MLE_ASSERT(ew.has<Hovered>());
+
+    return ew.ui().getLua().createObject(ew.get<Hovered>());
+}
+
+void Hovered::makeLuaUsertype(Lua& lua) {
+    lua.newUsertype<Hovered>("uiHovered", "state", &Hovered::state, "sw", &Hovered::sw, "pos_self", &Hovered::pos_self, "pos_self_norm",
+                             &Hovered::pos_self_norm);
+}
 }  // namespace mle::ui::comp

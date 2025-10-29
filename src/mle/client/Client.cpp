@@ -113,12 +113,12 @@ void Client::run() {
             accumulator %= FIXED_DT;
         }
 
-        if (test_sw.elapsedMSFloat() > 33) {
-            test_sw.reset();
-            AudioEngine::i().enqueueCmd(audio::cmd::PlayOneShot{
-                .sound_id = entt::hashed_string{"mle/t"},
-            });
-        }
+        // if (test_sw.elapsedMSFloat() > 33) {
+        //     test_sw.reset();
+        //     AudioEngine::i().enqueueCmd(audio::cmd::PlayOneShot{
+        //         .sound_id = entt::hashed_string{"mle/t"},
+        //     });
+        // }
 
         // const f64 alpha = static_cast<f64>(accumulator.count()) / static_cast<f64>(FIXED_DT.count());
 

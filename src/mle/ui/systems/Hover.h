@@ -16,7 +16,7 @@ class Hover {
     void update();
 
   private:
-    entt::entity getFirstHoveredChild(entt::entity e, vec2i pos);
+    void hovered(const Entt& e, vec2f pos_parent, const comp::Bounds& self_bounds, std::vector<entt::entity>& inside);
 
   private:
     UI& ui_;
