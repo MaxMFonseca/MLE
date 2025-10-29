@@ -8,6 +8,37 @@
 #include "mle/utils/String.h"
 
 namespace mle {
+void RuntimeConfig::init() {
+    log_all_values_rtcl_.setKey("rtc.log_all_values")
+        .setCallback([this](const std::string&) {
+            logAllValues();
+            return false;
+        })
+        .listen();
+
+    log_all_descriptions_rtcl_.setKey("rtc.log_all_descriptions")
+        .setCallback([this](const std::string&) {
+            logAllDescriptions();
+            return false;
+        })
+        .listen();
+
+    log_all_rtcl_.setKey("rtc.log_all")
+        .setCallback([this](const std::string&) {
+            logAllDescriptions();
+            logAllValues();
+            return false;
+        })
+        .listen();
+
+    log_rtcl_.setKey("rtc.log")
+        .setCallback([this](const std::string& value) {
+            log(value);
+            return false;
+        })
+        .listen();
+}
+
 void RuntimeConfig::addKey(const std::string& key, const std::string& desc) {
     map_[key] = Key{
         .value = "",
@@ -43,7 +74,7 @@ void RuntimeConfig::parseArgs(int argc, char** argv) {
 }
 
 void RuntimeConfig::logAllValues() const {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::scoped_lock<std::mutex> lock(keys_mutex_);
     MLE_I("RuntimeConfig values:");
     for (const auto& [k, v] : map_) {
         MLE_I("{}. value = {}", k, v.value);
@@ -51,7 +82,7 @@ void RuntimeConfig::logAllValues() const {
 }
 
 void RuntimeConfig::logAllDescriptions() const {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::scoped_lock<std::mutex> lock(keys_mutex_);
     MLE_I("RuntimeConfig descriptions:");
     for (const auto& [k, v] : map_) {
         MLE_I("{}. desc = {}", k, v.description);
@@ -59,7 +90,7 @@ void RuntimeConfig::logAllDescriptions() const {
 }
 
 void RuntimeConfig::log(const std::string& key) const {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::scoped_lock<std::mutex> lock(keys_mutex_);
     auto it = map_.find(key);
     if (it != map_.end()) {
         MLE_I("RuntimeConfig: {} = {}, desc = {}", key, it->second.value, it->second.description);
@@ -69,15 +100,16 @@ void RuntimeConfig::log(const std::string& key) const {
 }
 
 void RuntimeConfig::set(const std::string& key, const std::string& value) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    MLE_I("RuntimeConfig set: {} = {}", key, value);
-    auto kit = map_.find(key);
-    if (kit != map_.end()) {
-        kit->second.value = value;
-    } else {
-        MLE_W("RuntimeConfig set: key {} not found", key);
-        return;
+    if (!value.empty()) {
+        std::scoped_lock<std::mutex> lock(keys_mutex_);
+        MLE_I("RuntimeConfig set: {} = {}", key, value);
+        auto kit = map_.find(key);
+        if (kit != map_.end()) {
+            kit->second.value = value;
+        }
     }
+
+    std::scoped_lock<std::mutex> lock(listeners_mutex_);
     auto it = key_listeners_.find(key);
     if (it != key_listeners_.end()) {
         for (auto l_it = it->second.begin(); l_it != it->second.end(); ++l_it) {
@@ -91,7 +123,7 @@ void RuntimeConfig::set(const std::string& key, const std::string& value) {
 }
 
 std::optional<std::string> RuntimeConfig::get(const std::string& key) const {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::scoped_lock<std::mutex> lock(keys_mutex_);
     auto it = map_.find(key);
     if (it != map_.end() && !it->second.value.empty()) {
         return it->second.value;
@@ -151,13 +183,7 @@ void RuntimeConfig::listen(RuntimeConfigListenerRef rtcl) {
         MLE_W("RTCL {} has empty key, cannot listen.", (void*)rtcl);
         return;
     }
-    std::lock_guard<std::mutex> lock(mutex_);
-    if (!map_.contains(rtcl->key_)) {
-        map_[rtcl->key_] = Key{
-            .value = "",
-            .description = "<no>",
-        };
-    }
+    std::scoped_lock<std::mutex> lock(listeners_mutex_);
     auto& kls = key_listeners_[rtcl->key_];
     if (std::ranges::find(kls, rtcl) == kls.end()) {
         kls.push_back(rtcl);
@@ -167,7 +193,7 @@ void RuntimeConfig::listen(RuntimeConfigListenerRef rtcl) {
 }
 
 void RuntimeConfig::unlisten(RuntimeConfigListenerRef l) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::scoped_lock<std::mutex> lock(listeners_mutex_);
     auto it = key_listeners_.find(l->key_);
     if (it != key_listeners_.end()) {
         auto& vec = it->second;
@@ -189,7 +215,7 @@ RuntimeConfigListener& RuntimeConfigListener::setKey(const std::string& key) {
     return *this;
 };
 
-RuntimeConfigListener& RuntimeConfigListener::setCallback(CbFn&& cb) {
+RuntimeConfigListener& RuntimeConfigListener::setCallback(RTCLCbFn&& cb) {
     unlisten();
     cb_ = std::move(cb);
     return *this;

@@ -288,7 +288,7 @@ void RendererCommandManager::reclaimOTS(CommandBuffer&& cmd) {
 }
 
 std::unique_lock<std::mutex> RendererCommandManager::waitIdle(GCmdType type) {
-    MLE_I("waitIdle queue {}", type);
+    MLE_D("waitIdle queue {}", type);
     auto& q_data = queue_data_.at(queueDataIdx(type));
     std::unique_lock<std::mutex> lock(q_data.submit_mutex);
     check(q_data.queue.waitIdle());

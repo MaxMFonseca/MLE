@@ -25,6 +25,7 @@ void addEngineRTCKeys() {
 void Core::init(const InitInfo& ii) {
     running_time_.reset();
 
+    RuntimeConfig::i().init();
     addEngineRTCKeys();
     RuntimeConfig::i().parseArgs(ii.argc, ii.argv);
     Logger::i().init();

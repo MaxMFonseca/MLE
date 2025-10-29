@@ -10,26 +10,38 @@
 #include "mle/math/Types.h"
 #include "mle/utils/Utils.h"
 
-// TODO: This could use some love, I should probably refactor it
-// I should use 1 mutex per key
-// I need a hint system
-
-// 1 mutex per key
-// valid keys must be declared
-// persistent config should be marked as such
-// listeners can have hints, and create a 'temporary' entry if the key doesn't exist yet
-
 namespace mle {
 class RuntimeConfigListener;
 using RuntimeConfigListenerHnd = std::unique_ptr<RuntimeConfigListener>;
 using RuntimeConfigListenerRef = RuntimeConfigListener*;
 
+using RuntimeConfigListenerCallbackFunction = std::function<bool(const std::string& value)>;
+using RTCLCbFn = RuntimeConfigListenerCallbackFunction;
+
+class RuntimeConfigListener {
+  public:
+    RuntimeConfigListener() = default;
+    ~RuntimeConfigListener();
+
+    MLE_NO_COPY_MOVE(RuntimeConfigListener);
+
+    RuntimeConfigListener& setKey(const std::string& key);
+    RuntimeConfigListener& setCallback(RTCLCbFn&& cb);
+
+    void listen();
+    void unlisten();
+
+  private:
+    friend class RuntimeConfig;
+    std::string key_;
+    RTCLCbFn cb_{};
+    bool listening_ = false;
+};
+
 class RuntimeConfig {
     MLE_SINGLETON(RuntimeConfig);
 
   public:
-    using ListenerCbFn = std::move_only_function<bool(const std::string& value)>;
-
   private:
     struct Key {
         std::string value;
@@ -37,11 +49,13 @@ class RuntimeConfig {
     };
 
   public:
+    void init();
+
     void addKey(const std::string& key, const std::string& desc);
 
     void parseArgs(int argc, char** argv);
 
-    void set(const std::string& key, const std::string& value);
+    void set(const std::string& key, const std::string& value = "");
     void set(const std::string& key, int value) { set(key, std::to_string(value)); }
     void set(const std::string& key, f32 value) { set(key, std::to_string(value)); }
     void set(const std::string& key, bool value) { set(key, std::string(value ? "1" : "0")); }
@@ -58,33 +72,22 @@ class RuntimeConfig {
     void log(const std::string& key) const;
     void logAllValues() const;
     void logAllDescriptions() const;
+    void logAll() const {
+        logAllDescriptions();
+        logAllValues();
+    }
 
   private:
-    mutable std::mutex mutex_;
+    mutable std::mutex keys_mutex_;
     std::unordered_map<std::string, Key> map_;
+
+    mutable std::mutex listeners_mutex_;
     std::unordered_map<std::string, std::vector<RuntimeConfigListenerRef>> key_listeners_;
+
+    RuntimeConfigListener log_all_values_rtcl_;
+    RuntimeConfigListener log_all_descriptions_rtcl_;
+    RuntimeConfigListener log_all_rtcl_;
+    RuntimeConfigListener log_rtcl_;
 };
 
-class RuntimeConfigListener {
-  public:
-    using CbFn = RuntimeConfig::ListenerCbFn;
-
-  public:
-    RuntimeConfigListener() = default;
-    ~RuntimeConfigListener();
-
-    MLE_NO_COPY_MOVE(RuntimeConfigListener);
-
-    RuntimeConfigListener& setKey(const std::string& key);
-    RuntimeConfigListener& setCallback(CbFn&& cb);
-
-    void listen();
-    void unlisten();
-
-  private:
-    friend class RuntimeConfig;
-    std::string key_;
-    CbFn cb_;
-    bool listening_ = false;
-};
 }  // namespace mle

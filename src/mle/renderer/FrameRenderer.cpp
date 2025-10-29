@@ -109,7 +109,6 @@ void FrameRenderer::runLoop(std::stop_token st) {
         MLE_PERF_SCOPE("FrameRenderer");
 
         {
-            MLE_PERF_SCOPE("FrameRenderer.GC");
             if (gc_sw.elapsedMSFloat() > 1000) {
                 gc_sw.reset();
                 runGC();
@@ -181,6 +180,8 @@ void FrameRenderer::runLoop(std::stop_token st) {
 }
 
 void FrameRenderer::runGC() {
+    MLE_PERF_SCOPE("FrameRenderer.GC");
+    MLE_I("Running FrameRenderer GC...");
     Renderer::i().commandManager().waitIdle(GCmdType::G);
     std::scoped_lock lock(gc_mutex_);
     for (auto& fn : gc_) {
