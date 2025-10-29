@@ -51,6 +51,7 @@ class AudioEngine {
         bool looping{false};
         u8 bus = 0;
         bool active{false};
+        bool paused{false};
     };
 
     constexpr static usize MAX_STREAMING_SOURCES = 6;

@@ -669,6 +669,7 @@ void AudioEngine::processCmdStartStream(const audio::cmd::StartStream& cmd) {
     stream.looping = cmd.loop;
     stream.bus = cmd.params.bus;
     stream.active = true;
+    stream.paused = false;
 
     std::ignore = alCall(alSourcei, stream.source, AL_BUFFER, 0);
 
@@ -721,33 +722,66 @@ void AudioEngine::fillStreamingBuffer(Streaming& stream) {
     std::ignore = alCall(alSourceQueueBuffers, stream.source, 1, &buf);
     stream.current_buffer = (stream.current_buffer + 1) % Streaming::BUFFER_COUNT;
     stream.queued_buffer_count++;
-};
+}
 
 void AudioEngine::processCmdStop(const audio::cmd::StopStream& cmd) {
-    std::ignore = cmd;
-};
+    if (cmd.id >= streaming_sources_.size()) {
+        MLE_E("Invalid streaming source id: {}", cmd.id);
+        return;
+    }
+
+    stopStream(cmd.id);
+}
 
 void AudioEngine::processCmdPause(const audio::cmd::PauseStream& cmd) {
-    std::ignore = cmd;
-};
+    if (cmd.id >= streaming_sources_.size()) {
+        MLE_E("Invalid streaming source id: {}", cmd.id);
+        return;
+    }
+
+    auto& stream = streaming_sources_.at(cmd.id);
+    if (stream.active && stream.source != 0 && !stream.paused) {
+        std::ignore = alCall(alSourcePause, stream.source);
+        stream.paused = true;
+    }
+}
 
 void AudioEngine::processCmdResume(const audio::cmd::ResumeStream& cmd) {
-    std::ignore = cmd;
-};
+    if (cmd.id >= streaming_sources_.size()) {
+        MLE_E("Invalid streaming source id: {}", cmd.id);
+        return;
+    }
+
+    auto& stream = streaming_sources_.at(cmd.id);
+    if (stream.active && stream.source != 0 && stream.paused) {
+        std::ignore = alCall(alSourcePlay, stream.source);
+        stream.paused = false;
+    }
+}
 
 void AudioEngine::processCmdSetVolume(const audio::cmd::SetVolume& cmd) {
     std::ignore = cmd;
-};
+}
 
 void AudioEngine::processCmdSetListener(const audio::cmd::SetListener& cmd) {
     std::ignore = cmd;
-};
+}
 
 void AudioEngine::processCmdSetDistanceParams(const audio::cmd::SetDistanceParams& cmd) {
     std::ignore = cmd;
-};
+}
 
-void AudioEngine::processCmdStopAll(const audio::cmd::StopAll& cmd) {
-    std::ignore = cmd;
-};
+void AudioEngine::processCmdStopAll(const audio::cmd::StopAll& /*unused*/) {
+    for (usize i = 0; i < streaming_sources_.size(); ++i) {
+        stopStream(i);
+    }
+
+    for (auto& source : one_shot_sources_) {
+        if (source.priority > 0) {
+            std::ignore = alCall(alSourceStop, source.source);
+            source.priority = 0;
+        }
+    }
+}
+
 }  // namespace mle
