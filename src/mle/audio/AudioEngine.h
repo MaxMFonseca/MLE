@@ -11,18 +11,8 @@
 namespace mle {
 class VolumeMixer {
   public:
-    [[nodiscard]] f32 compute(u8 b, f32 source_linear = 1.0F) const;
-    void apply(ALuint src, u8 b, f32 source_linear = 1.0F) const { alSourcef(src, AL_GAIN, compute(b, source_linear)); }
-    void setMasterDb(f32 db) { master_ = dbToLinear(db); }
-    void setBusDb(u8 b, f32 db) {
-        if (b < bus_volumes_db_.size()) {
-            bus_volumes_db_.at(b) = db;
-        }
-    }
-
+  public:
   private:
-    f32 master_ = dbToLinear(0.0F);
-    std::array<f32, 7> bus_volumes_db_{-6.0F};
 };
 
 class AudioEngine {
@@ -32,6 +22,7 @@ class AudioEngine {
         ALuint source{};
         u32 priority{0};
         u8 bus = 0;
+        f32 volume = 1;
     };
 
     struct Streaming {
@@ -50,11 +41,13 @@ class AudioEngine {
         usize last_sample{0};
         bool looping{false};
         u8 bus = 0;
+        f32 volume{1.0F};
         bool active{false};
         bool paused{false};
     };
 
     constexpr static usize MAX_STREAMING_SOURCES = 6;
+    static constexpr usize BUS_COUNT = 8;
 
   public:
     Result init();
@@ -94,11 +87,14 @@ class AudioEngine {
 
     void freeAllSources();
 
+    void setBusVolumeLinear(u8 b, f32 linear);
+    void applyVolume(ALuint source, u8 bus, f32 source_linear) const;
+
   private:
     ALCdevice* device_{};
     ALCcontext* context_{};
 
-    VolumeMixer mixer_{};
+    std::array<f32, BUS_COUNT> bus_volumes_{};
 
     std::unordered_map<entt::id_type, ALuint> loaded_sounds_{};
     std::unordered_map<entt::id_type, Path> stream_sounds_{};

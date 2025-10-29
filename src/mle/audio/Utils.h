@@ -13,11 +13,11 @@ struct WavData {
 
 Expected<WavData> loadWavFile(const Path& path);
 
-constexpr float dbToLinear(float db) {
+constexpr f32 dbToLinear(float db) {
     return std::pow(10.0F, db / 20.0F);
 }
 
-inline float linearToDb(float g) {
+inline f32 linearToDb(float g) {
     if (g <= 0.000001F) {
         return -120.0F;
     }

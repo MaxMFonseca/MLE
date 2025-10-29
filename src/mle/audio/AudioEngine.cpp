@@ -13,6 +13,7 @@
 #include "mle/core/Consts.h"
 #include "mle/core/Logger.h"
 #include "mle/core/PerfTracker.h"
+#include "mle/math/Types.h"
 #include "mle/utils/String.h"
 
 namespace mle {
@@ -119,6 +120,8 @@ Result AudioEngine::init() {
 
     initRTCLs();
 
+    bus_volumes_.fill(1.0F);
+
     device_ = alcOpenDevice(nullptr);
     if (!device_) {
         MLE_E("Failed to open OpenAL device");
@@ -143,8 +146,8 @@ Result AudioEngine::init() {
 void AudioEngine::initRTCLs() {
     MLE_D("Initializing AudioEngine RTCLs");
 
-    // This is ugly but its only for debug purposes now
-    // I need to create a better command line parser in order to make this ok
+    // FIXME: This is ugly but its only for debug purposes now
+    // I need to create a better command line parser in order to make this usable
 
     rtcls_.at(as<usize>(RTCLs::PLAY_ONE_SHOT))
         .setKey("audio.play_one_shot")
@@ -166,14 +169,15 @@ void AudioEngine::initRTCLs() {
         .setKey("audio.start_stream")
         .setCallback([this](const std::string& v) {
             auto ss = split(v, ' ');
-            if (ss.size() != 2) {
-                MLE_E("audio.start_stream requires 2 arguments: <sound_name> <id>");  // NOLINT
+            if (ss.size() != 3) {
+                MLE_E("audio.start_stream requires 2 arguments: <sound_name> <id> <bus>");  // NOLINT
                 return false;
             }
             audio::cmd::StartStream cmd;
             const std::string sound_name{ss.at(0)};
             cmd.sound_id = entt::hashed_string{sound_name.c_str()};
             cmd.id = strTo<u8>(ss.at(1)).value_or(0);
+            cmd.params.bus = strTo<u8>(ss.at(2)).value_or(0);
             enqueueCmd(cmd);
             return false;
         })
@@ -466,12 +470,28 @@ void AudioEngine::runLoop(std::stop_token st) {
     std::ignore = alcCall(alcMakeContextCurrent, nullptr);
 }
 
-[[nodiscard]] f32 VolumeMixer::compute(u8 b, f32 source_linear) const {
-    f32 bus = 1.0F;
-    if (b < bus_volumes_db_.size()) {
-        bus = dbToLinear(bus_volumes_db_.at(b));
+void AudioEngine::setBusVolumeLinear(u8 b, f32 linear) {
+    if (b >= bus_volumes_.size()) {
+        MLE_W("Invalid bus index: {}", b);
+        return;
     }
-    return std::clamp(master_ * bus * source_linear, 0.0F, 4.0F);
+    bus_volumes_.at(b) = linear;
+    MLE_C("Set bus {} volume to: {}", b, linear);
+}
+
+void AudioEngine::applyVolume(ALuint source, u8 bus, f32 source_linear) const {
+    if (bus >= bus_volumes_.size()) {
+        MLE_W("Invalid bus index: {}", bus);
+        return;
+    }
+
+    f32 master = bus_volumes_.at(0);
+    f32 bus_v = bus == 0 ? 1.F : bus_volumes_.at(bus);
+    auto gain = std::clamp(master * bus_v * source_linear, 0.0F, 4.0F);
+
+    if (!alCall(alSourcef, source, AL_GAIN, gain)) {
+        MLE_W("Failed to set gain for source ID: {}", source);
+    }
 }
 
 void AudioEngine::enqueueCmd(const audio::Cmd& cmd) {
@@ -568,6 +588,7 @@ void AudioEngine::processCmdPlayOneShot(const audio::cmd::PlayOneShot& cmd) {
         return;
     }
 
+    auto oss_idx = max<usize>();
     ALuint source = 0;
     auto lowest_priority = max<usize>();
     auto lowest_priority_idx = max<usize>();
@@ -575,7 +596,7 @@ void AudioEngine::processCmdPlayOneShot(const audio::cmd::PlayOneShot& cmd) {
         auto& s = one_shot_sources_[i];
         if (s.priority == 0) {
             source = s.source;
-            s.priority = cmd.priority;
+            oss_idx = i;
             break;
         }
         if (s.priority < lowest_priority) {
@@ -587,13 +608,18 @@ void AudioEngine::processCmdPlayOneShot(const audio::cmd::PlayOneShot& cmd) {
         if (cmd.priority > lowest_priority) {
             auto& s = one_shot_sources_[lowest_priority_idx];
             source = s.source;
-            s.priority = cmd.priority;
             std::ignore = alCall(alSourceStop, source);
+            oss_idx = lowest_priority_idx;
         } else {
             MLE_T("No available audio sources to play sound ID: {} with priority: {}", cmd.sound_id, cmd.priority);
             return;
         }
     }
+
+    auto& oss = one_shot_sources_.at(oss_idx);
+    oss.priority = cmd.priority;
+    oss.bus = cmd.params.bus;
+    oss.volume = cmd.params.volume;
 
     std::ignore = alCall(alSourcef, source, AL_PITCH, 1);
     std::ignore = alCall(alSource3f, source, AL_POSITION, 0, 0, 0);
@@ -601,6 +627,8 @@ void AudioEngine::processCmdPlayOneShot(const audio::cmd::PlayOneShot& cmd) {
     std::ignore = alCall(alSourcef, source, AL_GAIN, 1.0F);
     std::ignore = alCall(alSourcei, source, AL_LOOPING, AL_FALSE);
     std::ignore = alCall(alSourcei, source, AL_BUFFER, buffer_it->second);
+
+    applyVolume(oss.source, oss.bus, oss.volume);
 
     std::ignore = alCall(alSourcePlay, source);
 };
@@ -621,6 +649,8 @@ void AudioEngine::processCmdStartStream(const audio::cmd::StartStream& cmd) {
     stopStream(cmd.id);
 
     auto& stream = streaming_sources_.at(cmd.id);
+
+    MLE_D("starting stream ID: {} for sound ID: {} from file: {}", cmd.id, cmd.sound_id, path);
 
     Expected<WavData> wav_data = loadWavFile(path);
     if (!wav_data) {
@@ -670,6 +700,7 @@ void AudioEngine::processCmdStartStream(const audio::cmd::StartStream& cmd) {
     stream.bus = cmd.params.bus;
     stream.active = true;
     stream.paused = false;
+    stream.volume = cmd.params.volume;
 
     std::ignore = alCall(alSourcei, stream.source, AL_BUFFER, 0);
 
@@ -682,6 +713,8 @@ void AudioEngine::processCmdStartStream(const audio::cmd::StartStream& cmd) {
     std::ignore = alCall(alSource3f, stream.source, AL_VELOCITY, cmd.params.velocity.x, cmd.params.velocity.y, cmd.params.velocity.z);
     std::ignore = alCall(alSourcef, stream.source, AL_GAIN, cmd.params.volume);
     std::ignore = alCall(alSourcei, stream.source, AL_LOOPING, AL_FALSE);
+
+    applyVolume(stream.source, stream.bus, stream.volume);
 
     std::ignore = alCall(alSourcePlay, stream.source);
 };
@@ -760,7 +793,24 @@ void AudioEngine::processCmdResume(const audio::cmd::ResumeStream& cmd) {
 }
 
 void AudioEngine::processCmdSetVolume(const audio::cmd::SetVolume& cmd) {
-    std::ignore = cmd;
+    if (cmd.bus >= BUS_COUNT) {
+        MLE_W("Invalid bus index: {}", cmd.bus);
+        return;
+    }
+
+    setBusVolumeLinear(cmd.bus, cmd.volume);
+
+    for (auto& source : one_shot_sources_) {
+        if (source.bus == cmd.bus && source.priority > 0) {
+            applyVolume(source.source, cmd.bus, source.volume);
+        }
+    }
+
+    for (auto& stream : streaming_sources_) {
+        if (stream.bus == cmd.bus && stream.active) {
+            applyVolume(stream.source, cmd.bus, stream.volume);
+        }
+    }
 }
 
 void AudioEngine::processCmdSetListener(const audio::cmd::SetListener& cmd) {
