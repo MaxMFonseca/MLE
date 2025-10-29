@@ -621,13 +621,11 @@ void AudioEngine::processCmdPlayOneShot(const audio::cmd::PlayOneShot& cmd) {
     oss.bus = cmd.params.bus;
     oss.volume = cmd.params.volume;
 
-    std::ignore = alCall(alSourcef, source, AL_PITCH, 1);
-    std::ignore = alCall(alSource3f, source, AL_POSITION, 0, 0, 0);
-    std::ignore = alCall(alSource3f, source, AL_VELOCITY, 0, 0, 0);
-    std::ignore = alCall(alSourcef, source, AL_GAIN, 1.0F);
-    std::ignore = alCall(alSourcei, source, AL_LOOPING, AL_FALSE);
     std::ignore = alCall(alSourcei, source, AL_BUFFER, buffer_it->second);
-
+    std::ignore = alCall(alSourcef, source, AL_PITCH, cmd.params.pitch);
+    std::ignore = alCall(alSource3f, source, AL_POSITION, cmd.params.position.x, cmd.params.position.y, cmd.params.position.z);
+    std::ignore = alCall(alSource3f, source, AL_VELOCITY, cmd.params.velocity.x, cmd.params.velocity.y, cmd.params.velocity.z);
+    std::ignore = alCall(alSourcei, source, AL_LOOPING, AL_FALSE);
     applyVolume(oss.source, oss.bus, oss.volume);
 
     std::ignore = alCall(alSourcePlay, source);
@@ -711,9 +709,7 @@ void AudioEngine::processCmdStartStream(const audio::cmd::StartStream& cmd) {
     std::ignore = alCall(alSourcef, stream.source, AL_PITCH, cmd.params.pitch);
     std::ignore = alCall(alSource3f, stream.source, AL_POSITION, cmd.params.position.x, cmd.params.position.y, cmd.params.position.z);
     std::ignore = alCall(alSource3f, stream.source, AL_VELOCITY, cmd.params.velocity.x, cmd.params.velocity.y, cmd.params.velocity.z);
-    std::ignore = alCall(alSourcef, stream.source, AL_GAIN, cmd.params.volume);
     std::ignore = alCall(alSourcei, stream.source, AL_LOOPING, AL_FALSE);
-
     applyVolume(stream.source, stream.bus, stream.volume);
 
     std::ignore = alCall(alSourcePlay, stream.source);
