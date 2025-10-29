@@ -74,38 +74,18 @@ void Client::run() {
     auto t_prev = running_sw_.elapsed<ns>();
     std::chrono::nanoseconds accumulator = 0ns;
 
-    Stopwatch testing_sw;
     AudioEngine::i().enqueueCmd(audio::cmd::Load{
         .name = "mle/t",
         .stream = false,
     });
     AudioEngine::i().enqueueCmd(audio::cmd::Load{
+        .name = "i/ambient",
+        .stream = true,
+    });
+    AudioEngine::i().enqueueCmd(audio::cmd::Load{
         .name = "i/ambient7s",
         .stream = true,
     });
-    AudioEngine::i().enqueueCmd(audio::cmd::StartStream{
-        .sound_id = entt::hashed_string("i/ambient7s"),
-        // .loop = true,
-        .id = 0,
-    });
-    // AudioEngine::i().enqueueCmd(audio::cmd::StartStream{
-    //     .sound_id = entt::hashed_string("i/ambient7s"),
-    //     .loop = true,
-    //     .id = 1,
-    //     .params =
-    //         {
-    //             .start_offset_ms = 1000,
-    //         },
-    // });
-    // AudioEngine::i().enqueueCmd(audio::cmd::StartStream{
-    //     .sound_id = entt::hashed_string("i/ambient7s"),
-    //     .loop = true,
-    //     .id = 2,
-    //     .params =
-    //         {
-    //             .start_offset_ms = 2000,
-    //         },
-    // });
 
     if (!next_game_layer_) {
         MLE_W("No initial game layer set! Pushing empty layer.");
@@ -129,17 +109,6 @@ void Client::run() {
 
         if (updates == MAX_CATCH_UP && accumulator >= FIXED_DT) {
             accumulator %= FIXED_DT;
-        }
-
-        if (testing_sw.elapsedMSFloat() > 2000) {
-            testing_sw.reset();
-
-            AudioEngine::i().enqueueCmd(audio::cmd::StartStream{
-                .sound_id = entt::hashed_string("i/ambient7s"),
-                // .loop = true,
-                .id = 1,
-                .params = {.start_offset_ms = 2000},
-            });
         }
 
         // const f64 alpha = static_cast<f64>(accumulator.count()) / static_cast<f64>(FIXED_DT.count());

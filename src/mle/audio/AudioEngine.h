@@ -64,6 +64,8 @@ class AudioEngine {
     void enqueueCmd(const audio::Cmd& cmd);
 
   private:
+    void initRTCLs();
+
     void runLoop(std::stop_token st);
     Result genSources(usize target = max<usize>());
     void updateSources();
@@ -109,12 +111,8 @@ class AudioEngine {
     // TODO: make this lock-free
     TSQueue<audio::Cmd> cmd_queue_{};
 
-    // enum class RTCLTypes {LOAD, PLAY_ONE_SHOT, START_STREAM, STOP_STREAM, PAUSE_STREAM, RESUME_STREAM, SET_VOLUME, SET_LISTENER, SET_DISTANCE_PARAMS,
-    // STOP_ALL};
+    enum class RTCLs : u8 { PLAY_ONE_SHOT, START_STREAM, STOP_STREAM, PAUSE_STREAM, RESUME_STREAM, SET_VOLUME, STOP_ALL, COUNT };
 
-    RuntimeConfigListener swapchain_rtcl0_;
-    RuntimeConfigListener swapchain_rtcl1_;
-    RuntimeConfigListener swapchain_default_clear_color_rtcl_;
-    RuntimeConfigListener target_fps_rtcl_;
+    std::array<RuntimeConfigListener, as<usize>(RTCLs::COUNT)> rtcls_;
 };
 }  // namespace mle

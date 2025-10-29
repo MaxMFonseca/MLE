@@ -13,6 +13,7 @@
 #include "mle/core/Consts.h"
 #include "mle/core/Logger.h"
 #include "mle/core/PerfTracker.h"
+#include "mle/utils/String.h"
 
 namespace mle {
 namespace {
@@ -116,6 +117,8 @@ template <typename F, typename... Args>
 Result AudioEngine::init() {
     MLE_I("Initializing Audio Engine");
 
+    initRTCLs();
+
     device_ = alcOpenDevice(nullptr);
     if (!device_) {
         MLE_E("Failed to open OpenAL device");
@@ -135,6 +138,116 @@ Result AudioEngine::init() {
     run_thread_ = std::jthread([this](std::stop_token st) { runLoop(std::move(st)); });
 
     return Result::OK;
+}
+
+void AudioEngine::initRTCLs() {
+    MLE_D("Initializing AudioEngine RTCLs");
+
+    // This is ugly but its only for debug purposes now
+    // I need to create a better command line parser in order to make this ok
+
+    rtcls_.at(as<usize>(RTCLs::PLAY_ONE_SHOT))
+        .setKey("audio.play_one_shot")
+        .setCallback([this](const std::string& v) {
+            auto ss = split(v, ' ');
+            if (ss.size() != 1) {
+                MLE_E("audio.play_one_shot requires 1 argument: <sound_name>");  // NOLINT
+                return false;
+            }
+            audio::cmd::PlayOneShot cmd;
+            const std::string sound_name{ss.at(0)};
+            cmd.sound_id = entt::hashed_string{sound_name.c_str()};
+            enqueueCmd(cmd);
+            return false;
+        })
+        .listen();
+
+    rtcls_.at(as<usize>(RTCLs::START_STREAM))
+        .setKey("audio.start_stream")
+        .setCallback([this](const std::string& v) {
+            auto ss = split(v, ' ');
+            if (ss.size() != 2) {
+                MLE_E("audio.start_stream requires 2 arguments: <sound_name> <id>");  // NOLINT
+                return false;
+            }
+            audio::cmd::StartStream cmd;
+            const std::string sound_name{ss.at(0)};
+            cmd.sound_id = entt::hashed_string{sound_name.c_str()};
+            cmd.id = strTo<u8>(ss.at(1)).value_or(0);
+            enqueueCmd(cmd);
+            return false;
+        })
+        .listen();
+
+    rtcls_.at(as<usize>(RTCLs::STOP_STREAM))
+        .setKey("audio.stop_stream")
+        .setCallback([this](const std::string& v) {
+            auto ss = split(v, ' ');
+            if (ss.size() != 1) {
+                MLE_E("audio.stop_stream requires 1 argument: <stream_id>");  // NOLINT
+                return false;
+            }
+            audio::cmd::StopStream cmd;
+            cmd.id = strTo<u8>(ss.at(0)).value_or(0);
+            enqueueCmd(cmd);
+            return false;
+        })
+        .listen();
+
+    rtcls_.at(as<usize>(RTCLs::PAUSE_STREAM))
+        .setKey("audio.pause_stream")
+        .setCallback([this](const std::string& v) {
+            auto ss = split(v, ' ');
+            if (ss.size() != 1) {
+                MLE_E("audio.pause_stream requires 1 argument: <stream_id>");  // NOLINT
+                return false;
+            }
+            audio::cmd::PauseStream cmd;
+            cmd.id = strTo<u8>(ss.at(0)).value_or(0);
+            enqueueCmd(cmd);
+            return false;
+        })
+        .listen();
+
+    rtcls_.at(as<usize>(RTCLs::RESUME_STREAM))
+        .setKey("audio.resume_stream")
+        .setCallback([this](const std::string& v) {
+            auto ss = split(v, ' ');
+            if (ss.size() != 1) {
+                MLE_E("audio.resume_stream requires 1 argument: <stream_id>");  // NOLINT
+                return false;
+            }
+            audio::cmd::ResumeStream cmd;
+            cmd.id = strTo<u8>(ss.at(0)).value_or(0);
+            enqueueCmd(cmd);
+            return false;
+        })
+        .listen();
+
+    rtcls_.at(as<usize>(RTCLs::SET_VOLUME))
+        .setKey("audio.set_volume")
+        .setCallback([this](const std::string& v) {
+            auto ss = split(v, ' ');
+            if (ss.size() != 2) {
+                MLE_E("audio.set_volume requires 2 arguments: <bus> <volume>");  // NOLINT
+                return false;
+            }
+            audio::cmd::SetVolume cmd;
+            cmd.bus = strTo<u8>(ss.at(0)).value_or(0);
+            cmd.volume = strTo<f32>(ss.at(1)).value_or(1.0F);
+            enqueueCmd(cmd);
+            return false;
+        })
+        .listen();
+
+    rtcls_.at(as<usize>(RTCLs::STOP_ALL))
+        .setKey("audio.stop_all")
+        .setCallback([this](const std::string&) {
+            audio::cmd::StopAll cmd;
+            enqueueCmd(cmd);
+            return false;
+        })
+        .listen();
 }
 
 void AudioEngine::logAvailableDevices() {
