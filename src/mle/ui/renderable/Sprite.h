@@ -31,7 +31,7 @@ struct Sprite : public RenderableI {
     [[nodiscard]] entt::id_type getType() const override { return type(); }
     static entt::id_type type() { return entt::hashed_string{"Sprite"}; }
 
-    void doUpdatePacket(RenderablePacketI* packet) override;
+    void doUpdatePacket(const Entt& ew, RenderablePacketI* packet) override;
 
     static void apply(const Entt& e, const sol::object& obj);
 };

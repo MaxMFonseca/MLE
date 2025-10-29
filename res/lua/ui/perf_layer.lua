@@ -14,11 +14,13 @@ return {
 			c = {
 				{
 					idx = 0,
-					text = { "PerfTracker/s:", height = "20px" },
+					text = { "PerfTracker/s:", height = "23px" },
+					background = { "BLACK", 0.5 },
 				},
 				text = {
 					idx = 1,
-					text = { height = "20px" },
+					text = { height = "23px" },
+					background = { "BLACK", 0.5 },
 				},
 			},
 		},
@@ -33,11 +35,13 @@ return {
 			c = {
 				{
 					idx = 0,
-					text = { "GpuPerf:", height = "20px" },
+					text = { "GpuPerf:", height = "23px" },
+					background = { "BLACK", 0.5 },
 				},
 				text = {
 					idx = 1,
-					text = { height = "20px", justify = "e" },
+					text = { height = "23px", justify = "e" },
+					background = { "BLACK", 0.5 },
 				},
 			},
 		},

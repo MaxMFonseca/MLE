@@ -75,10 +75,11 @@ return {
 			size = { xrel = "blur", yrel = "blur:0.2" },
 			origin = "lc",
 			style = { "basic_round", "basic_border" },
-			blur = {
-				radius = 13,
-				sigma = 5,
-			},
+			-- blur = {
+			-- 	radius = 13,
+			-- 	sigma = 5,
+			-- },
+			background = { "BLACK", 0.5 },
 			on_hover = function()
 				return 12
 			end,

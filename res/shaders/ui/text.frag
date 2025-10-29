@@ -9,7 +9,7 @@ layout(location = 0) out vec4 out_color;
 void main()
 {
   float value = texture(in_color, in_uv).r;
-  if (value < 0.4) {
+  if (value < 0.5) {
     discard;
   }
   out_color = vec4(1.0, 1.0, 1.0, 1.0);

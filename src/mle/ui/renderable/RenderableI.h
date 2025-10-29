@@ -29,14 +29,14 @@ struct RenderableI {
 
     virtual void set(const Entt& e, const sol::object& obj) = 0;
 
-    void updatePacket(RenderablePacketI* packet) {
+    void updatePacket(const Entt& ew, RenderablePacketI* packet) {
         if (packet && packet->version != version) {
             packet->version = version;
-            doUpdatePacket(packet);
+            doUpdatePacket(ew, packet);
         }
     }
 
-    virtual void doUpdatePacket(RenderablePacketI* packet) = 0;
+    virtual void doUpdatePacket(const Entt& ew, RenderablePacketI* packet) = 0;
 
     [[nodiscard]] virtual vec2u calculateBounds(const Entt& e, vec2u max_size) = 0;
 

@@ -80,7 +80,7 @@ Rendering::Packet::Node Rendering::createPacketNode(u8 atomic_buffer_id, entt::e
         node.bg = background_r->color;
     }
     if (auto* renderable_r = ew.tryGet<comp::Renderable>(); renderable_r) {
-        node.renderable_packet = renderable_r->updatePacket(atomic_buffer_id);
+        node.renderable_packet = renderable_r->updatePacket(ew, atomic_buffer_id);
     }
     if (const auto* shader_r = ew.tryGet<comp::Shader>(); shader_r) {
         node.shader_packet = shader_r->updatePacket(atomic_buffer_id);

@@ -22,7 +22,7 @@ void TerminalLayer::init() {
 
     ui_.setRoot("mle/ui/terminal_layer");
 
-    auto terminal_text_entt_r = ui_.getE(std::array<const std::string_view, 1>{"text"});
+    auto terminal_text_entt_r = ui_.getE(std::array<const std::string_view, 2>{"text_c", "text"});
     if (terminal_text_entt_r.has_value()) {
         terminal_text_entt_ = terminal_text_entt_r->e();
     } else {

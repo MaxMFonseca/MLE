@@ -152,7 +152,7 @@ void SpritePacket::render(CompRenderingCtx& ctx) {
     return max_size;
 };
 
-void Sprite::doUpdatePacket(RenderablePacketI* packet) {
+void Sprite::doUpdatePacket(const Entt& /*ew*/, RenderablePacketI* packet) {
     auto* packet_p = as<SpritePacket*>(packet);
     if (packet_p->texture_id != texture_id) {
         packet_p->texture_id = texture_id;

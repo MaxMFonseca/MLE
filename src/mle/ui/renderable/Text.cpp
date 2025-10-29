@@ -260,16 +260,20 @@ vec2u Text::calculateBounds(const Entt& e, vec2u max_size) {
 
     vec2u final_size = glm::min(rendered_text_px, max_size);
 
-    makeCharsBuffer();
+    chars_buffer_needs_update = true;
 
     versionUp();
 
     return final_size;
 }
 
-void Text::makeCharsBuffer() {
+void Text::makeCharsBuffer(vec2u viewport_size) {
     auto& font = *Renderer::i().fontCache().get(font_id);
     std::map<ImageRef, std::vector<TextPacket::CharsInstance>> image_to_chars_map;
+
+    auto viewport_size_f = as<vec2f>(viewport_size);
+    auto text_extent_f = as<vec2f>(render_text.text_extent) * font_height_px_f;
+    auto scale = text_extent_f / viewport_size_f;
 
     for (auto c : render_text.chars) {
         if (c.codepoint == U' ') {
@@ -280,8 +284,8 @@ void Text::makeCharsBuffer() {
         new_char.texture_pos = atlas_entry.second.pos();
         new_char.texture_size = atlas_entry.second.size();
 
-        new_char.pos = c.rect.pos() / render_text.text_extent;
-        new_char.size = c.rect.size() / render_text.text_extent;
+        new_char.pos = c.rect.pos() / render_text.text_extent * scale;
+        new_char.size = c.rect.size() / render_text.text_extent * scale;
     }
     current_rendering_chars_instance_data.clear();
     per_image_data.clear();
@@ -289,11 +293,17 @@ void Text::makeCharsBuffer() {
         per_image_data.push_back({image_ref, current_rendering_chars_instance_data.size(), chars.size()});
         current_rendering_chars_instance_data.insert(current_rendering_chars_instance_data.end(), chars.begin(), chars.end());
     }
+    chars_buffer_needs_update = false;
 }
 
-void Text::doUpdatePacket(RenderablePacketI* packet) {
+void Text::doUpdatePacket(const Entt& ew, RenderablePacketI* packet) {
     if (text.empty()) {
         return;
+    }
+
+    if (chars_buffer_needs_update) {
+        auto& bounds = ew.get<comp::Bounds>();
+        makeCharsBuffer(bounds.parent_px.size());
     }
 
     auto& p = *as<TextPacket*>(packet);

@@ -811,10 +811,14 @@ void AudioEngine::processCmdSetVolume(const audio::cmd::SetVolume& cmd) {
 
 void AudioEngine::processCmdSetListener(const audio::cmd::SetListener& cmd) {
     std::ignore = cmd;
+    std::ignore = device_;
+    MLE_TODO;
 }
 
 void AudioEngine::processCmdSetDistanceParams(const audio::cmd::SetDistanceParams& cmd) {
     std::ignore = cmd;
+    std::ignore = device_;
+    MLE_TODO;
 }
 
 void AudioEngine::processCmdStopAll(const audio::cmd::StopAll& /*unused*/) {

@@ -52,6 +52,15 @@ Color Color::fromLua(const sol::object& object) {
         case sol::type::table: {
             auto table = object.as<sol::table>();
 
+            if (const auto t1_r = table[1]; lua::valid<std::string>(t1_r)) {
+                Color ret;
+                ret = fromString(table[1].get<std::string>());
+                if (const auto t2_r = table[2]; lua::valid<f32>(t2_r)) {
+                    ret.a = t2_r.get<f32>();
+                }
+                return ret;
+            }
+
             f32 r = NAN, g = NAN, b = NAN;
             if (!lua::tryGetList<f32>(table, r, g, b)) {
                 MLE_W("Invalid Lua color table, returning WHITE");
@@ -105,9 +114,9 @@ std::unordered_map<std::string, Color>& Color::colors() {
 }
 
 void Color::addEngineDefaultColors() {
-    std::vector<std::pair<std::string, Color>> default_colors = {{"ZERO", ZERO},   {"BLACK", BLACK}, {"WHITE", WHITE},     {"RED", RED},
-                                                                 {"GREEN", GREEN}, {"BLUE", BLUE},   {"MAGENTA", MAGENTA}, {"YELLOW", YELLOW},
-                                                                 {"CYAN", CYAN},   {"GRAY", GRAY},   {"NQB", NQB},         {"NQW", NQW}};
+    std::vector<std::pair<std::string, Color>> default_colors = {{"ZERO", ZERO},   {"ONE", ONE},   {"BLACK", BLACK},     {"WHITE", WHITE},   {"RED", RED},
+                                                                 {"GREEN", GREEN}, {"BLUE", BLUE}, {"MAGENTA", MAGENTA}, {"YELLOW", YELLOW}, {"CYAN", CYAN},
+                                                                 {"GRAY", GRAY},   {"NQB", NQB},   {"NQW", NQW}};
 
     MLE_D("Adding engine default colors");
     for (const auto& [name, color] : default_colors) {

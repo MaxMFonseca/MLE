@@ -418,8 +418,8 @@ void VkCtx::pickImageFormats() {
 
     static constexpr std::array NORMALS{vk::Format::eR16G16Sfloat, vk::Format::eR16G16Unorm};
 
-    static constexpr std::array COLOR{vk::Format::eA2B10G10R10UnormPack32, vk::Format::eR16G16B16A16Sfloat, vk::Format::eB8G8R8A8Unorm,
-                                      vk::Format::eR8G8B8A8Unorm};
+    // FIXME: fix formats ffs, colors should be b10g10r10a2 if possible, but the current layer suff braks alpha if I do that. sooooooooooo fix
+    static constexpr std::array COLOR{vk::Format::eB8G8R8A8Unorm, vk::Format::eR8G8B8A8Unorm};
     static constexpr std::array STORAGE_4U8{vk::Format::eR8G8B8A8Unorm};
     static constexpr std::array STORAGE_F32{vk::Format::eR32Sfloat};
     static constexpr std::array STORAGE_U32{vk::Format::eR32Uint};

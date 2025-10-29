@@ -12,9 +12,9 @@ struct Renderable {
 
     std::array<std::shared_ptr<RenderablePacketI>, 3> packet_buffers_;
 
-    [[nodiscard]] auto updatePacket(usize idx) const {
+    [[nodiscard]] auto updatePacket(const Entt& ew, usize idx) const {
         std::shared_ptr<RenderablePacketI> packet = packet_buffers_.at(idx);
-        impl->updatePacket(packet.get());
+        impl->updatePacket(ew, packet.get());
         return packet;
     }
     [[nodiscard]] vec2u calculateBounds(const Entt& e, vec2u max_size) const { return impl->calculateBounds(e, max_size); }

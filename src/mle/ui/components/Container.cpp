@@ -58,7 +58,7 @@ void Container::set(const sol::table& table) {
         tb.set(list_cross_max_size_r);
         setListCrossMaxSize(tb);
     }
-    if (const auto list_main_min_gap_r = lua::getFirstKey(table, "main_min_gap"); list_main_min_gap_r.valid()) {
+    if (const auto list_main_min_gap_r = lua::getFirstKey(table, "main_min_gap", "gap"); list_main_min_gap_r.valid()) {
         TargetBound tb{};
         tb.set(list_main_min_gap_r);
         setListMainMinGap(tb);

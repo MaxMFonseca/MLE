@@ -54,9 +54,9 @@ class Pipeline final {
             blend_attachments[i].srcColorBlendFactor = vk::BlendFactor::eSrcAlpha;
             blend_attachments[i].dstColorBlendFactor = vk::BlendFactor::eOneMinusSrcAlpha;
             blend_attachments[i].colorBlendOp = vk::BlendOp::eAdd;
-            blend_attachments[i].srcAlphaBlendFactor = vk::BlendFactor::eOne;
-            blend_attachments[i].dstAlphaBlendFactor = vk::BlendFactor::eZero;
-            blend_attachments[i].alphaBlendOp = vk::BlendOp::eAdd;
+            blend_attachments[i].srcAlphaBlendFactor = vk::BlendFactor::eSrcAlpha;
+            blend_attachments[i].dstAlphaBlendFactor = vk::BlendFactor::eDstAlpha;
+            blend_attachments[i].alphaBlendOp = vk::BlendOp::eMax;
             blend_attachments[i].colorWriteMask =
                 vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
         }
@@ -70,9 +70,9 @@ class Pipeline final {
             blend_attachments[i].srcColorBlendFactor = vk::BlendFactor::eSrcAlpha;
             blend_attachments[i].dstColorBlendFactor = vk::BlendFactor::eOneMinusSrcAlpha;
             blend_attachments[i].colorBlendOp = vk::BlendOp::eAdd;
-            blend_attachments[i].srcAlphaBlendFactor = vk::BlendFactor::eOne;
-            blend_attachments[i].dstAlphaBlendFactor = vk::BlendFactor::eZero;
-            blend_attachments[i].alphaBlendOp = vk::BlendOp::eAdd;
+            blend_attachments[i].srcAlphaBlendFactor = vk::BlendFactor::eSrcAlpha;
+            blend_attachments[i].dstAlphaBlendFactor = vk::BlendFactor::eDstAlpha;
+            blend_attachments[i].alphaBlendOp = vk::BlendOp::eMax;
             blend_attachments[i].colorWriteMask =
                 vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
         }

@@ -43,6 +43,7 @@ struct Text : public RenderableI {
     f32 line_max_aspect = 0.F;
     bool wrap = false;
     bool multiline_input = false;
+    bool chars_buffer_needs_update = true;
 
     Font::RenderText render_text;
 
@@ -53,7 +54,7 @@ struct Text : public RenderableI {
 
     TextBoxHnd input_tb;
 
-    void makeCharsBuffer();
+    void makeCharsBuffer(vec2u viewport_size);
 
     void makeInputBox(const Entt& ew, const sol::object& obj);
     void enableInputBox() const;
@@ -75,7 +76,7 @@ struct Text : public RenderableI {
     [[nodiscard]] entt::id_type getType() const override { return type(); }
     static entt::id_type type() { return entt::hashed_string{"Text"}; }
 
-    void doUpdatePacket(RenderablePacketI* packet) override;
+    void doUpdatePacket(const Entt& ew, RenderablePacketI* packet) override;
 
     Text() = default;
     ~Text() override;
