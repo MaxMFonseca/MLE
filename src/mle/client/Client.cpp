@@ -13,6 +13,7 @@
 #include "mle/renderer/Image.h"
 #include "mle/renderer/Renderer.h"
 #include "mle/utils/Color.h"
+#include "mle/utils/ECS.h"
 #include "mle/utils/Stopwatch.h"
 #include "mle/window/TextBox.h"
 #include "mle/window/Window.h"
@@ -74,6 +75,7 @@ void Client::run() {
     auto t_prev = running_sw_.elapsed<ns>();
     std::chrono::nanoseconds accumulator = 0ns;
 
+    Stopwatch test_sw;
     AudioEngine::i().enqueueCmd(audio::cmd::Load{
         .name = "mle/t",
         .stream = false,
@@ -109,6 +111,13 @@ void Client::run() {
 
         if (updates == MAX_CATCH_UP && accumulator >= FIXED_DT) {
             accumulator %= FIXED_DT;
+        }
+
+        if (test_sw.elapsedMSFloat() > 33) {
+            test_sw.reset();
+            AudioEngine::i().enqueueCmd(audio::cmd::PlayOneShot{
+                .sound_id = entt::hashed_string{"mle/t"},
+            });
         }
 
         // const f64 alpha = static_cast<f64>(accumulator.count()) / static_cast<f64>(FIXED_DT.count());

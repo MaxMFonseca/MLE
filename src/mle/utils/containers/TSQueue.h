@@ -1,6 +1,7 @@
 #pragma once
 
 #include <condition_variable>
+#include <iostream>
 #include <mutex>
 #include <queue>
 
@@ -18,6 +19,7 @@ class TSQueue {
     void push(const T& element) {
         std::scoped_lock lock(mutex_);
         queue_.push(element);
+        std::cout << queue_.size() << std::endl;
         cv_.notify_one();
     }
 

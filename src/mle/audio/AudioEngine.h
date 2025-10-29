@@ -6,6 +6,7 @@
 #include "mle/audio/Utils.h"
 #include "mle/utils/ECS.h"
 #include "mle/utils/Utils.h"
+#include "mle/utils/containers/AtomicQueue.h"
 #include "mle/utils/containers/TSQueue.h"
 
 namespace mle {
@@ -26,9 +27,9 @@ class AudioEngine {
     };
 
     struct Streaming {
-        constexpr static usize BUFFER_COUNT = 4;
-        constexpr static usize BUFFER_SIZE = 32768;
-        constexpr static usize SAMPLES_PER_BUFFER = BUFFER_SIZE / sizeof(f32);
+        static constexpr usize BUFFER_COUNT = 4;
+        static constexpr usize BUFFER_SIZE = 32768;
+        static constexpr usize SAMPLES_PER_BUFFER = BUFFER_SIZE / sizeof(f32);
 
         std::array<ALuint, BUFFER_COUNT> buffers{0};
         ALuint source{0};
@@ -46,7 +47,8 @@ class AudioEngine {
         bool paused{false};
     };
 
-    constexpr static usize MAX_STREAMING_SOURCES = 6;
+    static constexpr usize CMD_QUEUE_SIZE = 128;
+    static constexpr usize MAX_STREAMING_SOURCES = 6;
     static constexpr usize BUS_COUNT = 8;
 
   public:
@@ -105,8 +107,7 @@ class AudioEngine {
 
     std::jthread run_thread_{};
 
-    // TODO: make this lock-free
-    TSQueue<audio::Cmd> cmd_queue_{};
+    AtomicQueue<audio::Cmd> cmd_queue_{CMD_QUEUE_SIZE};
 
     enum class RTCLs : u8 { PLAY_ONE_SHOT, START_STREAM, STOP_STREAM, PAUSE_STREAM, RESUME_STREAM, SET_VOLUME, STOP_ALL, COUNT };
 

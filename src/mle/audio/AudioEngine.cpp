@@ -495,12 +495,14 @@ void AudioEngine::applyVolume(ALuint source, u8 bus, f32 source_linear) const {
 }
 
 void AudioEngine::enqueueCmd(const audio::Cmd& cmd) {
-    cmd_queue_.push(cmd);
+    if (!cmd_queue_.tryPush(cmd)) {
+        MLE_W("Audio command queue is full, dropping command.");
+    }
 };
 
 void AudioEngine::processCmds() {
-    auto cmds = cmd_queue_.popAll();
-    for (const auto& cmd : cmds) {
+    audio::Cmd cmd;
+    while (cmd_queue_.tryPop(cmd)) {
         processCmd(cmd);
     }
 }

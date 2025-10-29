@@ -3,7 +3,6 @@
 #include "../Types.h"
 #include "mle/math/Types.h"
 #include "mle/renderer/RenderingThread.h"
-#include "mle/utils/AtmoicTripleBuffer.h"
 #include "mle/utils/ECS.h"
 
 namespace mle::ui {

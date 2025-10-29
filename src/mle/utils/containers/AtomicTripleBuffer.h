@@ -72,18 +72,25 @@ class AtomicTripleBuffer {
     void storePub(Pub p, std::memory_order mo) { published_.store(pack(p), mo); }
 
   private:
-    std::array<T, 3> buf_;
+    static constexpr usize CACHELINE = std::hardware_destructive_interference_size;
+    template <typename U>
+    static consteval usize padBytes() {
+        return (CACHELINE > sizeof(U)) ? (CACHELINE - sizeof(U)) : usize{1};
+    }
 
-    std::atomic<u8> consumer_idx_{0xFF};
+    alignas(CACHELINE) std::atomic<u64> published_{pack(Pub{})};
+    std::array<u8, padBytes<std::atomic<u64>>()> pad_pub_{};
 
-    std::atomic<u64> published_{pack(Pub{})};
+    alignas(CACHELINE) std::atomic<u8> consumer_idx_{0xFF};
+    std::array<u8, padBytes<std::atomic<u8>>()> pad_cons_idx_{};
 
-    // Producer thread-local state
-    u8 prod_staging_idx_{0xFF};
+    std::array<T, 3> buf_{};
+
+    alignas(CACHELINE) u8 prod_staging_idx_{0xFF};
     u64 prod_seq_{0};
+    std::array<u8, padBytes<u64>()> pad_prod_{};
 
-    // Consumer thread-local state
-    u8 cons_current_idx_{0xFF};
+    alignas(CACHELINE) u8 cons_current_idx_{0xFF};
     u64 cons_seen_seq_{0};
 };
 }  // namespace mle

@@ -10,7 +10,7 @@
 #include "mle/ui/components/Renderable.h"
 #include "mle/ui/components/Shader.h"
 #include "mle/ui/renderable/RenderableI.h"
-#include "mle/utils/AtmoicTripleBuffer.h"
+#include "mle/utils/containers/AtomicTripleBuffer.h"
 
 namespace mle::ui::system {
 class Rendering {

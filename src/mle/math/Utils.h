@@ -6,6 +6,15 @@ namespace mle {
 /// Returns a rough approximation of the square root of a floating-point number.
 f32 roughSqrt(f32 x);
 
+/// Rounds up to the next power of two (returns same value if already a power of two).
+template <std::unsigned_integral T>
+constexpr T roundUpToPow2(T v) {
+    if (v == 0) {
+        return 1;
+    }
+    return T{1} << (std::bit_width(v - 1));
+}
+
 /// Value for floating-point comparisons.
 template <typename T>
 struct FloatTolerance {
