@@ -168,9 +168,10 @@ void Rendering::renderNodeBackground(const Rendering::Packet::Node& node, Render
 }
 
 ImageRef Rendering::getImageForEntity(const Packet::Node& node) {
-    auto& image = dedicated_images_[node.e_id];
-
+    auto& images = dedicated_images_[node.e_id];
     auto& frame_renderer = Renderer::i().frameRenderer();
+    auto frame_idx = frame_renderer.getCurrentFrameId();
+    auto& image = images.at(frame_idx);
 
     if (!image) {
         Image::CI image_ci{};

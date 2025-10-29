@@ -15,7 +15,7 @@ return {
 			},
 			pos = "lb",
 			origin = "lb",
-			background = { "BLACK", 0.4 },
+			background = { "BLACK", 0.96 },
 			container = {
 				dir = "h",
 				gap = "6px",

@@ -82,7 +82,7 @@ class Rendering {
     AtomicTripleBuffer<Packet> atomic_data_;
     u64 next_packet_id_ = 0;
 
-    std::map<entt::entity, ImageHnd> dedicated_images_;
+    std::map<entt::entity, std::array<ImageHnd, 2>> dedicated_images_;
 
     ImageRef last_rendered_image_ = nullptr;
 

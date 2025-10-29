@@ -17,7 +17,11 @@ class InitLayer : public mle::client::Layer {
     void update() override;
     ImageRef render([[maybe_unused]] f64 dt) override;
 
+    ImageRef getImage();
+
   private:
     UI ui_;
+
+    std::array<ImageHnd, 2> images_;
 };
 }  // namespace mle::user
