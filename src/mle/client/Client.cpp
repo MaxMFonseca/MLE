@@ -230,10 +230,7 @@ ImageRef Client::render() {
     if (!debug_layers_.empty()) {
         std::scoped_lock lock(debug_layers_render_mutex_);
         for (auto& [_, dl] : debug_layers_) {
-            ImageRef debug_layer_img = dl->render(0);
-            if (debug_layer_img) {
-                game_layer_img->blend(Renderer::i().frameRenderer().cmd(), *debug_layer_img);
-            }
+            dl->renderTo(game_layer_img);
         }
     }
 

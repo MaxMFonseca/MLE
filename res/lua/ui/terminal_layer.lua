@@ -1,5 +1,6 @@
 return {
 	padding = "10px",
+	size = {},
 	container = {
 		type = "free",
 	},
@@ -13,8 +14,6 @@ return {
 				color = "NQB",
 				roundness = "7px",
 			},
-			pos = "lb",
-			origin = "lb",
 			background = { "BLACK", 0.96 },
 			container = {
 				dir = "h",

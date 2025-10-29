@@ -16,7 +16,6 @@ class UI {
 
     void setRoot(const std::string& element_name);
     void setRoot(sol::table root_table);
-    void resizeRoot(const vec2u& size);
     void clear();
     void shutdown() { clear(); }
 
@@ -25,7 +24,7 @@ class UI {
     [[nodiscard]] auto& getLua() { return lua_; }
     [[nodiscard]] auto& getLuaElementOps() { return lua_element_ops_; }
     [[nodiscard]] sol::table getTableFor(const std::string& element_name);
-    [[nodiscard]] vec2u getRootSize() const { return root_size_; }
+    [[nodiscard]] vec2u getRootMaxSize() const { return root_max_size_; }
     [[nodiscard]] f32 getRootAspectRatio() const { return root_aspect_ratio_; }
 
     [[nodiscard]] Expected<std::reference_wrapper<const sol::table>> getStyle(std::string_view style_name);
@@ -42,7 +41,7 @@ class UI {
   private:
     entt::registry registry_;
     entt::entity root_ = entt::null;
-    vec2u root_size_{0};
+    vec2u root_max_size_{0};
     f32 root_aspect_ratio_ = 1;
     Lua lua_;
 

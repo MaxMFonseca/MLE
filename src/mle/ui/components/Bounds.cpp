@@ -389,7 +389,7 @@ void TargetPadding::applyY(const Entt& e, const sol::object& obj) {
 PaddingPx TargetPadding::calc(const UI& ui, vec2u size) const {
     PaddingPx ret;
 
-    auto root_size_f = vec2f{ui.getRootSize()};
+    auto root_size_f = vec2f{ui.getRootMaxSize()};
     auto f_size = vec2f{size};
 
     auto calc_fn = [&](const TargetBound& p, bool is_x) {

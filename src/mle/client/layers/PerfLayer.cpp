@@ -98,4 +98,13 @@ ImageRef PerfLayer::render([[maybe_unused]] f64 dt) {
     return ui_.render();
 }
 
+void PerfLayer::renderTo(ImageRef target) {
+    if (!enabled_) {
+        return;
+    }
+    auto* ui_img = ui_.render();
+    if (ui_img != nullptr) {
+        target->blend(Renderer::i().frameRenderer().cmd(), *ui_img, 1, {}, {0, 0, as<int>(ui_img->getExtent().x), as<int>(ui_img->getExtent().y)});
+    }
+}
 }  // namespace mle::client

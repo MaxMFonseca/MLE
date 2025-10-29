@@ -1,6 +1,7 @@
 return {
 	-- background = "RED",
-	-- padding = "10px",
+	padding = "10px",
+	-- size = { "300px", 1 },
 
 	styles = {
 		basic_round = {
@@ -32,14 +33,14 @@ return {
 			idx = 0,
 			pos = { 0, 0 },
 			size = { 1, 1 },
-			on_hover = function(ew)
-				print("hovering bg", ew:fullName())
-				local h = ew:get("hovered")
-				print(h.pos_self.x, h.pos_self.y)
-				print(h.pos_self_norm.x, h.pos_self_norm.y)
-				print(h.sw:elapsedSecFloat())
-				print(h.state)
-			end,
+			-- on_hover = function(ew)
+			-- 	print("hovering bg", ew:fullName())
+			-- 	local h = ew:get("hovered")
+			-- 	print(h.pos_self.x, h.pos_self.y)
+			-- 	print(h.pos_self_norm.x, h.pos_self_norm.y)
+			-- 	print(h.sw:elapsedSecFloat())
+			-- 	print(h.state)
+			-- end,
 			shader = {
 				pipeline = {
 					name = "bg",

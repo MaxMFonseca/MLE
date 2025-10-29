@@ -18,6 +18,7 @@ class PerfLayer : public mle::client::Layer {
 
     void update() override;
     ImageRef render([[maybe_unused]] f64 dt) override;
+    void renderTo(ImageRef target) override;
 
   private:
     void toggle();

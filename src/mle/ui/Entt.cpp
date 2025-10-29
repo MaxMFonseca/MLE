@@ -20,10 +20,6 @@ void Entt::setName(const std::string& name) const {
 }
 
 bool Entt::hasFitSize() const {
-    if (isRoot()) {
-        return false;
-    }
-
     const auto* target_size = tryGet<comp::TargetSize>();
     if (!target_size) {
         return true;
@@ -93,7 +89,10 @@ void Entt::requestInternalBoundsUpdate() const {
 // NOLINTNEXTLINE(misc-no-recursion) No problem
 void Entt::requestExternalBoundsUpdate() const {
     auto& relationship = getRelationship();
-    MLE_ASSERT(!isRoot());
+    if (relationship.getParent() == entt::null) {
+        addFlag<comp::RequestExternalBoundsUpdateFlag>();
+        return;
+    }
     Entt parent_ew = derive(relationship.getParent());
     parent_ew.requestInternalBoundsUpdate();
 }

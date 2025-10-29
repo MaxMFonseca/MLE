@@ -1,5 +1,6 @@
 return {
 	padding = "10px",
+	size = {},
 	container = {
 		dir = "h",
 	},
@@ -7,7 +8,6 @@ return {
 		left = {
 			idx = 0,
 			size_x = "1f",
-			size_y = 1,
 			container = {
 				dir = "v",
 			},
@@ -25,7 +25,6 @@ return {
 		right = {
 			idx = 1,
 			size_x = "1f",
-			size_y = 1,
 			container = {
 				dir = "v",
 				cross_align = "e",

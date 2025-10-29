@@ -225,7 +225,7 @@ vec2u Text::calculateBounds(const Entt& e, vec2u max_size) {
             case TargetBound::Type::PX:
                 return as<int>(font_height_tb.val);
             case TargetBound::Type::ROOT:
-                return as<int>(as<f32>(e.ui().getRootSize().y) * font_height_tb.val);
+                return as<int>(as<f32>(e.ui().getRootMaxSize().y) * font_height_tb.val);
             case TargetBound::Type::DEFAULT:
             case TargetBound::Type::FLEX_SHARE:
             case TargetBound::Type::RELATIVE:

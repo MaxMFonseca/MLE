@@ -16,6 +16,7 @@ class Bounds final {
   private:
     static void updateEntity(const Entt& ew);
     void updateTree(entt::entity root);
+    void updateRoot();
 
   private:
     UI& ui_;

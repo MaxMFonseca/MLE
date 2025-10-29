@@ -15,9 +15,9 @@ void InitLayer::update() {
 };
 
 ImageRef InitLayer::render([[maybe_unused]] f64 dt) {
-    auto* ui_image = ui_.render();
-
     auto* image = getImage();
+
+    auto* ui_image = ui_.render();
 
     if (ui_image) {
         image->blend(Renderer::i().frameRenderer().cmd(), *ui_image);
@@ -50,6 +50,8 @@ ImageRef InitLayer::getImage() {
         image_ci.extra_usage |= vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst;
         image = Image::createHnd(image_ci);
     }
+
+    image->clear(Renderer::i().frameRenderer().cmd());
 
     return image.get();
 };

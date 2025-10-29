@@ -21,6 +21,7 @@ class TerminalLayer : public Layer {
 
     void update() override;
     ImageRef render(f64 dt) override;
+    void renderTo(ImageRef target) override;
 
   private:
     void toggle();

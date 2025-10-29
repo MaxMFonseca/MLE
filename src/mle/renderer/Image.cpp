@@ -324,22 +324,25 @@ void Image::blend(const CommandBuffer& cmd, Image& src, f32 opacity, Recti src_r
     src.checkQueueOwnership(cmd);
 
     if (src_rect.width() <= 0) {
-        src_rect.setWidth(as<int>(src.getExtent().x) - src_rect.width());
+        src_rect.setWidth(as<int>(src.getExtent().x));
     }
     if (src_rect.height() <= 0) {
-        src_rect.setHeight(as<int>(src.getExtent().y) - src_rect.height());
+        src_rect.setHeight(as<int>(src.getExtent().y));
     }
     if (dst_rect.width() <= 0) {
-        dst_rect.setWidth(as<int>(extent_.x) - dst_rect.width());
+        dst_rect.setWidth(as<int>(extent_.x));
     }
     if (dst_rect.height() <= 0) {
-        dst_rect.setHeight(as<int>(extent_.y) - dst_rect.height());
+        dst_rect.setHeight(as<int>(extent_.y));
     }
+
+    dst_rect = dst_rect.clamp({0, 0, as<int>(extent_.x), as<int>(extent_.y)});
 
     MLE_ASSERT(src_rect.width() > 0 && src_rect.height() > 0);
     MLE_ASSERT(dst_rect.width() > 0 && dst_rect.height() > 0);
     MLE_ASSERT(src_rect.pos().x + src_rect.width() <= as<int>(src.getExtent().x) && src_rect.pos().y + src_rect.height() <= as<int>(src.getExtent().y));
-    MLE_ASSERT(dst_rect.pos().x + dst_rect.width() <= as<int>(extent_.x) && dst_rect.pos().y + dst_rect.height() <= as<int>(extent_.y));
+    MLE_ASSERT_LOG(dst_rect.pos().x + dst_rect.width() <= as<int>(extent_.x) && dst_rect.pos().y + dst_rect.height() <= as<int>(extent_.y),
+                   "dst_rect:{} extent_:{}", dst_rect, extent_);
 
     transitionState(cmd, State::COLOR_ATT);
     src.transitionState(cmd, State::FS_READ);

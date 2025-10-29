@@ -388,7 +388,7 @@ struct ListCalculator {
                                                    main_is_x ? as<f32>(root_size.y) : as<f32>(root_size.x), padded_size)),
         child_max_size_main_f(as<f32>(child_max_size_main)),
         child_max_size_cross_f(as<f32>(child_max_size_cross)),
-        root_size(container_e.ui().getRootSize()),
+        root_size(container_e.ui().getRootMaxSize()),
         root_size_main(main_is_x ? root_size.x : root_size.y),
         root_size_cross(main_is_x ? root_size.y : root_size.x),
         root_size_main_f(as<f32>(root_size_main)),
@@ -862,6 +862,24 @@ struct ListCalculator {
                     }
                     cld.state.cross = ChildSizeCalcData::CalcState::DONE;
                 }
+
+                if (cld.state.cross == ChildSizeCalcData::CalcState::FIT) {
+                    int fit_max_size_cross = child_max_size_cross - cld.margin.cross_a - cld.margin.cross_b - cld.border.cross_a - cld.border.cross_b;
+                    if (fit_max_size_cross <= 0) {
+                        MLE_E("Child cannot FIT in the given max cross size");
+                        cld.valid = false;
+                        continue;
+                    }
+
+                    vec2u p_max_size =
+                        main_is_x ? vec2u{as<u32>(cld.size_main), as<u32>(fit_max_size_cross)} : vec2u{as<u32>(fit_max_size_cross), as<u32>(cld.size_main)};
+                    vec2u size_from_provider = cbud.size_provider->call(container_e.derive(c), p_max_size);
+                    u32 cross_size_from_provider = main_is_x ? size_from_provider.y : size_from_provider.x;
+
+                    cld.size_cross = as<int>(cross_size_from_provider);
+                    cld.state.cross = ChildSizeCalcData::CalcState::DONE;
+                }
+
                 finishFlexCross(cld);
 
                 cld.done = cld.state.main == ChildSizeCalcData::CalcState::DONE && cld.state.cross == ChildSizeCalcData::CalcState::DONE &&
@@ -1000,7 +1018,7 @@ struct FreeCalculator {
                    PaddingPx padding_px, std::map<entt::entity, ChildBoundsCalcData>& cbcds) {
         auto sorted_by_dependencies = sortByDependency(container_e.ui(), free_children);
 
-        const auto root_size = container_e.ui().getRootSize();
+        const auto root_size = container_e.ui().getRootMaxSize();
         const auto root_size_f = vec2f{as<f32>(root_size.x), as<f32>(root_size.y)};
 
         std::unordered_map<entt::entity, Recti> children_full_rect;
