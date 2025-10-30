@@ -1,4 +1,3 @@
-// https://www.youtube.com/watch?v=3CycKKJiwis
 #version 450 core
 
 layout(push_constant) uniform PushConstants {
@@ -11,64 +10,74 @@ layout(location = 0) in vec2 in_uv;
 
 layout(location = 0) out vec4 out_color;
 
-float vec2ToRandom(vec2 st) {
-  return fract(sin(dot(st, vec2(12.9898, 78.233))) * 43758.5453123);
-}
-
-vec2 vec2ToRandom2(vec2 st) {
+vec2 rand2(vec2 st) {
   st = vec2(dot(st, vec2(127.1, 311.7)), dot(st, vec2(269.5, 183.3)));
   return fract(sin(st) * 43758.5453123);
 }
 
-float distLine(vec2 p, vec2 a, vec2 b) {
+float sdCircle(vec2 p, float r) {
+  return length(p) - r;
+}
+
+float sdSegment(vec2 p, vec2 a, vec2 b) {
   vec2 pa = p - a, ba = b - a;
   float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
   return length(pa - ba * h);
 }
 
-float line(vec2 p, vec2 a, vec2 b) {
-  return smoothstep(0.06, 0.003, distLine(p, a, b)) * smoothstep(2.4, 1.1, length(a - b));
+vec2 getPos(vec2 id, vec2 goffset) {
+  vec2 rand = rand2(id + goffset) * (pc.in_time * 0.8 + 30);
+  vec2 p = sin(rand);
+  return goffset * 2 + p;
 }
 
-vec2 getPos(vec2 id, vec2 offset) {
-  vec2 rand = vec2ToRandom2(id + offset) * (pc.in_time * 0.8 + 30);
-  return offset + sin(rand) * 0.5;
+float calcLine(vec2 p, vec2 a, vec2 b) {
+  float len = length(a - b);
+  float d = sdSegment(p, a, b);
+  return smoothstep(0.08 * 0.4, 0.08 * 0.1, d) * smoothstep(2.0, 0.8, len);
 }
 
 void main() {
   vec2 uv = in_uv * pc.in_viewport_size / min(pc.in_viewport_size.x, pc.in_viewport_size.y);
-  uv *= 7.0;
+  uv *= 25.0;
 
-  vec2 grid_uv = (fract(uv) - 0.5) * 2.0;
-  vec2 grid_id = floor(uv);
+  vec2 grid_uv = fract(uv) * 2.0 - 1.0;
+  vec2 grid_id = vec2(ivec2(floor(uv)));
 
-  vec2 positions[9];
-  int index = 0;
+  float min_dist = 1000.0;
+  vec2 ps[9];
+  int idx = 0;
   for (int i = -1; i <= 1; i++) {
     for (int j = -1; j <= 1; j++) {
-      vec2 offset = vec2(i, j);
-      positions[index] = getPos(grid_id, offset) * 2;
-      index++;
+      ps[idx] = getPos(grid_id, vec2(i, j));
+      min_dist = min(min_dist, length(ps[idx] - grid_uv));
+      idx++;
     }
   }
 
-  float m = 0;
-  float sparkle_factor = (sin((pc.in_time + 5 + vec2ToRandom(grid_id))) * 0.5 + 0.5) / 2 + 0.1;
-  for (int i = 0; i < 9; i++) {
-    m += line(grid_uv, positions[4], positions[i]);
-    vec2 j = (positions[i] - grid_uv) * 20.0;
-    float sparkle = 1. / dot(j, j);
-    m += sparkle * sparkle_factor;
-  }
+  float value = 0;
 
-  m += line(grid_uv, positions[1], positions[3]);
-  m += line(grid_uv, positions[1], positions[5]);
-  m += line(grid_uv, positions[7], positions[3]);
-  m += line(grid_uv, positions[7], positions[5]);
+  value += calcLine(grid_uv, ps[4], ps[0]);
+  value += calcLine(grid_uv, ps[4], ps[1]);
+  value += calcLine(grid_uv, ps[4], ps[2]);
+  value += calcLine(grid_uv, ps[4], ps[3]);
+  value += calcLine(grid_uv, ps[4], ps[5]);
+  value += calcLine(grid_uv, ps[4], ps[6]);
+  value += calcLine(grid_uv, ps[4], ps[7]);
+  value += calcLine(grid_uv, ps[4], ps[8]);
 
-  out_color = vec4(vec3(m), 1.0) * pc.color;
+  value += calcLine(grid_uv, ps[1], ps[3]);
+  value += calcLine(grid_uv, ps[1], ps[5]);
+  value += calcLine(grid_uv, ps[7], ps[3]);
+  value += calcLine(grid_uv, ps[7], ps[5]);
+
+  float sparkle = 0.0003 / (min_dist * min_dist);
+  value += max(sparkle, 0.003);
+
+  out_color = pc.color * value;
+  out_color.a = 1.0;
 
   // if (grid_uv.x > 0.99 || grid_uv.y > 0.99 || grid_uv.x < -0.99 || grid_uv.y < -0.99) {
-  //   out_color = vec4(1.0);
+  //   out_color = pc.color;
   // }
 }

@@ -33,14 +33,14 @@ return {
 			idx = 0,
 			pos = { 0, 0 },
 			size = { 1, 1 },
-			-- on_hover = function(ew)
-			-- 	print("hovering bg", ew:fullName())
-			-- 	local h = ew:get("hovered")
-			-- 	print(h.pos_self.x, h.pos_self.y)
-			-- 	print(h.pos_self_norm.x, h.pos_self_norm.y)
-			-- 	print(h.sw:elapsedSecFloat())
-			-- 	print(h.state)
-			-- end,
+			on_hover = function(ew)
+				print("hovering bg", ew:fullName())
+				local h = ew:get("hovered")
+				print(h.pos_self.x, h.pos_self.y)
+				print(h.pos_self_norm.x, h.pos_self_norm.y)
+				print(h.sw:elapsedSecFloat())
+				print(h.state)
+			end,
 			shader = {
 				pipeline = {
 					name = "bg",
@@ -51,7 +51,7 @@ return {
 					cull = "none",
 				},
 				params = {
-					pc_color = Color.fromString("RED"),
+					pc_color = Color.fromString("#009933"),
 				},
 				fn = "TODO",
 			},
@@ -64,7 +64,7 @@ return {
 			style = { "basic_round" },
 			border = {
 				thickness = "3px",
-				color = "RED",
+				color = "#009933",
 			},
 			blur = {
 				radius = 13,
