@@ -238,8 +238,8 @@ Fence RendererCommandManager::submit(QueueDataIdx queue_data_idx, vk::SubmitInfo
 }
 
 void RendererCommandManager::submitOTSWait(CommandBuffer&& cmd, vk::SubmitInfo2 submit_info) {
+    vk::CommandBufferSubmitInfo command_buffer_info = cmd();
     if (submit_info.commandBufferInfoCount == 0) {
-        vk::CommandBufferSubmitInfo command_buffer_info = cmd();
         submit_info.setCommandBufferInfos(command_buffer_info);
     }
 
@@ -255,8 +255,8 @@ void RendererCommandManager::submitOTSWait(CommandBuffer&& cmd, vk::SubmitInfo2 
 }
 
 void RendererCommandManager::submitOTSAsync(CommandBuffer&& cmd, vk::SubmitInfo2 submit_info, std::move_only_function<void(void)>&& callback) {
+    vk::CommandBufferSubmitInfo command_buffer_info = cmd();
     if (submit_info.commandBufferInfoCount == 0) {
-        vk::CommandBufferSubmitInfo command_buffer_info = cmd();
         submit_info.setCommandBufferInfos(command_buffer_info);
     }
 

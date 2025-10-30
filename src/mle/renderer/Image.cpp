@@ -587,7 +587,7 @@ constexpr Image::StateProps Image::getStateProps(State state) {
         case State::COLOR_ATT:
             return {.layout = vk::ImageLayout::eAttachmentOptimal,
                     .stage = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
-                    .access = vk::AccessFlagBits2::eColorAttachmentWrite};
+                    .access = vk::AccessFlagBits2::eColorAttachmentWrite | vk::AccessFlagBits2::eColorAttachmentRead};
         case State::DEPTH_ATT:
             return {.layout = vk::ImageLayout::eAttachmentOptimal,
                     .stage = vk::PipelineStageFlagBits2::eEarlyFragmentTests | vk::PipelineStageFlagBits2::eLateFragmentTests,

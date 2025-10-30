@@ -26,7 +26,7 @@ target_include_directories(MLE PUBLIC LuaJIT/src)
 target_link_libraries(MLE ${CMAKE_CURRENT_SOURCE_DIR}/LuaJIT/src/libluajit.a)
 
 # sol2: C++ <-> Lua binding library
-target_include_directories(MLE PUBLIC sol2/include)
+target_include_directories(MLE SYSTEM PUBLIC sol2/include)
 target_compile_definitions(MLE PUBLIC SOL_NO_EXCEPTIONS)
 
 # SPIRV-Reflect: Reflection library for SPIR-V shader bytecode
@@ -50,7 +50,7 @@ target_include_directories(MLE PUBLIC entt/single_include)
 target_compile_definitions(MLE PUBLIC ENTT_NOEXCEPTION)
 
 # utfcpp: UTF-8 handling library
-target_include_directories(MLE PUBLIC utfcpp/source)
+target_include_directories(MLE SYSTEM PUBLIC utfcpp/source)
 
 # dr_libs: Single-file audio decoding libraries
 target_include_directories(MLE PUBLIC dr_libs)

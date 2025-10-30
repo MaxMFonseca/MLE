@@ -14,10 +14,12 @@ vec2f LineSegment2D::closestPoint(vec2f point) const {
 
 f32 Polygon2f::area() const {
     assert(false && "unimplemented");
+    return 0;
 }
 
 vec2f Polygon2f::center() const {
     assert(false && "unimplemented");
+    return {};
 }
 
 void Polygon2f::sortCCW() {

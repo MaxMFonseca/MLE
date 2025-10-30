@@ -63,6 +63,8 @@ void Client::addTerminalLayer() {
 }
 
 void Client::run() {
+    MLE_I("MLE Client starting main loop...");
+
     using ns = std::chrono::nanoseconds;
     using namespace std::chrono_literals;
 

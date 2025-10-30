@@ -226,6 +226,10 @@ void VkCtx::initInstance() {
 }
 
 void VkCtx::initDebugMessenger() {
+    if constexpr (!IS_DEBUG_BUILD) {
+        return;
+    }
+
     MLE_D("Creating Vulkan debug messenger");
 
     vk::DebugUtilsMessengerCreateInfoEXT debug_ci;

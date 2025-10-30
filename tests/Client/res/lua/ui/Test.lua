@@ -1,6 +1,6 @@
 return {
 	-- background = "RED",
-	padding = "10px",
+	-- padding = "10px",
 	-- size = { "300px", 1 },
 
 	styles = {

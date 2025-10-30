@@ -4,6 +4,8 @@
 
 namespace mle {
 void Renderer::init() {
+    MLE_I("Initializing Renderer");
+
     vk_ctx_.init();
     command_manager_.init();
     sync_manager_.init();
@@ -12,6 +14,8 @@ void Renderer::init() {
     pipeline_cache_.init();
     texture_cache_.init();
     font_cache_.init();
+
+    MLE_I("Renderer initialized successfully");
 }
 
 void Renderer::shutdown() {

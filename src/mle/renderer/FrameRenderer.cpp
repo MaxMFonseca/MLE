@@ -582,7 +582,7 @@ Expected<u32> FrameRenderer::acquireNextImage() {
     return std::unexpected(Result::NOK);
 }
 
-void FrameRenderer::assertInRenderThread(const char* msg) {
+void FrameRenderer::assertInRenderThread([[maybe_unused]] const char* msg) {
     MLE_ASSERT_LOG(run_thread_.get_id() == std::this_thread::get_id(), "This function can only be called from the FrameRenderer run thread. {}", msg);
 }
 
