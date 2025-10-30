@@ -1,9 +1,11 @@
 #include "UI.h"
 
 #include "Entt.h"
+#include "mle/client/Client.h"
 #include "mle/core/PerfTracker.h"
 #include "mle/lua/Utils.h"
 #include "mle/ui/components/Bounds.h"
+#include "mle/ui/systems/LuaElementOps.h"
 #include "mle/window/Window.h"
 
 namespace mle {
@@ -15,7 +17,7 @@ UI::UI() {
             ew.requestExternalBoundsUpdate();
         }
     });
-    lua_.init();
+    ui::system::LuaElementOps::init();
     root_max_size_ = Window::i().getSize();
 }
 
@@ -46,7 +48,7 @@ void UI::setRoot(sol::table root_table) {
 };
 
 void UI::setRoot(const std::string& element_name) {
-    auto root_table = getTableFor(element_name);
+    auto root_table = Client::i().lua().require(element_name);
     setRoot(root_table);
 };
 
@@ -68,10 +70,6 @@ void UI::addRootStyles(const sol::object& obj) {
         }
         addStyle(lua::as<std::string>(key_r), lua::as<sol::table>(value_r));
     }
-}
-
-sol::table UI::getTableFor(const std::string& element_name) {
-    return lua_.require(element_name);
 }
 
 void UI::update() {

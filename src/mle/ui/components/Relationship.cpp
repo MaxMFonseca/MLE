@@ -1,6 +1,7 @@
 #include "Relationship.h"
 
 #include "../Entt.h"
+#include "mle/client/Client.h"
 #include "mle/lua/Utils.h"
 
 namespace mle::ui::comp {
@@ -258,7 +259,7 @@ void Relationship::applyOnChild(const Entt& e, const sol::table& table, entt::en
 
     if (e.has<comp::ChildrenBase>()) {
         auto& children_base_comp = e.get<comp::ChildrenBase>();
-        final_table = e.ui().getLua().mergeTablesNew(children_base_comp.o, final_table);
+        final_table = Client::i().lua().mergeTablesNew(children_base_comp.o, final_table);
     }
 
     centt.applyTable(final_table);

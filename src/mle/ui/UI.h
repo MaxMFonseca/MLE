@@ -21,9 +21,6 @@ class UI {
 
     [[nodiscard]] auto& getRegistry() { return registry_; }
     [[nodiscard]] auto getRoot() const { return root_; }
-    [[nodiscard]] auto& getLua() { return lua_; }
-    [[nodiscard]] auto& getLuaElementOps() { return lua_element_ops_; }
-    [[nodiscard]] sol::table getTableFor(const std::string& element_name);
     [[nodiscard]] vec2u getRootMaxSize() const { return root_max_size_; }
     [[nodiscard]] f32 getRootAspectRatio() const { return root_aspect_ratio_; }
 
@@ -43,12 +40,10 @@ class UI {
     entt::entity root_ = entt::null;
     vec2u root_max_size_{0};
     f32 root_aspect_ratio_ = 1;
-    Lua lua_;
 
     std::map<std::string, sol::table> styles_;
 
     ui::system::Bounds bounds_system_{*this};
-    ui::system::LuaElementOps lua_element_ops_{*this};
     ui::system::Rendering rendering_system_{*this};
     ui::system::Hover hover_system_{*this};
 

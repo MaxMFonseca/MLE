@@ -5,28 +5,23 @@
 #include "sol/forward.hpp"
 
 namespace mle::ui::system {
-class LuaElementOps final {
-  public:
+struct LuaElementOps final {
     using ApplyKeyFn = void (*)(const Entt& e, const sol::object& obj);
     using GetKeyFn = sol::object (*)(const Entt& e);
 
-  public:
-    explicit LuaElementOps(UI& ui);
+    static void init();
 
-    void applyTable(entt::entity e, const sol::table& table);
-    void applyObj(entt::entity e, const std::string& key, const sol::object& obj);
-    sol::object getKey(entt::entity e, const std::string& key);
+    static void applyTable(const Entt& ew, const sol::table& table);
+    static void applyObj(const Entt& ew, const std::string& key, const sol::object& obj);
+    static sol::object getKey(const Entt& ew, const std::string& key);
 
-    void addApplyKeyHandler(const std::string& key, ApplyKeyFn fn);
-    void addGetKeyHandler(const std::string& key, GetKeyFn fn);
+    static void addGetKeyHandler(const std::string& key, GetKeyFn fn);
+    static void addApplyKeyHandler(const std::string& key, ApplyKeyFn fn);
 
-    void addBuiltingApply();
-    void addBuiltingGetters();
+    static void addBuiltingApply();
+    static void addBuiltingGetters();
 
-  private:
-    UI& ui_;
-
-    std::unordered_map<std::string, ApplyKeyFn> apply_key_handlers_;
-    std::unordered_map<std::string, GetKeyFn> get_key_handlers_;
+    static std::unordered_map<std::string, ApplyKeyFn> apply_key_handlers_;
+    static std::unordered_map<std::string, GetKeyFn> get_key_handlers_;
 };
 }  // namespace mle::ui::system

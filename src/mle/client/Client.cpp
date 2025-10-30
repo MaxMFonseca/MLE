@@ -31,6 +31,9 @@ void Client::init() {
     MLE_I("Lua init");
     lua_.init();
 
+    MLE_D("Tailwind colors.");
+    Color::addColors(lua_.require("mle/tailwind_colors").as<sol::table>());
+
     MLE_I("Window init");
     Window::i().init();
 

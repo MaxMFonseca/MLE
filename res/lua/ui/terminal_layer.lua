@@ -11,7 +11,7 @@ return {
 			padding = "4px",
 			border = {
 				thickness = "2px",
-				color = "NQB",
+				color = "green700",
 				roundness = "7px",
 			},
 			background = { "BLACK", 0.96 },
@@ -25,6 +25,7 @@ return {
 					idx = 0,
 					text = {
 						"$>",
+						color = "green400",
 					},
 				},
 				text = {
@@ -32,6 +33,7 @@ return {
 					text = {
 						".",
 						input = {},
+						color = "green400",
 					},
 				},
 			},

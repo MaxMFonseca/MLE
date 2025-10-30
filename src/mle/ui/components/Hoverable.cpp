@@ -1,5 +1,6 @@
 #include "Hoverable.h"
 
+#include "mle/client/Client.h"
 #include "mle/lua/Utils.h"
 #include "mle/ui/Entt.h"
 #include "mle/window/KeyUtils.h"
@@ -172,7 +173,7 @@ void Hoverable::onHoverIn(const Entt& ew) {
 sol::object Hovered::get(const Entt& ew) {
     MLE_ASSERT(ew.has<Hovered>());
 
-    return ew.ui().getLua().createObject(ew.get<Hovered>());
+    return Client::i().lua().createObject(ew.get<Hovered>());
 }
 
 void Hovered::makeLuaUsertype(Lua& lua) {

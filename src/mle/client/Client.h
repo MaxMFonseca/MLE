@@ -32,6 +32,8 @@ class Client final {
 
     ImageRef render();
 
+    auto& lua() { return lua_; }
+
   private:
     void update();
     void shutdown();

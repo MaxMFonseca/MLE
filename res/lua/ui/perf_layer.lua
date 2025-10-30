@@ -14,11 +14,11 @@ return {
 			c = {
 				{
 					idx = 0,
-					text = { "PerfTracker/s:", height = "23px" },
+					text = { "PerfTracker/s:", height = "23px", color = "green400" },
 				},
 				text = {
 					idx = 1,
-					text = { height = "23px" },
+					text = { height = "23px", color = "green400" },
 				},
 			},
 		},
@@ -32,11 +32,11 @@ return {
 			c = {
 				{
 					idx = 0,
-					text = { "GpuPerf:", height = "23px" },
+					text = { "GpuPerf:", height = "23px", color = "green400" },
 				},
 				text = {
 					idx = 1,
-					text = { height = "23px", justify = "e" },
+					text = { height = "23px", justify = "e", color = "green400" },
 				},
 			},
 		},

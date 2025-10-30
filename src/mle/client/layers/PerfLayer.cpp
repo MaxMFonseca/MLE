@@ -1,5 +1,6 @@
 #include "PerfLayer.h"
 
+#include "mle/client/Client.h"
 #include "mle/core/PerfTracker.h"
 #include "mle/renderer/Renderer.h"
 #include "mle/ui/Entt.h"
@@ -50,7 +51,7 @@ void PerfLayer::update() {
             auto e_r = ui_.getE(std::array<const std::string_view, 2>{"left", "text"});
             if (e_r.has_value()) {
                 auto& e = e_r.value();
-                e.apply("text", ui_.getLua().createObject(text));
+                e.apply("text", Client::i().lua().createObject(text));
             } else {
                 MLE_W("PerfLayer: could not find entity to update performance info");
             }
@@ -60,7 +61,7 @@ void PerfLayer::update() {
             auto e_r = ui_.getE(std::array<const std::string_view, 2>{"right", "text"});
             if (e_r.has_value()) {
                 auto& e = e_r.value();
-                e.apply("text", ui_.getLua().createObject(Renderer::i().vk().makePerfString()));
+                e.apply("text", Client::i().lua().createObject(Renderer::i().vk().makePerfString()));
             } else {
                 MLE_W("PerfLayer: could not find entity to update GPU performance info");
             }

@@ -2,6 +2,7 @@
 
 #include <filesystem>
 
+#include "mle/client/Client.h"
 #include "mle/lua/Utils.h"
 #include "mle/renderer/Shader.h"
 #include "mle/ui/Entt.h"
@@ -16,28 +17,29 @@
 #include "mle/utils/String.h"
 
 namespace mle::ui::system {
-void LuaElementOps::applyTable(entt::entity e, const sol::table& table) {
+std::unordered_map<std::string, LuaElementOps::ApplyKeyFn> LuaElementOps::apply_key_handlers_;
+std::unordered_map<std::string, LuaElementOps::GetKeyFn> LuaElementOps::get_key_handlers_;
+
+void LuaElementOps::applyTable(const Entt& ew, const sol::table& table) {
     if (const auto children_base_r = table["children_base"]; lua::valid<sol::table>(children_base_r)) {
-        Entt entt{ui_, e};
-        entt.emplaceOrReplace<comp::ChildrenBase>(lua::as<sol::table>(children_base_r));
+        ew.emplaceOrReplace<comp::ChildrenBase>(lua::as<sol::table>(children_base_r));
     }
 
     if (const auto styles_r = table["style"]; lua::valid<sol::table>(styles_r)) {
-        Entt entt{ui_, e};
         for (const auto& [_, value_r] : lua::as<sol::table>(styles_r)) {
             if (value_r.is<std::string>()) {
-                auto style_r = ui_.getStyle(lua::as<std::string>(value_r));
+                auto style_r = ew.ui().getStyle(lua::as<std::string>(value_r));
                 if (!style_r) {
                     MLE_E("Style '{}' not found.", lua::as<std::string>(value_r));
                 }
-                entt.applyTable(style_r->get());
+                ew.applyTable(style_r->get());
                 continue;
             }
             if (value_r.is<sol::table>()) {
-                entt.applyTable(lua::as<sol::table>(value_r));
+                ew.applyTable(lua::as<sol::table>(value_r));
                 continue;
             }
-            MLE_E("Invalid style entry in styles table for entity {}. Skipping.", e);
+            MLE_E("Invalid style entry in styles table for entity {}. Skipping.", ew.fullName());
         }
     }
 
@@ -50,23 +52,23 @@ void LuaElementOps::applyTable(entt::entity e, const sol::table& table) {
         if (mle::matchAny(key, "children_base")) {
             continue;
         }
-        applyObj(e, key, value_r);
+        applyObj(ew, key, value_r);
     }
 }
 
-void LuaElementOps::applyObj(entt::entity e, const std::string& key, const sol::object& obj) {
+void LuaElementOps::applyObj(const Entt& ew, const std::string& key, const sol::object& obj) {
     auto it = apply_key_handlers_.find(key);
     if (it != apply_key_handlers_.end()) {
-        it->second(Entt(ui_, e), obj);
+        it->second(ew, obj);
     } else if (!matchAny(key, "name", "idx", "styles", "style")) {
         MLE_E("No handler for element key '{}'", key);
     }
 }
 
-sol::object LuaElementOps::getKey(entt::entity e, const std::string& key) {
+sol::object LuaElementOps::getKey(const Entt& ew, const std::string& key) {
     auto it = get_key_handlers_.find(key);
     if (it != get_key_handlers_.end()) {
-        return it->second(Entt(ui_, e));
+        return it->second(ew);
     }
     MLE_E("No handler for element key '{}'", key);
     return {};
@@ -82,9 +84,14 @@ void LuaElementOps::addGetKeyHandler(const std::string& key, GetKeyFn fn) {
     get_key_handlers_[key] = fn;
 };
 
-LuaElementOps::LuaElementOps(UI& ui) :
-    ui_(ui) {
-    auto& lua = ui.getLua();
+void LuaElementOps::init() {
+    static bool initialized = false;
+    if (initialized) {
+        return;
+    }
+    initialized = true;
+
+    auto& lua = Client::i().lua();
 
     auto ut = lua.newUsertype<Entt>("mle_ui_Entt", sol::no_constructor);
     ut["apply"] = &Entt::apply;

@@ -5,6 +5,7 @@
 #include "mle/ui/components/Base.h"
 #include "mle/ui/components/Container.h"
 #include "mle/ui/components/Relationship.h"
+#include "mle/ui/systems/LuaElementOps.h"
 #include "mle/utils/ECS.h"
 #include "sol/forward.hpp"
 
@@ -19,9 +20,10 @@ class Entt {
     [[nodiscard]] auto e() const { return e_; }
     void setE(entt::entity e) { e_ = e; }
 
-    void apply(const std::string& key, const sol::object& obj = {}) const { ui_.getLuaElementOps().applyObj(e_, key, obj); }
-    [[nodiscard]] sol::object getKey(const std::string& key) const { return ui_.getLuaElementOps().getKey(e_, key); }
-    void applyTable(const sol::table& table) const { ui_.getLuaElementOps().applyTable(e_, table); }
+    void apply(const std::string& key, const sol::object& obj = {}) const { system::LuaElementOps::applyObj(*this, key, obj); }
+    [[nodiscard]] sol::object getKey(const std::string& key) const { return system::LuaElementOps::getKey(*this, key); }
+    void applyTable(const sol::table& table) const { system::LuaElementOps::applyTable(*this, table); }
+
     void setName(const std::string& name) const;
     void destroy() const;
 

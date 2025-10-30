@@ -1,5 +1,6 @@
 #include "Base.h"
 
+#include "mle/client/Client.h"
 #include "mle/core/Assert.h"
 #include "mle/lua/Utils.h"
 #include "mle/ui/Entt.h"
@@ -17,16 +18,16 @@ void Table::apply(const Entt& e, const sol::object& obj) {
     if (!e.has<Table>()) {
         auto& nt = e.emplace<Table>();
         if (obj.is<sol::table>()) {
-            nt.o = e.ui().getLua().createTable(obj.as<sol::table>());
+            nt.o = Client::i().lua().createTable(obj.as<sol::table>());
         } else if (obj.is<bool>() && obj.as<bool>()) {
-            nt.o = e.ui().getLua().createTable();
+            nt.o = Client::i().lua().createTable();
         } else {
             MLE_E("Invalid obj/bool type passed to Table apply. {}", obj.get_type());
         }
     } else {
         if (obj.is<sol::table>()) {
             auto& t = e.get<Table>();
-            e.ui().getLua().mergeTables(t.o, obj.as<sol::table>());
+            Client::i().lua().mergeTables(t.o, obj.as<sol::table>());
         } else {
             MLE_E("Invalid obj type passed to Table apply. {}", obj.get_type());
         }
@@ -36,7 +37,7 @@ void Table::apply(const Entt& e, const sol::object& obj) {
 sol::object Table::get(const Entt& e) {
     if (!e.has<Table>()) {
         auto& nt = e.emplace<Table>();
-        nt.o = e.ui().getLua().createTable();
+        nt.o = Client::i().lua().createTable();
     }
     return e.get<Table>().o;
 };

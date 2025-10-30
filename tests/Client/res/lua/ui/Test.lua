@@ -51,7 +51,7 @@ return {
 					cull = "none",
 				},
 				params = {
-					pc_color = Color.fromString("#009933"),
+					pc_color = Color.fromString("green600"),
 				},
 				fn = "TODO",
 			},
@@ -64,7 +64,7 @@ return {
 			style = { "basic_round" },
 			border = {
 				thickness = "3px",
-				color = "#009933",
+				color = "green400",
 			},
 			blur = {
 				radius = 13,
