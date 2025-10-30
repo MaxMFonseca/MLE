@@ -33,6 +33,12 @@ struct OnUpdate {
     static void apply(const Entt& e, const sol::object& obj);
 };
 
+struct RenderScale {
+    f32 scale{1.0F};
+
+    static void apply(const Entt& e, const sol::object& obj);
+};
+
 // TODO: add unique ID(name) component that maps on the UI base
 
 struct RequestInternalBoundsUpdateFlag {};

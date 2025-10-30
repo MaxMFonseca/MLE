@@ -24,7 +24,6 @@ return {
 	on_update = function(ew)
 		local factor = math.abs((C.time / 2) % 2 - 1)
 		color = Color.mix(color1, color2, factor)
-		print("color update", color.r, color.g, color.b, color.a)
 	end,
 
 	container = {
@@ -85,14 +84,19 @@ return {
 				ew:apply("border_color", color)
 
 				local time_f = math.abs((C.time / 2) % 2 - 1)
-
 				ew:apply("pos_x", time_f / 2 + 0.25)
-				-- ew:apply("scale", time_f)
 			end,
-			blur = {
-				radius = 13,
-				sigma = 5,
-			},
+			on_hover_in = function(ew)
+				ew:apply("render_scale", 1.05)
+			end,
+			on_hover_out = function(ew)
+				ew:apply("render_scale", 1.0)
+			end,
+
+			-- blur = {
+			-- 	radius = 13,
+			-- 	sigma = 5,
+			-- },
 			on_keys = {
 				a = function()
 					print("hello world")
@@ -100,6 +104,15 @@ return {
 				b = function()
 					print("hello world BBBBBB")
 				end,
+			},
+
+			container = {},
+			c = {
+				text = {
+					size_y = 0.5,
+
+					text = "Hello",
+				},
 			},
 		},
 	},

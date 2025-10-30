@@ -46,4 +46,13 @@ void OnUpdate::apply(const Entt& e, const sol::object& obj) {
     lua::assertIs<sol::function>(obj);
     e.patchOrEmplace<OnUpdate>([&](OnUpdate& ou) { ou.fn = obj.as<FuncType>(); });
 };
+
+void RenderScale::apply(const Entt& e, const sol::object& obj) {
+    lua::assertIs<f32>(obj);
+    e.patchOrEmplace<RenderScale>([&](RenderScale& rs) {
+        rs.scale = obj.as<f32>();
+        rs.scale = glm::max(rs.scale, 0.01F);
+    });
+};
+
 }  // namespace mle::ui::comp

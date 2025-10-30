@@ -2,6 +2,7 @@
 
 #include "../Entt.h"
 #include "../UI.h"
+#include "glm/fwd.hpp"
 #include "mle/core/Logger.h"
 #include "mle/renderer/Renderer.h"
 #include "mle/renderer/RenderingThread.h"
@@ -82,6 +83,9 @@ Rendering::Packet::Node Rendering::createPacketNode(u8 atomic_buffer_id, entt::e
     if (auto* renderable_r = ew.tryGet<comp::Renderable>(); renderable_r) {
         node.renderable_packet = renderable_r->updatePacket(ew, atomic_buffer_id);
     }
+    if (auto* render_scale_r = ew.tryGet<comp::RenderScale>(); render_scale_r) {
+        node.scale_factor = render_scale_r->scale;
+    }
     if (const auto* shader_r = ew.tryGet<comp::Shader>(); shader_r) {
         node.shader_packet = shader_r->updatePacket(atomic_buffer_id);
         node.shader_before_children = shader_r->beforeChildren();
@@ -112,8 +116,8 @@ void Rendering::update() {
     atomic_data_.producerPublish();
 };
 
-void Rendering::renderNodeBorder(const Rendering::Packet::Node& node, RenderingContext& ctx) {
-    Recti bounds = node.bounds.parent_px;
+void Rendering::renderNodeBorder(const Rendering::Packet::Node& node, Recti ppx, RenderingContext& ctx) {
+    Recti bounds = node.scale_factor != 1.0F ? ppx.scale(node.scale_factor).asI32() : ppx;
     bounds.expandTBLR(-node.border.t, node.border.b, -node.border.l, node.border.r);
     bounds.move(ctx.parent_viewport.pos());
     Rectf viewport = bounds.asF32();
@@ -141,8 +145,8 @@ void Rendering::renderNodeBorder(const Rendering::Packet::Node& node, RenderingC
     ctx.thread.draw(4, 1, 0, 0);
 }
 
-void Rendering::renderNodeBackground(const Rendering::Packet::Node& node, RenderingContext& ctx) {
-    Recti bounds = node.bounds.parent_px;
+void Rendering::renderNodeBackground(const Rendering::Packet::Node& node, Recti ppx, RenderingContext& ctx) {
+    Recti bounds = node.scale_factor != 1.0F ? ppx.scale(node.scale_factor).asI32() : ppx;
     bounds.move(ctx.parent_viewport.pos());
     Rectf viewport = bounds.asF32();
     Recti scissor = bounds.clamp(ctx.parent_scissor);
@@ -233,11 +237,16 @@ void Rendering::renderNode(const Rendering::Packet::Node& node, RenderingContext
         return;
     }
 
+    auto ppx = node.bounds.parent_px;
+    if (pctx.parent_scale != 1.0F) {
+        ppx.setSize(vec2f(ppx.size()) * pctx.parent_scale);
+    }
+
     if (node.border.color.a > 0) {
-        renderNodeBorder(node, pctx);
+        renderNodeBorder(node, ppx, pctx);
     }
     if (node.bg.a > 0) {
-        renderNodeBackground(node, pctx);
+        renderNodeBackground(node, ppx, pctx);
     }
 
     std::unique_ptr<RenderingContext> new_ctx;
@@ -248,7 +257,7 @@ void Rendering::renderNode(const Rendering::Packet::Node& node, RenderingContext
     RenderingContext* ctx_r = new_ctx ? new_ctx.get() : &pctx;
     RenderingContext& ctx = *ctx_r;
 
-    Recti bounds = node.bounds.parent_px;
+    Recti bounds = node.scale_factor != 1.0F ? ppx.scale(node.scale_factor).asI32() : ppx;
     bounds.move(ctx.parent_viewport.pos());
     Rectf viewport = bounds.asF32();
     Recti scissor = bounds.clamp(ctx.parent_scissor);
@@ -256,7 +265,7 @@ void Rendering::renderNode(const Rendering::Packet::Node& node, RenderingContext
     if (node.shader_packet && node.shader_before_children) {
         ctx.thread.setViewport(viewport);
         ctx.thread.setScissor(scissor);
-        renderNodeShader(node, pctx);
+        renderNodeShader(node, ctx);
     }
 
     if (node.renderable_packet) {
@@ -268,13 +277,14 @@ void Rendering::renderNode(const Rendering::Packet::Node& node, RenderingContext
     for (const auto& child : node.children) {
         ctx.parent_viewport = viewport;
         ctx.parent_scissor = scissor;
+        ctx.parent_scale = node.scale_factor;
         renderNode(child, ctx);
     }
 
     if (node.shader_packet && !node.shader_before_children) {
         ctx.thread.setViewport(viewport);
         ctx.thread.setScissor(scissor);
-        renderNodeShader(node, pctx);
+        renderNodeShader(node, ctx);
     }
 
     if (new_ctx) {

@@ -47,6 +47,8 @@ class Container {
     [[nodiscard]] TargetBound getListMainMinGap() const { return list_main_min_gap_; }
     void setListCrossGap(TargetBound tb) { list_cross_gap_ = tb; }
     [[nodiscard]] TargetBound getListCrossGap() const { return list_cross_gap_; }
+    void setPackChildren(bool pack) { pack_children_ = pack; }
+    [[nodiscard]] bool getPackChildren() const { return pack_children_; }
 
     [[nodiscard]] bool getListDirectionIsReversed() const {
         return list_direction_ == ListDirection::HORIZONTAL_REVERSED || list_direction_ == ListDirection::VERTICAL_REVERSED;
@@ -75,6 +77,7 @@ class Container {
   private:
     Type type_ = Type::HYBRID;
     bool scrollable_ = true;
+    bool pack_children_ = false;
     vec2i offset_ = {0, 0};
 
     ListDirection list_direction_ = ListDirection::VERTICAL;

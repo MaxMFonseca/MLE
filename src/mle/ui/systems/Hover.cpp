@@ -51,7 +51,7 @@ void Hover::update() {
 
 // NOLINTNEXTLINE(misc-no-recursion) cool recursive function
 void Hover::hovered(const Entt& ew, vec2f pos_parent, const comp::Bounds& self_bounds, std::vector<entt::entity>& inside) {
-    vec2f pos_self = pos_parent + vec2f(self_bounds.parent_px.pos());
+    vec2f pos_self = pos_parent - vec2f(self_bounds.parent_px.pos());
     inside.push_back(ew.e());
 
     auto* hov = ew.tryGet<comp::Hoverable>();

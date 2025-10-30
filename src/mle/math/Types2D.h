@@ -171,6 +171,22 @@ class Rect {
         expand(other.max());
     }
 
+    constexpr Rectf scale(f32 f)
+        requires std::is_floating_point_v<T>
+    {
+        auto old_size = size_;
+        vec2<T> new_size = size_ * as<T>(f);
+        auto size_delta = new_size - old_size;
+        vec2<T> new_pos = pos_ - (size_delta * as<T>(0.5F));
+        return Rect<T>(new_pos, new_size);
+    }
+
+    [[nodiscard]] constexpr Rectf scale(f32 f) const
+        requires(!std::is_floating_point_v<T>)
+    {
+        return asF32().scale(f);
+    }
+
     constexpr void expandTop(T v) { setTop(top() + v); }
     constexpr void expandBottom(T v) { setBottom(bottom() + v); }
     constexpr void expandLeft(T v) { setLeft(left() + v); }

@@ -179,6 +179,7 @@ void Container::on_destroy(entt::registry& registry, const entt::entity entt) {
 
 namespace {
 struct ChildBoundsCalcData {
+    comp::Bounds& bounds;
     struct {
         comp::TargetPosition position{};
         comp::TargetSize size{};
@@ -199,6 +200,7 @@ struct ChildBoundsCalcData {
     bool has_target_border = false;
 
     explicit ChildBoundsCalcData(const Entt& e) :
+        bounds(e.get<comp::Bounds>()),
         size_provider(e.tryGet<comp::SizeProvider>()) {
         MLE_T("Creating ChildBoundsUpdatingData for child: {}", e.fullName());
         MLE_T("Has size provider: {}", size_provider != nullptr);
@@ -233,20 +235,14 @@ struct ChildBoundsCalcData {
 void finishChildBounds(const Entt& centt, ChildBoundsCalcData& cbcd, PaddingPx padding_px) {
     vec2i origin_lt = {padding_px.l, padding_px.t};
 
-    comp::Bounds new_bounds;
-    new_bounds.parent_px.setPos(cbcd.new_position + origin_lt);
-    new_bounds.parent_px.setSize(cbcd.new_size);
+    comp::Bounds old_bounds = cbcd.bounds;
+    cbcd.bounds.parent_px.setPos(cbcd.new_position + origin_lt);
+    cbcd.bounds.parent_px.setSize(cbcd.new_size);
 
-    auto old_bounds = centt.get<comp::Bounds>();
-
-    bool size_changed = old_bounds.parent_px.size() != new_bounds.parent_px.size();
-    bool pos_changed = old_bounds.parent_px.pos() != new_bounds.parent_px.pos();
+    bool size_changed = old_bounds.parent_px.size() != cbcd.bounds.parent_px.size();
 
     if (size_changed && cbcd.size_provider) {
-        cbcd.size_provider->call(centt, new_bounds.parent_px.size());
-    }
-    if (size_changed || pos_changed) {
-        centt.replace<comp::Bounds>(new_bounds);
+        cbcd.size_provider->call(centt, cbcd.bounds.parent_px.size());
     }
 
     if (cbcd.has_target_border) {
@@ -1462,17 +1458,18 @@ std::pair<std::vector<entt::entity>, std::vector<entt::entity>> separateFreeList
     return {free_children, list_children};
 }
 
-vec2u accumulateChildrenExtent(const std::map<entt::entity, ChildBoundsCalcData>& cbcds, const PaddingPx& padding) {
+std::pair<vec2i, vec2i> findChildrenMaxMin(const std::map<entt::entity, ChildBoundsCalcData>& cbcds) {
     if (cbcds.empty()) {
-        return vec2u{0, 0};
+        return {};
     }
 
     vec2i min_pos{std::numeric_limits<int>::max(), std::numeric_limits<int>::max()};
     vec2i max_pos{std::numeric_limits<int>::min(), std::numeric_limits<int>::min()};
 
-    for (const auto& [_, cud] : cbcds) {
-        vec2i child_min = cud.new_position - vec2i{cud.new_margin.l + cud.new_border.l, cud.new_margin.t + cud.new_border.t};
-        vec2i child_max = cud.new_position + vec2i{cud.new_size.x + cud.new_margin.r + cud.new_border.r, cud.new_size.y + cud.new_margin.b + cud.new_border.b};
+    for (const auto& [_, cbcd] : cbcds) {
+        vec2i child_min = cbcd.new_position - vec2i{cbcd.new_margin.l + cbcd.new_border.l, cbcd.new_margin.t + cbcd.new_border.t};
+        vec2i child_max =
+            cbcd.new_position + vec2i{cbcd.new_size.x + cbcd.new_margin.r + cbcd.new_border.r, cbcd.new_size.y + cbcd.new_margin.b + cbcd.new_border.b};
 
         min_pos.x = std::min(min_pos.x, child_min.x);
         min_pos.y = std::min(min_pos.y, child_min.y);
@@ -1481,11 +1478,10 @@ vec2u accumulateChildrenExtent(const std::map<entt::entity, ChildBoundsCalcData>
     }
 
     if (min_pos.x == std::numeric_limits<int>::max() || min_pos.y == std::numeric_limits<int>::max()) {
-        return vec2u{0, 0};
+        return {};
     }
 
-    vec2i total_size = (max_pos - min_pos) + vec2i{padding.l + padding.r, padding.t + padding.b};
-    return vec2u{as<u32>(total_size.x), as<u32>(total_size.y)};
+    return {min_pos, max_pos};
 }
 }  // namespace
 
@@ -1520,6 +1516,19 @@ vec2u accumulateChildrenExtent(const std::map<entt::entity, ChildBoundsCalcData>
         } break;
     }
 
-    return accumulateChildrenExtent(cbcds, padding_result);
+    auto children_max_min = findChildrenMaxMin(cbcds);
+
+    for (const auto& [_, cbcd] : cbcds) {
+        if (pack_children_) {
+            cbcd.bounds.parent_px.setPosX(cbcd.bounds.parent_px.left() - children_max_min.first.x);
+            cbcd.bounds.parent_px.setPosY(cbcd.bounds.parent_px.top() - children_max_min.first.y);
+        }
+    }
+
+    vec2u final_size = pack_children_ ? vec2u{children_max_min.second.x - children_max_min.first.x, children_max_min.second.y - children_max_min.first.y}
+                                      : vec2u{children_max_min.second.x + padding_result.l + padding_result.r,
+                                              children_max_min.second.y + padding_result.t + padding_result.b};
+
+    return final_size;
 }
 }  // namespace mle::ui::comp

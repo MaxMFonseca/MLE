@@ -27,6 +27,8 @@ class Rendering {
             comp::Border border{};
             Color bg{};
 
+            f32 scale_factor = 1.0F;
+
             std::shared_ptr<ShaderPacketI> shader_packet;
             std::shared_ptr<RenderablePacketI> renderable_packet;
             bool shader_before_children = false;
@@ -41,6 +43,7 @@ class Rendering {
         RenderingThread thread;
         Rectf parent_viewport{};
         Recti parent_scissor{};
+        f32 parent_scale = 1.0F;
 
         // TODO: should I instead of rendering immediate add everything to this context and bind all pipelines once ?
         // YEAH sure
@@ -63,8 +66,8 @@ class Rendering {
 
     void renderNode(const Rendering::Packet::Node& node, RenderingContext& ctx);
     std::unique_ptr<RenderingContext> renderCreateNodeNewContext(const Rendering::Packet::Node& node);
-    void renderNodeBorder(const Rendering::Packet::Node& node, RenderingContext& ctx);
-    void renderNodeBackground(const Rendering::Packet::Node& node, RenderingContext& ctx);
+    void renderNodeBorder(const Rendering::Packet::Node& node, Recti ppx, RenderingContext& ctx);
+    void renderNodeBackground(const Rendering::Packet::Node& node, Recti ppx, RenderingContext& ctx);
     void renderNodeRenderable(const Rendering::Packet::Node& node, RenderingContext& ctx);
     void renderNodeChildren(const Rendering::Packet::Node& node, RenderingContext& ctx);
     void renderNodeShader(const Rendering::Packet::Node& node, RenderingContext& ctx);
