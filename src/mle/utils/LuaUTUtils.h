@@ -6,15 +6,14 @@
 
 namespace mle::lua {
 inline void makeUTColor(Lua& lua) {
-    auto ut = lua.newUsertype<Color>(
-        "Color", sol::constructors<Color(), Color(vec3f, f32), Color(vec4f), Color(vec4u), Color(f32, f32, f32, f32), Color(u32, u32, u32, u32), Color(u32)>(),
-        sol::base_classes, sol::bases<vec4f>());
+    auto ut = lua.newUsertype<Color>("Color",
+                                     sol::constructors<Color(), Color(vec3f, f32), Color(vec4f), Color(vec4u), Color(f32, f32, f32, f32),
+                                                       Color(u32, u32, u32, u32), Color(u32), Color(std::string), Color(sol::object)>(),
+                                     sol::base_classes, sol::bases<vec4f>());
     ut["r"] = &Color::r;
     ut["g"] = &Color::g;
     ut["b"] = &Color::b;
     ut["a"] = &Color::a;
-    ut["fromString"] = &Color::fromString;
-    ut["fromLua"] = &Color::fromLua;
     ut["addColor"] = &Color::addColor;
     ut["getColor"] = &Color::getColor;
     ut["mix"] = &Color::mix;

@@ -55,6 +55,14 @@ struct Color : vec4f {
     explicit Color(u32 hex) noexcept :
         Color{fromHex(hex)} {}
 
+    /// Constructs a color from a string (e.g., hex string or named color).
+    explicit Color(const std::string& str) :
+        Color{fromString(str)} {}
+
+    /// Constructs a color from a Lua object (string, table, or integer).
+    explicit Color(const sol::object& object) :
+        Color{fromLua(object)} {}
+
     ~Color() = default;
 
     /// Returns the color encoded as 0xRRGGBBAA.
