@@ -11,7 +11,7 @@ return {
 			padding = "4px",
 			border = {
 				thickness = "2px",
-				color = "green700",
+				color = "green500",
 				roundness = "7px",
 			},
 			background = { "BLACK", 0.96 },
@@ -25,7 +25,10 @@ return {
 					idx = 0,
 					text = {
 						"$>",
-						color = "green400",
+						color = "BLACK",
+						bold = true,
+						border_color = "green700",
+						border_thickness = 1,
 					},
 				},
 				text = {
@@ -33,7 +36,7 @@ return {
 					text = {
 						".",
 						input = {},
-						color = "green400",
+						color = "green700",
 					},
 				},
 			},

@@ -14,11 +14,18 @@ return {
 			c = {
 				{
 					idx = 0,
-					text = { "PerfTracker/s:", height = "23px", color = "green400" },
+					text = {
+						"PerfTracker/s:",
+						height = "23px",
+						color = "green400",
+					},
 				},
 				text = {
 					idx = 1,
-					text = { height = "23px", color = "green400" },
+					text = {
+						height = "23px",
+						color = "green400",
+					},
 				},
 			},
 		},

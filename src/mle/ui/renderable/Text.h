@@ -25,6 +25,9 @@ struct TextPacket : public RenderablePacketI {
     std::vector<PerImageData> per_image_data;
 
     Color color = Color::ONE;
+    Color border_color = Color::ZERO;
+    f32 border_thickness = 0.F;
+    bool bold = false;
 
     TextPacket() = default;
     ~TextPacket() override = default;
@@ -38,6 +41,9 @@ struct Text : public RenderableI {
     std::u32string text;
     entt::id_type font_id{};
     Color color = Color::ONE;
+    Color border_color = Color::ZERO;
+    f32 border_thickness = 0.F;
+    bool bold = false;
     TargetBound font_height_tb;
     Font::JustifyMode justify_mode = Font::JustifyMode::START;
     f32 line_max_aspect = 0.F;
@@ -65,6 +71,10 @@ struct Text : public RenderableI {
     void setFont(const Entt& ew, const char* cstr);
     void setColor(const Color& c);
     void setColor(const sol::object& obj) { setColor(Color::fromLua(obj)); }
+    void setBorderColor(const Color& c);
+    void setBorderColor(const sol::object& obj) { setBorderColor(Color::fromLua(obj)); }
+    void setBorderThickness(f32 t);
+    void setBold(bool t);
     void setFontHeight(const Entt& ew, const sol::object& obj);
     void setJustifyMode(const Entt& ew, std::string_view mode_str);
     void setLineMaxAspect(const Entt& ew, f32 v);

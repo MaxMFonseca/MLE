@@ -134,6 +134,20 @@ void Text::setColor(const Color& c) {
     versionUp();
 }
 
+void Text::setBorderColor(const Color& c) {
+    border_color = c;
+    versionUp();
+};
+
+void Text::setBold(bool t) {
+    versionUp();
+    bold = t;
+}
+void Text::setBorderThickness(f32 t) {
+    versionUp();
+    border_thickness = t / 16;
+}
+
 void Text::setFontHeight(const Entt& ew, const sol::object& obj) {
     font_height_tb.set(obj);
     ew.requestInternalBoundsUpdate();
@@ -181,6 +195,15 @@ void Text::set(const Entt& ew, const sol::object& obj) {
         }
         if (const sol::object color_r = table["color"]; color_r.valid()) {
             setColor(color_r);
+        }
+        if (const sol::object border_color_r = table["border_color"]; border_color_r.valid()) {
+            setBorderColor(border_color_r);
+        }
+        if (const auto border_thickness_r = table["border_thickness"]; lua::valid<f32>(border_thickness_r)) {
+            setBorderThickness(lua::as<f32>(border_thickness_r));
+        }
+        if (const auto bold_r = table["bold"]; lua::valid<bool>(bold_r)) {
+            setBold(lua::as<bool>(bold_r));
         }
         if (const auto font_r = table["font"]; lua::valid<std::string>(font_r)) {
             setFont(ew, lua::as<std::string>(font_r).c_str());
@@ -319,6 +342,9 @@ void Text::doUpdatePacket(const Entt& ew, RenderablePacketI* packet) {
     p.chars_buffer->write(current_rendering_chars_instance_data.data());
     p.per_image_data = per_image_data;
     p.color = color;
+    p.border_color = border_color;
+    p.border_thickness = border_thickness;
+    p.bold = bold;
 };
 
 void Text::makeInputBox(const Entt& e, const sol::object& obj) {
@@ -372,17 +398,21 @@ void TextPacket::render(CompRenderingCtx& ctx) {
 
         thread.pushDescriptor(0, push_writes);
 
-        // struct {
-        //     vec4f color;
-        //     vec4i rounding_corners_radius_px;
-        //     vec2i viewport_size;
-        // } pc{};
-        //
-        // pc.color = color;
-        // pc.viewport_size = ctx.viewport_size;
-        // pc.rounding_corners_radius_px = ctx.rounding_corners_radius_px;
-        //
-        // thread.pushConstants(&pc);
+        struct PC {
+            vec4f color;
+            vec4f border_color;
+            f32 border_thickness;
+            f32 text_thickness;
+        } pc{};
+        pc.color = color;
+        pc.border_color = border_color;
+        pc.border_thickness = border_thickness;
+        pc.text_thickness = 0.5F;
+        if (bold) {
+            pc.text_thickness += 0.5F / 8;
+        }
+
+        thread.pushConstants(&pc);
 
         thread.draw(4, instance_count, 0, instance_offset);
     }
