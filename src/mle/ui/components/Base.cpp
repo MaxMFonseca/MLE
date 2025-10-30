@@ -41,4 +41,9 @@ sol::object Table::get(const Entt& e) {
     }
     return e.get<Table>().o;
 };
+
+void OnUpdate::apply(const Entt& e, const sol::object& obj) {
+    lua::assertIs<sol::function>(obj);
+    e.patchOrEmplace<OnUpdate>([&](OnUpdate& ou) { ou.fn = obj.as<FuncType>(); });
+};
 }  // namespace mle::ui::comp

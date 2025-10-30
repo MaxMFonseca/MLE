@@ -84,6 +84,7 @@ void LuaShader::setParam(const std::string& name, const sol::object& obj) {
     } else {
         MLE_E("Unsupported param T passed to LuaShader on key: {}", name);
     }
+    versionUp();
 };
 
 void LuaShader::set(const sol::object& obj) {

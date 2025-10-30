@@ -81,6 +81,18 @@ void UI::update() {
     }
 
     {
+        MLE_PERF_SCOPE("GUIUpdate.Update");
+        auto view = registry_.view<ui::comp::OnUpdate>();
+        for (auto e : view) {
+            ui::Entt ew{*this, e};
+            const auto& on_update = view.get<ui::comp::OnUpdate>(e);
+            if (on_update.fn) {
+                on_update.fn(ew);
+            }
+        }
+    }
+
+    {
         MLE_PERF_SCOPE("GUIUpdate.Bounds");
         bounds_system_.update();
     }

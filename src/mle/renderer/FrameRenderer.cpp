@@ -281,13 +281,18 @@ vk::PresentModeKHR chooseSwapchainPresentMode(const auto& p_device) {
 
     vk::PresentModeKHR target_present_mode{};
 
-    std::string target_present_mode_str = RuntimeConfig::i().get("renderer.swapchain.present_mode").value_or("auto");
+    auto target_present_mode_str_r = RuntimeConfig::i().get("renderer.swapchain.present_mode");
+    if (!target_present_mode_str_r.has_value()) {
+        return vk::PresentModeKHR::eFifo;
+    }
+    const auto& target_present_mode_str = target_present_mode_str_r.value();
+
     if (target_present_mode_str == "mailbox") {
         target_present_mode = vk::PresentModeKHR::eMailbox;
     } else if (target_present_mode_str == "immediate") {
         target_present_mode = vk::PresentModeKHR::eImmediate;
     } else {
-        if (target_present_mode_str != "auto") {
+        if (target_present_mode_str != "auto" && target_present_mode_str != "fifo") {
             MLE_W("Unknown present mode '{}', falling back to 'auto' (FIFO).", target_present_mode_str);
         }
         return vk::PresentModeKHR::eFifo;

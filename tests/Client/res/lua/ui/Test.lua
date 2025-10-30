@@ -1,3 +1,7 @@
+local color1 = Color.new("WHITE")
+local color2 = Color.new("RED")
+local color = color1
+
 return {
 	-- background = "RED",
 	-- padding = "10px",
@@ -17,6 +21,12 @@ return {
 		},
 	},
 
+	on_update = function(ew)
+		local factor = math.abs((C.time / 2) % 2 - 1)
+		color = Color.mix(color1, color2, factor)
+		print("color update", color.r, color.g, color.b, color.a)
+	end,
+
 	container = {
 		type = "hybrid",
 		dir = "v",
@@ -33,13 +43,18 @@ return {
 			idx = 0,
 			pos = { 0, 0 },
 			size = { 1, 1 },
-			on_hover = function(ew)
-				print("hovering bg", ew:fullName())
-				local h = ew:get("hovered")
-				print(h.pos_self.x, h.pos_self.y)
-				print(h.pos_self_norm.x, h.pos_self_norm.y)
-				print(h.sw:elapsedSecFloat())
-				print(h.state)
+			-- on_hover = function(ew)
+			-- 	print("hovering bg", ew:fullName())
+			-- 	local h = ew:get("hovered")
+			-- 	print(h.pos_self.x, h.pos_self.y)
+			-- 	print(h.pos_self_norm.x, h.pos_self_norm.y)
+			-- 	print(h.sw:elapsedSecFloat())
+			-- 	print(h.state)
+			-- end,
+			on_update = function(ew)
+				ew:apply("shader_params", {
+					pc_color = color,
+				})
 			end,
 			shader = {
 				pipeline = {
@@ -51,7 +66,7 @@ return {
 					cull = "none",
 				},
 				params = {
-					pc_color = Color.fromString("green600"),
+					pc_color = color,
 				},
 				fn = "TODO",
 			},
@@ -64,8 +79,16 @@ return {
 			style = { "basic_round" },
 			border = {
 				thickness = "3px",
-				color = "green400",
+				color = color,
 			},
+			on_update = function(ew)
+				ew:apply("border_color", color)
+
+				local time_f = math.abs((C.time / 2) % 2 - 1)
+
+				ew:apply("pos_x", time_f / 2 + 0.25)
+				-- ew:apply("scale", time_f)
+			end,
 			blur = {
 				radius = 13,
 				sigma = 5,
@@ -78,48 +101,6 @@ return {
 					print("hello world BBBBBB")
 				end,
 			},
-		},
-		blur2 = {
-			pos = { xrel = "blur", yrel = "blur:c" },
-			size = { xrel = "blur", yrel = "blur:0.2" },
-			origin = "lc",
-			style = { "basic_round", "basic_border" },
-			-- blur = {
-			-- 	radius = 13,
-			-- 	sigma = 5,
-			-- },
-			background = { "BLACK", 0.5 },
-			on_hover = function()
-				return 12
-			end,
-			on_hover_in = function()
-				print("on_hover_in")
-			end,
-			on_hover_out = function()
-				print("on_hover_out")
-			end,
-		},
-		how = {
-			pos = "br",
-			origin = "br",
-			size = "30px",
-			background = "NQB",
-			table = { nnn = 0 },
-			on_keys = {
-				lmb = function(ew)
-					print(ew:fullName())
-					local t = ew:get("table")
-					print(t.nnn)
-					t.nnn = t.nnn + 1
-				end,
-			},
-		},
-		health_bar = {
-			pos = "rt",
-			origin = "rt",
-			size = { 0.2, 0.05 },
-			margin = "20px",
-			style = { "basic_round", "basic_border" },
 		},
 	},
 }

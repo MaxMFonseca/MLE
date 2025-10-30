@@ -71,10 +71,10 @@ void main() {
   value += calcLine(grid_uv, ps[7], ps[3]);
   value += calcLine(grid_uv, ps[7], ps[5]);
 
-  float sparkle = 0.0003 / (min_dist * min_dist);
-  value += max(sparkle, 0.003);
+  value += 0.0003 / (min_dist * min_dist);
 
   out_color = pc.color * value;
+  // out_color = pc.color;
   out_color.a = 1.0;
 
   // if (grid_uv.x > 0.99 || grid_uv.y > 0.99 || grid_uv.x < -0.99 || grid_uv.y < -0.99) {

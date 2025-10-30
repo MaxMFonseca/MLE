@@ -106,10 +106,10 @@ void PerfTracker::update(std::stop_token st) {
                 }
 
                 static u32 counter = 0;
-                MLE_I("Perf {} (avg µs/call over last second):", counter);
+                MLE_D("Perf {} (avg µs/call over last second):", counter);
                 counter++;
                 for (const auto& s : samples) {
-                    MLE_I("  {}: {:.3f} µs ({} calls)", s.name, s.per_call_us, s.calls_last_sec);
+                    MLE_D("  {}: {:.3f} µs ({} calls)", s.name, s.per_call_us, s.calls_last_sec);
                 }
             }
         }
