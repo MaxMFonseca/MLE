@@ -33,6 +33,7 @@ class Client final {
     ImageRef render();
 
     auto& lua() { return lua_; }
+    auto& getCTable() { return client_table_; }
 
   private:
     void update();

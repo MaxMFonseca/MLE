@@ -34,6 +34,9 @@ void Client::init() {
     MLE_D("Tailwind colors.");
     Color::addColors(lua_.require("mle/tailwind_colors").as<sol::table>());
 
+    MLE_D("Creating client table in Lua");
+    client_table_ = lua_.createTable("C");
+
     MLE_I("Window init");
     Window::i().init();
 
@@ -117,6 +120,8 @@ void Client::run() {
         if (updates == MAX_CATCH_UP && accumulator >= FIXED_DT) {
             accumulator %= FIXED_DT;
         }
+
+        client_table_["time"] = running_sw_.elapsedSecFloat();
 
         // if (test_sw.elapsedMSFloat() > 33) {
         //     test_sw.reset();
