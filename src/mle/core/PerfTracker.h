@@ -19,6 +19,7 @@ using PerfNewSamplesListenerHnd = std::unique_ptr<PerfNewSamplesListener>;
 
 class PerfTracker {
     MLE_SINGLETON(PerfTracker)
+    static constexpr bool ENABLED = true;
 
   public:
     using CounterId = u32;
@@ -39,7 +40,7 @@ class PerfTracker {
 
     struct Sample {
         CounterId id_{};
-        const char* name = nullptr;
+        std::string name{};
         u64 last_sec_ns{0};
         f64 per_call_us{0.0};
         u64 calls_last_sec{0};

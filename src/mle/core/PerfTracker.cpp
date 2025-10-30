@@ -9,6 +9,10 @@
 
 namespace mle {
 PerfTracker::CounterId PerfTracker::registerCounter(const char* name) {
+    if constexpr (!ENABLED) {
+        return 0;
+    }
+
     std::scoped_lock<std::mutex> lock(names_mtx_);
     auto it = name_to_id_.find(name);
     if (it != name_to_id_.end()) {
@@ -22,6 +26,10 @@ PerfTracker::CounterId PerfTracker::registerCounter(const char* name) {
 }
 
 void PerfTracker::record(CounterId id, std::chrono::nanoseconds ns) {
+    if constexpr (!ENABLED) {
+        return;
+    }
+
     if (id >= entries_.size()) {
         std::scoped_lock<std::mutex> lock(entries_resize_mtx_);
         entries_.resize(id + 1);
@@ -33,6 +41,10 @@ void PerfTracker::record(CounterId id, std::chrono::nanoseconds ns) {
 
 // NOLINTNEXTLINE(performance-unnecessary-value-param) no need
 void PerfTracker::update(std::stop_token st) {
+    if constexpr (!ENABLED) {
+        return;
+    }
+
     using namespace std::chrono_literals;
     const auto interval = 1s;
     auto next = std::chrono::steady_clock::now() + interval;
@@ -70,7 +82,6 @@ void PerfTracker::update(std::stop_token st) {
                         continue;
                     }
                     const f64 us_per_call = (as<f64>(entry.ns) / as<f64>(entry.calls)) / 1000.0;
-                    const char* name = id_to_name_[id].c_str();
 
                     if (lifetime_acc_.size() <= id) {
                         lifetime_acc_.resize(id + 1);
@@ -78,7 +89,7 @@ void PerfTracker::update(std::stop_token st) {
                     lifetime_acc_[id].ns += entry.ns;
                     lifetime_acc_[id].calls += entry.calls;
 
-                    samples[id] = Sample{.name = name, .last_sec_ns = entry.ns, .per_call_us = us_per_call, .calls_last_sec = entry.calls};
+                    samples[id] = Sample{.name = id_to_name_.at(id), .last_sec_ns = entry.ns, .per_call_us = us_per_call, .calls_last_sec = entry.calls};
                 }
             }
 
@@ -109,12 +120,21 @@ void PerfTracker::update(std::stop_token st) {
 }
 
 void PerfTracker::init() {
+    if constexpr (!ENABLED) {
+        MLE_I("PerfTracker disabled");
+        return;
+    }
+
     MLE_D("PerfTracker init");
     first_time_ = std::chrono::steady_clock::now();
     update_thread_ = std::jthread([this](std::stop_token st) { update(std::move(st)); });
 }
 
 void PerfTracker::shutdown() {
+    if constexpr (!ENABLED) {
+        return;
+    }
+
     if (update_thread_.joinable()) {
         update_thread_.request_stop();
         update_thread_.join();
@@ -143,11 +163,19 @@ const char* PerfTracker::idToName(CounterId id) {
 }
 
 void PerfTracker::addNewSamplesListener(PerfNewSamplesListener* l) {
+    if constexpr (!ENABLED) {
+        return;
+    }
+
     std::scoped_lock<std::mutex> lock(new_samples_listeners_mtx_);
     new_samples_listeners_.insert(l);
 }
 
 void PerfTracker::removeNewSamplesListener(PerfNewSamplesListener* l) {
+    if constexpr (!ENABLED) {
+        return;
+    }
+
     std::scoped_lock<std::mutex> lock(new_samples_listeners_mtx_);
     new_samples_listeners_.erase(l);
 }
