@@ -15,8 +15,8 @@ if(NOT DEFINED CMAKE_CXX_COMPILER)
 endif()
 
 # Options to enable/disable features
-option(ENABLE_DOXYGEN "Build Doxygen documentation" OFF)
-option(BUILD_TESTS "Build the internal tests" ON)
+option(MLE_ENABLE_DOXYGEN "Build Doxygen documentation" OFF)
+option(MLE_BUILD_TESTS "Build the internal tests" ON)
 
 project(MLE) # Define the project
 
@@ -43,7 +43,7 @@ target_compile_options(MLE PUBLIC -Wall -Wextra -Wpedantic -Werror -fno-rtti)
 target_compile_options(MLE PRIVATE -fno-exceptions)
 
 # Optionally enable Doxygen documentation
-if (ENABLE_DOXYGEN)
+if (MLE_ENABLE_DOXYGEN)
   find_package(Doxygen REQUIRED)
 endif()
 
@@ -62,7 +62,7 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/external)
 add_compile_definitions(MLE_APPLICATION)
 
 # Optionally include tests if enabled
-if (BUILD_TESTS)
+if (MLE_BUILD_TESTS)
   message(STATUS "Including MLE tests...")
   add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/tests)
 endif()

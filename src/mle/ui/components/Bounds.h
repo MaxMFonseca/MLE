@@ -239,6 +239,8 @@ struct formatter<mle::ui::TargetBound::Type> : formatter<std::string> {
                 return format_to(ctx.out(), "RELATIVE_H(%h)");
             case mle::ui::TargetBound::Type::DEFAULT:
                 return format_to(ctx.out(), "DEFAULT()");
+            default:
+                return format_to(ctx.out(), "UNKNOWN()");
         }
     }
 };

@@ -90,14 +90,6 @@ void Client::run() {
         .name = "mle/t",
         .stream = false,
     });
-    AudioEngine::i().enqueueCmd(audio::cmd::Load{
-        .name = "i/ambient",
-        .stream = true,
-    });
-    AudioEngine::i().enqueueCmd(audio::cmd::Load{
-        .name = "i/ambient7s",
-        .stream = true,
-    });
 
     if (!next_game_layer_) {
         MLE_W("No initial game layer set! Pushing empty layer.");

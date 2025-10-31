@@ -263,6 +263,9 @@ vec2u Text::calculateBounds(const Entt& e, vec2u max_size) {
                     return as<int>(max_size.y);
                 }
                 return as<int>(as<f32>(max_size.x) / line_max_aspect);
+            default:
+                MLE_W("Text::calculateBounds unhandled TargetBound::Type in font height calculation.");
+                return as<int>(max_size.y);
         }
     }();
 

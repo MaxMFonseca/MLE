@@ -3,6 +3,7 @@
 #include <array>
 #include <atomic>
 
+#include "mle/core/Consts.h"
 #include "mle/utils/Utils.h"
 
 namespace mle {
@@ -72,7 +73,6 @@ class AtomicTripleBuffer {
     void storePub(Pub p, std::memory_order mo) { published_.store(pack(p), mo); }
 
   private:
-    static constexpr usize CACHELINE = std::hardware_destructive_interference_size;
     template <typename U>
     static consteval usize padBytes() {
         return (CACHELINE > sizeof(U)) ? (CACHELINE - sizeof(U)) : usize{1};

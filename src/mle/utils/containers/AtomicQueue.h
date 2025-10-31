@@ -103,7 +103,6 @@ class AtomicQueue {
     }
 
   private:
-    static constexpr auto CACHELINE = std::hardware_destructive_interference_size;
     static constexpr auto PAD_SIZE = CACHELINE - sizeof(std::atomic<usize>) > 0 ? CACHELINE - sizeof(std::atomic<usize>) : 1;
 
     alignas(CACHELINE) std::atomic<usize> head_{0};

@@ -89,4 +89,7 @@ struct ResPath {
     static constexpr auto MODELS = "models";      ///< Path to 3D model files.
     static constexpr auto SOUNDS = "sounds";      ///< Path to sound files.
 };
+
+// TODO: study this more
+constexpr std::size_t CACHELINE = 64;
 }  // namespace mle

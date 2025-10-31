@@ -1212,7 +1212,7 @@ struct FreeCalculator {
                 } break;
                 case TargetBound::Type::ROOT: {
                     cbcd.new_size.y = as<int>(root_size_f.y * cbcd.target.size.y.val);
-                }
+                } break;
                 case TargetBound::Type::RELATIVE_H:
                 case TargetBound::Type::RELATIVE: {
                     cbcd.new_size.y = as<int>(as<f32>(padded_size.y) * cbcd.target.size.y.val);
