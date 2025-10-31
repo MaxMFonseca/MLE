@@ -799,14 +799,14 @@ void AudioEngine::processCmdSetVolume(const audio::cmd::SetVolume& cmd) {
     setBusVolumeLinear(cmd.bus, cmd.volume);
 
     for (auto& source : one_shot_sources_) {
-        if (source.bus == cmd.bus && source.priority > 0) {
-            applyVolume(source.source, cmd.bus, source.volume);
+        if (cmd.bus == 0 || (source.bus == cmd.bus && source.priority > 0)) {
+            applyVolume(source.source, source.bus, source.volume);
         }
     }
 
     for (auto& stream : streaming_sources_) {
-        if (stream.bus == cmd.bus && stream.active) {
-            applyVolume(stream.source, cmd.bus, stream.volume);
+        if (cmd.bus == 0 || (stream.bus == cmd.bus && stream.active)) {
+            applyVolume(stream.source, stream.bus, stream.volume);
         }
     }
 }
