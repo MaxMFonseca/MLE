@@ -5,14 +5,17 @@
 
 #include <algorithm>
 #include <expected>
+#include <sol/forward.hpp>
 #include <source_location>
 
 #include "mle/audio/Types.h"
 #include "mle/audio/Utils.h"
+#include "mle/client/Client.h"
 #include "mle/core/Assert.h"
 #include "mle/core/Consts.h"
 #include "mle/core/Logger.h"
 #include "mle/core/PerfTracker.h"
+#include "mle/lua/Utils.h"
 #include "mle/math/Types.h"
 #include "mle/utils/String.h"
 
@@ -475,8 +478,8 @@ void AudioEngine::setBusVolumeLinear(u8 b, f32 linear) {
         MLE_W("Invalid bus index: {}", b);
         return;
     }
-    bus_volumes_.at(b) = linear;
-    MLE_C("Set bus {} volume to: {}", b, linear);
+    bus_volumes_.at(b) = std::clamp(linear, 0.0F, 4.0F);
+    MLE_D("Bus {} volume set to {}", b, bus_volumes_.at(b));
 }
 
 void AudioEngine::applyVolume(ALuint source, u8 bus, f32 source_linear) const {
@@ -836,4 +839,184 @@ void AudioEngine::processCmdStopAll(const audio::cmd::StopAll& /*unused*/) {
     }
 }
 
+namespace {
+void luaPlayOneShot(const sol::object& obj) {
+    if (!obj.valid()) {
+        MLE_W("Audio.playOneShot: invalid obj");
+        return;
+    }
+    audio::cmd::PlayOneShot cmd;
+    if (obj.is<std::string>()) {
+        const std::string sound_name = obj.as<std::string>();
+        cmd.sound_id = entt::hashed_string{sound_name.c_str()};
+    } else if (obj.is<sol::table>()) {
+        auto table = obj.as<sol::table>();
+
+        if (const auto name_r = table["name"]; lua::valid<std::string>(name_r)) {
+            auto name = table["name"].get<std::string>();
+            cmd.sound_id = entt::hashed_string{name.c_str()};
+        } else {
+            MLE_W("Audio.playOneShot: 'name' field is required in the table.");
+            return;
+        }
+
+        if (const auto bus_r = table["bus"]; lua::valid<u8>(bus_r)) {
+            cmd.params.bus = bus_r.get<u8>();
+        }
+
+        if (const auto volume_r = table["volume"]; lua::valid<f32>(volume_r)) {
+            cmd.params.volume = volume_r.get<f32>();
+        }
+
+        if (const auto pitch_r = table["pitch"]; lua::valid<f32>(pitch_r)) {
+            cmd.params.pitch = pitch_r.get<f32>();
+        }
+
+        if (const auto priority_r = table["priority"]; lua::valid<usize>(priority_r)) {
+            cmd.priority = priority_r.get<usize>();
+        }
+
+    } else {
+        MLE_E("Audio.playOneShot: invalid argument type, expected string or table.");
+        return;
+    }
+
+    AudioEngine::i().enqueueCmd(cmd);
+}
+
+void luaSetVolume(u8 bus, f32 volume) {
+    audio::cmd::SetVolume cmd;
+    cmd.bus = bus;
+    cmd.volume = volume;
+    AudioEngine::i().enqueueCmd(cmd);
+}
+
+void luaStopAll() {
+    audio::cmd::StopAll cmd;
+    AudioEngine::i().enqueueCmd(cmd);
+}
+
+void luaStartStream(const sol::object& obj) {
+    if (!obj.valid()) {
+        MLE_E("Audio.startStream: invalid obj");
+        return;
+    }
+    audio::cmd::StartStream cmd;
+    if (obj.is<std::string>()) {
+        const std::string sound_name = obj.as<std::string>();
+        cmd.sound_id = entt::hashed_string{sound_name.c_str()};
+        cmd.params.bus = 0;
+        cmd.id = 0;
+    } else if (obj.is<sol::table>()) {
+        auto table = obj.as<sol::table>();
+
+        if (const auto name_r = table["name"]; lua::valid<std::string>(name_r)) {
+            auto name = table["name"].get<std::string>();
+            cmd.sound_id = entt::hashed_string{name.c_str()};
+        } else {
+            MLE_W("Audio.startStream: 'name' field is required in the table.");
+            return;
+        }
+
+        if (const auto id_r = table["id"]; lua::valid<u8>(id_r)) {
+            cmd.id = id_r.get<u8>();
+        } else {
+            MLE_W("Audio.startStream: 'id' field is required in the table.");
+            return;
+        }
+
+        if (const auto bus_r = table["bus"]; lua::valid<u8>(bus_r)) {
+            cmd.params.bus = bus_r.get<u8>();
+        }
+
+        if (const auto volume_r = table["volume"]; lua::valid<f32>(volume_r)) {
+            cmd.params.volume = volume_r.get<f32>();
+        }
+
+        if (const auto pitch_r = table["pitch"]; lua::valid<f32>(pitch_r)) {
+            cmd.params.pitch = pitch_r.get<f32>();
+        }
+
+        if (const auto looping_r = table["looping"]; lua::valid<bool>(looping_r)) {
+            cmd.loop = looping_r.get<bool>();
+        }
+
+    } else {
+        MLE_E("Audio.startStream: invalid argument type, expected table.");
+        return;
+    }
+
+    AudioEngine::i().enqueueCmd(cmd);
+}
+
+void luaStopStream(u8 id) {
+    audio::cmd::StopStream cmd;
+    cmd.id = id;
+    AudioEngine::i().enqueueCmd(cmd);
+}
+
+void luaPauseStream(u8 id) {
+    audio::cmd::PauseStream cmd;
+    cmd.id = id;
+    AudioEngine::i().enqueueCmd(cmd);
+}
+
+void luaResumeStream(u8 id) {
+    audio::cmd::ResumeStream cmd;
+    cmd.id = id;
+    AudioEngine::i().enqueueCmd(cmd);
+}
+
+void luaLoadSound(const sol::object& obj) {
+    if (!obj.valid()) {
+        return;
+    }
+    audio::cmd::Load cmd;
+    if (obj.is<std::string>()) {
+        const std::string sound_name = obj.as<std::string>();
+        cmd.name = sound_name;
+        cmd.stream = false;
+    } else if (obj.is<sol::table>()) {
+        auto table = obj.as<sol::table>();
+
+        if (const auto name_r = table["name"]; lua::valid<std::string>(name_r)) {
+            auto name = table["name"].get<std::string>();
+            cmd.name = name;
+        } else {
+            MLE_W("Audio.loadSound: 'name' field is required in the table.");
+            return;
+        }
+
+        if (const auto stream_r = table["stream"]; lua::valid<bool>(stream_r)) {
+            cmd.stream = stream_r.get<bool>();
+        }
+    } else {
+        MLE_E("Audio.loadSound: invalid argument type, expected string or table.");
+        return;
+    }
+
+    AudioEngine::i().enqueueCmd(cmd);
+}
+
+f32 luaGetVolume(u8 bus) {
+    return AudioEngine::i().getVolume(bus);
+}
+}  // namespace
+
+// NOLINTNEXTLINE(readability-function-cognitive-complexity) Not complex tho
+void AudioEngine::addLuaBinding() {
+    auto& c_table = Client::i().getCTable();
+
+    c_table["Audio"] = Client::i().lua().createTable();
+
+    c_table["Audio"]["playOneShot"] = luaPlayOneShot;
+    c_table["Audio"]["setVolume"] = luaSetVolume;
+    c_table["Audio"]["getVolume"] = luaGetVolume;
+    c_table["Audio"]["stopAll"] = luaStopAll;
+    c_table["Audio"]["startStream"] = luaStartStream;
+    c_table["Audio"]["stopStream"] = luaStopStream;
+    c_table["Audio"]["pauseStream"] = luaPauseStream;
+    c_table["Audio"]["resumeStream"] = luaResumeStream;
+    c_table["Audio"]["loadSound"] = luaLoadSound;
+};
 }  // namespace mle

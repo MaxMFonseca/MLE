@@ -1,5 +1,5 @@
 local color1 = Color.new("RED")
-local color2 = Color.new("CYAN")
+local color2 = Color.new("YELLOW")
 local color = color1
 
 return {
@@ -22,7 +22,7 @@ return {
 	},
 
 	on_update = function(ew)
-		local factor = math.abs((C.time / 2) % 2 - 1)
+		local factor = math.abs((C.time / 4) % 2 - 1)
 		color = Color.mix(color1, color2, factor)
 	end,
 
@@ -101,12 +101,6 @@ return {
 
 			children_base = {
 				size_y = "1f",
-				on_keys = {
-					lmb = function(ew)
-						print(ew:fullName())
-						-- print(ew:get("text")) TODO
-					end,
-				},
 				text = {
 					color = "BLACK",
 					border_thickness = 2,
@@ -121,20 +115,50 @@ return {
 			},
 			c = {
 				{
-					name = "Hello",
-					text = "Hello",
+					text = "OneShot",
+					on_keys = {
+						lmb = function(ew)
+							C.Audio.playOneShot("mle/t")
+						end,
+					},
 				},
 				{
-					name = "World",
-					text = "World",
+					text = "StartStream",
+					on_keys = {
+						lmb = function(ew)
+							C.Audio.startStream({
+								name = "i/ambient",
+								bus = 0,
+								id = 0,
+							})
+						end,
+					},
 				},
 				{
-					name = "My",
-					text = "My",
+					text = "StopStream",
+					on_keys = {
+						lmb = function(ew)
+							C.Audio.stopStream(0)
+						end,
+					},
 				},
 				{
-					name = "Name",
-					text = "Name",
+					text = "Volume up",
+					on_keys = {
+						lmb = function(ew)
+							local current_volume = C.Audio.getVolume(0)
+							C.Audio.setVolume(0, current_volume + 0.05)
+						end,
+					},
+				},
+				{
+					text = "Volume down",
+					on_keys = {
+						lmb = function(ew)
+							local current_volume = C.Audio.getVolume(0)
+							C.Audio.setVolume(0, current_volume - 0.05)
+						end,
+					},
 				},
 
 				-- {

@@ -43,6 +43,8 @@ void Client::init() {
     MLE_I("AudioEngine init");
     Core::i().check(AudioEngine::i().init(), "Failed to initialize AudioEngine");
 
+    mle::AudioEngine::addLuaBinding();
+
     window_close_el_ = Window::i().getED().makeListener<window::ev::Close>([this](const auto&) { requestStop(); });
 
     state_ = SystemState::INITIALIZED;

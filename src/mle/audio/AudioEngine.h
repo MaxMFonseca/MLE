@@ -59,6 +59,10 @@ class AudioEngine {
 
     void enqueueCmd(const audio::Cmd& cmd);
 
+    f32 getVolume(u8 bus) { return bus < 8 ? bus_volumes_.at(bus) : 0.0F; }
+
+    static void addLuaBinding();
+
   private:
     void initRTCLs();
 
@@ -96,6 +100,8 @@ class AudioEngine {
     ALCdevice* device_{};
     ALCcontext* context_{};
 
+    // I am reading from this from multiple threads, but only writing from one.
+    // Maybe needs a mutex? for proper sync on ui later?
     std::array<f32, BUS_COUNT> bus_volumes_{};
 
     std::unordered_map<entt::id_type, ALuint> loaded_sounds_{};
