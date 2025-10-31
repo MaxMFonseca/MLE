@@ -258,8 +258,7 @@ void Relationship::applyOnChild(const Entt& e, const sol::table& table, entt::en
     }
 
     if (e.has<comp::ChildrenBase>()) {
-        auto& children_base_comp = e.get<comp::ChildrenBase>();
-        final_table = Client::i().lua().mergeTablesNew(children_base_comp.o, final_table);
+        centt.applyTable(e.get<comp::ChildrenBase>().o);
     }
 
     centt.applyTable(final_table);

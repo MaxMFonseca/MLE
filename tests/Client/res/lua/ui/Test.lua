@@ -1,5 +1,5 @@
-local color1 = Color.new("WHITE")
-local color2 = Color.new("RED")
+local color1 = Color.new("RED")
+local color2 = Color.new("CYAN")
 local color = color1
 
 return {
@@ -87,25 +87,11 @@ return {
 				local time_f = math.abs((C.time / 2) % 2 - 1)
 				-- ew:apply("pos_x", time_f / 2 + 0.25)
 			end,
-			on_hover_in = function(ew)
-				ew:apply("render_scale", 1.02)
-			end,
-			on_hover_out = function(ew)
-				ew:apply("render_scale", 1.0)
-			end,
 
 			blur = {
 				radius = 13,
 				sigma = 5,
 				before_children = true,
-			},
-			on_keys = {
-				a = function()
-					print("hello world")
-				end,
-				b = function()
-					print("hello world BBBBBB")
-				end,
 			},
 
 			container = {
@@ -114,10 +100,6 @@ return {
 			},
 
 			children_base = {
-				border = {
-					color = "NQB",
-					thickness = "2px",
-				},
 				size_y = "1f",
 				on_keys = {
 					lmb = function(ew)
@@ -125,6 +107,17 @@ return {
 						-- print(ew:get("text")) TODO
 					end,
 				},
+				text = {
+					color = "BLACK",
+					border_thickness = 2,
+					border_color = "emerald900",
+				},
+				on_hover_in = function(ew)
+					ew:apply("render_scale", 1.02)
+				end,
+				on_hover_out = function(ew)
+					ew:apply("render_scale", 1.0)
+				end,
 			},
 			c = {
 				{

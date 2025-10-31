@@ -155,15 +155,15 @@ struct TargetMargin {
 struct TargetBorder {
     TargetBound round_lt, round_rt, round_lb, round_rb;
     TargetBound t, b, l, r;
-    Color color = Color::ZERO;
 
     TargetBorder() = default;
 
-    void set(const sol::object& obj);
+    void set(const Entt& ew, const sol::object& obj);
 
-    void setColor(const sol::object& obj);
     void setThickness(const sol::object& obj);
     void setRound(const sol::object& obj);
+
+    static void setColor(const Entt& ew, const sol::object& obj);
 
     static void apply(const Entt& e, const sol::object& obj);
     static void applyThickness(const Entt& e, const sol::object& obj);
@@ -315,8 +315,8 @@ template <>
 struct formatter<mle::ui::comp::TargetBorder> : formatter<std::string> {
     template <typename FormatContext>
     constexpr auto format(const mle::ui::comp::TargetBorder& v, FormatContext& ctx) const {
-        return format_to(ctx.out(), "[t: {}, b: {}, l: {}, r: {}, color: {}, rounds: lt:{}, rt:{}, lb:{}, rb:{}]", v.t, v.b, v.l, v.r, v.color, v.round_lt,
-                         v.round_rt, v.round_lb, v.round_rb);
+        return format_to(ctx.out(), "[t: {}, b: {}, l: {}, r: {}, rounds: lt:{}, rt:{}, lb:{}, rb:{}]", v.t, v.b, v.l, v.r, v.round_lt, v.round_rt, v.round_lb,
+                         v.round_rb);
     }
 };
 

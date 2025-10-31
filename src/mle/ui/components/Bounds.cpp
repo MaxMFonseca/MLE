@@ -552,14 +552,14 @@ void TargetAspectRatio::apply(const Entt& e, const sol::object& obj) {
     e.emplaceOrReplace<TargetAspectRatio>(obj);
 }
 
-void TargetBorder::set(const sol::object& obj) {
+void TargetBorder::set(const Entt& ew, const sol::object& obj) {
     auto table = lua::as<sol::table>(obj);
 
     if (const auto thickness_r = table["thickness"]; thickness_r.valid()) {
         setThickness(thickness_r);
     }
     if (const auto color_r = table["color"]; color_r.valid()) {
-        setColor(color_r);
+        setColor(ew, color_r);
     }
     if (const auto round_r = table["roundness"]; round_r.valid()) {
         setRound(round_r);
@@ -620,14 +620,14 @@ void TargetBorder::setRound(const sol::object& obj) {
     MLE_UNREACHABLE_LOG("Unexpected obj type for TargetBorder round: {}", obj.get_type());
 }
 
-void TargetBorder::setColor(const sol::object& obj) {
+void TargetBorder::setColor(const Entt& ew, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
-    color = Color::fromLua(obj);
+    ew.patchOrEmplace<Border>([&](Border& b) { b.color = Color{obj}; });
 }
 
 void TargetBorder::apply(const Entt& e, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
-    e.patchOrEmplace<TargetBorder>([&](TargetBorder& tb) { tb.set(obj); });
+    e.patchOrEmplace<TargetBorder>([&](TargetBorder& tb) { tb.set(e, obj); });
 }
 
 void TargetBorder::applyThickness(const Entt& e, const sol::object& obj) {
@@ -637,7 +637,7 @@ void TargetBorder::applyThickness(const Entt& e, const sol::object& obj) {
 
 void TargetBorder::applyColor(const Entt& e, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
-    e.patchOrEmplace<TargetBorder>([&](TargetBorder& tb) { tb.setColor(obj); });
+    setColor(e, obj);
 }
 
 void TargetBorder::applyRound(const Entt& e, const sol::object& obj) {

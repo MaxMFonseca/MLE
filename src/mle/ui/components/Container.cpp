@@ -68,6 +68,9 @@ void Container::set(const sol::table& table) {
         tb.set(list_cross_gap_r);
         setListCrossGap(tb);
     }
+    if (const auto pack_children_r = lua::getFirstKey(table, "pack_children", "pack"); lua::valid<bool>(pack_children_r)) {
+        setPackChildren(lua::as<bool>(pack_children_r));
+    }
 }
 
 Container::Type Container::strToType(std::string_view str) {
@@ -246,13 +249,6 @@ void finishChildBounds(const Entt& centt, ChildBoundsCalcData& cbcd, PaddingPx p
     }
 
     if (cbcd.has_target_border) {
-        comp::Border new_border;
-        new_border.t = cbcd.new_border.t;
-        new_border.b = cbcd.new_border.b;
-        new_border.l = cbcd.new_border.l;
-        new_border.r = cbcd.new_border.r;
-        new_border.color = cbcd.target.border.color;
-
         auto largest_size = std::max({cbcd.new_size.x, cbcd.new_size.y});
         auto roundc = [&](const TargetBound& round_tb) {
             switch (round_tb.type) {
@@ -276,12 +272,17 @@ void finishChildBounds(const Entt& centt, ChildBoundsCalcData& cbcd, PaddingPx p
                 } break;
             }
         };
-        new_border.round_lt = roundc(cbcd.target.border.round_lt);
-        new_border.round_rt = roundc(cbcd.target.border.round_rt);
-        new_border.round_lb = roundc(cbcd.target.border.round_lb);
-        new_border.round_rb = roundc(cbcd.target.border.round_rb);
 
-        centt.emplaceOrReplace<comp::Border>(new_border);
+        centt.patchOrEmplace<comp::Border>([&](comp::Border& b) {
+            b.t = cbcd.new_border.t;
+            b.b = cbcd.new_border.b;
+            b.l = cbcd.new_border.l;
+            b.r = cbcd.new_border.r;
+            b.round_lt = roundc(cbcd.target.border.round_lt);
+            b.round_rt = roundc(cbcd.target.border.round_rt);
+            b.round_lb = roundc(cbcd.target.border.round_lb);
+            b.round_rb = roundc(cbcd.target.border.round_rb);
+        });
     }
 };
 
@@ -1165,8 +1166,7 @@ struct FreeCalculator {
                         } else if (cbcd.size_provider != nullptr) {
                             x_is_fit = true;
                         } else {
-                            auto remaining_px = padded_size.x - cbcd.new_position.x;
-                            cbcd.new_size.x = as<int>(as<f32>(remaining_px));
+                            cbcd.new_size.x = as<int>(as<f32>(padded_size.x));
                         }
                     }
                 } break;
@@ -1242,8 +1242,7 @@ struct FreeCalculator {
                         if (cbcd.size_provider != nullptr && !x_is_ar) {
                             y_is_fit = true;
                         } else {
-                            auto remaining_px = padded_size.y - cbcd.new_position.y;
-                            cbcd.new_size.y = as<int>(as<f32>(remaining_px));
+                            cbcd.new_size.y = as<int>(as<f32>(padded_size.y));
                         }
                     }
                 } break;
@@ -1291,10 +1290,10 @@ struct FreeCalculator {
                 vec2u fit_max_size_px = {cbcd.new_size.x, cbcd.new_size.y};
 
                 if (fit_max_size_px.x <= 0) {
-                    fit_max_size_px.x = padded_size.x - cbcd.new_position.x;
+                    fit_max_size_px.x = padded_size.x;
                 }
                 if (fit_max_size_px.y <= 0) {
-                    fit_max_size_px.y = padded_size.y - cbcd.new_position.y;
+                    fit_max_size_px.y = padded_size.y;
                 }
 
                 vec2u size_from_provider = cbcd.size_provider->call(centt, fit_max_size_px);
@@ -1458,7 +1457,7 @@ std::pair<std::vector<entt::entity>, std::vector<entt::entity>> separateFreeList
     return {free_children, list_children};
 }
 
-std::pair<vec2i, vec2i> findChildrenMaxMin(const std::map<entt::entity, ChildBoundsCalcData>& cbcds) {
+std::pair<vec2i, vec2i> findChildrenMaxMin(const std::map<entt::entity, ChildBoundsCalcData>& cbcds, bool pack_children) {
     if (cbcds.empty()) {
         return {};
     }
@@ -1467,9 +1466,13 @@ std::pair<vec2i, vec2i> findChildrenMaxMin(const std::map<entt::entity, ChildBou
     vec2i max_pos{std::numeric_limits<int>::min(), std::numeric_limits<int>::min()};
 
     for (const auto& [_, cbcd] : cbcds) {
-        vec2i child_min = cbcd.new_position - vec2i{cbcd.new_margin.l + cbcd.new_border.l, cbcd.new_margin.t + cbcd.new_border.t};
-        vec2i child_max =
-            cbcd.new_position + vec2i{cbcd.new_size.x + cbcd.new_margin.r + cbcd.new_border.r, cbcd.new_size.y + cbcd.new_margin.b + cbcd.new_border.b};
+        vec2i child_min = cbcd.bounds.parent_px.pos() - vec2i{cbcd.new_border.l, cbcd.new_border.t};
+        vec2i child_max = cbcd.bounds.parent_px.pos() + cbcd.bounds.parent_px.size() + vec2i{cbcd.new_border.r, cbcd.new_border.b};
+
+        if (!pack_children) {
+            child_min -= vec2i{cbcd.new_margin.l, cbcd.new_margin.t};
+            child_max += vec2i{cbcd.new_margin.r, cbcd.new_margin.b};
+        }
 
         min_pos.x = std::min(min_pos.x, child_min.x);
         min_pos.y = std::min(min_pos.y, child_min.y);
@@ -1516,18 +1519,18 @@ std::pair<vec2i, vec2i> findChildrenMaxMin(const std::map<entt::entity, ChildBou
         } break;
     }
 
-    auto children_max_min = findChildrenMaxMin(cbcds);
+    auto children_max_min = findChildrenMaxMin(cbcds, pack_children_);
 
     for (const auto& [_, cbcd] : cbcds) {
         if (pack_children_) {
-            cbcd.bounds.parent_px.setPosX(cbcd.bounds.parent_px.left() - children_max_min.first.x);
-            cbcd.bounds.parent_px.setPosY(cbcd.bounds.parent_px.top() - children_max_min.first.y);
+            cbcd.bounds.parent_px.setPosX(cbcd.bounds.parent_px.left() - children_max_min.first.x + padding_result.l);
+            cbcd.bounds.parent_px.setPosY(cbcd.bounds.parent_px.top() - children_max_min.first.y + padding_result.t);
         }
     }
 
-    vec2u final_size = pack_children_ ? vec2u{children_max_min.second.x - children_max_min.first.x, children_max_min.second.y - children_max_min.first.y}
-                                      : vec2u{children_max_min.second.x + padding_result.l + padding_result.r,
-                                              children_max_min.second.y + padding_result.t + padding_result.b};
+    vec2u final_size = pack_children_ ? vec2u{children_max_min.second.x - children_max_min.first.x + padding_result.l + padding_result.r,
+                                              children_max_min.second.y - children_max_min.first.y + padding_result.t + padding_result.b}
+                                      : vec2u{children_max_min.second.x + padding_result.r, children_max_min.second.y + padding_result.b};
 
     return final_size;
 }
