@@ -72,9 +72,10 @@ return {
 		},
 		blur = {
 			pos = 0.5,
-			size = "400px",
+			size_y = 0.5,
 			origin = "c",
-			margin = "50px",
+			-- margin = "50px",
+			padding = "13px",
 			style = { "basic_round" },
 			border = {
 				thickness = "3px",
@@ -84,19 +85,20 @@ return {
 				ew:apply("border_color", color)
 
 				local time_f = math.abs((C.time / 2) % 2 - 1)
-				ew:apply("pos_x", time_f / 2 + 0.25)
+				-- ew:apply("pos_x", time_f / 2 + 0.25)
 			end,
 			on_hover_in = function(ew)
-				ew:apply("render_scale", 1.05)
+				ew:apply("render_scale", 1.02)
 			end,
 			on_hover_out = function(ew)
 				ew:apply("render_scale", 1.0)
 			end,
 
-			-- blur = {
-			-- 	radius = 13,
-			-- 	sigma = 5,
-			-- },
+			blur = {
+				radius = 13,
+				sigma = 5,
+				before_children = true,
+			},
 			on_keys = {
 				a = function()
 					print("hello world")
@@ -106,13 +108,82 @@ return {
 				end,
 			},
 
-			container = {},
-			c = {
-				text = {
-					size_y = 0.5,
+			container = {
+				pack_children = true,
+				cross_align = "c",
+			},
 
+			children_base = {
+				border = {
+					color = "NQB",
+					thickness = "2px",
+				},
+				size_y = "1f",
+				on_keys = {
+					lmb = function(ew)
+						print(ew:fullName())
+						-- print(ew:get("text")) TODO
+					end,
+				},
+			},
+			c = {
+				{
+					name = "Hello",
 					text = "Hello",
 				},
+				{
+					name = "World",
+					text = "World",
+				},
+				{
+					name = "My",
+					text = "My",
+				},
+				{
+					name = "Name",
+					text = "Name",
+				},
+
+				-- {
+				-- 	on_hover_in = function(ew)
+				-- 		print("in", ew:fullName())
+				-- 	end,
+				-- 	on_hover_out = function(ew)
+				-- 		print("out", ew:fullName())
+				-- 	end,
+				-- 	size_y = 0.5,
+				-- 	text = "World!",
+				-- },
+				-- {
+				-- 	on_hover_in = function(ew)
+				-- 		print("in", ew:fullName())
+				-- 	end,
+				-- 	on_hover_out = function(ew)
+				-- 		print("out", ew:fullName())
+				-- 	end,
+				-- 	size_y = 0.5,
+				-- 	text = "World!",
+				-- },
+				-- {
+				-- 	on_hover_in = function(ew)
+				-- 		print("in", ew:fullName())
+				-- 	end,
+				-- 	on_hover_out = function(ew)
+				-- 		print("out", ew:fullName())
+				-- 	end,
+				-- 	size_y = 0.5,
+				-- 	text = "World!",
+				-- },
+				-- {
+				-- 	on_hover_in = function(ew)
+				-- 		print("in", ew:fullName())
+				-- 	end,
+				-- 	on_hover_out = function(ew)
+				-- 		print("out", ew:fullName())
+				-- 	end,
+				-- 	size_y = 0.5,
+				-- 	text = "World!",
+				-- },
 			},
 		},
 	},
