@@ -14,7 +14,7 @@ void InitLayer::update() {
     ui_.update();
 };
 
-ImageRef InitLayer::render([[maybe_unused]] f64 dt) {
+ImageRef InitLayer::render() {
     auto* image = getImage();
 
     auto* ui_image = ui_.render();

@@ -92,7 +92,7 @@ PerfLayer::ParsedSamples PerfLayer::parseNewSamples() {
     return ret;
 }
 
-ImageRef PerfLayer::render([[maybe_unused]] f64 dt) {
+ImageRef PerfLayer::render() {
     if (!enabled_) {
         return nullptr;
     }

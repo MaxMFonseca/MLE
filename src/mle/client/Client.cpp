@@ -225,7 +225,7 @@ ImageRef Client::render() {
 
     {
         std::scoped_lock lock(game_layer_render_mutex_);
-        game_layer_img = game_layer_->render(0);
+        game_layer_img = game_layer_->render();
     }
     if (!game_layer_img) {
         return nullptr;

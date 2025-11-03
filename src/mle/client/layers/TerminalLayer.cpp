@@ -187,7 +187,7 @@ void TerminalLayer::update() {
     ui_.update();
 }
 
-ImageRef TerminalLayer::render([[maybe_unused]] f64 dt) {
+ImageRef TerminalLayer::render() {
     if (!enabled_) {
         return nullptr;
     }

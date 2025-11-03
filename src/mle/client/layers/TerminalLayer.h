@@ -20,7 +20,7 @@ class TerminalLayer : public Layer {
     void shutdown() override;
 
     void update() override;
-    ImageRef render(f64 dt) override;
+    ImageRef render() override;
     void renderTo(ImageRef target) override;
 
   private:
