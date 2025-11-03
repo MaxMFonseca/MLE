@@ -47,6 +47,15 @@ void Sprite::setColor(const Color& c) {
     versionUp();
 };
 
+void Sprite::setFit(const sol::object& obj) {
+    if (obj.is<bool>()) {
+        fit = obj.as<bool>();
+        versionUp();
+    } else {
+        MLE_W("Unsupported object type provided to Sprite::setFit");
+    }
+};
+
 void Sprite::set(const Entt& ew, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
 
@@ -61,6 +70,9 @@ void Sprite::set(const Entt& ew, const sol::object& obj) {
         }
         if (const sol::object color_r = table["color"]; color_r.valid()) {
             setColor(color_r);
+        }
+        if (const auto fit_r = table["fit"]; fit_r.valid()) {
+            setFit(fit_r);
         }
         return;
     }
@@ -129,6 +141,10 @@ void SpritePacket::render(CompRenderingCtx& ctx) {
 };
 
 [[nodiscard]] vec2u Sprite::calculateBounds([[maybe_unused]] const Entt& e, vec2u max_size) {
+    if (fit) {
+        return max_size;
+    }
+
     vec2u image_extent{};
 
     auto& cache = Renderer::i().textureCache();
@@ -143,10 +159,6 @@ void SpritePacket::render(CompRenderingCtx& ctx) {
         max_size.x = as<u32>(as<f32>(max_size.y) * image_ar);
     } else {
         max_size.y = as<u32>(as<f32>(max_size.x) / image_ar);
-    }
-
-    if (image_extent.x <= max_size.x && image_extent.y <= max_size.y) {
-        return image_extent;
     }
 
     return max_size;

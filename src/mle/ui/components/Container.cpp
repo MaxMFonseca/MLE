@@ -1305,7 +1305,6 @@ struct FreeCalculator {
                     cbcd.new_size.y = as<int>(size_from_provider.y);
                 }
             }
-            //////////////// MARGIN & BORDER CALCULATION ////////////////
 
             auto calc_margin_border = [&](TargetBound tb, bool is_x) -> int {
                 switch (tb.type) {
