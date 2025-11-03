@@ -23,6 +23,14 @@ struct Background {
     static void apply(const Entt& e, const sol::object& obj);
 };
 
+struct Layer {
+    int layer;
+
+    void set(int l) { layer = l; }
+
+    static void apply(const Entt& e, const sol::object& obj);
+};
+
 struct Table {
     sol::table o;
 

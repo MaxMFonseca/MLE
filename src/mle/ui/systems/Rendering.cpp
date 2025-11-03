@@ -86,6 +86,9 @@ Rendering::Packet::Node Rendering::createPacketNode(u8 atomic_buffer_id, entt::e
     if (auto* render_scale_r = ew.tryGet<comp::RenderScale>(); render_scale_r) {
         node.scale_factor = render_scale_r->scale;
     }
+    if (auto* layer_r = ew.tryGet<comp::Layer>(); layer_r) {
+        node.layer = layer_r->layer;
+    }
     if (const auto* shader_r = ew.tryGet<comp::Shader>(); shader_r) {
         node.shader_packet = shader_r->updatePacket(atomic_buffer_id);
         node.shader_before_children = shader_r->beforeChildren();
@@ -105,6 +108,7 @@ Rendering::Packet::Node Rendering::createPacketNode(u8 atomic_buffer_id, entt::e
     for (auto child : children) {
         node.children.push_back(createPacketNode(atomic_buffer_id, child, depth + 1));
     }
+    std::ranges::sort(node.children, [](const Packet::Node& a, const Packet::Node& b) { return a.layer < b.layer; });
 
     return node;
 };

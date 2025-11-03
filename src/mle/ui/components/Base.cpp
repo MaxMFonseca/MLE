@@ -59,4 +59,9 @@ void ID::apply(const Entt& e, const sol::object& obj) {
     MLE_ASSERT(lua::valid<std::string>(obj));
     e.patchOrEmplace<ID>([&](ID& id) { id.o = lua::as<std::string>(obj); });
 };
+
+void Layer::apply(const Entt& e, const sol::object& obj) {
+    MLE_ASSERT(lua::valid<int>(obj));
+    e.patchOrEmplace<Layer>([&](Layer& layer) { layer.layer = obj.as<int>(); });
+};
 }  // namespace mle::ui::comp

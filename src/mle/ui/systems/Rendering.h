@@ -26,6 +26,7 @@ class Rendering {
             comp::Bounds bounds{};
             comp::Border border{};
             Color bg{};
+            int layer = 0;
 
             f32 scale_factor = 1.0F;
 
