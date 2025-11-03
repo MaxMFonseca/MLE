@@ -170,7 +170,7 @@ void Hoverable::onHoverIn(const Entt& ew) {
     }
 };
 
-sol::object Hovered::get(const Entt& ew) {
+sol::object Hovered::get(const Entt& ew, const sol::object& /*params*/) {
     MLE_ASSERT(ew.has<Hovered>());
 
     return Client::i().lua().createObject(ew.get<Hovered>());

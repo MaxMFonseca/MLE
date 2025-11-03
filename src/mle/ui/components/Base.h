@@ -36,7 +36,15 @@ struct Table {
 
     static void apply(const Entt& e, const sol::object& obj);
 
-    static sol::object get(const Entt& e);
+    static sol::object get(const Entt& e, const sol::object& params);
+};
+
+struct Functions {
+    std::map<std::string, sol::function> fns;
+
+    static void apply(const Entt& e, const sol::object& obj);
+
+    static sol::object get(const Entt& e, const sol::object& params);
 };
 
 struct OnUpdate {

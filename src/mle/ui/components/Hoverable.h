@@ -33,7 +33,7 @@ struct Hovered {
     vec2f pos_self{};
     vec2f pos_self_norm{};
 
-    static sol::object get(const Entt& ew);
+    static sol::object get(const Entt& ew, const sol::object& params = {});
 
     static void makeLuaUsertype(Lua& lua);
 };

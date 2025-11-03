@@ -157,17 +157,12 @@ Relationship::NewChild Relationship::createChildBaseNamed(const Entt& e, const s
         return {};
     }
 
-    sol::table comp_table;
-    if (!lua::tryGetFirstKeyAs(table, comp_table, "comp", "components")) {
-        comp_table = table;
-    }
-
     Entt child{e.ui(), child_e};
     if (!name.empty()) {
         child.setName(name);
     }
 
-    return {.child_e = child_e, .comp_table = comp_table};
+    return {.child_e = child_e, .comp_table = table};
 }
 
 std::pair<Entt, Relationship&> Relationship::createChildHnd(const Entt& e) {
@@ -250,18 +245,12 @@ void Relationship::createChildren(const Entt& e, const sol::table& table) {
 
 void Relationship::applyOnChild(const Entt& e, const sol::table& table, entt::entity child_e) {
     Entt centt{e.ui(), child_e};
-    sol::table final_table;
-    if (const auto comp_r = lua::getFirstKey(table, "comp", "components"); lua::valid<sol::table>(comp_r)) {
-        final_table = comp_r;
-    } else {
-        final_table = table;
-    }
 
     if (e.has<comp::ChildrenBase>()) {
         centt.applyTable(e.get<comp::ChildrenBase>().o);
     }
 
-    centt.applyTable(final_table);
+    centt.applyTable(table);
 }
 
 void Relationship::applyAddChildren(const Entt& e, const sol::object& obj) {

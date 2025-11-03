@@ -57,18 +57,24 @@ void LuaElementOps::applyTable(const Entt& ew, const sol::table& table) {
 }
 
 void LuaElementOps::applyObj(const Entt& ew, const std::string& key, const sol::object& obj) {
-    auto it = apply_key_handlers_.find(key);
-    if (it != apply_key_handlers_.end()) {
-        it->second(ew, obj);
-    } else if (!matchAny(key, "name", "idx", "styles", "style")) {
-        MLE_E("No handler for element key '{}'", key);
+    if (key == "comp") {
+        MLE_ASSERT_LOG(lua::valid<sol::table>(obj), "Invalid 'comp' value for entity {}. Expected table.", ew.fullName());
+        auto comp_table = lua::as<sol::table>(obj);
+        ew.applyTable(comp_table);
+    } else {
+        auto it = apply_key_handlers_.find(key);
+        if (it != apply_key_handlers_.end()) {
+            it->second(ew, obj);
+        } else if (!matchAny(key, "name", "idx", "styles", "style")) {
+            MLE_E("No handler for element key '{}'", key);
+        }
     }
 }
 
-sol::object LuaElementOps::getKey(const Entt& ew, const std::string& key) {
+sol::object LuaElementOps::getKey(const Entt& ew, const std::string& key, const sol::object& params) {
     auto it = get_key_handlers_.find(key);
     if (it != get_key_handlers_.end()) {
-        return it->second(ew);
+        return it->second(ew, params);
     }
     MLE_E("No handler for element key '{}'", key);
     return {};
@@ -98,6 +104,15 @@ void LuaElementOps::init() {
     ut["get"] = &Entt::getKey;
     ut["entt"] = &Entt::e;
     ut["fullName"] = &Entt::fullName;
+    ut["getChild"] = [](const Entt& ew, const std::string& name) {
+        auto& relationship = ew.getRelationship();
+        auto g_r = relationship.getChildByName(ew, name);
+        if (g_r == entt::null) {
+            MLE_E("Child '{}' not found in entity '{}'", name, ew.fullName());
+            return ew.derive(entt::null);
+        }
+        return ew.derive(g_r);
+    };
 
     comp::Hovered::makeLuaUsertype(lua);
 
@@ -162,6 +177,7 @@ void LuaElementOps::addBuiltingApply() {
     addApplyKeyHandler("on_update", comp::OnUpdate::apply);
     addApplyKeyHandler("id", comp::ID::apply);
     addApplyKeyHandler("layer", comp::Layer::apply);
+    addApplyKeyHandler("fn", comp::Functions::apply);
 
     addApplyKeyHandler("sprite", ui::renderable::Sprite::apply);
     addApplyKeyHandler("text", ui::renderable::Text::apply);
@@ -177,5 +193,6 @@ void LuaElementOps::addBuiltingApply() {
 void LuaElementOps::addBuiltingGetters() {
     addGetKeyHandler("table", comp::Table::get);
     addGetKeyHandler("hovered", comp::Hovered::get);
+    addGetKeyHandler("fn", comp::Functions::get);
 }
 }  // namespace mle::ui::system

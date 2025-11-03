@@ -34,7 +34,7 @@ void Table::apply(const Entt& e, const sol::object& obj) {
     }
 }
 
-sol::object Table::get(const Entt& e) {
+sol::object Table::get(const Entt& e, const sol::object& /*params*/) {
     if (!e.has<Table>()) {
         auto& nt = e.emplace<Table>();
         nt.o = Client::i().lua().createTable();
@@ -64,4 +64,46 @@ void Layer::apply(const Entt& e, const sol::object& obj) {
     MLE_ASSERT(lua::valid<int>(obj));
     e.patchOrEmplace<Layer>([&](Layer& layer) { layer.layer = obj.as<int>(); });
 };
+
+void Functions::apply(const Entt& e, const sol::object& obj) {
+    MLE_ASSERT(obj.valid());
+    lua::assertIs<sol::table>(obj);
+
+    e.patchOrEmplace<Functions>([&](Functions& funcs) {
+        if (obj.is<sol::table>()) {
+            auto table = obj.as<sol::table>();
+            for (const auto& [key_r, value_r] : table) {
+                lua::assertIs<std::string>(key_r);
+                lua::assertIs<sol::function>(value_r);
+
+                auto key = lua::as<std::string>(key_r);
+                auto fn = value_r.as<sol::function>();
+                funcs.fns[key] = fn;
+            }
+        }
+    });
+};
+
+sol::object Functions::get(const Entt& e, const sol::object& params) {
+    if (!e.has<Functions>()) {
+        MLE_E("Tried to get Functions from entity {} which has no Functions component.", e.fullName());
+        return {};
+    }
+
+    if (!lua::valid<std::string>(params)) {
+        MLE_E("Tried to get Functions from entity {} without specifying valid function name.", e.fullName());
+        return {};
+    }
+
+    const auto fn_name = lua::as<std::string>(params);
+    const auto& funcs = e.get<Functions>().fns;
+    for (const auto& [key, fn] : funcs) {
+        if (key == fn_name) {
+            return fn;
+        }
+    }
+    MLE_E("Tried to get Function '{}' from entity {} which does not exist.", fn_name, e.fullName());
+    return {};
+}
+
 }  // namespace mle::ui::comp

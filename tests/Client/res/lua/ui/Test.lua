@@ -70,6 +70,34 @@ return {
 				fn = "TODO",
 			},
 		},
+
+		progress_bar = {
+			size_y = 0.02,
+			size_x = 0.8,
+			pos = { "c", 0.9 },
+			origin = "cb",
+
+			border = {
+				thickness = "3px",
+				color = Colors.neutral900,
+				roundness = "10px",
+			},
+			comp = require("mle.ui.comp.progress_bar")(
+				Colors.BLACK:withA(0.96),
+				Colors.emerald800,
+				Colors.emerald300,
+				10,
+				0.5
+			),
+
+			on_hover = function(ew)
+				local fn = ew:get("fn", "fill")
+				local hovered = ew:get("hovered")
+				local x = hovered.pos_self_norm.x
+				fn(ew, x)
+			end,
+		},
+
 		blur = {
 			pos = 0.5,
 			size_y = 0.5,

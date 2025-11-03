@@ -20,7 +20,7 @@ class Entt {
     [[nodiscard]] auto e() const { return e_; }
 
     void apply(const std::string& key, const sol::object& obj = {}) const { system::LuaElementOps::applyObj(*this, key, obj); }
-    [[nodiscard]] sol::object getKey(const std::string& key) const { return system::LuaElementOps::getKey(*this, key); }
+    [[nodiscard]] sol::object getKey(const std::string& key, const sol::object& params = {}) const { return system::LuaElementOps::getKey(*this, key, params); }
     void applyTable(const sol::table& table) const { system::LuaElementOps::applyTable(*this, table); }
 
     void setName(const std::string& name) const;
