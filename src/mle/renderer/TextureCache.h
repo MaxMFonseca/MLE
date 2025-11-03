@@ -24,7 +24,7 @@ class TextureCache {
     void addTexture(entt::id_type id, const Image::RawData& raw_data);
     ImageRef addTextureWait(entt::id_type id, const Image::RawData& raw_data);
 
-    Expected<ImageRef> loadTexture(const std::string& src);
+    Expected<ImageRef> loadTexture(const std::string& src, bool srgb = true);
     void loadTextures(std::span<const std::string> names);
 
     void setSampler(entt::id_type id, vk::SamplerCreateInfo sampler_ci);

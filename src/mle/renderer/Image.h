@@ -41,6 +41,7 @@ class Image final {
     struct RawData {
         vec2u extent;
         int channels;
+        bool srgb = true;
         Bytes pixels;
     };
 

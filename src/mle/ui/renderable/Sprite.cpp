@@ -43,7 +43,7 @@ void Sprite::setTexture(const Entt& ew, const std::string& src) {
 }
 
 void Sprite::setColor(const Color& c) {
-    color = c;
+    color = c.toLinear();
     versionUp();
 };
 

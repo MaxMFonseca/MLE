@@ -31,6 +31,10 @@ void Client::init() {
 
     MLE_D("Tailwind colors.");
     color_cache_.add(lua_.require("mle/tailwind_colors").as<sol::table>());
+    if (const auto icolor_r = lua_.tryRequire("i/colors"); icolor_r.has_value()) {
+        MLE_D("Adding i/colors to color cache");
+        color_cache_.add(icolor_r.value().as<sol::table>());
+    }
 
     MLE_D("Creating client table in Lua");
     client_table_ = lua_.createTable("C");

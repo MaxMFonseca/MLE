@@ -4,6 +4,7 @@
 #include "mle/core/Core.h"
 #include "mle/core/Logger.h"
 #include "mle/math/LuaUTMathTypes.h"
+#include "mle/utils/File.h"
 #include "mle/utils/LuaUTUtils.h"
 
 namespace mle {
@@ -45,13 +46,28 @@ void Lua::init() {
 }
 
 sol::object Lua::require(const std::string& module_name) {
-    MLE_D("Requiring Lua module: {}", module_name);
-
     MLE_ASSERT_LOG(!module_name.empty(), "Module name must not be empty");
     MLE_ASSERT_LOG(!module_name.ends_with(".lua"), "Module name must not end with .lua");
 
+    MLE_D("Requiring Lua module: {}", module_name);
+
     return sol_.script_file("res/lua/" + module_name + ".lua");
 }
+
+Expected<sol::object> Lua::tryRequire(const std::string& module_name) {
+    MLE_ASSERT_LOG(!module_name.empty(), "Module name must not be empty");
+    MLE_ASSERT_LOG(!module_name.ends_with(".lua"), "Module name must not end with .lua");
+
+    MLE_D("Trying to require Lua module: {}", module_name);
+
+    Path path = "res/lua/" + module_name + ".lua";
+    if (!std::filesystem::exists(path)) {
+        MLE_D("Lua module '{}' does not exist at path '{}'", module_name, path);
+        return std::unexpected(Result::NOT_FOUND);
+    }
+
+    return sol_.script_file(path.string());
+};
 
 sol::table Lua::getTable(const std::string& name) {
     return sol_.get<sol::table>(name);

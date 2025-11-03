@@ -622,7 +622,7 @@ void TargetBorder::setRound(const sol::object& obj) {
 
 void TargetBorder::setColor(const Entt& ew, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
-    ew.patchOrEmplace<Border>([&](Border& b) { b.color = Color{obj}; });
+    ew.patchOrEmplace<Border>([&](Border& b) { b.color = Color{obj}.toLinear(); });
 }
 
 void TargetBorder::apply(const Entt& e, const sol::object& obj) {

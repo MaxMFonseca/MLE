@@ -17,6 +17,9 @@ inline void makeUTColor(Lua& lua) {
     ut["mix"] = &Color::mix;
     ut["lighten"] = &Color::lighten;
     ut["withA"] = &Color::withA;
+    ut["toLinear"] = &Color::toLinear;
+    ut["toSRGB"] = &Color::toSRGB;
+    ut["random"] = &Color::random;
 }
 
 inline void makeUTStopwatch(Lua& lua) {

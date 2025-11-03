@@ -31,6 +31,7 @@ class Lua {
     void init();
 
     sol::object require(const std::string& module_name);
+    Expected<sol::object> tryRequire(const std::string& module_name);
 
     sol::table createTable();
     sol::table createTable(const std::string& name);

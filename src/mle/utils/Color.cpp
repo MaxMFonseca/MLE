@@ -173,6 +173,31 @@ Color Color::toLinear() const {
     return ret;
 }
 
+Color Color::toSRGB() const {
+    Color ret;
+
+    if (r <= 0.0031308F) {
+        ret.r = r * 12.92F;
+    } else {
+        ret.r = (1.055F * glm::pow(r, 1.0F / 2.4F)) - 0.055F;
+    }
+
+    if (g <= 0.0031308F) {
+        ret.g = g * 12.92F;
+    } else {
+        ret.g = (1.055F * glm::pow(g, 1.0F / 2.4F)) - 0.055F;
+    }
+
+    if (b <= 0.0031308F) {
+        ret.b = b * 12.92F;
+    } else {
+        ret.b = (1.055F * glm::pow(b, 1.0F / 2.4F)) - 0.055F;
+    }
+
+    ret.a = a;
+    return ret;
+}
+
 Color Color::mix(const Color& a, const Color& b, f32 factor) {
     MLE_ASSERT_LOG(factor >= 0.0F && factor <= 1.0F, "Factor must be in the range [0, 1]. {}", factor);
     auto ret = a * (1.0F - factor) + b * factor;

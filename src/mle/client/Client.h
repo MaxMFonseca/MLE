@@ -18,7 +18,6 @@
 namespace mle {
 class Client final {
     MLE_SINGLETON(Client)
-
   public:
     void init();
     void run();

@@ -129,7 +129,7 @@ BufferHnd TextureCache::createTexture(CommandBuffer& cmd, entt::id_type id, cons
             ci.format = Image::Format::TEXTURE_2U;
             break;
         case 4:
-            ci.format = Image::Format::TEXTURE_4U;
+            ci.format = raw_data.srgb ? Image::Format::TEXTURE_4SRGB : Image::Format::TEXTURE_4U;
             break;
         default:
             MLE_E("Unsupported number of channels: {}", raw_data.channels);
@@ -189,7 +189,7 @@ ImageRef TextureCache::addTextureWait(entt::id_type id, const Image::RawData& ra
     return textures_[id].image.get();
 }
 
-Expected<ImageRef> TextureCache::loadTexture(const std::string& src) {
+Expected<ImageRef> TextureCache::loadTexture(const std::string& src, bool srgb) {
     auto id = entt::hashed_string{src.c_str()};
     if (const auto found = textures_.find(id); found != textures_.end()) {
         if (found->second.ready) {
@@ -204,6 +204,7 @@ Expected<ImageRef> TextureCache::loadTexture(const std::string& src) {
         MLE_E("Failed to load texture {}: {}", src, raw_data_r.error());
         return std::unexpected(raw_data_r.error());
     }
+    raw_data_r.value().srgb = srgb;
 
     addTexture(id, raw_data_r.value());
     return std::unexpected(Result::NOT_READY);

@@ -77,6 +77,9 @@ struct Color : vec4f {
     /// Converts the color to linear RGB space.
     [[nodiscard]] Color toLinear() const;
 
+    /// Coverts the color to sRGB space.
+    [[nodiscard]] Color toSRGB() const;
+
     /// Returns a lighter version of the color by scaling its value in HSV space.
     [[nodiscard]] Color lighten(f32 factor) const;
 

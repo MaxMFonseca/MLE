@@ -130,12 +130,12 @@ void Text::setFont(const Entt& ew, const char* cstr) {
 }
 
 void Text::setColor(const Color& c) {
-    color = c;
+    color = c.toLinear();
     versionUp();
 }
 
 void Text::setBorderColor(const Color& c) {
-    border_color = c;
+    border_color = c.toLinear();
     versionUp();
 };
 
