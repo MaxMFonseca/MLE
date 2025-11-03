@@ -185,6 +185,14 @@ void LuaShaderPacket::render(CompRenderingCtx& ctx) {
                     MLE_W("Push constant field {} expected VEC4 type.", pc_field.name);
                 }
             } break;
+            case Shader::DataType::VEC2: {
+                auto* v_r = std::get_if<vec2f>(&it->second);
+                if (v_r) {
+                    std::memcpy(data, v_r, sizeof(vec2f));
+                } else {
+                    MLE_W("Push constant field {} expected VEC2 type.", pc_field.name);
+                }
+            } break;
             default:
                 MLE_TODO;
         }

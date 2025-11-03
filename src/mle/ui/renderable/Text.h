@@ -3,6 +3,7 @@
 #include "mle/renderer/Font.h"
 #include "mle/ui/components/Bounds.h"
 #include "mle/ui/renderable/RenderableI.h"
+#include "mle/window/TextBox.h"
 #include "mle/window/Types.h"
 #include "sol/forward.hpp"
 

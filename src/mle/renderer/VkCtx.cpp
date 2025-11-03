@@ -3,6 +3,7 @@
 #include <fmt/ranges.h>
 #include <vulkan/vulkan_core.h>
 
+#include <iostream>
 #include <vulkan/vulkan_structs.hpp>
 
 #include "Buffer.h"

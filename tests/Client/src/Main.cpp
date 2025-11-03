@@ -5,6 +5,7 @@
 #include "mle/client/Client.h"
 #include "mle/core/Consts.h"
 #include "mle/core/Core.h"
+#include "mle/renderer/Renderer.h"
 
 int main(int argc, char** argv) {
     std::cout << "/// Hello, Testing 123123123456! ///////////////////////////////////////\n";
@@ -18,9 +19,13 @@ int main(int argc, char** argv) {
 
     mle::Core::i().init(core_ii);
 
+    mle::Client::i().init();
+    mle::Renderer::i().init();
+
     mle::Client::i().pushGameLayer(std::make_unique<mle::user::InitLayer>());
     mle::Client::i().run();
 
+    mle::Renderer::i().shutdown();
     mle::Core::i().shutdown();
 
     // TODO: MAYBE: mle::Core::i().shutdown(); // leaking intentionally for now

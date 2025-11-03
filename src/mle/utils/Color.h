@@ -96,13 +96,13 @@ struct Color : vec4f {
     static Color fromHex(u32 hex) noexcept;
 
     /// Converts a color to HSV.
-    static vec3f toHSV(Color c);
+    static vec4f toHSVA(Color c);
 
     /// Converts the color to HSV.
-    [[nodiscard]] vec3f toHSV() const { return toHSV(*this); };
+    [[nodiscard]] vec4f toHSVA() const { return toHSVA(*this); };
 
     /// Creates a color from HSV values.
-    static Color fromHSV(vec3f hsv);
+    static Color fromHSVA(vec4f hsv);
 
     /// Returns a random color.
     static Color random(u32 alpha = MAX_U8);

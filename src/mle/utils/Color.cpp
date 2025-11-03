@@ -56,13 +56,32 @@ Color Color::fromLua(const sol::object& object) {
         case sol::type::table: {
             auto table = object.as<sol::table>();
 
-            if (const auto t1_r = table[1]; lua::valid<std::string>(t1_r)) {
-                Color ret;
-                ret = fromString(table[1].get<std::string>());
-                if (const auto t2_r = table[2]; lua::valid<f32>(t2_r)) {
-                    ret.a = t2_r.get<f32>();
+            f32 a = 1;
+            if (const auto a_r = table["a"]; a_r.valid()) {
+                a = a_r.get<f32>();
+                if (a > 1.0) {
+                    a /= 255.0;
                 }
-                return ret;
+            }
+
+            if (const auto h_r = table["h"]; h_r.valid()) {
+                f32 h = h_r.get<f32>();
+                f32 s = lua::getKeyOr(table, "s", 0.F);
+                f32 v = lua::getKeyOr(table, "v", 0.F);
+
+                fromHSVA({h, s, v, a});
+            }
+
+            if (const auto r_r = table["r"]; r_r.valid()) {
+                f32 r = r_r.get<f32>();
+                f32 g = lua::getKeyOr(table, "g", 0.F);
+                f32 b = lua::getKeyOr(table, "b", 0.F);
+
+                if (r > 1 || g > 1 || b > 1) {
+                    return Color{as<u32>(r), as<u32>(g), as<u32>(b), as<u32>(a * MAX_U8)};
+                }
+
+                return Color{r, g, b, a};
             }
 
             f32 r = NAN, g = NAN, b = NAN;
@@ -76,7 +95,7 @@ Color Color::fromLua(const sol::object& object) {
                 return Color{as<u32>(r), as<u32>(g), as<u32>(b), a};
             }
 
-            f32 a = lua::getIdxOr(table, 4, 1.F);
+            a = lua::getIdxOr(table, 4, 1.F);
             return Color{r, g, b, a};
         }
         case sol::type::userdata: {
@@ -161,8 +180,8 @@ Color Color::mix(const Color& a, const Color& b, f32 factor) {
     return ret;
 }
 
-Color Color::fromHSV(vec3f hsv) {
-    f32 h = hsv.x, s = hsv.y, v = hsv.z;
+Color Color::fromHSVA(vec4f hsva) {
+    f32 h = hsva.x, s = hsva.y, v = hsva.z;
 
     f32 c = v * s;
     f32 x = c * (1 - std::fabs(std::fmod(h / 60.0F, 2.0F) - 1));
@@ -188,10 +207,10 @@ Color Color::fromHSV(vec3f hsv) {
     g += m;
     b += m;
 
-    return Color{r, g, b, 1.0F};
+    return Color{r, g, b, hsva.w};
 }
 
-vec3f Color::toHSV(Color c) {
+vec4f Color::toHSVA(Color c) {
     auto r = c.r, g = c.g, b = c.b;
     f32 max_component = std::max({r, g, b});
     float min_component = std::min({r, g, b});
@@ -214,13 +233,13 @@ vec3f Color::toHSV(Color c) {
 
     float s = (max_component == 0.0F) ? 0.0F : (delta / max_component);
     float v = max_component;
-    return {h, s, v};
+    return {h, s, v, c.a};
 }
 
 Color Color::lighten(f32 factor) const {
-    auto hsv = toHSV();
-    hsv.z *= factor;
-    return fromHSV(hsv);
+    auto hsva = toHSVA();
+    hsva.z *= factor;
+    return fromHSVA(hsva);
 }
 
 std::vector<Color> Color::lerpCount(Color a, Color b, usize count) {

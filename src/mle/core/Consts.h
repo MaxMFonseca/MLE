@@ -39,7 +39,7 @@ constexpr bool IS_DEBUG_BUILD = false;
 #endif
 
 ///< Indicates if this is a client build.
-#if !defined(MLE_NO_CLIENT) || defined(MLE_HAS_CLIENT_BUILD)
+#if !defined(MLE_NO_CLIENT)
 constexpr bool IS_CLIENT = true;
 #define MLE_IS_CLIENT
 #else

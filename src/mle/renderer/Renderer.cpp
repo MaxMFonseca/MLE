@@ -19,7 +19,13 @@ void Renderer::init() {
 }
 
 void Renderer::shutdown() {
-    std::ignore = vk_ctx_.getDevice().waitIdle();
+    auto device = vk_ctx_.getDevice();
+
+    if (!device) {
+        return;
+    }
+
+    std::ignore = device.waitIdle();
 
     font_cache_.shutdown();
     texture_cache_.shutdown();

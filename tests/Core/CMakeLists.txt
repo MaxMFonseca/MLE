@@ -16,6 +16,7 @@ file(GLOB_RECURSE ${test_name}_src
   "${CMAKE_CURRENT_SOURCE_DIR}/src/**"
 )
 
+
 add_executable(${test_name} ${${test_name}_src} ${MLE_HEADERS})
 target_link_libraries(${test_name}
   PRIVATE
@@ -37,4 +38,3 @@ gtest_discover_tests(${test_name}
     LABELS "unit"
 )
 
-target_compile_definitions(${test_name} PUBLIC MLE_NO_CLIENT)
