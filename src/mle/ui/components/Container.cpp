@@ -1183,13 +1183,8 @@ struct FreeCalculator {
                     const auto dep_entt = Entt{container_e.ui(), cbcd.target.size.xdep.e};
                     const auto tb = cbcd.target.size.xdep.dep_tb;
                     Recti dep_rect;
-                    auto dep_it = children_full_rect.find(dep_entt.e());
-                    if (dep_it != children_full_rect.end()) {
-                        dep_rect = dep_it->second;
-                    } else {
-                        auto& dep_bounds = dep_entt.get<comp::Bounds>();
-                        dep_rect = dep_bounds.parent_px;
-                    }
+                    auto& dep_bounds = dep_entt.get<comp::Bounds>();
+                    dep_rect = dep_bounds.parent_px;
                     switch (tb.type) {
                         case TargetBound::Type::PX: {
                             cbcd.new_size.x += as<int>(tb.val) + dep_rect.width();
@@ -1259,13 +1254,8 @@ struct FreeCalculator {
                     const auto dep_entt = Entt{container_e.ui(), cbcd.target.size.ydep.e};
                     const auto tb = cbcd.target.size.ydep.dep_tb;
                     Recti dep_rect;
-                    auto dep_it = children_full_rect.find(dep_entt.e());
-                    if (dep_it != children_full_rect.end()) {
-                        dep_rect = dep_it->second;
-                    } else {
-                        auto& dep_bounds = dep_entt.get<comp::Bounds>();
-                        dep_rect = dep_bounds.parent_px;
-                    }
+                    auto& dep_bounds = dep_entt.get<comp::Bounds>();
+                    dep_rect = dep_bounds.parent_px;
                     switch (tb.type) {
                         case TargetBound::Type::PX: {
                             cbcd.new_size.y += as<int>(tb.val) + dep_rect.height();

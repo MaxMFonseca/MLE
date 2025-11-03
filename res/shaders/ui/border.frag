@@ -2,7 +2,7 @@
 
 layout(push_constant) uniform pushconstants {
   vec4 color;
-  ivec4 rounding_corners_radius_px; // tl, tr, br, bl
+  ivec4 rounding_corners_radius_px; // lt, rt, lb, rb
   ivec4 border_thickness_px; // t, b, l, r
   ivec2 viewport_size_px;
 } pc;
@@ -15,29 +15,29 @@ float roundedRectCoverage(vec2 p, vec2 size, vec4 r) {
   float rmax = min(half_size.x, half_size.y);
   r = clamp(r, vec4(0.0), vec4(rmax));
 
-  bool in_tl = (p.x < r.x) && (p.y < r.x);
-  bool in_tr = (p.x > size.x - r.y) && (p.y < r.y);
-  bool in_br = (p.x > size.x - r.z) && (p.y > size.y - r.z);
-  bool in_bl = (p.x < r.w) && (p.y > size.y - r.w);
+  bool in_lt = (p.x < r.x) && (p.y < r.x);
+  bool in_rt = (p.x > size.x - r.y) && (p.y < r.y);
+  bool in_rb = (p.x > size.x - r.w) && (p.y > size.y - r.w);
+  bool in_lb = (p.x < r.z) && (p.y > size.y - r.z);
 
-  if (!(in_tl || in_tr || in_br || in_bl)) {
+  if (!(in_lt || in_rt || in_rb || in_lb)) {
     return 1.0;
   }
 
   vec2 c;
   float rad;
-  if (in_tl) {
+  if (in_lt) {
     c = vec2(r.x, r.x);
     rad = r.x;
-  } else if (in_tr) {
+  } else if (in_rt) {
     c = vec2(size.x - r.y, r.y);
     rad = r.y;
-  } else if (in_br) {
-    c = vec2(size.x - r.z, size.y - r.z);
-    rad = r.z;
-  } else {
-    c = vec2(r.w, size.y - r.w);
+  } else if (in_rb) {
+    c = vec2(size.x - r.w, size.y - r.w);
     rad = r.w;
+  } else {
+    c = vec2(r.z, size.y - r.z);
+    rad = r.z;
   }
 
   float d = length(p - c) - rad;
