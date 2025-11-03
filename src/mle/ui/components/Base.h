@@ -9,6 +9,12 @@ struct Name {
     std::string o;
 };
 
+struct ID {
+    std::string o;
+
+    static void apply(const Entt& e, const sol::object& obj);
+};
+
 struct Background {
     Color color = Color::ZERO;
 

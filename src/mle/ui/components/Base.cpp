@@ -55,4 +55,8 @@ void RenderScale::apply(const Entt& e, const sol::object& obj) {
     });
 };
 
+void ID::apply(const Entt& e, const sol::object& obj) {
+    MLE_ASSERT(lua::valid<std::string>(obj));
+    e.patchOrEmplace<ID>([&](ID& id) { id.o = lua::as<std::string>(obj); });
+};
 }  // namespace mle::ui::comp

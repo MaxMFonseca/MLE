@@ -1,5 +1,6 @@
 #pragma once
 
+#include "mle/core/Result.h"
 #include "mle/lua/Lua.h"
 #include "mle/ui/systems/Bounds.h"
 #include "mle/ui/systems/Hover.h"
@@ -31,6 +32,7 @@ class UI {
     ImageRef render();
 
     Expected<ui::Entt> getE(std::span<const std::string_view> tree = {});
+    Expected<ui::Entt> getE(const std::string& id);
 
   private:
     void addRootStyles(const sol::object& obj);

@@ -122,4 +122,15 @@ Expected<ui::Entt> UI::getE(std::span<const std::string_view> tree) {
     }
     return root_ew.getChild(tree);
 };
+
+Expected<ui::Entt> UI::getE(const std::string& id) {
+    for (auto e : registry_.view<ui::comp::ID>()) {
+        ui::Entt ew{*this, e};
+        const auto& comp_id = ew.get<ui::comp::ID>();
+        if (comp_id.o == id) {
+            return ew;
+        }
+    }
+    return std::unexpected(Result::NOT_FOUND);
+};
 }  // namespace mle
