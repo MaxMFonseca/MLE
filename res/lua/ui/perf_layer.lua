@@ -17,14 +17,14 @@ return {
 					text = {
 						"PerfTracker/s:",
 						height = "23px",
-						color = "green400",
+						color = Colors.green400,
 					},
 				},
 				text = {
 					idx = 1,
 					text = {
 						height = "23px",
-						color = "green400",
+						color = Colors.green400,
 					},
 				},
 			},
@@ -39,11 +39,11 @@ return {
 			c = {
 				{
 					idx = 0,
-					text = { "GpuPerf:", height = "23px", color = "green400" },
+					text = { "GpuPerf:", height = "23px", color = Colors.green400 },
 				},
 				text = {
 					idx = 1,
-					text = { height = "23px", justify = "e", color = "green400" },
+					text = { height = "23px", justify = "e", color = Colors.green400 },
 				},
 			},
 		},

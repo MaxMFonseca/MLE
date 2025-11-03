@@ -26,16 +26,19 @@ void Client::init() {
 
     MLE_I("MLE Client initializing...");
 
-    Color::addEngineDefaultColors();
-
     MLE_I("Lua init");
     lua_.init();
 
     MLE_D("Tailwind colors.");
-    Color::addColors(lua_.require("mle/tailwind_colors").as<sol::table>());
+    color_cache_.add(lua_.require("mle/tailwind_colors").as<sol::table>());
 
     MLE_D("Creating client table in Lua");
     client_table_ = lua_.createTable("C");
+
+    MLE_D("Creaging colors table");
+    auto colors_table = lua_.createTable("Colors");
+    color_cache_.fillTable(colors_table);
+    MLE_T(colors_table);
 
     MLE_I("Window init");
     Window::i().init();

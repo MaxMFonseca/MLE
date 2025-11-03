@@ -8,6 +8,7 @@
 #include "Layer.h"
 #include "mle/lua/Lua.h"
 #include "mle/renderer/Types.h"
+#include "mle/utils/ColorCache.h"
 #include "mle/utils/Stopwatch.h"
 #include "mle/utils/SystemState.h"
 #include "mle/utils/Utils.h"
@@ -60,6 +61,8 @@ class Client final {
     std::set<std::string> debug_layers_to_remove_;
 
     Stopwatch running_sw_{};
+
+    ColorCache color_cache_{};
 
     window::ev::CloseL window_close_el_;
 };

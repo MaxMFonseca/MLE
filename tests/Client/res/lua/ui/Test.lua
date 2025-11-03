@@ -1,5 +1,5 @@
-local color1 = Color.new("RED")
-local color2 = Color.new("YELLOW")
+local color1 = Colors.RED
+local color2 = Colors.YELLOW
 local color = color1
 
 return {
@@ -102,9 +102,9 @@ return {
 			children_base = {
 				size_y = "1f",
 				text = {
-					color = "BLACK",
+					color = Colors.BLACK,
 					border_thickness = 2,
-					border_color = "emerald900",
+					border_color = Colors.emerald900,
 				},
 				on_hover_in = function(ew)
 					ew:apply("render_scale", 1.02)

@@ -104,18 +104,6 @@ struct Color : vec4f {
     /// Creates a color from HSV values.
     static Color fromHSV(vec3f hsv);
 
-    /// Adds the default engine-named colors to the global map.
-    static void addEngineDefaultColors();
-
-    /// Adds a color to the global map with the given name.
-    static void addColor(const std::string& name, Color color);
-
-    /// Adds a table of named colors from Lua.
-    static void addColors(const sol::table& table);
-
-    /// Retrieves a named color from the global map.
-    static Color getColor(const std::string& name);
-
     /// Returns a random color.
     static Color random(u32 alpha = MAX_U8);
 
@@ -124,19 +112,19 @@ struct Color : vec4f {
 
     static std::vector<Color> lerpCount(Color a, Color b, usize count);
 
-    static const Color ZERO;     ///< Fully transparent black.
-    static const Color ONE;      ///< Opaque white.
-    static const Color BLACK;    ///< Opaque black.
-    static const Color WHITE;    ///< Opaque white.
-    static const Color RED;      ///< Opaque red.
-    static const Color GREEN;    ///< Opaque green.
-    static const Color BLUE;     ///< Opaque blue.
-    static const Color MAGENTA;  ///< Opaque magenta.
-    static const Color YELLOW;   ///< Opaque yellow.
-    static const Color CYAN;     ///< Opaque cyan.
-    static const Color GRAY;     ///< Opaque gray.
-    static const Color NQB;      ///< Not quite black
-    static const Color NQW;      ///< Not quite white
+    static const Color ZERO;        ///< Fully transparent black.
+    static const Color ONE;         ///< Opaque white.
+    static const Color BLACK;       ///< Opaque black.
+    static const Color WHITE;       ///< Opaque white.
+    static const Color RED;         ///< Opaque red.
+    static const Color GREEN;       ///< Opaque green.
+    static const Color BLUE;        ///< Opaque blue.
+    static const Color MAGENTA;     ///< Opaque magenta.
+    static const Color YELLOW;      ///< Opaque yellow.
+    static const Color CYAN;        ///< Opaque cyan.
+    static const Color GRAY;        ///< Opaque gray.
+    static const Color LIGHT_GRAY;  ///< Opaque light gray.
+    static const Color DARK_GRAY;   ///< Opaque dark gray.
 
     static constexpr u32 MAX_U8 = 255U;     ///< Maximum 8-bit unsigned value.
     static constexpr f32 MAX_U8_F = 255.F;  ///< Maximum 8-bit value as float.
@@ -146,10 +134,6 @@ struct Color : vec4f {
 
     /// Adds two colors together (component-wise).
     Color operator+(const Color& other) const { return Color{r + other.r, g + other.g, b + other.b, a + other.a}; };
-
-  private:
-    /// Returns the global named color map.
-    static std::unordered_map<std::string, Color>& colors();
 };
 
 }  // namespace mle

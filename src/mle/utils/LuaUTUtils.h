@@ -14,8 +14,6 @@ inline void makeUTColor(Lua& lua) {
     ut["g"] = &Color::g;
     ut["b"] = &Color::b;
     ut["a"] = &Color::a;
-    ut["addColor"] = &Color::addColor;
-    ut["getColor"] = &Color::getColor;
     ut["mix"] = &Color::mix;
     ut["lighten"] = &Color::lighten;
     ut["withA"] = &Color::withA;

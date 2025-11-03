@@ -17,9 +17,9 @@ const Color Color::BLUE = Color{0U, 0U, MAX_U8};
 const Color Color::MAGENTA = Color{MAX_U8, 0U, MAX_U8};
 const Color Color::YELLOW = Color{MAX_U8, MAX_U8, 0U};
 const Color Color::CYAN = Color{0U, MAX_U8, MAX_U8};
-const Color Color::GRAY = Color(0.5F, 0.5F, 0.5F);
-const Color Color::NQB = Color(0.05F, 0.05F, 0.05F);
-const Color Color::NQW = Color(0.85F, 0.85F, 0.85F);
+const Color Color::GRAY = Color(0.4F, 0.4F, 0.4F);
+const Color Color::LIGHT_GRAY = Color(0.75F, 0.75F, 0.75F);
+const Color Color::DARK_GRAY = Color(0.1F, 0.1F, 0.1F);
 
 Color Color::fromString(const std::string& str) {
     if (str.size() > 2) {
@@ -35,13 +35,17 @@ Color Color::fromString(const std::string& str) {
         }
     }
 
-    return getColor(str);
+    return Color::WHITE;
 }
 
 Color Color::fromLua(const sol::object& object) {
     if (!object.valid()) {
         MLE_W("Invalid color object, returning WHITE");
         return WHITE;
+    }
+
+    if (object.is<Color>()) {
+        return object.as<Color>();
     }
 
     switch (object.get_type()) {
@@ -105,47 +109,6 @@ Color Color::fromHex(u32 hex) noexcept {
     ret.b = static_cast<f32>((hex >> 8U) & 0xFFU) / MAX_U8_F;
     ret.a = static_cast<f32>(hex & 0xFFU) / MAX_U8_F;
     return ret;
-}
-
-std::unordered_map<std::string, Color>& Color::colors() {
-    static std::unordered_map<std::string, Color> colors;
-
-    return colors;
-}
-
-void Color::addEngineDefaultColors() {
-    std::vector<std::pair<std::string, Color>> default_colors = {{"ZERO", ZERO},   {"ONE", ONE},   {"BLACK", BLACK},     {"WHITE", WHITE},   {"RED", RED},
-                                                                 {"GREEN", GREEN}, {"BLUE", BLUE}, {"MAGENTA", MAGENTA}, {"YELLOW", YELLOW}, {"CYAN", CYAN},
-                                                                 {"GRAY", GRAY},   {"NQB", NQB},   {"NQW", NQW}};
-
-    MLE_D("Adding engine default colors");
-    for (const auto& [name, color] : default_colors) {
-        addColor(name, color);
-    }
-}
-
-void Color::addColor(const std::string& name, Color color) {
-    if (colors().contains(name)) {
-        MLE_W("Color '{}' already exists! overwriting...", name);
-    }
-    MLE_D("Adding color '{}': srgb:{} linear:{}", name, color, color.toLinear());
-    colors()[name] = color;
-}
-
-void Color::addColors(const sol::table& table) {
-    for (const auto& [key, value] : table) {
-        MLE_ASSERT(key.is<std::string>());
-        addColor(key.as<std::string>(), fromLua(value));
-    }
-}
-
-Color Color::getColor(const std::string& name) {
-    auto it = colors().find(name);
-    if (it == colors().end()) {
-        MLE_W("Color '{}' not found! returning white", name);
-        return {};
-    }
-    return it->second;
 }
 
 Color Color::random(u32 alpha) {

@@ -11,10 +11,10 @@ return {
 			padding = "4px",
 			border = {
 				thickness = "2px",
-				color = "green500",
+				color = Colors.green500,
 				roundness = "7px",
 			},
-			background = { "BLACK", 0.96 },
+			background = Colors.BLACK:withA(0.96),
 			container = {
 				dir = "h",
 				gap = "6px",
@@ -25,9 +25,9 @@ return {
 					idx = 0,
 					text = {
 						"$>",
-						color = "BLACK",
+						color = Colors.BLACK,
 						bold = true,
-						border_color = "green700",
+						border_color = Colors.green700,
 						border_thickness = 1,
 					},
 				},
@@ -36,7 +36,7 @@ return {
 					text = {
 						".",
 						input = {},
-						color = "green700",
+						color = Colors.green700,
 					},
 				},
 			},
