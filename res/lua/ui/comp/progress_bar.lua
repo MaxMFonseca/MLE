@@ -3,7 +3,6 @@ return function(color_base, color_fill_1, color_fill_2, roundness_px, initial_fi
 		fn = {
 			fill = function(ew, fraction)
 				fraction = math.max(0.005, math.min(1, fraction or 0))
-				print("progress_bar fill", fraction)
 				local child = ew:getChild("fill")
 				child:apply("size_x", fraction)
 				child:apply("background", Color.mix(color_fill_1, color_fill_2, fraction))

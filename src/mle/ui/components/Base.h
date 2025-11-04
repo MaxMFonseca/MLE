@@ -42,6 +42,8 @@ struct Table {
 struct Functions {
     std::map<std::string, sol::function> fns;
 
+    [[nodiscard]] sol::function get(const std::string& name) const;
+
     static void apply(const Entt& e, const sol::object& obj);
 
     static sol::object get(const Entt& e, const sol::object& params);

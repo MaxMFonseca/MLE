@@ -100,4 +100,5 @@ void Entt::requestExternalBoundsUpdate() const {
 bool Entt::isRoot() const {
     return e_ == ui_.getRoot();
 };
+
 }  // namespace mle::ui

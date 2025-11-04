@@ -96,14 +96,16 @@ sol::object Functions::get(const Entt& e, const sol::object& params) {
     }
 
     const auto fn_name = lua::as<std::string>(params);
-    const auto& funcs = e.get<Functions>().fns;
-    for (const auto& [key, fn] : funcs) {
-        if (key == fn_name) {
-            return fn;
-        }
-    }
-    MLE_E("Tried to get Function '{}' from entity {} which does not exist.", fn_name, e.fullName());
-    return {};
+    const auto& c = e.get<Functions>();
+    return c.get(fn_name);
 }
 
+[[nodiscard]] sol::function Functions::get(const std::string& name) const {
+    auto it = fns.find(name);
+    if (it != fns.end()) {
+        return it->second;
+    }
+    MLE_W("Tried to get Function '{}' which does not exist.", name);
+    return {};
+}
 }  // namespace mle::ui::comp

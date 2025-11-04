@@ -23,6 +23,22 @@ class Entt {
     [[nodiscard]] sol::object getKey(const std::string& key, const sol::object& params = {}) const { return system::LuaElementOps::getKey(*this, key, params); }
     void applyTable(const sol::table& table) const { system::LuaElementOps::applyTable(*this, table); }
 
+    template <typename... Args>
+    void call(const std::string& fn_name, Args&&... args) const {
+        if (!has<comp::Functions>()) {
+            MLE_E("Entity '{}' has no Functions component to call '{}'", fullName(), fn_name);
+            return;
+        }
+        auto& functions = get<comp::Functions>();
+        auto fn = functions.get(fn_name);
+        if (!fn) {
+            MLE_E("Function '{}' not found in entity '{}'", fn_name, fullName());
+            return;
+        }
+
+        fn(*this, std::forward<Args>(args)...);
+    }
+
     void setName(const std::string& name) const;
     void destroy() const;
 
