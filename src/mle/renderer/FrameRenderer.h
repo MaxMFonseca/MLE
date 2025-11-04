@@ -116,7 +116,7 @@ class FrameRenderer final {
     bool swapchain_visible_ = false;
     bool iconified_ = false;
 
-    vk::ClearColorValue default_clear_color_ = toVkColor(Color::BLACK);
+    vk::ClearColorValue default_clear_color_ = toVkColor(Color::ZERO);
 
     std::array<FrameData, 2> frames_;
     usize current_frame_ = NO_FRAME;

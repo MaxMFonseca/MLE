@@ -13,6 +13,15 @@ struct TargetBound {
         FLEX_SHARE,  ///< Share available space flexibly.           Suffix: "f", "flex"
         FIT,         ///< Fit to content size.                      Suffix: "fit"
         ROOT,        ///< Relative to root.                         Suffix: "%r"
+
+        /// FIXME: I need these working again
+        /// and ffs rework the container as a whole when doing so
+        // ROOT_W,      ///< Relative to root width.                         Suffix: "%rw"
+        // ROOT_H,      ///< Relative to root height.                         Suffix: "%rh"
+        // PARENT,      ///< Relative to parent.                     Suffix: "%p"
+        // PARENT_W,    ///< Relative to parent width.               Suffix: "%pw"
+        // PARENT_H,    ///< Relative to parent height.              Suffix: "%ph"
+
         RELATIVE,    ///< Relative.                                 Suffix: "%"
         RELATIVE_W,  ///< Relative width.                           Suffix: "%w"
         RELATIVE_H,  ///< Relative height.                          Suffix: "%h"

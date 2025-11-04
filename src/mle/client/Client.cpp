@@ -38,6 +38,10 @@ void Client::init() {
 
     MLE_D("Creating client table in Lua");
     client_table_ = lua_.createTable("C");
+    client_table_["stop"] = []() {
+        MLE_I("Client stop requested from Lua");
+        Client::i().requestStop();
+    };
 
     MLE_D("Creaging colors table");
     auto colors_table = lua_.createTable("Colors");
