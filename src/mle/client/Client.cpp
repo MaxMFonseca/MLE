@@ -209,9 +209,11 @@ void Client::requestStop() {
 
 void Client::checkNextGameLayer() {
     if (next_game_layer_) {
+        MLE_I("Switching game layer");
         std::scoped_lock lock(game_layer_render_mutex_);
 
         if (game_layer_) {
+            std::ignore = Renderer::i().vkDevice().waitIdle();
             MLE_I("Shutting down current game layer");
             game_layer_->shutdown();
             game_layer_.reset();
@@ -224,16 +226,16 @@ void Client::checkNextGameLayer() {
 }
 
 ImageRef Client::render() {
-    if (!game_layer_) {
-        return nullptr;
-    }
-
     ImageRef game_layer_img = nullptr;
 
     {
         std::scoped_lock lock(game_layer_render_mutex_);
+        if (!game_layer_) {
+            return nullptr;
+        }
         game_layer_img = game_layer_->render();
     }
+
     if (!game_layer_img) {
         return nullptr;
     }

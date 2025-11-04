@@ -35,7 +35,7 @@ void Sprite::apply(const Entt& e, const sol::object& obj) {
 void Sprite::setTexture(const Entt& ew, const std::string& src) {
     texture_id = entt::hashed_string{src.c_str()};
     auto load_r = Renderer::i().textureCache().loadTexture(src);
-    if (load_r.error() != Result::NOT_READY) {
+    if (!load_r.has_value() && load_r.error() != Result::NOT_READY) {
         MLE_E("Failed to load texture {}: {}", src, load_r.error());
         texture_id = {};
     }

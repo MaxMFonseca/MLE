@@ -55,7 +55,6 @@ Rendering::Rendering(UI& ui) :
 }
 
 void Rendering::clear() {
-    Renderer::i().frameRenderer().waitStoped();
     dedicated_images_.clear();
     atomic_data_.getUnsafe(0) = {};
     atomic_data_.getUnsafe(1) = {};
