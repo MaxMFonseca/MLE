@@ -1,6 +1,6 @@
 #include "VkCtx.h"
 
-#include <fmt/ranges.h>
+#include <spdlog/fmt/ranges.h>
 #include <vulkan/vulkan_core.h>
 
 #include <iostream>

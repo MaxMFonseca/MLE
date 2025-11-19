@@ -1,6 +1,6 @@
 #include "FrameRenderer.h"
 
-#include <fmt/ranges.h>
+#include <spdlog/fmt/ranges.h>
 
 #include <atomic>
 #include <cassert>

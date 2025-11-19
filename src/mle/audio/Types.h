@@ -26,7 +26,6 @@ namespace cmd {
 struct Load {
     std::string name;
     bool stream = false;
-    bool loop = false;
 };
 
 struct PlayOneShot {

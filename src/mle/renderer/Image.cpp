@@ -557,8 +557,9 @@ void Image::transitionLayout(const CommandBuffer& cmd, TransitionLayoutInfo info
     barrier.dstStageMask = info.dst_stage_mask;
     barrier.dstAccessMask = info.dst_access_mask;
     barrier.image = o_;
-    barrier.subresourceRange.aspectMask =
-        (usage_ & vk::ImageUsageFlagBits::eDepthStencilAttachment) ? vk::ImageAspectFlagBits::eDepth : vk::ImageAspectFlagBits::eColor;
+    barrier.subresourceRange.aspectMask = (usage_ & vk::ImageUsageFlagBits::eDepthStencilAttachment)
+                                              ? vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil
+                                              : vk::ImageAspectFlagBits::eColor;
     barrier.subresourceRange.baseMipLevel = 0;
     barrier.subresourceRange.levelCount = 1;
     barrier.subresourceRange.baseArrayLayer = 0;
@@ -642,8 +643,9 @@ void Image::ownershipRelease(const CommandBuffer& cmd, QueueDataIdx dst_queue_da
     mb.srcQueueFamilyIndex = Renderer::i().cmdMgr().queueFamilyIdx(queue_data_idx_);
     mb.dstQueueFamilyIndex = Renderer::i().cmdMgr().queueFamilyIdx(dst_queue_data_idx);
     mb.image = o_;
-    mb.subresourceRange.aspectMask =
-        (usage_ & vk::ImageUsageFlagBits::eDepthStencilAttachment) ? vk::ImageAspectFlagBits::eDepth : vk::ImageAspectFlagBits::eColor;
+    mb.subresourceRange.aspectMask = (usage_ & vk::ImageUsageFlagBits::eDepthStencilAttachment)
+                                         ? vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil
+                                         : vk::ImageAspectFlagBits::eColor;
     mb.subresourceRange.baseMipLevel = 0;
     mb.subresourceRange.levelCount = 1;
     mb.subresourceRange.baseArrayLayer = 0;
@@ -700,8 +702,9 @@ void Image::ownershipAcquire(const CommandBuffer& cmd, vk::PipelineStageFlags2 d
     mb.srcQueueFamilyIndex = Renderer::i().cmdMgr().queueFamilyIdx(prev_queue_data_idx_);
     mb.dstQueueFamilyIndex = Renderer::i().cmdMgr().queueFamilyIdx(next_queue_data_idx);
     mb.image = o_;
-    mb.subresourceRange.aspectMask =
-        (usage_ & vk::ImageUsageFlagBits::eDepthStencilAttachment) ? vk::ImageAspectFlagBits::eDepth : vk::ImageAspectFlagBits::eColor;
+    mb.subresourceRange.aspectMask = (usage_ & vk::ImageUsageFlagBits::eDepthStencilAttachment)
+                                         ? vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil
+                                         : vk::ImageAspectFlagBits::eColor;
     mb.subresourceRange.baseMipLevel = 0;
     mb.subresourceRange.levelCount = 1;
     mb.subresourceRange.baseArrayLayer = 0;

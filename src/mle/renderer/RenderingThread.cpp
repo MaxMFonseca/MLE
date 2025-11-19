@@ -57,7 +57,6 @@ void RenderingThread::setDepthAttachment(const AttachmentInfo& attachment) {
 }
 
 void RenderingThread::setPipeline(const Pipeline* p) {
-    MLE_ASSERT_LOG(p->isCompute() || in_rendering_, "Pipeline can only be set outside rendering.");
     MLE_ASSERT_LOG(!(p->isCompute() && in_rendering_), "Compute pipeline can not be set inside rendering.");
     MLE_ASSERT_LOG(p != nullptr, "Cannot set a null pipeline.");
 

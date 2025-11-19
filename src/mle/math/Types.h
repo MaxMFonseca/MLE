@@ -73,6 +73,7 @@ using vec4f = vec4<f32>;    ///< 4D vector of f32
 using vec4d = vec4<f64>;    ///< 4D vector of f64
 using vec4f64 = vec4d;      ///< Alias for vec4<f64>
 using vec4u = vec4<u32>;    ///< 4D vector of u32
+using vec4u8 = vec4<u8>;    ///< 4D vector of u8
 using vec4u64 = vec4<u64>;  ///< 4D vector of u64
 using vec4i = vec4<i32>;    ///< 4D vector of i32
 using vec4i64 = vec4<i64>;  ///< 4D vector of i64

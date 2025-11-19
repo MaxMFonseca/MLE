@@ -1,5 +1,7 @@
 #pragma once
 
+#include <tiny_gltf.h>
+
 #include "Types.h"
 #include "mle/core/Core.h"
 #include "mle/utils/Color.h"
@@ -39,5 +41,7 @@ inline vk::ClearColorValue toVkColor(const Color& color) {
 constexpr u64 alignUp(u64 value, u64 alignment) {
     return (value + alignment - 1) & ~(alignment - 1);
 }
+
+Expected<tinygltf::Model> loadGltfFromFile(const std::string& path);
 
 }  // namespace mle

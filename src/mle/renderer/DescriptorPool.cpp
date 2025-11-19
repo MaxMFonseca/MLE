@@ -1,7 +1,8 @@
 #include "DescriptorPool.h"
 
+#include <spdlog/fmt/ranges.h>
+
 #include "Renderer.h"
-#include "fmt/ranges.h"
 #include "vulkan/vulkan.hpp"
 
 namespace mle {
