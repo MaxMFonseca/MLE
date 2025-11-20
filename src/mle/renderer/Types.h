@@ -49,6 +49,14 @@ class Font;
 using FontHnd = std::unique_ptr<Font>;
 using FontRef = Font*;
 
+class Model;
+using ModelHnd = std::unique_ptr<Model>;
+using ModelRef = Model*;
+
+class Skeleton;
+using SkeletonHnd = std::unique_ptr<Skeleton>;
+using SkeletonRef = Skeleton*;
+
 class PipelineCache;
 
 enum class GCmdType : u8 { GRAPHICS = 0, COMPUTE = 1, TRANSFER = 2, G = GRAPHICS, C = COMPUTE, T = TRANSFER };

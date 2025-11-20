@@ -6,35 +6,40 @@ layout(location = 2) in vec3 in_color;
 layout(location = 3) in vec3 in_mre;
 layout(location = 4) in int in_color_mix;
 
-layout(set = 0, binding = 0) uniform UBO
-{
+layout(location = 5) in vec4 ini_model0;
+layout(location = 6) in vec4 ini_model1;
+layout(location = 7) in vec4 ini_model2;
+layout(location = 8) in vec4 ini_model3;
+layout(location = 9) in int ini_color_mix_ioffset;
+
+layout(set = 0, binding = 0) uniform UBO {
   mat4 proj;
   mat4 view;
-  mat4 model;
   vec3 cam_pos;
 } ubo;
 
-layout(push_constant) uniform PC {
-  vec3 colors[4];
-} pc;
+layout(set = 0, binding = 1) readonly buffer Colors {
+  vec3 colors[];
+} colors;
 
 layout(location = 0) out vec3 out_normal;
 layout(location = 1) out vec3 out_color;
 layout(location = 2) out vec3 out_mre;
 
 void main() {
-  out_normal = normalize(mat3(ubo.model) * in_normal);
+  mat4 model = mat4(ini_model0, ini_model1, ini_model2, ini_model3);
+
+  out_normal = normalize(mat3(model) * in_normal);
 
   vec3 color = in_color;
-
-  if (in_color_mix >= 0 && in_color_mix < 4) {
-    color = clamp(color * pc.colors[in_color_mix], 0.0, 1.0);
+  if (in_color_mix >= 0) {
+    color = clamp(color * colors.colors[ini_color_mix_ioffset + in_color_mix], 0.0, 1.0);
   }
 
   out_color = color;
 
   out_mre = in_mre;
 
-  vec4 world_pos4 = ubo.model * vec4(in_pos, 1.0);
+  vec4 world_pos4 = model * vec4(in_pos, 1.0);
   gl_Position = ubo.proj * ubo.view * world_pos4;
 }

@@ -27,6 +27,8 @@ class Model {
         int color_mix;
     };
 
+    struct RenderData {};
+
   public:
     void load(const GLTF& gltf);
 
@@ -34,10 +36,13 @@ class Model {
     [[nodiscard]] BufferRef getIndexBuffer() const { return index_buffer_.get(); }
     [[nodiscard]] usize getIndexCount() const { return index_count_; }
 
+    void render();
+
   private:
     BufferHnd vertex_buffer_;
     BufferHnd index_buffer_;
     usize index_count_ = 0;
     bool skinned_ = false;
 };
+
 }  // namespace mle

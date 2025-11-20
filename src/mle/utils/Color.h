@@ -68,6 +68,9 @@ struct Color : vec4f {
     /// Returns the color encoded as 0xRRGGBBAA.
     [[nodiscard]] u32 asRGBA() const;
 
+    /// Returns the RGB components as a vec3f.
+    [[nodiscard]] vec3f asRGB() const { return {r, g, b}; }
+
     /// Returns the color encoded as 0xAARRGGBB.
     [[nodiscard]] u32 asARGB() const;
 

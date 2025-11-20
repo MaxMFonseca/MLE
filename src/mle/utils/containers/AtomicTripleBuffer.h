@@ -58,7 +58,7 @@ class AtomicTripleBuffer {
   private:
     struct Pub {
         u64 seq{0};
-        u8 idx{0xFF};
+        u8 idx{0};
     };
 
     u64 pack(Pub p) const { return (p.seq << 8) | p.idx; }
@@ -81,16 +81,16 @@ class AtomicTripleBuffer {
     alignas(CACHELINE) std::atomic<u64> published_{pack(Pub{})};
     std::array<u8, padBytes<std::atomic<u64>>()> pad_pub_{};
 
-    alignas(CACHELINE) std::atomic<u8> consumer_idx_{0xFF};
+    alignas(CACHELINE) std::atomic<u8> consumer_idx_{0};
     std::array<u8, padBytes<std::atomic<u8>>()> pad_cons_idx_{};
 
     std::array<T, 3> buf_{};
 
-    alignas(CACHELINE) u8 prod_staging_idx_{0xFF};
+    alignas(CACHELINE) u8 prod_staging_idx_{0};
     u64 prod_seq_{0};
     std::array<u8, padBytes<u64>()> pad_prod_{};
 
-    alignas(CACHELINE) u8 cons_current_idx_{0xFF};
+    alignas(CACHELINE) u8 cons_current_idx_{0};
     u64 cons_seen_seq_{0};
 };
 }  // namespace mle
