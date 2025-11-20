@@ -16,6 +16,16 @@ class Model {
         int color_mix;
     };
 
+    struct VertexSkin {
+        vec3f pos;
+        vec3f normal;
+        vec3f color;
+        vec3f mre;
+        vec4u joint0;
+        vec4f weight0;
+        int color_mix;
+    };
+
   public:
     void load(const tinygltf::Model& model);
 
@@ -27,5 +37,6 @@ class Model {
     BufferHnd vertex_buffer_;
     BufferHnd index_buffer_;
     usize index_count_ = 0;
+    bool skinned_ = false;
 };
 }  // namespace mle

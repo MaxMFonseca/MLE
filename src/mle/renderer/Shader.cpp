@@ -82,6 +82,7 @@ Shader::DataType spvTypeToShaderDataType(SpvReflectTypeDescription& td) {
         if (td.traits.numeric.scalar.signedness) {
             return DataType::INT;
         }
+
         return DataType::UINT;
     }
 
@@ -316,6 +317,7 @@ u32 Shader::typeSize(DataType type) {
         case DataType::VEC3:
             return 12;
         case DataType::VEC4:
+        case DataType::VEC4U:
         case DataType::MAT2:
             return 16;
         case DataType::MAT4:
@@ -339,6 +341,8 @@ Shader::DataType Shader::vkFormatToDataType(vk::Format format) {
             return DataType::VEC3;
         case vk::Format::eR32G32B32A32Sfloat:
             return DataType::VEC4;
+        case vk::Format::eR32G32B32A32Uint:
+            return DataType::VEC4U;
         default:
             MLE_UNREACHABLE_LOG("Unsupported format to type conversion: {}", vk::to_string(format));
     }

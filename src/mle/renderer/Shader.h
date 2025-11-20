@@ -7,7 +7,7 @@
 namespace mle {
 class Shader final {
   public:
-    enum class DataType : u8 { FLOAT, INT, UINT, VEC2, VEC3, VEC4, MAT2, MAT4, SAMPLER2D, COUNT, UNKNOWN };
+    enum class DataType : u8 { FLOAT, INT, UINT, VEC2, VEC3, VEC4, VEC4U, MAT2, MAT4, SAMPLER2D, COUNT, UNKNOWN };
 
     struct DescriptorSet {
         std::vector<vk::DescriptorSetLayoutBinding> bindings;
@@ -83,6 +83,8 @@ struct formatter<mle::Shader::DataType> : formatter<std::string> {
                 return format_to(ctx.out(), "VEC3");
             case mle::Shader::DataType::VEC4:
                 return format_to(ctx.out(), "VEC4");
+            case mle::Shader::DataType::VEC4U:
+                return format_to(ctx.out(), "VEC4U");
             case mle::Shader::DataType::MAT2:
                 return format_to(ctx.out(), "MAT2");
             case mle::Shader::DataType::MAT4:

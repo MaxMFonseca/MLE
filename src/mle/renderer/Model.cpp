@@ -76,6 +76,138 @@ void readAccessorFloat(const tinygltf::Model& model, const tinygltf::Accessor& a
     }
 }
 
+void readAccessorJoints4u(const tinygltf::Model& model, const tinygltf::Accessor& accessor, std::vector<vec4u>& out) {
+    const auto& view = getBufferView(model, accessor);
+    const auto& buffer = getBuffer(model, view);
+
+    MLE_ASSERT_LOG(accessor.type == TINYGLTF_TYPE_VEC4, "JOINTS_0 accessor must be VEC4");
+    MLE_ASSERT_LOG(accessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE || accessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT ||
+                       accessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT,
+                   "Unsupported JOINTS_0 component type");
+
+    const usize count = accessor.count;
+    const usize stride = accessor.ByteStride(view);
+
+    const usize elem_size = [&]() {
+        switch (accessor.componentType) {
+            case TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE:
+                return sizeof(u8) * 4;
+            case TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT:
+                return sizeof(u16) * 4;
+            case TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT:
+                return sizeof(u32) * 4;
+            default:
+                MLE_UNREACHABLE;
+        }
+    }();
+
+    const usize byte_start = as<usize>(view.byteOffset) + as<usize>(accessor.byteOffset);
+
+    MLE_ASSERT_LOG(stride == 0 || stride >= elem_size, "Invalid stride for JOINTS_0 accessor");
+
+    out.resize(count);
+
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic) safe
+    const auto* base = buffer.data.data() + byte_start;
+    const usize step = (stride != 0) ? stride : elem_size;
+
+    switch (accessor.componentType) {
+        case TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE: {
+            for (usize i = 0; i < count; ++i) {
+                // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic) safe
+                const auto* p = rAs<const u8*>(base + (i * step));
+                // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic) safe
+                out[i] = vec4u{as<u32>(p[0]), as<u32>(p[1]), as<u32>(p[2]), as<u32>(p[3])};
+            }
+        } break;
+        case TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT: {
+            for (usize i = 0; i < count; ++i) {
+                // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic) safe
+                const auto* p = rAs<const u16*>(base + (i * step));
+                // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic) safe
+                out[i] = vec4u{as<u32>(p[0]), as<u32>(p[1]), as<u32>(p[2]), as<u32>(p[3])};
+            }
+        } break;
+        case TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT: {
+            for (usize i = 0; i < count; ++i) {
+                // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic) safe
+                const auto* p = rAs<const u32*>(base + (i * step));
+                // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic) safe
+                out[i] = vec4u{p[0], p[1], p[2], p[3]};
+            }
+        } break;
+        default:
+            MLE_UNREACHABLE;
+    }
+}
+
+void readAccessorWeights4f(const tinygltf::Model& model, const tinygltf::Accessor& accessor, std::vector<vec4f>& out) {
+    const auto& view = getBufferView(model, accessor);
+    const auto& buffer = getBuffer(model, view);
+
+    MLE_ASSERT_LOG(accessor.type == TINYGLTF_TYPE_VEC4, "WEIGHTS_0 accessor must be VEC4");
+
+    const usize count = accessor.count;
+    const usize stride = accessor.ByteStride(view);
+
+    const usize elem_size = [&]() {
+        switch (accessor.componentType) {
+            case TINYGLTF_COMPONENT_TYPE_FLOAT:
+                return sizeof(float) * 4;
+            case TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE:
+                return sizeof(u8) * 4;
+            case TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT:
+                return sizeof(u16) * 4;
+            default:
+                return 0UL;
+        }
+    }();
+
+    MLE_ASSERT_LOG(elem_size != 0, "Unsupported WEIGHTS_0 component type");
+
+    const usize byte_start = as<usize>(view.byteOffset) + as<usize>(accessor.byteOffset);
+
+    MLE_ASSERT_LOG(stride == 0 || stride >= elem_size, "Invalid stride for WEIGHTS_0 accessor");
+
+    out.resize(count);
+
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic) safe
+    const auto* base = buffer.data.data() + byte_start;
+    const usize step = (stride != 0) ? stride : elem_size;
+
+    if (accessor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT) {
+        for (usize i = 0; i < count; ++i) {
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic) safe
+            const auto* p = rAs<const float*>(base + (i * step));
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic) safe
+            out[i] = vec4f{p[0], p[1], p[2], p[3]};
+        }
+        return;
+    }
+
+    MLE_ASSERT_LOG(accessor.normalized, "Integer WEIGHTS_0 must be normalized");
+
+    if (accessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE) {
+        constexpr float INV_MAX = 1.0F / 255.0F;
+        for (usize i = 0; i < count; ++i) {
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic) safe
+            const auto* p = rAs<const u8*>(base + (i * step));
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic) safe
+            out[i] = vec4f{as<f32>(p[0]) * INV_MAX, as<f32>(p[1]) * INV_MAX, as<f32>(p[2]) * INV_MAX, as<f32>(p[3]) * INV_MAX};
+        }
+    } else if (accessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT) {
+        constexpr float INV_MAX = 1.0F / 65535.0F;
+        for (usize i = 0; i < count; ++i) {
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic) safe
+            const auto* p = rAs<const u16*>(base + (i * step));
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic) safe
+            out[i] = vec4f{as<f32>(p[0]) * INV_MAX, as<f32>(p[1]) * INV_MAX, as<f32>(p[2]) * INV_MAX, as<f32>(p[3]) * INV_MAX};
+        }
+    } else {
+        MLE_UNREACHABLE;
+    }
+}
+
 /// Reads accessor as indices into a u32 array.
 inline void readIndicesU32(const tinygltf::Model& model, const tinygltf::Accessor& accessor, std::vector<u32>& out, u32 baseVertex) {
     const auto& view = getBufferView(model, accessor);
@@ -121,11 +253,15 @@ inline void readIndicesU32(const tinygltf::Model& model, const tinygltf::Accesso
 }
 }  // namespace
 
+// TODO: fix cognitive complexity
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 void Model::load(const tinygltf::Model& model) {
     std::vector<Vertex> vertices;
+    std::vector<VertexSkin> vertices_skinned;
     std::vector<u32> indices;
 
     index_count_ = 0;
+    skinned_ = false;
 
     for (const auto& mesh : model.meshes) {
         for (const auto& prim : mesh.primitives) {
@@ -188,17 +324,59 @@ void Model::load(const tinygltf::Model& model) {
                 }
             }
 
-            const u32 base_vertex = as<u32>(vertices.size());
-            vertices.reserve(vertices.size() + vert_count);
+            std::vector<vec4u> joints0;
+            std::vector<vec4f> weights0;
+            if (auto it = prim.attributes.find("JOINTS_0"); it != prim.attributes.end()) {
+                MLE_ASSERT_LOG(skinned_ || vertices.empty(), "Some primitives are skinned, some are not. Unsupported.");
 
-            for (usize i = 0; i < vert_count; ++i) {
-                Vertex v{};
-                v.pos = positions[i];
-                v.normal = normals[i];
-                v.color = colors[i];
-                v.mre = vec3f{metals[i], roughs[i], emiss[i]};
-                v.color_mix = color_mix[i];
-                vertices.push_back(v);
+                skinned_ = true;
+
+                const auto& acc = getAccessor(model, it->second);
+                readAccessorJoints4u(model, acc, joints0);
+                MLE_ASSERT_LOG(joints0.size() == vert_count, "JOINTS_0 count does not match POSITION count");
+            }
+
+            if (auto it = prim.attributes.find("WEIGHTS_0"); it != prim.attributes.end()) {
+                MLE_ASSERT_LOG(skinned_, "WEIGHTS_0 found on non-skinned model");
+                const auto& acc = getAccessor(model, it->second);
+                readAccessorWeights4f(model, acc, weights0);
+                MLE_ASSERT_LOG(weights0.size() == vert_count, "WEIGHTS_0 count does not match POSITION count");
+            }
+
+            if (skinned_) {
+                MLE_ASSERT_LOG(!joints0.empty(), "Skinned primitive without JOINTS_0");
+                MLE_ASSERT_LOG(!weights0.empty(), "Skinned primitive without WEIGHTS_0");
+            }
+
+            const u32 base_vertex = skinned_ ? as<u32>(vertices_skinned.size()) : as<u32>(vertices.size());
+            if (skinned_) {
+                vertices_skinned.reserve(vertices_skinned.size() + vert_count);
+            } else {
+                vertices.reserve(vertices.size() + vert_count);
+            }
+
+            if (skinned_) {
+                for (usize i = 0; i < vert_count; ++i) {
+                    VertexSkin v{};
+                    v.pos = positions[i];
+                    v.normal = normals[i];
+                    v.color = colors[i];
+                    v.mre = vec3f{metals[i], roughs[i], emiss[i]};
+                    v.joint0 = joints0[i];
+                    v.weight0 = weights0[i];
+                    v.color_mix = color_mix[i];
+                    vertices_skinned.push_back(v);
+                }
+            } else {
+                for (usize i = 0; i < vert_count; ++i) {
+                    Vertex v{};
+                    v.pos = positions[i];
+                    v.normal = normals[i];
+                    v.color = colors[i];
+                    v.mre = vec3f{metals[i], roughs[i], emiss[i]};
+                    v.color_mix = color_mix[i];
+                    vertices.push_back(v);
+                }
             }
 
             if (prim.indices >= 0) {
@@ -220,14 +398,26 @@ void Model::load(const tinygltf::Model& model) {
 
     // TODO: make this async
 
-    Buffer::CI vb_ci;
-    vb_ci.allocation_type = Buffer::CI::AllocationType::GPU_ONLY;
-    vb_ci.size = sizeof(Vertex) * vertices.size();
-    vb_ci.usage = vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst;
-    vertex_buffer_ = Buffer::createHnd(vb_ci);
+    BufferHnd vsb;
+    if (skinned_) {
+        Buffer::CI vb_ci;
+        vb_ci.allocation_type = Buffer::CI::AllocationType::GPU_ONLY;
+        vb_ci.size = sizeof(VertexSkin) * vertices_skinned.size();
+        vb_ci.usage = vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst;
+        vertex_buffer_ = Buffer::createHnd(vb_ci);
 
-    auto vsb = vertex_buffer_->writeStaged(ots_cmd, vertices.data(), vb_ci.size);
-    vertex_buffer_->ownershipRelease(ots_cmd, cmd_mgr.queueDataIdx(GCmdType::G));
+        vsb = vertex_buffer_->writeStaged(ots_cmd, vertices_skinned.data(), vb_ci.size);
+        vertex_buffer_->ownershipRelease(ots_cmd, cmd_mgr.queueDataIdx(GCmdType::G));
+    } else {
+        Buffer::CI vb_ci;
+        vb_ci.allocation_type = Buffer::CI::AllocationType::GPU_ONLY;
+        vb_ci.size = sizeof(Vertex) * vertices.size();
+        vb_ci.usage = vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst;
+        vertex_buffer_ = Buffer::createHnd(vb_ci);
+
+        vsb = vertex_buffer_->writeStaged(ots_cmd, vertices.data(), vb_ci.size);
+        vertex_buffer_->ownershipRelease(ots_cmd, cmd_mgr.queueDataIdx(GCmdType::G));
+    }
 
     Buffer::CI ib_ci;
     ib_ci.allocation_type = Buffer::CI::AllocationType::GPU_ONLY;
