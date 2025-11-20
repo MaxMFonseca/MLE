@@ -42,6 +42,4 @@ constexpr u64 alignUp(u64 value, u64 alignment) {
     return (value + alignment - 1) & ~(alignment - 1);
 }
 
-Expected<tinygltf::Model> loadGltfFromFile(const std::string& path);
-
 }  // namespace mle

@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "mle/math/Types.h"
+#include "mle/renderer/GLTF.h"
 
 namespace mle {
 
@@ -46,7 +47,7 @@ class Skeleton {
     };
 
   public:
-    void load(const tinygltf::Model& model);
+    void load(const GLTF& gltf);
 
     [[nodiscard]] const std::vector<Joint>& getJoints() const { return joints_; }
     [[nodiscard]] const std::vector<Animation>& getAnimations() const { return animations_; }

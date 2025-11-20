@@ -7,137 +7,6 @@
 
 namespace mle {
 namespace {
-const tinygltf::Accessor& getAccessor(const tinygltf::Model& m, int idx) {
-    MLE_ASSERT_LOG(idx >= 0 && idx < as<int>(m.accessors.size()), "Accessor index out of range");
-    return m.accessors[as<usize>(idx)];
-}
-
-const tinygltf::BufferView& getBufferView(const tinygltf::Model& m, const tinygltf::Accessor& acc) {
-    MLE_ASSERT_LOG(acc.bufferView >= 0 && acc.bufferView < as<int>(m.bufferViews.size()), "Accessor without valid bufferView");
-    return m.bufferViews[as<usize>(acc.bufferView)];
-}
-
-const tinygltf::Buffer& getBuffer(const tinygltf::Model& m, const tinygltf::BufferView& view) {
-    MLE_ASSERT_LOG(view.buffer >= 0 && view.buffer < as<int>(m.buffers.size()), "BufferView without valid buffer");
-    return m.buffers[as<usize>(view.buffer)];
-}
-
-void readAccessorVec3f(const tinygltf::Model& model, const tinygltf::Accessor& accessor, std::vector<vec3f>& out) {
-    const auto& view = getBufferView(model, accessor);
-    const auto& buffer = getBuffer(model, view);
-
-    MLE_ASSERT_LOG(accessor.type == TINYGLTF_TYPE_VEC3, "Expected VEC3 accessor");
-    MLE_ASSERT_LOG(accessor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT, "Expected FLOAT component type for VEC3 accessor");
-
-    const usize count = accessor.count;
-    const usize stride = accessor.ByteStride(view);
-    const usize elem_size = sizeof(float) * 3;
-    const usize byte_start = as<usize>(view.byteOffset) + as<usize>(accessor.byteOffset);
-
-    MLE_ASSERT_LOG(stride == 0 || stride >= elem_size, "Invalid stride for VEC3 accessor");
-
-    out.resize(count);
-
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic) safe
-    const auto* base = buffer.data.data() + byte_start;
-    const usize step = (stride != 0) ? stride : elem_size;
-
-    for (usize i = 0; i < count; ++i) {
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic) safe
-        const auto* p = rAs<const float*>(base + (i * step));
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic) safe
-        out[i] = vec3f{p[0], p[1], p[2]};
-    }
-}
-
-void readAccessorQuat(const tinygltf::Model& model, const tinygltf::Accessor& accessor, std::vector<quat>& out) {
-    const auto& view = getBufferView(model, accessor);
-    const auto& buffer = getBuffer(model, view);
-
-    MLE_ASSERT_LOG(accessor.type == TINYGLTF_TYPE_VEC4, "Expected VEC4 accessor for quaternion");
-    MLE_ASSERT_LOG(accessor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT, "Expected FLOAT component type for quaternion");
-
-    const usize count = accessor.count;
-    const usize stride = accessor.ByteStride(view);
-    const usize elem_size = sizeof(float) * 4;
-    const usize byte_start = as<usize>(view.byteOffset) + as<usize>(accessor.byteOffset);
-
-    MLE_ASSERT_LOG(stride == 0 || stride >= elem_size, "Invalid stride for quaternion accessor");
-
-    out.resize(count);
-
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic) safe
-    const auto* base = buffer.data.data() + byte_start;
-    const usize step = (stride != 0) ? stride : elem_size;
-
-    for (usize i = 0; i < count; ++i) {
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic) safe
-        const auto* p = rAs<const float*>(base + (i * step));
-        // glTF quats are [x, y, z, w]
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic) safe
-        quat q{p[3], p[0], p[1], p[2]};
-        // Optionally normalize to be safe
-        q = glm::normalize(q);
-        out[i] = q;
-    }
-}
-
-void readAccessorMat4f(const tinygltf::Model& model, const tinygltf::Accessor& accessor, std::vector<mat4f>& out) {
-    const auto& view = getBufferView(model, accessor);
-    const auto& buffer = getBuffer(model, view);
-
-    MLE_ASSERT_LOG(accessor.type == TINYGLTF_TYPE_MAT4, "Expected MAT4 accessor");
-    MLE_ASSERT_LOG(accessor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT, "Expected FLOAT component type for MAT4 accessor");
-
-    const usize count = accessor.count;
-    const usize stride = accessor.ByteStride(view);
-    const usize elem_size = sizeof(float) * 16;
-    const usize byte_start = as<usize>(view.byteOffset) + as<usize>(accessor.byteOffset);
-
-    MLE_ASSERT_LOG(stride == 0 || stride >= elem_size, "Invalid stride for MAT4 accessor");
-
-    out.resize(count);
-
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic) safe
-    const auto* base = buffer.data.data() + byte_start;
-    const usize step = (stride != 0) ? stride : elem_size;
-
-    for (usize i = 0; i < count; ++i) {
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic) safe
-        const auto* p = rAs<const float*>(base + (i * step));
-        // glTF matrices are column-major, same as GLM.
-        mat4f m = glm::make_mat4(p);
-        out[i] = m;
-    }
-}
-
-void readAccessorFloat(const tinygltf::Model& model, const tinygltf::Accessor& accessor, std::vector<float>& out) {
-    const auto& view = getBufferView(model, accessor);
-    const auto& buffer = getBuffer(model, view);
-
-    MLE_ASSERT_LOG(accessor.type == TINYGLTF_TYPE_SCALAR, "Expected SCALAR accessor");
-    MLE_ASSERT_LOG(accessor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT, "Expected FLOAT component type for SCALAR accessor");
-
-    const usize count = accessor.count;
-    const usize stride = accessor.ByteStride(view);
-    const usize elem_size = sizeof(float);
-    const usize byte_start = as<usize>(view.byteOffset) + as<usize>(accessor.byteOffset);
-
-    MLE_ASSERT_LOG(stride == 0 || stride >= elem_size, "Invalid stride for SCALAR accessor");
-
-    out.resize(count);
-
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic) safe
-    const auto* base = buffer.data.data() + byte_start;
-    const usize step = (stride != 0) ? stride : elem_size;
-
-    for (usize i = 0; i < count; ++i) {
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic) safe
-        const auto* p = rAs<const float*>(base + (i * step));
-        out[i] = *p;
-    }
-}
-
 void buildNodeParents(const tinygltf::Model& model, std::vector<int>& out_node_parent) {
     out_node_parent.assign(model.nodes.size(), -1);
     for (int nid = 0; nid < as<int>(model.nodes.size()); ++nid) {
@@ -233,17 +102,19 @@ ValueT sampleKeyframes(const std::vector<KeyframeT>& keys, f32 t, ValueT identit
 
     return keys.back().value;
 }
+
 }  // namespace
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity) fine
-void Skeleton::load(const tinygltf::Model& model) {
+void Skeleton::load(const GLTF& gltf) {
+    const auto& model = gltf.model();
+
     joints_.clear();
     animations_.clear();
 
-    MLE_ASSERT_LOG(!model.skins.empty(), "Model has no skins for Skeleton");
-    MLE_ASSERT_LOG(model.skins.size() == 1, "Multiple skins or none in model; only single skin supported for Skeleton");
+    MLE_ASSERT_LOG(model.skins.size() == 1, "Only single skin supported");
 
-    const auto& skin = model.skins[0];
+    const auto& skin = model.skins.front();
 
     MLE_ASSERT_LOG(!skin.joints.empty(), "Skin has no joints");
 
@@ -255,8 +126,8 @@ void Skeleton::load(const tinygltf::Model& model) {
 
     std::vector<mat4f> ibms;
     if (skin.inverseBindMatrices >= 0) {
-        const auto& ibm_acc = getAccessor(model, skin.inverseBindMatrices);
-        readAccessorMat4f(model, ibm_acc, ibms);
+        const auto& ibm_acc = gltf.getAccessor(skin.inverseBindMatrices);
+        ibms = gltf.readAccessorMat4f(ibm_acc);
         MLE_ASSERT_LOG(ibms.size() == joints_.size(), "inverseBindMatrices count does not match joint count");
     } else {
         ibms.assign(joints_.size(), mat4f{1.0F});
@@ -327,9 +198,8 @@ void Skeleton::load(const tinygltf::Model& model) {
                 continue;
             }
 
-            const auto& time_acc = getAccessor(model, sampler.input);
-            std::vector<f32> times;
-            readAccessorFloat(model, time_acc, times);
+            const auto& time_acc = gltf.getAccessor(sampler.input);
+            auto times = gltf.readAccessorFloat(time_acc);
             if (!times.empty()) {
                 anim.duration = std::max(anim.duration, times.back());
             }
@@ -339,9 +209,8 @@ void Skeleton::load(const tinygltf::Model& model) {
             const std::string& path = channel.target_path;
 
             if (path == "translation") {
-                const auto& out_acc = getAccessor(model, sampler.output);
-                std::vector<vec3f> values;
-                readAccessorVec3f(model, out_acc, values);
+                const auto& out_acc = gltf.getAccessor(sampler.output);
+                auto values = gltf.readAccessorVec3f(out_acc);
                 MLE_ASSERT_LOG(values.size() == times.size(), "translation: times/values size mismatch");
 
                 const usize count = times.size();
@@ -353,9 +222,8 @@ void Skeleton::load(const tinygltf::Model& model) {
                     joint_anim.translations.push_back(kf);
                 }
             } else if (path == "rotation") {
-                const auto& out_acc = getAccessor(model, sampler.output);
-                std::vector<quat> values;
-                readAccessorQuat(model, out_acc, values);
+                const auto& out_acc = gltf.getAccessor(sampler.output);
+                auto values = gltf.readAccessorQuat(out_acc);
                 MLE_ASSERT_LOG(values.size() == times.size(), "rotation: times/values size mismatch");
 
                 const usize count = times.size();
@@ -367,9 +235,8 @@ void Skeleton::load(const tinygltf::Model& model) {
                     joint_anim.rotations.push_back(kf);
                 }
             } else if (path == "scale") {
-                const auto& out_acc = getAccessor(model, sampler.output);
-                std::vector<vec3f> values;
-                readAccessorVec3f(model, out_acc, values);
+                const auto& out_acc = gltf.getAccessor(sampler.output);
+                auto values = gltf.readAccessorVec3f(out_acc);
                 MLE_ASSERT_LOG(values.size() == times.size(), "scale: times/values size mismatch");
 
                 const usize count = times.size();

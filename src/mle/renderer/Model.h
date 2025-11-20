@@ -3,6 +3,7 @@
 #include <tiny_gltf.h>
 
 #include "mle/math/Types.h"
+#include "mle/renderer/GLTF.h"
 #include "mle/renderer/Types.h"
 
 namespace mle {
@@ -27,7 +28,7 @@ class Model {
     };
 
   public:
-    void load(const tinygltf::Model& model);
+    void load(const GLTF& gltf);
 
     [[nodiscard]] BufferRef getVertexBuffer() const { return vertex_buffer_.get(); }
     [[nodiscard]] BufferRef getIndexBuffer() const { return index_buffer_.get(); }
