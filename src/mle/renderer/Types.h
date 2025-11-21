@@ -97,6 +97,13 @@ struct AttachmentInfo {
     vk::ClearValue clear_value{};
 };
 
+struct GBuffer {
+    ImageHnd albedo_metal;
+    ImageHnd normal_roughness;
+    ImageHnd emissive;
+    ImageHnd depth;
+};
+
 }  // namespace mle
 
 namespace fmt {

@@ -30,7 +30,7 @@ class Model {
     struct RenderData {};
 
   public:
-    void load(const GLTF& gltf);
+    void load(const GLTF& gltf, usize mesh_idx = 0);
 
     [[nodiscard]] BufferRef getVertexBuffer() const { return vertex_buffer_.get(); }
     [[nodiscard]] BufferRef getIndexBuffer() const { return index_buffer_.get(); }
