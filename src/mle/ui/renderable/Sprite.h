@@ -13,6 +13,8 @@ struct SpritePacket : public RenderablePacketI {
     Color color = Color::ONE;
     entt::id_type texture_id{};
     bool texture_id_changed = false;
+    bool flip_x = false;
+    bool flip_y = false;
 
     void render(CompRenderingCtx& ctx) override;
 };
@@ -20,6 +22,8 @@ struct SpritePacket : public RenderablePacketI {
 struct Sprite : public RenderableI {
     entt::id_type texture_id{};
     Color color = Color::ONE;
+    bool flip_x = false;
+    bool flip_y = false;
 
     bool fit = false;
 
@@ -27,6 +31,8 @@ struct Sprite : public RenderableI {
     void setColor(const Color& c);
     void setColor(const sol::object& obj) { setColor(Color::fromLua(obj)); }
     void setFit(const sol::object& obj);
+    void setFlipX(const sol::object& obj);
+    void setFlipY(const sol::object& obj);
 
     void set(const Entt& e, const sol::object& obj) override;
     [[nodiscard]] vec2u calculateBounds(const Entt& e, [[maybe_unused]] vec2u max_size) override;

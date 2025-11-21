@@ -47,6 +47,24 @@ void Sprite::setColor(const Color& c) {
     versionUp();
 };
 
+void Sprite::setFlipX(const sol::object& obj) {
+    if (obj.is<bool>()) {
+        flip_x = obj.as<bool>();
+        versionUp();
+    } else {
+        MLE_W("Unsupported object type provided to Sprite::setFlipX");
+    }
+};
+
+void Sprite::setFlipY(const sol::object& obj) {
+    if (obj.is<bool>()) {
+        flip_y = obj.as<bool>();
+        versionUp();
+    } else {
+        MLE_W("Unsupported object type provided to Sprite::setFlipY");
+    }
+};
+
 void Sprite::setFit(const sol::object& obj) {
     if (obj.is<bool>()) {
         fit = obj.as<bool>();
@@ -74,6 +92,12 @@ void Sprite::set(const Entt& ew, const sol::object& obj) {
         if (const auto fit_r = table["fit"]; fit_r.valid()) {
             setFit(fit_r);
         }
+        if (const auto flip_x_r = table["flip_x"]; flip_x_r.valid()) {
+            setFlipX(flip_x_r);
+        }
+        if (const auto flip_y_r = table["flip_y"]; flip_y_r.valid()) {
+            setFlipY(flip_y_r);
+        }
         return;
     }
 
@@ -85,7 +109,7 @@ auto getPipeline() {
     static const Pipeline* pipeline = nullptr;
     if (pipeline == nullptr) {
         Pipeline::CI pipeline_ci{};
-        pipeline_ci.vertex_shader = &Renderer::i().shaderCache().get("mle/ui/rect.vert");
+        pipeline_ci.vertex_shader = &Renderer::i().shaderCache().get("mle/ui/sprite.vert");
         pipeline_ci.fragment_shader = &Renderer::i().shaderCache().get("mle/ui/sprite.frag");
         std::array color_attachment_formats = {Renderer::i().vk().getVkImageFormat(ImageFormat::COLOR)};
         pipeline_ci.color_attachment_formats = color_attachment_formats;
@@ -126,11 +150,16 @@ void SpritePacket::render(CompRenderingCtx& ctx) {
     thread.pushDescriptor(0, push_writes);
 
     struct {
+        alignas(4) bool flip_x;
+        alignas(4) bool flip_y;
+        vec2f padding0;
         vec4f color;
         vec4i rounding_corners_radius_px;
         vec2i viewport_size;
     } pc{};
 
+    pc.flip_x = flip_x;
+    pc.flip_y = flip_y;
     pc.color = color;
     pc.viewport_size = vec2i(ctx.thread.getViewport().size());
     pc.rounding_corners_radius_px = ctx.rounding_corners_radius_px;
@@ -171,6 +200,8 @@ void Sprite::doUpdatePacket(const Entt& /*ew*/, RenderablePacketI* packet) {
         packet_p->texture_id_changed = true;
     }
     packet_p->color = color;
+    packet_p->flip_x = flip_x;
+    packet_p->flip_y = flip_y;
 };
 
 }  // namespace mle::ui::renderable

@@ -184,7 +184,7 @@ return {
 			origin = "rb",
 			margin = "20px",
 
-			sprite = "mle/mle.png",
+			sprite = { "mle/mle.png", flip_x = true },
 		},
 	},
 }
