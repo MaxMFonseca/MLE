@@ -104,4 +104,13 @@ bool Entt::isRoot() const {
 void Entt::dispatch(const std::string& event_name, const sol::object& obj) const {
     ui_.eventSystem().enqueueEvent(event_name, obj);
 };
+
+[[nodiscard]] Recti Entt::getBoundsOnRoot() const {
+    return get<comp::Bounds>().onRoot(*this);
+};
+
+[[nodiscard]] Rectf Entt::getBoundsOnRootNormalized() const {
+    return get<comp::Bounds>().onRootNormalized(*this);
+};
+
 }  // namespace mle::ui

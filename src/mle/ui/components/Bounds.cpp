@@ -701,5 +701,31 @@ void TargetBorder::applyRoundRB(const Entt& e, const sol::object& obj) {
     e.patchOrEmplace<TargetBorder>([&](TargetBorder& tb) { tb.round_rb.set(obj); });
 }
 
+Recti Bounds::onRoot(const Entt& ew) const {
+    if (ew.isRoot()) {
+        return parent_px;
+    }
+
+    vec2i offset = {0, 0};
+
+    Entt parent = ew.parentEw();
+    while (!parent.isRoot()) {
+        auto& parent_bounds = parent.get<Bounds>();
+        offset += parent_bounds.parent_px.pos();
+        parent.setE(parent.getParent());
+    }
+
+    return Recti{parent_px.pos() + offset, parent_px.size()};
+};
+
+[[nodiscard]] Rectf Bounds::onRootNormalized(const Entt& ew) const {
+    auto on_root_px = onRoot(ew);
+    auto parent_size = ew.derive(ew.ui().getRoot()).get<comp::Bounds>().parent_px.size();
+
+    return Rectf{
+        vec2f{on_root_px.pos()} / vec2f{parent_size},
+        vec2f{on_root_px.size()} / vec2f{parent_size},
+    };
+};
 }  // namespace comp
 }  // namespace mle::ui

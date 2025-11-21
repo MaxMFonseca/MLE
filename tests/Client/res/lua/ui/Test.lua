@@ -151,33 +151,68 @@ return {
 			},
 		},
 
-		progress_bar = {
-			size_y = 0.02,
-			size_x = 0.8,
+		range_slider_test = {
+			padding = "10px",
+			size_x = 0.6,
+			size_y = 0.03,
 			pos = { "c", 0.9 },
-			origin = "cb",
+			origin = "c",
 
-			border = {
-				thickness = "3px",
-				color = Colors.neutral900,
-				roundness = "10px",
-			},
-			comp = require("mle.ui.comp.progress_bar")(
-				Colors.BLACK:withA(0.96),
-				Colors.emerald800,
-				Colors.emerald300,
-				10,
-				0.5
-			),
-
-			on_hover = function(ew)
-				local fn = ew:get("fn", "fill")
-				local hovered = ew:get("hovered")
-				local x = hovered.pos_self_norm.x
-				fn(ew, x)
-			end,
+			comp = require("mle.ui.comp.range_slider")(),
 		},
 
+		-- carousel_test = {
+		--
+		-- 	size_y = 0.1,
+		-- 	pos = { "c", 0.9 },
+		-- 	origin = "cb",
+		--
+		-- 	list = { justify = "c", cross_align = "c", gap = 10, pack = true },
+		--
+		-- 	comp = require("mle.ui.comp.carousel_selector")(
+		-- 		{
+		-- 			"Lorem",
+		-- 			"Ipsum",
+		-- 			"Dolor",
+		-- 			"Sit",
+		-- 			"Amet",
+		-- 			"Consectetur",
+		-- 		},
+		-- 		"mle/mle.png",
+		--
+		-- 		function(new_text)
+		-- 			print("Selected:", new_text)
+		-- 		end
+		-- 	),
+		-- },
+
+		-- progress_bar = {
+		-- 	size_y = 0.02,
+		-- 	size_x = 0.8,
+		-- 	pos = { "c", 0.9 },
+		-- 	origin = "cb",
+		--
+		-- 	border = {
+		-- 		thickness = "3px",
+		-- 		color = Colors.neutral900,
+		-- 		roundness = "10px",
+		-- 	},
+		-- 	comp = require("mle.ui.comp.progress_bar")(
+		-- 		Colors.BLACK:withA(0.96),
+		-- 		Colors.emerald800,
+		-- 		Colors.emerald300,
+		-- 		10,
+		-- 		0.5
+		-- 	),
+		--
+		-- 	on_hover = function(ew)
+		-- 		local fn = ew:get("fn", "fill")
+		-- 		local hovered = ew:get("hovered")
+		-- 		local x = hovered.pos_self_norm.x
+		-- 		fn(ew, x)
+		-- 	end,
+		-- },
+		--
 		mle = {
 			size_x = 0.1,
 			pos = "rb",

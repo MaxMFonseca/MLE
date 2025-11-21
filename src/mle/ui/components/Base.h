@@ -65,6 +65,7 @@ struct RenderScale {
 
 struct RequestInternalBoundsUpdateFlag {};
 struct RequestExternalBoundsUpdateFlag {};
+struct CursorDragFlag {};
 
 struct DisabledFlag {
     static void applyEnabled(const Entt& e, const sol::object& obj);

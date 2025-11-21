@@ -36,6 +36,9 @@ class UI {
     Expected<ui::Entt> getE(const std::string& id);
 
     auto& eventSystem() { return events_; }
+    auto& hoverSystem() { return hover_system_; }
+    auto& boundsSystem() { return bounds_system_; }
+    auto& renderingSystem() { return rendering_system_; }
 
   private:
     void addRootStyles(const sol::object& obj);

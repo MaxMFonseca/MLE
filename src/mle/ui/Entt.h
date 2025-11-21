@@ -14,9 +14,19 @@ class Entt {
     Entt(UI& ui, entt::entity entity) :
         ui_(ui),
         e_(entity) {}
+    ~Entt() = default;
+
+    Entt(const Entt& other) = default;
+    Entt(Entt&& other) :
+        ui_(other.ui_),
+        e_(other.e_) {}
+    Entt& operator=(const Entt&) = delete;
+    Entt& operator=(Entt&&) = delete;
 
     [[nodiscard]] auto& ui() const { return ui_; }
     [[nodiscard]] auto e() const { return e_; }
+
+    void setE(entt::entity entity) { e_ = entity; }
 
     void apply(const std::string& key, const sol::object& obj = {}) const { system::LuaElementOps::applyObj(*this, key, obj); }
     [[nodiscard]] sol::object getKey(const std::string& key, const sol::object& params = {}) const { return system::LuaElementOps::getKey(*this, key, params); }
@@ -44,6 +54,9 @@ class Entt {
 
     void setName(const std::string& name) const;
     void destroy() const;
+
+    [[nodiscard]] Recti getBoundsOnRoot() const;
+    [[nodiscard]] Rectf getBoundsOnRootNormalized() const;
 
     [[nodiscard]] comp::Relationship& getRelationship() const { return get<comp::Relationship>(); }
     [[nodiscard]] entt::entity getParent() const { return getRelationship().getParent(); }

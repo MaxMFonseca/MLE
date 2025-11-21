@@ -15,11 +15,35 @@ namespace {
 bool contains(std::vector<entt::entity>& arr, entt::entity e) {
     return std::ranges::find(arr, e) != arr.end();
 }
+
+vec2f getCursorLocal01(const Recti& box, const vec2i& cursor) {
+    const f32 local_x = as<f32>(cursor.x - box.pos().x);
+    const f32 local_y = as<f32>(cursor.y - box.pos().y);
+    return vec2f{local_x / as<f32>(box.size().x), local_y / as<f32>(box.size().y)};
+}
 }  // namespace
 
 void Hover::update() {
     auto& r = ui_.getRegistry();
     const auto mouse_pos_r = UserInputManager::i().getCursorPos();
+
+    auto cursor_drag_view = ui_.getRegistry().view<comp::CursorDragFlag>();
+    if (!cursor_drag_view.empty()) {
+        Entt ew{ui_, *cursor_drag_view.begin()};
+        if (!mouse_pos_r || !UserInputManager::i().isDown(Key::MOUSE_ONE)) {
+            ew.call("onCursorDragEnd");
+
+            ui_.getRegistry().clear<comp::CursorDragFlag>();
+            return;
+        }
+
+        // TODO: this will fail if root bounds/pos isnt screen. So dont use it for now
+
+        ew.call("onCursorDrag", getCursorLocal01(ew.getBoundsOnRoot(), mouse_pos_r.value()));
+
+        return;
+    }
+
     std::vector<entt::entity> inside_stack;
     inside_stack.reserve(16);
 

@@ -53,6 +53,9 @@ struct Bounds {
     Bounds() = default;
     explicit Bounds(vec2u size) :
         parent_px({0, 0}, size) {}
+
+    [[nodiscard]] Recti onRoot(const Entt& ew) const;
+    [[nodiscard]] Rectf onRootNormalized(const Entt& ew) const;
 };
 
 struct Border {

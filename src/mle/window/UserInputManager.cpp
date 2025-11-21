@@ -254,7 +254,8 @@ bool UserInputManager::isReleased(Key key) const {
 }
 
 bool UserInputManager::isDown(Key key) const {
-    return getState(key) == KeyState::DOWN;
+    auto state = getState(key);
+    return state == KeyState::DOWN || state == KeyState::PRESSED;
 }
 
 void UserInputManager::pushChar(char32 codepoint) {
