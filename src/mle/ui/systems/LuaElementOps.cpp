@@ -120,6 +120,8 @@ void LuaElementOps::init() {
         ew.call(fn_name, obj1, obj2, obj3);
     };
 
+    ut["dispatch"] = [](const Entt& ew, const std::string& event_name, const sol::object& obj = {}) { ew.dispatch(event_name, obj); };
+
     comp::Hovered::makeLuaUsertype(lua);
 
     addBuiltingApply();

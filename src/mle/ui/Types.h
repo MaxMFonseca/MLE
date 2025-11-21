@@ -36,6 +36,16 @@ struct Bounds;
 struct Border;
 class Container;
 }  // namespace comp
+
+namespace system {
+using EventCallbackFunction = std::function<void(const sol::object& obj)>;
+class Events;
+class EventListener;
+using EventListenerRef = EventListener*;
+using EventListenerHnd = std::unique_ptr<EventListener>;
+
+}  // namespace system
+
 }  // namespace ui
 }  // namespace mle
 

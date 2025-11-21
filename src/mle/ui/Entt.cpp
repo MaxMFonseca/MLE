@@ -101,4 +101,7 @@ bool Entt::isRoot() const {
     return e_ == ui_.getRoot();
 };
 
+void Entt::dispatch(const std::string& event_name, const sol::object& obj) const {
+    ui_.eventSystem().enqueueEvent(event_name, obj);
+};
 }  // namespace mle::ui

@@ -93,6 +93,11 @@ void UI::update() {
     }
 
     {
+        MLE_PERF_SCOPE("GUIUpdate.Events");
+        events_.dispatchEvents();
+    }
+
+    {
         MLE_PERF_SCOPE("GUIUpdate.Bounds");
         bounds_system_.update();
     }

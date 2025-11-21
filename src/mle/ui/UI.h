@@ -3,6 +3,7 @@
 #include "mle/core/Result.h"
 #include "mle/lua/Lua.h"
 #include "mle/ui/systems/Bounds.h"
+#include "mle/ui/systems/Events.h"
 #include "mle/ui/systems/Hover.h"
 #include "mle/ui/systems/LuaElementOps.h"
 #include "mle/ui/systems/Rendering.h"
@@ -34,6 +35,8 @@ class UI {
     Expected<ui::Entt> getE(std::span<const std::string_view> tree = {});
     Expected<ui::Entt> getE(const std::string& id);
 
+    auto& eventSystem() { return events_; }
+
   private:
     void addRootStyles(const sol::object& obj);
 
@@ -48,6 +51,7 @@ class UI {
     ui::system::Bounds bounds_system_{*this};
     ui::system::Rendering rendering_system_{*this};
     ui::system::Hover hover_system_{*this};
+    ui::system::Events events_{*this};
 
     window::ev::ResizeL window_resize_el_;  // FIXME: This should not be here, the user should do this explicitly
 };

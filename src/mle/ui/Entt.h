@@ -39,6 +39,8 @@ class Entt {
         fn(*this, std::forward<Args>(args)...);
     }
 
+    void dispatch(const std::string& event_name, const sol::object& obj = {}) const;
+
     void setName(const std::string& name) const;
     void destroy() const;
 
