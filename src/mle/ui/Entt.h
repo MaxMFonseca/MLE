@@ -3,7 +3,6 @@
 #include "Types.h"
 #include "mle/ui/UI.h"
 #include "mle/ui/components/Base.h"
-#include "mle/ui/components/Container.h"
 #include "mle/ui/components/Relationship.h"
 #include "mle/ui/systems/LuaElementOps.h"
 #include "mle/utils/ECS.h"

@@ -1,9 +1,8 @@
 return {
 	padding = "10px",
+
 	size = {},
-	container = {
-		type = "free",
-	},
+	free_container = {},
 	c = {
 		text_c = {
 			size_y = 0.06,
@@ -15,7 +14,7 @@ return {
 				roundness = "7px",
 			},
 			background = Colors.BLACK:withA(0.96),
-			container = {
+			list = {
 				dir = "h",
 				gap = "6px",
 			},

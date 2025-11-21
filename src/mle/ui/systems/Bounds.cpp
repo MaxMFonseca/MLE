@@ -6,7 +6,6 @@
 #include "mle/ui/Entt.h"
 #include "mle/ui/UI.h"
 #include "mle/ui/components/Base.h"
-#include "mle/ui/components/Container.h"
 #include "mle/utils/ECS.h"
 
 namespace mle::ui::system {

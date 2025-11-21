@@ -9,7 +9,9 @@
 #include "mle/ui/UI.h"
 #include "mle/ui/components/Base.h"
 #include "mle/ui/components/Bounds.h"
+#include "mle/ui/components/FreeContainer.h"
 #include "mle/ui/components/Hoverable.h"
+#include "mle/ui/components/ListContainer.h"
 #include "mle/ui/renderable/Sprite.h"
 #include "mle/ui/renderable/Text.h"
 #include "mle/ui/shader/Blur.h"
@@ -133,7 +135,9 @@ void LuaElementOps::addBuiltingApply() {
     addApplyKeyHandler("children", comp::Relationship::applyAddChildren);
     addApplyKeyHandler("add_child", comp::Relationship::applyAddChildren);
     addApplyKeyHandler("child", comp::Relationship::applyAddChildren);
-    addApplyKeyHandler("container", comp::Container::apply);
+    addApplyKeyHandler("list", comp::ListContainer::apply);
+    addApplyKeyHandler("list_container", comp::ListContainer::apply);
+    addApplyKeyHandler("free_container", comp::FreeContainer::apply);
     addApplyKeyHandler("size", comp::TargetSize::apply);
     addApplyKeyHandler("size_x", comp::TargetSize::applyX);
     addApplyKeyHandler("size_y", comp::TargetSize::applyY);

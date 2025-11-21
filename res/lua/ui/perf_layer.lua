@@ -1,14 +1,14 @@
 return {
 	padding = "10px",
-	size = {},
-	container = {
+
+	list = {
 		dir = "h",
 	},
 	c = {
 		left = {
+			size = "1f",
 			idx = 0,
-			size_x = "1f",
-			container = {
+			list = {
 				dir = "v",
 			},
 			c = {
@@ -30,9 +30,9 @@ return {
 			},
 		},
 		right = {
+			size = "1f",
 			idx = 1,
-			size_x = "1f",
-			container = {
+			list = {
 				dir = "v",
 				cross_align = "e",
 			},

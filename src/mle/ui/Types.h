@@ -34,7 +34,8 @@ class Relationship;
 struct Name;
 struct Bounds;
 struct Border;
-class Container;
+class ListContainer;
+class FreeContainer;
 }  // namespace comp
 
 namespace system {

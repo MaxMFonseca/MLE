@@ -3,10 +3,6 @@ local color2 = Colors.YELLOW
 local color = color1
 
 return {
-	-- background = "RED",
-	-- padding = "10px",
-	-- size = { "300px", 1 },
-
 	styles = {
 		basic_round = {
 			border = {
@@ -26,17 +22,7 @@ return {
 		color = Color.mix(color1, color2, factor)
 	end,
 
-	container = {
-		type = "hybrid",
-		dir = "v",
-		wrap = "y",
-		-- cross_max_size = 0.2,
-		cross_align = "c",
-		main_min_gap = "10px",
-		cross_gap = 0.1,
-		justify = "se",
-		justify_last = "b",
-	},
+	free_container = {},
 	c = {
 		bg = {
 			idx = 0,
@@ -71,35 +57,8 @@ return {
 			},
 		},
 
-		progress_bar = {
-			size_y = 0.02,
-			size_x = 0.8,
-			pos = { "c", 0.9 },
-			origin = "cb",
-
-			border = {
-				thickness = "3px",
-				color = Colors.neutral900,
-				roundness = "10px",
-			},
-			comp = require("mle.ui.comp.progress_bar")(
-				Colors.BLACK:withA(0.96),
-				Colors.emerald800,
-				Colors.emerald300,
-				10,
-				0.5
-			),
-
-			on_hover = function(ew)
-				local fn = ew:get("fn", "fill")
-				local hovered = ew:get("hovered")
-				local x = hovered.pos_self_norm.x
-				fn(ew, x)
-			end,
-		},
-
-		blur = {
-			pos = 0.5,
+		menu = {
+			pos = "c",
 			size_y = 0.5,
 			origin = "c",
 			-- margin = "50px",
@@ -109,6 +68,7 @@ return {
 				thickness = "3px",
 				color = color,
 			},
+
 			on_update = function(ew)
 				ew:apply("border_color", color)
 
@@ -120,11 +80,6 @@ return {
 				radius = 13,
 				sigma = 5,
 				before_children = true,
-			},
-
-			container = {
-				pack_children = true,
-				cross_align = "c",
 			},
 
 			children_base = {
@@ -140,6 +95,11 @@ return {
 				on_hover_out = function(ew)
 					ew:apply("render_scale", 1.0)
 				end,
+			},
+
+			list = {
+				pack = true,
+				cross_align = "c",
 			},
 			c = {
 				{
@@ -188,189 +148,43 @@ return {
 						end,
 					},
 				},
-
-				-- {
-				-- 	on_hover_in = function(ew)
-				-- 		print("in", ew:fullName())
-				-- 	end,
-				-- 	on_hover_out = function(ew)
-				-- 		print("out", ew:fullName())
-				-- 	end,
-				-- 	size_y = 0.5,
-				-- 	text = "World!",
-				-- },
-				-- {
-				-- 	on_hover_in = function(ew)
-				-- 		print("in", ew:fullName())
-				-- 	end,
-				-- 	on_hover_out = function(ew)
-				-- 		print("out", ew:fullName())
-				-- 	end,
-				-- 	size_y = 0.5,
-				-- 	text = "World!",
-				-- },
-				-- {
-				-- 	on_hover_in = function(ew)
-				-- 		print("in", ew:fullName())
-				-- 	end,
-				-- 	on_hover_out = function(ew)
-				-- 		print("out", ew:fullName())
-				-- 	end,
-				-- 	size_y = 0.5,
-				-- 	text = "World!",
-				-- },
-				-- {
-				-- 	on_hover_in = function(ew)
-				-- 		print("in", ew:fullName())
-				-- 	end,
-				-- 	on_hover_out = function(ew)
-				-- 		print("out", ew:fullName())
-				-- 	end,
-				-- 	size_y = 0.5,
-				-- 	text = "World!",
-				-- },
 			},
+		},
+
+		progress_bar = {
+			size_y = 0.02,
+			size_x = 0.8,
+			pos = { "c", 0.9 },
+			origin = "cb",
+
+			border = {
+				thickness = "3px",
+				color = Colors.neutral900,
+				roundness = "10px",
+			},
+			comp = require("mle.ui.comp.progress_bar")(
+				Colors.BLACK:withA(0.96),
+				Colors.emerald800,
+				Colors.emerald300,
+				10,
+				0.5
+			),
+
+			on_hover = function(ew)
+				local fn = ew:get("fn", "fill")
+				local hovered = ew:get("hovered")
+				local x = hovered.pos_self_norm.x
+				fn(ew, x)
+			end,
+		},
+
+		mle = {
+			size_x = 0.1,
+			pos = "rb",
+			origin = "rb",
+			margin = "20px",
+
+			sprite = "mle/mle.png",
 		},
 	},
 }
-
--- 		{
--- 			-- size = "80px",
--- 			sprite = { "mle/ui/mle.png", color = "RED" },
--- 		},
--- 		{
--- 			text = "Hello! World",
--- 			size_y = "100px",
--- 			size_x = "fit",
--- 		},
--- 		{
--- 			size = { "30px", "35px" },
--- 			background = "RED",
--- 		},
--- 		{
--- 			size = { "60px", "10px" },
--- 		},
--- 		{
--- 			size = { "80px", "60px" },
--- 		},
--- 		{
--- 			size = { "60px", "80px" },
--- 		},
--- 		{
--- 			size_x = 1,
--- 			aspect_ratio = 1,
--- 		},
--- 		{
--- 			size_x = 1,
--- 			aspect_ratio = 1,
--- 		},
--- 		{
--- 			size = "10px",
--- 			background = "RED",
--- 		},
--- 		{
--- 			size = "20px",
--- 			background = "GREEN",
--- 		},
--- 		{
--- 			size = "30px",
--- 			background = "BLUE",
--- 		},
--- 		{
--- 			size = "40px",
--- 			background = "YELLOW",
--- 		},
--- 		{
--- 			size = "50px",
--- 			background = "CYAN",
--- 		},
--- 		{
--- 			size = "50px",
--- 			background = "CYAN",
--- 		},
--- 		{
--- 			size = { "100px", "50px" },
--- 			background = "#dddddd",
--- 		},
--- 		{
--- 			size = "10px",
--- 			background = "#101010",
--- 		},
--- 		{
--- 			size = "20px",
--- 			background = "#202020",
--- 		},
--- 		{
--- 			size = "30px",
--- 			background = "#303030",
--- 		},
--- 		{
--- 			size = "40px",
--- 			background = "#404040",
--- 		},
--- 		{
--- 			size = "50px",
--- 			background = "#505050",
--- 		},
--- 		{
--- 			size = "60px",
--- 			background = "#606060",
--- 		},
--- 		{
--- 			size = "70px",
--- 			background = "#707070",
--- 		},
--- 		{
--- 			size = "80px",
--- 			background = "#808080",
--- 		},
--- 		{
--- 			size = "90px",
--- 			background = "#909090",
--- 		},
--- 		{
--- 			size = "100px",
--- 			background = "#a0a0a0",
--- 		},
--- 		{
--- 			size = { "100px", "100px" },
--- 			background = "#ff0000",
--- 		},
--- 		{
--- 			size = { "80px", "40px" },
--- 			background = "#00ff00",
--- 		},
--- 		{
--- 			size = { "40px", "80px" },
--- 			background = "#0000ff",
--- 		},
--- 		{
--- 			size = { "60px", "100px" },
--- 			background = "#ffff00",
--- 		},
--- 		{
--- 			size = { "100px", "60px" },
--- 			background = "#00ffff",
--- 		},
--- 		{
--- 			size = { "90px", "30px" },
--- 			background = "#ff00ff",
--- 		},
--- 		{
--- 			size = { "30px", "90px" },
--- 			background = "#ffffff",
--- 		},
--- 		{
--- 			size = { "70px", "70px" },
--- 			background = "#333333",
--- 		},
--- 		{
--- 			size = { "50px", "100px" },
--- 			background = "#888888",
--- 		},
--- 		{
--- 			size = { "100px", "50px" },
--- 			background = "#cccccc",
--- 		},
--- 	},
--- }

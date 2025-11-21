@@ -5,6 +5,7 @@
 #include "mle/core/PerfTracker.h"
 #include "mle/lua/Utils.h"
 #include "mle/ui/components/Bounds.h"
+#include "mle/ui/components/ListContainer.h"
 #include "mle/ui/systems/LuaElementOps.h"
 #include "mle/window/Window.h"
 
@@ -42,7 +43,7 @@ void UI::setRoot(sol::table root_table) {
     root_ew.emplace<ui::comp::Bounds>();
     root_ew.applyTable(root_table);
     if (!root_ew.has<ui::comp::SizeProvider>()) {
-        root_ew.emplace<ui::comp::Container>();
+        root_ew.emplace<ui::comp::ListContainer>();
     }
     root_ew.requestExternalBoundsUpdate();
 };

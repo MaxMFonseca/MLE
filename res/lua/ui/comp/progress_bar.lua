@@ -9,7 +9,7 @@ return function(color_base, color_fill_1, color_fill_2, roundness_px, initial_fi
 			end,
 		},
 
-		container = { type = "free" },
+		free_container = {},
 		c = {
 			base = {
 				layer = -1,
