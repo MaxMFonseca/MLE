@@ -78,6 +78,9 @@ void Hover::hovered(const Entt& ew, vec2f pos_parent, const comp::Bounds& self_b
         auto children = relationship.getChildren(ew);
         for (auto c : children) {
             Entt cew = ew.derive(c);
+            if (cew.has<comp::DisabledFlag>()) {
+                continue;
+            }
             if (!(cew.getRelationship().getChildCount() || cew.has<comp::Hoverable>())) {
                 continue;
             }

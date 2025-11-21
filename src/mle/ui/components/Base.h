@@ -63,9 +63,12 @@ struct RenderScale {
     static void apply(const Entt& e, const sol::object& obj);
 };
 
-// TODO: add unique ID(name) component that maps on the UI base
-
 struct RequestInternalBoundsUpdateFlag {};
 struct RequestExternalBoundsUpdateFlag {};
+
+struct DisabledFlag {
+    static void applyEnabled(const Entt& e, const sol::object& obj);
+    static void applyDisabled(const Entt& e, const sol::object& obj);
+};
 
 }  // namespace mle::ui::comp

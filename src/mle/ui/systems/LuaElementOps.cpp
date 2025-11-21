@@ -1,6 +1,7 @@
 #include "LuaElementOps.h"
 
 #include <filesystem>
+#include <sol/forward.hpp>
 
 #include "mle/client/Client.h"
 #include "mle/lua/Utils.h"
@@ -105,6 +106,7 @@ void LuaElementOps::init() {
     ut["apply"] = &Entt::apply;
     ut["get"] = &Entt::getKey;
     ut["entt"] = &Entt::e;
+    ut["parent"] = &Entt::parentEw;
     ut["fullName"] = &Entt::fullName;
     ut["getChild"] = [](const Entt& ew, const std::string& name) {
         auto& relationship = ew.getRelationship();
@@ -114,6 +116,14 @@ void LuaElementOps::init() {
             return ew.derive(entt::null);
         }
         return ew.derive(g_r);
+    };
+    ut["addChild"] = [](const Entt& ew, const sol::table& table) {
+        auto& relationship = ew.getRelationship();
+        relationship.createChild(ew, table);
+    };
+    ut["applyOnChildren"] = [](const Entt& ew, const sol::table& table) {
+        auto& relationship = ew.getRelationship();
+        relationship.applyOnChildren(ew, table);
     };
 
     ut["call"] = [](const Entt& ew, const std::string& fn_name, const sol::object& obj = {}) { ew.call(fn_name, obj); };
@@ -134,9 +144,14 @@ void LuaElementOps::addBuiltingApply() {
     addApplyKeyHandler("c", comp::Relationship::applyAddChildren);
     addApplyKeyHandler("children", comp::Relationship::applyAddChildren);
     addApplyKeyHandler("add_child", comp::Relationship::applyAddChildren);
-    addApplyKeyHandler("child", comp::Relationship::applyAddChildren);
+    addApplyKeyHandler("child", [](const Entt& ew, const sol::object& obj) {
+        comp::FreeContainer::apply(ew, Client::i().lua().createTable());
+        comp::Relationship::applyAddChild(ew, obj);
+    });
+    addApplyKeyHandler("container", comp::ListContainer::apply);
     addApplyKeyHandler("list", comp::ListContainer::apply);
     addApplyKeyHandler("list_container", comp::ListContainer::apply);
+    addApplyKeyHandler("free", comp::FreeContainer::apply);
     addApplyKeyHandler("free_container", comp::FreeContainer::apply);
     addApplyKeyHandler("size", comp::TargetSize::apply);
     addApplyKeyHandler("size_x", comp::TargetSize::applyX);
@@ -190,6 +205,8 @@ void LuaElementOps::addBuiltingApply() {
     addApplyKeyHandler("id", comp::ID::apply);
     addApplyKeyHandler("layer", comp::Layer::apply);
     addApplyKeyHandler("fn", comp::Functions::apply);
+    addApplyKeyHandler("enabled", comp::DisabledFlag::applyEnabled);
+    addApplyKeyHandler("disabled", comp::DisabledFlag::applyDisabled);
 
     addApplyKeyHandler("sprite", ui::renderable::Sprite::apply);
     addApplyKeyHandler("text", ui::renderable::Text::apply);

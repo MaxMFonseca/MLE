@@ -32,6 +32,8 @@ class Relationship {
     void createChild(const Entt& e, const sol::table& table);
     void createChildren(const Entt& e, const sol::table& table);
 
+    void applyOnChildren(const Entt& ew, const sol::table& table) const;
+
     static void applyAddChildren(const Entt& e, const sol::object& obj);
     static void applyAddChild(const Entt& e, const sol::object& obj);
 
@@ -39,7 +41,7 @@ class Relationship {
     [[nodiscard]] entt::entity createChildHndAt(const Entt& e, usize idx = max<usize>());
     [[nodiscard]] std::pair<Entt, Relationship&> createChildHnd(const Entt& e);
 
-    static void applyOnChild(const Entt& e, const sol::table& table, entt::entity child_e);
+    static void applyBaseOnChild(const Entt& e, const sol::table& table, entt::entity child_e);
 
   private:
     entt::entity parent_ = entt::null;

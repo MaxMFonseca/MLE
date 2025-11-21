@@ -23,6 +23,7 @@ enum class [[nodiscard]] Result : u8 {
     FRAME_SKIP,                ///< Frame was skipped, e.g., due to swapchain not being visible.
     NOT_READY,                 ///< Resource or operation not ready yet, e.g., waiting for GPU.
     CURSOR_NOT_INSIDE_WINDOW,  ///< Cursor is not inside the window.
+    DISABLED,                  ///< Feature is disabled.
 
     NOK,                ///< Generic Error. Try to avoid. Bad practice! Adding new fields here is easy!
     INVALID_ARGUMENT,   ///< Invalid argument provided.
@@ -47,6 +48,7 @@ static constexpr const char* toString(Result result) {
         CASE(FRAME_SKIP);
         CASE(NOT_READY);
         CASE(CURSOR_NOT_INSIDE_WINDOW);
+        CASE(DISABLED);
 
         CASE(NOK);
         CASE(INVALID_ARGUMENT);

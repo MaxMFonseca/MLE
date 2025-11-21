@@ -232,18 +232,18 @@ entt::entity Relationship::createChildHndAt(const Entt& e, usize idx) {
 void Relationship::createChild(const Entt& e, const sol::table& table) {
     auto [child_e, comp_table] = createChildBase(e, table);
 
-    applyOnChild(e, comp_table, child_e);
+    applyBaseOnChild(e, comp_table, child_e);
 }
 
 void Relationship::createChildren(const Entt& e, const sol::table& table) {
     auto children_data = createChildrenBase(e, table);
 
     for (const auto& [child_e, comp_table] : children_data) {
-        applyOnChild(e, comp_table, child_e);
+        applyBaseOnChild(e, comp_table, child_e);
     }
 }
 
-void Relationship::applyOnChild(const Entt& e, const sol::table& table, entt::entity child_e) {
+void Relationship::applyBaseOnChild(const Entt& e, const sol::table& table, entt::entity child_e) {
     Entt centt{e.ui(), child_e};
 
     if (e.has<comp::ChildrenBase>()) {
@@ -275,6 +275,12 @@ void Relationship::applyAddChild(const Entt& e, const sol::object& obj) {
     }
 
     e.getRelationship().createChild(e, *table_r);
+}
+
+void Relationship::applyOnChildren(const Entt& ew, const sol::table& table) const {
+    for (const auto& child_e : getChildren(ew)) {
+        ew.derive(child_e).applyTable(table);
+    }
 }
 
 }  // namespace mle::ui::comp

@@ -22,6 +22,8 @@ class Entt {
     [[nodiscard]] sol::object getKey(const std::string& key, const sol::object& params = {}) const { return system::LuaElementOps::getKey(*this, key, params); }
     void applyTable(const sol::table& table) const { system::LuaElementOps::applyTable(*this, table); }
 
+    [[nodiscard]] Entt parentEw() const { return derive(getRelationship().getParent()); }
+
     template <typename... Args>
     void call(const std::string& fn_name, Args&&... args) const {
         if (!has<comp::Functions>()) {
@@ -43,7 +45,7 @@ class Entt {
     void setName(const std::string& name) const;
     void destroy() const;
 
-    [[nodiscard]] auto& getRelationship() const { return get<comp::Relationship>(); }
+    [[nodiscard]] comp::Relationship& getRelationship() const { return get<comp::Relationship>(); }
     [[nodiscard]] entt::entity getParent() const { return getRelationship().getParent(); }
     [[nodiscard]] bool hasFitSize() const;
     [[nodiscard]] std::string name() const;
@@ -105,7 +107,7 @@ class Entt {
 
     template <typename T>
     void erase() const {
-        MLE_ASSERT(has<T>());
+        MLE_ASSERT_LOG(has<T>(), "Use eraseChecked<T>() if you're not sure the component exists.");
         ui_.getRegistry().remove<T>(e_);
     }
 

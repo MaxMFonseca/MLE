@@ -63,8 +63,12 @@ void Rendering::clear() {
 }
 
 // NOLINTNEXTLINE(misc-no-recursion) Cool recursive function
-Rendering::Packet::Node Rendering::createPacketNode(u8 atomic_buffer_id, entt::entity entity, usize depth) {
+Expected<Rendering::Packet::Node> Rendering::createPacketNode(u8 atomic_buffer_id, entt::entity entity, usize depth) {
     Entt ew(ui_, entity);
+
+    if (ew.has<comp::DisabledFlag>()) {
+        return std::unexpected(Result::DISABLED);
+    }
 
     Packet::Node node;
 
@@ -105,7 +109,15 @@ Rendering::Packet::Node Rendering::createPacketNode(u8 atomic_buffer_id, entt::e
     auto& self_rel = ew.getRelationship();
     auto children = self_rel.getChildren(ew);
     for (auto child : children) {
-        node.children.push_back(createPacketNode(atomic_buffer_id, child, depth + 1));
+        auto packet_node_r = createPacketNode(atomic_buffer_id, child, depth + 1);
+        if (!packet_node_r) {
+            if (packet_node_r.error() == Result::DISABLED) {
+                continue;
+            }
+            return std::unexpected(packet_node_r.error());
+        }
+
+        node.children.push_back(std::move(*packet_node_r));
     }
     std::ranges::sort(node.children, [](const Packet::Node& a, const Packet::Node& b) { return a.layer < b.layer; });
 
@@ -115,7 +127,15 @@ Rendering::Packet::Node Rendering::createPacketNode(u8 atomic_buffer_id, entt::e
 void Rendering::update() {
     auto& packet = atomic_data_.producerAcquire();
     packet.id = next_packet_id_++;
-    packet.root = createPacketNode(atomic_data_.producerStagingIdx(), ui_.getRoot());
+
+    auto root_r = createPacketNode(atomic_data_.producerStagingIdx(), ui_.getRoot());
+
+    if (!root_r) {
+        packet.root = {};
+    } else {
+        packet.root = std::move(*root_r);
+    }
+
     atomic_data_.producerPublish();
 };
 

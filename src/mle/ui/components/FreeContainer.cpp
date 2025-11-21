@@ -1,6 +1,7 @@
 #include "FreeContainer.h"
 
 #include "mle/lua/Utils.h"
+#include "mle/ui/components/Base.h"
 #include "mle/ui/components/ContainerUtils.h"
 
 namespace mle::ui::comp {
@@ -465,7 +466,16 @@ struct FreeCalculator {
 
 [[nodiscard]] vec2u FreeContainer::calculateChildrenBounds(const Entt& e, vec2u max_size) const {
     auto& self_rel = e.getRelationship();
-    auto children = self_rel.getChildren(e);
+    auto all_children = self_rel.getChildren(e);
+
+    std::vector<entt::entity> enabled_children;
+    for (auto c : all_children) {
+        auto centt = e.derive(c);
+        if (centt.has<comp::DisabledFlag>()) {
+            continue;
+        }
+        enabled_children.push_back(c);
+    }
 
     const auto* padding_comp = e.tryGet<comp::TargetPadding>();
     PaddingPx padding_result{};
@@ -475,12 +485,12 @@ struct FreeCalculator {
     vec2i padded_max_size = padding_result.removeFrom(max_size);
 
     std::map<entt::entity, ChildBoundsCalcData> cbcds;
-    for (const auto& c : children) {
+    for (const auto& c : enabled_children) {
         Entt centt{e.ui(), c};
         cbcds.emplace(c, centt);
     }
 
-    FreeCalculator free_calculator{e, *this, padded_max_size, children, padding_result, cbcds};
+    FreeCalculator free_calculator{e, *this, padded_max_size, enabled_children, padding_result, cbcds};
 
     auto children_max_min = findChildrenMaxMin(cbcds, pack_children_);
 

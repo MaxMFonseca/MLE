@@ -61,7 +61,7 @@ class Rendering {
     void clear();
 
   private:
-    Packet::Node createPacketNode(u8 atomic_buffer_id, entt::entity entity, usize depth = 0);
+    Expected<Packet::Node> createPacketNode(u8 atomic_buffer_id, entt::entity entity, usize depth = 0);
 
     [[nodiscard]] ImageRef getImageForEntity(const Packet::Node& node);
 

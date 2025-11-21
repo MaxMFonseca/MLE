@@ -108,4 +108,36 @@ sol::object Functions::get(const Entt& e, const sol::object& params) {
     MLE_W("Tried to get Function '{}' which does not exist.", name);
     return {};
 }
+
+void DisabledFlag::applyEnabled(const Entt& e, const sol::object& obj) {
+    if (!lua::valid<bool>(obj)) {
+        MLE_E("Invalid value passed to DisabledFlag apply enabled. Expected bool, got {}.", obj.get_type());
+        return;
+    }
+
+    const auto enabled = lua::as<bool>(obj);
+
+    if (enabled) {
+        e.eraseChecked<DisabledFlag>();
+    } else {
+        e.addFlag<DisabledFlag>();
+    }
+    e.requestExternalBoundsUpdate();
+};
+
+void DisabledFlag::applyDisabled(const Entt& e, const sol::object& obj) {
+    if (!lua::valid<bool>(obj)) {
+        MLE_E("Invalid value passed to DisabledFlag apply disabled. Expected bool, got {}.", obj.get_type());
+        return;
+    }
+
+    const auto disabled = lua::as<bool>(obj);
+
+    if (disabled) {
+        e.addFlag<DisabledFlag>();
+    } else {
+        e.eraseChecked<DisabledFlag>();
+    }
+    e.requestExternalBoundsUpdate();
+};
 }  // namespace mle::ui::comp

@@ -59,7 +59,7 @@ void ListContainer::set(const sol::table& table) {
         tb.set(list_cross_max_size_r);
         setListCrossMaxSize(tb);
     }
-    if (const auto list_main_min_gap_r = lua::getFirstKey(table, "main_min_gap"); list_main_min_gap_r.valid()) {
+    if (const auto list_main_min_gap_r = lua::getFirstKey(table, "main_min_gap", "gap"); list_main_min_gap_r.valid()) {
         TargetBound tb{};
         tb.set(list_main_min_gap_r);
         setListMainMinGap(tb);
@@ -254,10 +254,11 @@ struct ListCalculator {
     const bool main_wrap;
 
     const std::vector<entt::entity> list_children;
-    std::map<entt::entity, ChildBoundsCalcData> cbcds;
+    std::map<entt::entity, ChildBoundsCalcData>& cbcds;
     std::vector<ListChildCalcData> list_children_data;
 
-    ListCalculator(Entt list_ew, const ListContainer& list, vec2i padded_size, PaddingPx padding_px) :
+    ListCalculator(Entt list_ew, const ListContainer& list, vec2i padded_size, PaddingPx padding_px, std::vector<entt::entity> list_children,
+                   std::map<entt::entity, ChildBoundsCalcData>& cbcds) :
         list_ew(list_ew),
         list(list),
         main_is_x(list.getListDirection() == ListContainer::Direction::HORIZONTAL || list.getListDirection() == ListContainer::Direction::HORIZONTAL_REVERSED),
@@ -280,11 +281,10 @@ struct ListCalculator {
         min_gap_main(calcMinGapMain(list.getListMainMinGap(), root_size_main_f, child_max_size_main_f, padded_size)),
         cross_gap(calcCrossGap(list.getListCrossGap(), root_size_cross_f, child_max_size_cross_f, padded_size)),
         main_wrap(list.getListWrapMode() != ListContainer::WrapMode::NO),
-        list_children(list_ew.getRelationship().getChildren(list_ew)) {
-        for (const auto& child : list_children) {
-            Entt centt = list_ew.derive(child);
-            auto& cbcd = cbcds.emplace(child, centt).first->second;
-            list_children_data.emplace_back(cbcd, main_is_x);
+        list_children(list_children),
+        cbcds(cbcds) {
+        for (auto c : list_children) {
+            list_children_data.emplace_back(cbcds.at(c), main_is_x);
         }
 
         calculateChildrenSizes();
@@ -870,7 +870,22 @@ struct ListCalculator {
 
 [[nodiscard]] vec2u ListContainer::calculateChildrenBounds(const Entt& e, vec2u max_size) const {
     auto& self_rel = e.getRelationship();
-    auto children = self_rel.getChildren(e);
+    auto all_children = self_rel.getChildren(e);
+
+    std::vector<entt::entity> enabled_children;
+    for (auto child_entt : all_children) {
+        auto centt = e.derive(child_entt);
+        if (centt.has<DisabledFlag>()) {
+            continue;
+        }
+        enabled_children.push_back(child_entt);
+    }
+
+    std::map<entt::entity, ChildBoundsCalcData> cbcds;
+    for (const auto& c : enabled_children) {
+        Entt centt{e.ui(), c};
+        cbcds.emplace(c, centt);
+    }
 
     const auto* padding_comp = e.tryGet<comp::TargetPadding>();
     PaddingPx padding_result{};
@@ -879,11 +894,11 @@ struct ListCalculator {
     }
     vec2i padded_max_size = padding_result.removeFrom(max_size);
 
-    ListCalculator list_calculator{e, *this, padded_max_size, padding_result};
+    ListCalculator list_calculator{e, *this, padded_max_size, padding_result, enabled_children, cbcds};
 
-    auto children_max_min = findChildrenMaxMin(list_calculator.cbcds, pack_children_);
+    auto children_max_min = findChildrenMaxMin(cbcds, pack_children_);
 
-    for (const auto& [_, cbcd] : list_calculator.cbcds) {
+    for (const auto& [_, cbcd] : cbcds) {
         if (pack_children_) {
             cbcd.bounds.parent_px.setPosX(cbcd.bounds.parent_px.left() - children_max_min.first.x + padding_result.l);
             cbcd.bounds.parent_px.setPosY(cbcd.bounds.parent_px.top() - children_max_min.first.y + padding_result.t);
