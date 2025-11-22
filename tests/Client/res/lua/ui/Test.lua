@@ -228,5 +228,16 @@ return {
 
 			sprite = { "mle/mle.png", flip_x = true },
 		},
+
+		color_picker_test = {
+			margin = "20px",
+			size_y = 0.3,
+			aspect_ratio = 1,
+
+			pos = "lb",
+			origin = "lb",
+
+			comp = require("mle.ui.comp.color_picker")(0.5, 0.5, 0.5),
+		},
 	},
 }

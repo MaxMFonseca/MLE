@@ -127,10 +127,6 @@ void LuaElementOps::init() {
     };
 
     ut["call"] = [](const Entt& ew, const std::string& fn_name, const sol::object& obj = {}) { ew.call(fn_name, obj); };
-    ut["call2"] = [](const Entt& ew, const std::string& fn_name, const sol::object& obj1, const sol::object& obj2) { ew.call(fn_name, obj1, obj2); };
-    ut["call3"] = [](const Entt& ew, const std::string& fn_name, const sol::object& obj1, const sol::object& obj2, const sol::object& obj3) {
-        ew.call(fn_name, obj1, obj2, obj3);
-    };
 
     ut["dispatch"] = [](const Entt& ew, const std::string& event_name, const sol::object& obj = {}) { ew.dispatch(event_name, obj); };
 

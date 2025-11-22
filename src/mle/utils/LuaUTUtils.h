@@ -20,6 +20,7 @@ inline void makeUTColor(Lua& lua) {
     ut["toLinear"] = &Color::toLinear;
     ut["toSRGB"] = &Color::toSRGB;
     ut["random"] = &Color::random;
+    ut["fromHSV"] = [](f32 h, f32 s, f32 v) { return Color::fromHSVA({h, s, v, 1.0F}); };
 }
 
 inline void makeUTStopwatch(Lua& lua) {

@@ -1,8 +1,10 @@
-return function()
+return function(callback, value)
 	return {
 		fn = {
 			onCursorDrag = function(ew, cursor_pos_relative)
 				local new_value = 0
+
+				print("Cursor pos relative:", cursor_pos_relative.x)
 
 				if cursor_pos_relative.x < 0 then
 					new_value = 0
@@ -14,6 +16,10 @@ return function()
 
 				local cursor = ew:getChild("cursor")
 				cursor:apply("pos_x", new_value)
+
+				if callback then
+					callback(ew, new_value)
+				end
 			end,
 			onCursorDragEnd = function(ew) end,
 		},
@@ -24,33 +30,23 @@ return function()
 			end,
 		},
 
+		table = {
+			value = value or 0,
+		},
+
 		free = {},
 		c = {
-			{
-				pos = "c",
-				origin = "c",
-
-				background = Colors.neutral200,
-
-				border = {
-					roundness = 0.5,
-					thickness = "3px",
-					color = Colors.neutral800,
-				},
-			},
-
-			{
-				name = "cursor",
+			cursor = {
 				aspect_ratio = 1,
-				pos = "c",
+				pos = { value or 0, 0.5 },
 				origin = "c",
 
-				background = Colors.BLACK,
+				background = Colors.LIGHT_GRAY,
 
 				border = {
 					roundness = 0.5,
 					thickness = "1px",
-					color = Colors.red600,
+					color = Colors.BLACK,
 				},
 			},
 		},

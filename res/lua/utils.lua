@@ -97,10 +97,27 @@ LuaUtils = {
 			return value
 		end
 	end,
+
+	deep_merge = function(dest, src)
+		for k, v in pairs(src) do
+			if type(v) == "table" then
+				if type(dest[k] or false) == "table" then
+					LuaUtils.deep_merge(dest[k], v)
+				else
+					dest[k] = LuaUtils.deep_copy(v)
+				end
+			else
+				dest[k] = v
+			end
+		end
+		return dest
+	end,
 }
 
+table.printR = LuaUtils.printR
 table.shallow_copy = LuaUtils.shallow_copy
 table.shallow_copy_meta = LuaUtils.shallow_copy_meta
 table.deep_copy = LuaUtils.deep_copy
 table.deep_copy_meta = LuaUtils.deep_copy_meta
+table.deep_merge = LuaUtils.deep_merge
 math.clamp = LuaUtils.clamp
