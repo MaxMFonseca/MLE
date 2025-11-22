@@ -239,5 +239,65 @@ return {
 
 			comp = require("mle.ui.comp.color_picker")(0.5, 0.5, 0.5),
 		},
+
+		color_picker_test_2 = {
+			margin = "20px",
+			size_y = 0.1,
+			aspect_ratio = 1,
+			background = Color.fromHSV(0.0, 1.0, 1.0),
+
+			table = {
+				color = Color.fromHSV(0.0, 1.0, 1.0),
+			},
+
+			fn = {
+				set_color = function(ew, color)
+					ew:apply("background", color)
+					ew:get("table").color = color
+				end,
+			},
+
+			on_keys = {
+				lmb = function(ew)
+					local ew_table = ew:get("table")
+					local initial_color = ew_table.color
+					local hsv = initial_color:toHSV()
+					local h = hsv.x / 360
+					local s = hsv.y
+					local v = hsv.z
+
+					local local_bounds = ew:getBoundsOnRootNormalized()
+					local target_pos = {
+						x = local_bounds:pos().x + local_bounds:size().x,
+						y = local_bounds:pos().y + local_bounds:size().y / 2,
+					}
+					ew:createPopup({
+						pos = target_pos,
+
+						size_y = 0.2,
+						size_x = 0.1,
+
+						padding = "10px",
+
+						border = {
+							thickness = "3px",
+							color = Colors.slate400,
+							roundness = "10px",
+						},
+
+						on_keys = {
+							lmb = function(popup_ew)
+								-- dummy to prevent propagation
+							end,
+						},
+
+						comp = require("mle.ui.comp.color_picker")(h, s, v, function(ew, color)
+							local owner = ew:parent():get("table").owner
+							owner:call("set_color", color)
+						end),
+					})
+				end,
+			},
+		},
 	},
 }

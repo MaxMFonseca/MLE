@@ -18,6 +18,7 @@ class Relationship {
     [[nodiscard]] usize getChildCount() const { return child_count_; }
     [[nodiscard]] bool hasChildren() const { return child_count_ > 0; }
     [[nodiscard]] std::vector<entt::entity> getChildren(const Entt& e) const;
+    [[nodiscard]] std::vector<entt::entity> getChildrenSortedByLayer(const Entt& e) const;
 
     [[nodiscard]] entt::entity getChildAt(const Entt& e, usize idx) const;
     [[nodiscard]] Expected<usize> getChildIdx(const Entt& e, std::string_view name) const;
@@ -29,7 +30,7 @@ class Relationship {
     void destroyChild(const Entt& e, entt::entity child_e);
     void destroyAllChildren(const Entt& e);
 
-    void createChild(const Entt& e, const sol::table& table);
+    entt::entity createChild(const Entt& e, const sol::table& table);
     void createChildren(const Entt& e, const sol::table& table);
 
     void applyOnChildren(const Entt& ew, const sol::table& table) const;

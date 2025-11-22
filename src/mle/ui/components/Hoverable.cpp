@@ -111,6 +111,18 @@ void Hoverable::setKey(const Entt& e, const Keybinding& kb, const sol::function&
     }
 }
 
+void Hoverable::setKey(const Entt& e, const Keybinding& kb, std::move_only_function<void(const Entt&)> fn) {
+    auto kl_it = std::ranges::find_if(on_key, [&](const KeyListenerHnd& hnd) { return hnd->getKb() == kb; });
+    if (kl_it != on_key.end()) {
+        (*kl_it)->setCallback([e, fn = std::move(fn)]() mutable { fn(e); });
+    } else {
+        auto kl = std::make_unique<KeyListener>();
+        kl->setKeybinding(kb);
+        kl->setCallback([e, fn = std::move(fn)]() mutable { fn(e); });
+        on_key.emplace_back(std::move(kl));
+    }
+}
+
 void Hoverable::setKey(const Entt& ew, const std::string& key, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
     const auto kb_r = toKeybinding(key);

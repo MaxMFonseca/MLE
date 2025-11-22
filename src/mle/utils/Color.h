@@ -107,6 +107,11 @@ struct Color : vec4f {
     /// Converts the color to HSV.
     [[nodiscard]] vec4f toHSVA() const { return toHSVA(*this); };
 
+    [[nodiscard]] vec3f toHSV() const {
+        auto hsva = toHSVA();
+        return vec3f{hsva.x, hsva.y, hsva.z};
+    }
+
     /// Creates a color from HSV values.
     static Color fromHSVA(vec4f hsv);
 

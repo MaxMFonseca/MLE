@@ -132,6 +132,10 @@ void LuaElementOps::init() {
 
     ut["beginCursorDrag"] = [](const Entt& ew) { ew.addFlag<comp::CursorDragFlag>(); };
 
+    ut["createPopup"] = &Entt::createPopup;
+    ut["getBoundsOnRoot"] = &Entt::getBoundsOnRoot;
+    ut["getBoundsOnRootNormalized"] = &Entt::getBoundsOnRootNormalized;
+
     comp::Hovered::makeLuaUsertype(lua);
 
     addBuiltingApply();

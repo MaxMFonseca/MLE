@@ -119,6 +119,24 @@ std::vector<entt::entity> Relationship::getChildren(const Entt& e) const {
     return children;
 }
 
+std::vector<entt::entity> Relationship::getChildrenSortedByLayer(const Entt& e) const {
+    auto children = getChildren(e);
+    std::ranges::sort(children, [&e](entt::entity a, entt::entity b) {
+        auto layer_a = 0;
+        auto layer_b = 0;
+        Entt ew_a{e.ui(), a};
+        Entt ew_b{e.ui(), b};
+        if (ew_a.has<comp::Layer>()) {
+            layer_a = ew_a.get<comp::Layer>().layer;
+        }
+        if (ew_b.has<comp::Layer>()) {
+            layer_b = ew_b.get<comp::Layer>().layer;
+        }
+        return layer_a > layer_b;
+    });
+    return children;
+}
+
 std::vector<Relationship::NewChild> Relationship::createChildrenBase(const Entt& e, const sol::table& table) {
     std::vector<NewChild> new_children;
 
@@ -229,10 +247,12 @@ entt::entity Relationship::createChildHndAt(const Entt& e, usize idx) {
     return new_child.e();
 };
 
-void Relationship::createChild(const Entt& e, const sol::table& table) {
+entt::entity Relationship::createChild(const Entt& e, const sol::table& table) {
     auto [child_e, comp_table] = createChildBase(e, table);
 
     applyBaseOnChild(e, comp_table, child_e);
+
+    return child_e;
 }
 
 void Relationship::createChildren(const Entt& e, const sol::table& table) {

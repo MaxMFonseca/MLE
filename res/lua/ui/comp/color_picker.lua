@@ -1,4 +1,4 @@
-return function(h, s, v)
+return function(h, s, v, callback)
 	if h >= 1 then
 		h = 0.999
 	end
@@ -20,8 +20,6 @@ return function(h, s, v)
 
 				self_table.s = c.s or self_table.s
 				self_table.v = c.v or self_table.v
-
-				print(self_table.h, self_table.s, self_table.v)
 
 				local new_h = self_table.h
 				local new_s = self_table.s
@@ -47,6 +45,8 @@ return function(h, s, v)
 					rt = new_v_color,
 					rb = new_v_color,
 				})
+
+				callback(ew, new_color)
 			end,
 		},
 

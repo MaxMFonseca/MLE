@@ -99,7 +99,7 @@ void Hover::hovered(const Entt& ew, vec2f pos_parent, const comp::Bounds& self_b
 
     auto& relationship = ew.getRelationship();
     if (relationship.hasChildren()) {
-        auto children = relationship.getChildren(ew);
+        auto children = relationship.getChildrenSortedByLayer(ew);
         for (auto c : children) {
             Entt cew = ew.derive(c);
             if (cew.has<comp::DisabledFlag>()) {
@@ -111,6 +111,7 @@ void Hover::hovered(const Entt& ew, vec2f pos_parent, const comp::Bounds& self_b
             auto c_bounds = cew.get<comp::Bounds>();
             if (c_bounds.parent_px.contains(pos_self)) {
                 hovered(cew, pos_self, c_bounds, inside);
+                break;
             }
         }
     }

@@ -1,8 +1,10 @@
 #include "Entt.h"
 
 #include "UI.h"
+#include "mle/client/Client.h"
 #include "mle/ui/components/Base.h"
 #include "mle/ui/components/Bounds.h"
+#include "mle/ui/components/Hoverable.h"
 #include "mle/utils/ECS.h"
 
 namespace mle::ui {
@@ -111,6 +113,23 @@ void Entt::dispatch(const std::string& event_name, const sol::object& obj) const
 
 [[nodiscard]] Rectf Entt::getBoundsOnRootNormalized() const {
     return get<comp::Bounds>().onRootNormalized(*this);
+};
+
+void Entt::createPopup(const sol::table& table) const {
+    auto pop_up = Client::i().lua().createTable();
+
+    pop_up["size"] = 1;
+    pop_up["layer"] = 1000;
+    pop_up["child"] = table;
+    pop_up["table"] = Client::i().lua().createTable();
+    pop_up["table"]["owner"] = *this;
+
+    Entt root_ew{ui_, ui_.getRoot()};
+    auto pop_up_e = root_ew.getRelationship().createChild(root_ew, pop_up);
+    Entt pop_up_ew{ui_, pop_up_e};
+
+    auto& hoverable = pop_up_ew.emplace<comp::Hoverable>();
+    hoverable.setKey(pop_up_ew, Keybinding{.key = Key::MOUSE_ONE, .state = KeyState::PRESSED}, [](const Entt& ew) { ew.destroy(); });
 };
 
 }  // namespace mle::ui

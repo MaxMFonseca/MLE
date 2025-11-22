@@ -55,6 +55,8 @@ class Entt {
     void setName(const std::string& name) const;
     void destroy() const;
 
+    void createPopup(const sol::table& table) const;
+
     [[nodiscard]] Recti getBoundsOnRoot() const;
     [[nodiscard]] Rectf getBoundsOnRootNormalized() const;
 

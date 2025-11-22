@@ -14,6 +14,7 @@ struct Hoverable {
     void setKeys(const Entt& ew, const sol::table& table);
     void setKey(const Entt& ew, const std::string& key, const sol::object& obj);
     void setKey(const Entt& ew, const Keybinding& kb, const sol::function& fn);
+    void setKey(const Entt& ew, const Keybinding& kb, std::move_only_function<void(const Entt&)> fn);
     void removeKey(const Keybinding& kb);
 
     void onHoverIn(const Entt& ew);

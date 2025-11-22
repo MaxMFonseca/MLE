@@ -15,5 +15,6 @@ inline void makeUTMathTypes(Lua& lua) {
     lua.newUsertype<vec4f>("Vec4f", sol::constructors<vec4f(f32, f32, f32, f32)>(), "x", &vec4f::x, "y", &vec4f::y, "z", &vec4f::z, "w", &vec4f::w);
 
     lua.newUsertype<Rectf>("Rectf", sol::constructors<Rectf(f32, f32, f32, f32), Rectf(vec2f, vec2f)>(), "pos", &Rectf::pos, "size", &Rectf::size);
+    lua.newUsertype<Recti>("Recti", sol::constructors<Recti(i32, i32, i32, i32), Recti(vec2i, vec2i)>(), "pos", &Recti::pos, "size", &Recti::size);
 }
 }  // namespace mle::lua
