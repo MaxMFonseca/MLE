@@ -219,6 +219,13 @@ return {
 			origin = "rb",
 			margin = "20px",
 
+			background = {
+				lt = Colors.emerald900,
+				rt = Colors.red900,
+				lb = Colors.blue900,
+				rb = Colors.yellow900,
+			},
+
 			sprite = { "mle/mle.png", flip_x = true },
 		},
 	},

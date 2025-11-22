@@ -4,6 +4,7 @@
 #include "../UI.h"
 #include "glm/fwd.hpp"
 #include "mle/core/Logger.h"
+#include "mle/math/Types.h"
 #include "mle/renderer/Renderer.h"
 #include "mle/renderer/RenderingThread.h"
 #include "mle/renderer/Types.h"
@@ -21,8 +22,8 @@ Rendering::Rendering(UI& ui) :
     if (!bg_pipeline_created) {
         bg_pipeline_created = true;
         Pipeline::CI pipeline_ci{};
-        pipeline_ci.fragment_shader = &Renderer::i().shaderCache().get("mle/ui/rect.frag");
-        pipeline_ci.vertex_shader = &Renderer::i().shaderCache().get("mle/ui/rect.vert");
+        pipeline_ci.fragment_shader = &Renderer::i().shaderCache().get("mle/ui/bg.frag");
+        pipeline_ci.vertex_shader = &Renderer::i().shaderCache().get("mle/ui/bg.vert");
         std::array color_attachment_formats = {Renderer::i().vk().getVkImageFormat(ImageFormat::COLOR)};
         pipeline_ci.color_attachment_formats = color_attachment_formats;
         auto blend_attachments = Pipeline::makeDefaultBlendAttachments<1>();
@@ -81,7 +82,10 @@ Expected<Rendering::Packet::Node> Rendering::createPacketNode(u8 atomic_buffer_i
         node.border = *border_r;
     }
     if (const auto* background_r = ew.tryGet<comp::Background>(); background_r) {
-        node.bg = background_r->color;
+        node.bg.lt = background_r->lt;
+        node.bg.rt = background_r->rt;
+        node.bg.lb = background_r->lb;
+        node.bg.rb = background_r->rb;
     }
     if (auto* renderable_r = ew.tryGet<comp::Renderable>(); renderable_r) {
         node.renderable_packet = renderable_r->updatePacket(ew, atomic_buffer_id);
@@ -180,12 +184,20 @@ void Rendering::renderNodeBackground(const Rendering::Packet::Node& node, Recti 
     ctx.thread.setPipeline(background_pipeline_);
 
     struct {
-        vec4f color;
+        vec4f color1;
+        vec4f color2;
+        vec4f color3;
+        vec4f color4;
+
         vec4i rounging_corners_radius_px;
         vec2i viewport_size;
     } pc{};
 
-    pc.color = node.bg;
+    pc.color1 = node.bg.lt;
+    pc.color2 = node.bg.rt;
+    pc.color3 = node.bg.lb;
+    pc.color4 = node.bg.rb;
+
     pc.rounging_corners_radius_px = vec4i{node.border.round_lt, node.border.round_rt, node.border.round_lb, node.border.round_rb};
     pc.viewport_size = viewport.size();
 
@@ -268,7 +280,7 @@ void Rendering::renderNode(const Rendering::Packet::Node& node, RenderingContext
     if (node.border.color.a > 0) {
         renderNodeBorder(node, ppx, pctx);
     }
-    if (node.bg.a > 0) {
+    if (node.bg.lb.a > 0) {
         renderNodeBackground(node, ppx, pctx);
     }
 

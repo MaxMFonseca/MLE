@@ -16,9 +16,12 @@ struct ID {
 };
 
 struct Background {
-    Color color = Color::ZERO;
+    Color lt = Color::ZERO;
+    Color rt = Color::ZERO;
+    Color lb = Color::ZERO;
+    Color rb = Color::ZERO;
 
-    void set(const sol::object& obj) { color = Color{obj}.toLinear(); }
+    void set(const sol::object& obj);
 
     static void apply(const Entt& e, const sol::object& obj);
 };

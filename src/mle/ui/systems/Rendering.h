@@ -25,7 +25,13 @@ class Rendering {
 
             comp::Bounds bounds{};
             comp::Border border{};
-            Color bg{};
+            struct {
+                Color lt = Color::ZERO;
+                Color rt = Color::ZERO;
+                Color lb = Color::ZERO;
+                Color rb = Color::ZERO;
+            } bg;
+
             int layer = 0;
 
             f32 scale_factor = 1.0F;
