@@ -9,29 +9,18 @@ void finishChildBounds(const Entt& centt, ChildBoundsCalcData& cbcd, PaddingPx p
     cbcd.bounds.parent_px.setPos(cbcd.new_position + origin_lt);
     cbcd.bounds.parent_px.setSize(cbcd.new_size);
 
-    MLE_C("Finishing child bounds for {}", centt.fullName());
-
     if (cbcd.force_fit) {
-        MLE_VC("HERE");
         if (cbcd.bounds.parent_px.pos().x + cbcd.bounds.parent_px.size().x > padded_size.x + padding_px.l) {
-            MLE_VC(0);
             cbcd.bounds.parent_px.setPosX(padded_size.x + padding_px.l - cbcd.bounds.parent_px.size().x);
-            MLE_VC(0);
         }
         if (cbcd.bounds.parent_px.pos().y + cbcd.bounds.parent_px.size().y > padded_size.y + padding_px.t) {
-            MLE_VC(1);
             cbcd.bounds.parent_px.setPosY(padded_size.y + padding_px.t - cbcd.bounds.parent_px.size().y);
-            MLE_VC(1);
         }
         if (cbcd.bounds.parent_px.pos().x < padding_px.l) {
-            MLE_VC(2);
             cbcd.bounds.parent_px.setPosX(padding_px.l);
-            MLE_VC(2);
         }
         if (cbcd.bounds.parent_px.pos().y < padding_px.t) {
-            MLE_VC(3);
             cbcd.bounds.parent_px.setPosY(padding_px.t);
-            MLE_VC(3);
         }
     }
 

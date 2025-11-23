@@ -19,7 +19,7 @@ void main() {
 
   vec3 emissive = albedo * e;
 
-  out_gbuffer0 = vec4(albedo, 1.0);
+  out_gbuffer0 = vec4(albedo, m);
   out_gbuffer1 = vec4(N, r);
   out_gbuffer2 = vec4(emissive, 0.0);
 }

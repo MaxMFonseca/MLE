@@ -6,7 +6,6 @@
 namespace mle {
 void RenderingThread::init() {
     MLE_T("Initializing a RenderingThread");
-    MLE_ASSERT_LOG(cmd_.get() == nullptr, "RenderingThread already initialized.");
     cmd_ = Renderer::i().frameRenderer().getSecondaryCommandBuffer();
 }
 

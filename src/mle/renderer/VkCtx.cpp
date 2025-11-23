@@ -4,6 +4,7 @@
 #include <vulkan/vulkan_core.h>
 
 #include <iostream>
+#include <stacktrace>
 #include <vulkan/vulkan_structs.hpp>
 
 #include "Buffer.h"
@@ -57,9 +58,23 @@ namespace {
     }
 
     switch (message_severity) {
-        case vk::DebugUtilsMessageSeverityFlagBitsEXT::eError:
+        case vk::DebugUtilsMessageSeverityFlagBitsEXT::eError: {
+            const auto st = std::stacktrace::current();
+
+            MLE_C("Vulkan Validation Error encountered!");
+
             MLE_E("{}", formatted_msg.str());
-            break;
+
+            MLE_E("Stacktrace:\n{}", st.size());
+            for (auto f : st) {
+                MLE_E("  {}", std::to_string(f));
+            }
+
+            MLE_C("---------------------------------------");
+            MLE_C("Aborting...");
+
+            std::abort();
+        } break;
         case vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning:
             MLE_W("{}", formatted_msg.str());
             break;
