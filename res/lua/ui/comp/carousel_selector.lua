@@ -17,7 +17,7 @@ return function(options, right_arrow_texture_name, callback)
 				text_ew:apply("text", new_text)
 
 				if callback then
-					callback(new_text)
+					callback(ew, new_text)
 				end
 			end,
 		},

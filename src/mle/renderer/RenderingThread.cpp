@@ -96,16 +96,14 @@ void RenderingThread::setViewport(Rectf viewport) {
 void RenderingThread::setScissor(Recti scissor) {
     MLE_ASSERT_LOG(in_rendering_, "Scissor can only be set inside rendering.");
 
-    if (scissor.width() == 0) {
-        scissor.setWidth(render_area_.width() - scissor.left());
+    if (scissor.width() <= 0) {
+        scissor.setWidth(render_area_.width());
     }
-    if (scissor.height() == 0) {
-        scissor.setHeight(render_area_.height() - scissor.top());
+    if (scissor.height() <= 0) {
+        scissor.setHeight(render_area_.height());
     }
 
-    MLE_ASSERT_LOG(scissor.right() <= int(getColor0()->getExtent().x) && scissor.bottom() <= int(getColor0()->getExtent().y),
-                   "Scissor exceeds color attachment extent: {}x{}, got right: {}, bottom: {}", getColor0()->getExtent().x, getColor0()->getExtent().y,
-                   scissor.right(), scissor.bottom());
+    scissor = scissor.clamp(as<Recti>(render_area_));
 
     vk::Rect2D ss{};
     ss.offset.x = scissor.left();

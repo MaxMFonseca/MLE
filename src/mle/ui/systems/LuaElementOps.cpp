@@ -209,6 +209,7 @@ void LuaElementOps::addBuiltingApply() {
     addApplyKeyHandler("fn", comp::Functions::apply);
     addApplyKeyHandler("enabled", comp::DisabledFlag::applyEnabled);
     addApplyKeyHandler("disabled", comp::DisabledFlag::applyDisabled);
+    addApplyKeyHandler("force_fit", comp::ForceFitFlag::apply);
 
     addApplyKeyHandler("sprite", ui::renderable::Sprite::apply);
     addApplyKeyHandler("text", ui::renderable::Text::apply);

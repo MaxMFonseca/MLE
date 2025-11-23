@@ -1,6 +1,7 @@
 #pragma once
 
 #include "mle/ui/Entt.h"
+#include "mle/ui/components/Base.h"
 #include "mle/ui/components/Bounds.h"
 
 namespace mle::ui::comp {
@@ -24,6 +25,8 @@ struct ChildBoundsCalcData {
     } new_margin{}, new_border{};
 
     bool has_target_border = false;
+
+    bool force_fit = false;
 
     explicit ChildBoundsCalcData(const Entt& e) :
         bounds(e.get<comp::Bounds>()),
@@ -55,13 +58,14 @@ struct ChildBoundsCalcData {
             target.origin = origin_comp->o;
             MLE_T("Origin: {}", target.origin);
         }
+        force_fit = e.has<comp::ForceFitFlag>();
     };
 };
 
 using CBCDs = std::map<entt::entity, ChildBoundsCalcData>;
 
-void finishChildBounds(const Entt& centt, ChildBoundsCalcData& cbcd, PaddingPx padding_px);
-void finishChildrenBounds(const Entt& e, CBCDs& cbcds, std::span<const entt::entity> to_update, PaddingPx padding_px);
+void finishChildBounds(const Entt& centt, ChildBoundsCalcData& cbcd, PaddingPx padding_px, vec2i padded_size);
+void finishChildrenBounds(const Entt& e, CBCDs& cbcds, std::span<const entt::entity> to_update, PaddingPx padding_px, vec2i padded_size);
 std::pair<vec2i, vec2i> findChildrenMaxMin(const CBCDs& cbcds, bool pack_children);
 
 }  // namespace mle::ui::comp

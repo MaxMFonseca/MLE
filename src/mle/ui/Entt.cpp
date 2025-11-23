@@ -115,14 +115,17 @@ void Entt::dispatch(const std::string& event_name, const sol::object& obj) const
     return get<comp::Bounds>().onRootNormalized(*this);
 };
 
-void Entt::createPopup(const sol::table& table) const {
+// FIXME: every time I create a popup, I trigger a full layout recalculation. Optimize this.
+
+void Entt::createPopup(const sol::table& comp) const {
     auto pop_up = Client::i().lua().createTable();
 
     pop_up["size"] = 1;
     pop_up["layer"] = 1000;
-    pop_up["child"] = table;
     pop_up["table"] = Client::i().lua().createTable();
     pop_up["table"]["owner"] = *this;
+
+    pop_up["comp"] = comp;
 
     Entt root_ew{ui_, ui_.getRoot()};
     auto pop_up_e = root_ew.getRelationship().createChild(root_ew, pop_up);

@@ -37,6 +37,7 @@ return function(callback, value)
 		free = {},
 		c = {
 			cursor = {
+				size_y = 1,
 				aspect_ratio = 1,
 				pos = { value or 0, 0.5 },
 				origin = "c",

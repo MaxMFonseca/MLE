@@ -150,6 +150,10 @@ void Rendering::renderNodeBorder(const Rendering::Packet::Node& node, Recti ppx,
     Rectf viewport = bounds.asF32();
     Recti scissor = bounds.clamp(ctx.parent_scissor);
 
+    if (viewport.size().x < 1 || viewport.size().y < 1) {
+        return;
+    }
+
     ctx.thread.setViewport(viewport);
     ctx.thread.setScissor(scissor);
 
@@ -177,6 +181,10 @@ void Rendering::renderNodeBackground(const Rendering::Packet::Node& node, Recti 
     bounds.move(ctx.parent_viewport.pos());
     Rectf viewport = bounds.asF32();
     Recti scissor = bounds.clamp(ctx.parent_scissor);
+
+    if (viewport.size().x < 1 || viewport.size().y < 1) {
+        return;
+    }
 
     ctx.thread.setViewport(viewport);
     ctx.thread.setScissor(scissor);
@@ -296,6 +304,10 @@ void Rendering::renderNode(const Rendering::Packet::Node& node, RenderingContext
     bounds.move(ctx.parent_viewport.pos());
     Rectf viewport = bounds.asF32();
     Recti scissor = bounds.clamp(ctx.parent_scissor);
+
+    if (viewport.size().x < 1 || viewport.size().y < 1) {
+        return;
+    }
 
     if (node.shader_packet && node.shader_before_children) {
         ctx.thread.setViewport(viewport);

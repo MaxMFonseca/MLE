@@ -272,29 +272,31 @@ return {
 						y = local_bounds:pos().y + local_bounds:size().y / 2,
 					}
 					ew:createPopup({
-						pos = target_pos,
+						child = {
+							pos = target_pos,
 
-						size_y = 0.2,
-						size_x = 0.1,
+							size_y = 0.2,
+							size_x = 0.1,
 
-						padding = "10px",
+							padding = "10px",
 
-						border = {
-							thickness = "3px",
-							color = Colors.slate400,
-							roundness = "10px",
+							border = {
+								thickness = "3px",
+								color = Colors.slate400,
+								roundness = "10px",
+							},
+
+							on_keys = {
+								lmb = function(popup_ew)
+									-- dummy to prevent propagation
+								end,
+							},
+
+							comp = require("mle.ui.comp.color_picker")(h, s, v, function(ew, color)
+								local owner = ew:parent():get("table").owner
+								owner:call("set_color", color)
+							end),
 						},
-
-						on_keys = {
-							lmb = function(popup_ew)
-								-- dummy to prevent propagation
-							end,
-						},
-
-						comp = require("mle.ui.comp.color_picker")(h, s, v, function(ew, color)
-							local owner = ew:parent():get("table").owner
-							owner:call("set_color", color)
-						end),
 					})
 				end,
 			},

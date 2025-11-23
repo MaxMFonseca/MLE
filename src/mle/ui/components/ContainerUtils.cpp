@@ -1,12 +1,39 @@
 #include "ContainerUtils.h"
 
 namespace mle::ui::comp {
-void finishChildBounds(const Entt& centt, ChildBoundsCalcData& cbcd, PaddingPx padding_px) {
+void finishChildBounds(const Entt& centt, ChildBoundsCalcData& cbcd, PaddingPx padding_px, vec2i padded_size) {
     vec2i origin_lt = {padding_px.l, padding_px.t};
 
     comp::Bounds old_bounds = cbcd.bounds;
+
     cbcd.bounds.parent_px.setPos(cbcd.new_position + origin_lt);
     cbcd.bounds.parent_px.setSize(cbcd.new_size);
+
+    MLE_C("Finishing child bounds for {}", centt.fullName());
+
+    if (cbcd.force_fit) {
+        MLE_VC("HERE");
+        if (cbcd.bounds.parent_px.pos().x + cbcd.bounds.parent_px.size().x > padded_size.x + padding_px.l) {
+            MLE_VC(0);
+            cbcd.bounds.parent_px.setPosX(padded_size.x + padding_px.l - cbcd.bounds.parent_px.size().x);
+            MLE_VC(0);
+        }
+        if (cbcd.bounds.parent_px.pos().y + cbcd.bounds.parent_px.size().y > padded_size.y + padding_px.t) {
+            MLE_VC(1);
+            cbcd.bounds.parent_px.setPosY(padded_size.y + padding_px.t - cbcd.bounds.parent_px.size().y);
+            MLE_VC(1);
+        }
+        if (cbcd.bounds.parent_px.pos().x < padding_px.l) {
+            MLE_VC(2);
+            cbcd.bounds.parent_px.setPosX(padding_px.l);
+            MLE_VC(2);
+        }
+        if (cbcd.bounds.parent_px.pos().y < padding_px.t) {
+            MLE_VC(3);
+            cbcd.bounds.parent_px.setPosY(padding_px.t);
+            MLE_VC(3);
+        }
+    }
 
     bool size_changed = old_bounds.parent_px.size() != cbcd.bounds.parent_px.size();
 
@@ -52,11 +79,11 @@ void finishChildBounds(const Entt& centt, ChildBoundsCalcData& cbcd, PaddingPx p
     }
 };
 
-void finishChildrenBounds(const Entt& e, CBCDs& cbcds, std::span<const entt::entity> to_update, PaddingPx padding_px) {
+void finishChildrenBounds(const Entt& e, CBCDs& cbcds, std::span<const entt::entity> to_update, PaddingPx padding_px, vec2i padded_size) {
     for (auto c : to_update) {
         auto centt = Entt(e.ui(), c);
         auto& cbcd = cbcds.at(c);
-        finishChildBounds(centt, cbcd, padding_px);
+        finishChildBounds(centt, cbcd, padding_px, padded_size);
     }
 }
 

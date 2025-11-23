@@ -378,7 +378,7 @@ struct FreeCalculator {
 
             cbcd.new_position.y = this_margin.top() + cbcd.new_margin.t + cbcd.new_border.t;
 
-            finishChildBounds(centt, cbcd, padding_px);
+            finishChildBounds(centt, cbcd, padding_px, padded_size);
         }
     }
 

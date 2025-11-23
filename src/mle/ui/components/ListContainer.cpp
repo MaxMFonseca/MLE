@@ -257,7 +257,7 @@ struct ListCalculator {
     std::map<entt::entity, ChildBoundsCalcData>& cbcds;
     std::vector<ListChildCalcData> list_children_data;
 
-    ListCalculator(Entt list_ew, const ListContainer& list, vec2i padded_size, PaddingPx padding_px, std::vector<entt::entity> list_children,
+    ListCalculator(Entt list_ew, const ListContainer& list, vec2i padded_size, PaddingPx padding_px, std::vector<entt::entity>& list_children,
                    std::map<entt::entity, ChildBoundsCalcData>& cbcds) :
         list_ew(list_ew),
         list(list),
@@ -289,7 +289,7 @@ struct ListCalculator {
 
         calculateChildrenSizes();
         calculateChildrenPositions();
-        finishChildrenBounds(list_ew, cbcds, list_children, padding_px);
+        finishChildrenBounds(list_ew, cbcds, list_children, padding_px, padded_size);
     }
 
     static int calcChildMaxSizeCross(const TargetBound& tb, int padded_size_cross, f32 padded_size_cross_f, f32 root_size_cross_f, vec2i padded_size) {
