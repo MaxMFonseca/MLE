@@ -14,6 +14,7 @@ void Renderer::init() {
     pipeline_cache_.init();
     texture_cache_.init();
     font_cache_.init();
+    model_cache_.init();
 
     MLE_I("Renderer initialized successfully");
 }
@@ -27,6 +28,7 @@ void Renderer::shutdown() {
 
     std::ignore = device.waitIdle();
 
+    model_cache_.shutdown();
     font_cache_.shutdown();
     texture_cache_.shutdown();
     pipeline_cache_.shutdown();

@@ -2,47 +2,72 @@
 
 #include <tiny_gltf.h>
 
+#include <string>
+#include <vector>
+
 #include "mle/math/Types.h"
 #include "mle/renderer/GLTF.h"
-#include "mle/renderer/Types.h"
+#include "mle/renderer/Mesh.h"
+#include "mle/renderer/Skeleton.h"
 
 namespace mle {
 class Model {
   public:
-    struct Vertex {
-        vec3f pos;
-        vec3f normal;
-        vec3f color;
-        vec3f mre;
-        int color_mix;
+    struct Node {
+        std::string name;
+        int parent = -1;
+        vec3f base_translation{};
+        quat base_rotation{};
+        vec3f base_scale{};
     };
 
-    struct VertexSkin {
-        vec3f pos;
-        vec3f normal;
-        vec3f color;
-        vec3f mre;
-        vec4u joint0;
-        vec4f weight0;
-        int color_mix;
+    struct KeyframeVec3 {
+        f32 time = 0.0F;
+        vec3f value{};
     };
 
-    struct RenderData {};
+    struct KeyframeQuat {
+        f32 time = 0.0F;
+        quat value{};
+    };
+
+    struct NodeAnim {
+        std::vector<KeyframeVec3> translations;
+        std::vector<KeyframeQuat> rotations;
+        std::vector<KeyframeVec3> scales;
+    };
+
+    struct Animation {
+        std::string name;
+        f32 duration = 0.0F;
+        std::vector<NodeAnim> nodes;
+    };
+
+    struct NodeMesh {
+        usize node_index = 0;
+        Mesh mesh;
+    };
 
   public:
-    void load(const GLTF& gltf, usize mesh_idx = 0);
+    void init(const GLTF& gltf);
 
-    [[nodiscard]] BufferRef getVertexBuffer() const { return vertex_buffer_.get(); }
-    [[nodiscard]] BufferRef getIndexBuffer() const { return index_buffer_.get(); }
-    [[nodiscard]] usize getIndexCount() const { return index_count_; }
+    [[nodiscard]] const std::vector<Node>& getNodes() const { return nodes_; }
+    [[nodiscard]] auto getNodeCount() const { return nodes_.size(); }
+    [[nodiscard]] const Node& getNode(usize index) const { return nodes_.at(index); }
+    [[nodiscard]] usize getNodeIdxByName(const std::string& name) const;
 
-    void render();
+    [[nodiscard]] const std::vector<Animation>& getAnimations() const { return animations_; }
+    [[nodiscard]] usize getAnimationIndexByName(const std::string& name) const;
+
+    void evaluate(usize animation_index, f32 time, std::vector<mat4f>& out_node_globals) const;
+    void evaluateNoInterpolation(usize animation_index, f32 time, std::vector<mat4f>& out_node_globals) const;
+
+    [[nodiscard]] const auto& getSkeleton() const { return skeleton_; }
 
   private:
-    BufferHnd vertex_buffer_;
-    BufferHnd index_buffer_;
-    usize index_count_ = 0;
-    bool skinned_ = false;
+    std::vector<Node> nodes_;
+    std::vector<Animation> animations_;
+    std::vector<NodeMesh> meshes_;
+    Skeleton skeleton_;
 };
-
 }  // namespace mle

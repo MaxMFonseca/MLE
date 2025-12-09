@@ -12,11 +12,11 @@ class ServerCommunicationProtocol {
     ServerCommunicationProtocol() = default;
     virtual ~ServerCommunicationProtocol() = default;
 
-    virtual void pushEvent(const ServerEvents& ev) = 0;
+    // virtual void pushEvent(const ServerEvents& ev) = 0;
     virtual void pushEvent(ServerEvents&& ev) = 0;
     virtual bool tryPopEvent(ServerEvents& ev) = 0;
 
-    virtual void pushCommand(const ClientCommands& cmd) = 0;
+    // virtual void pushCommand(const ClientCommands& cmd) = 0;
     virtual void pushCommand(ClientCommands&& cmd) = 0;
     virtual bool tryPopCommand(ClientCommands& cmd) = 0;
 
@@ -33,11 +33,11 @@ class LocalServerCommunicationProtocol : public ServerCommunicationProtocol<Serv
     LocalServerCommunicationProtocol() = default;
     ~LocalServerCommunicationProtocol() override = default;
 
-    void pushEvent(const ServerEvents& ev) override { event_queue_.tryPush(ev); }
+    // void pushEvent(const ServerEvents& ev) override { event_queue_.tryPush(ev); }
     void pushEvent(ServerEvents&& ev) override { event_queue_.tryPush(std::move(ev)); }
     bool tryPopEvent(ServerEvents& ev) override { return event_queue_.tryPop(ev); }
 
-    void pushCommand(const ClientCommands& cmd) override { command_queue_.tryPush(cmd); }
+    // void pushCommand(const ClientCommands& cmd) override { command_queue_.tryPush(cmd); }
     void pushCommand(ClientCommands&& cmd) override { command_queue_.tryPush(std::move(cmd)); }
     bool tryPopCommand(ClientCommands& cmd) override { return command_queue_.tryPop(cmd); }
 

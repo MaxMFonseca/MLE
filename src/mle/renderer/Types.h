@@ -53,6 +53,10 @@ class Model;
 using ModelHnd = std::unique_ptr<Model>;
 using ModelRef = Model*;
 
+class Mesh;
+using MeshHnd = std::unique_ptr<Mesh>;
+using MeshRef = Mesh*;
+
 class Skeleton;
 using SkeletonHnd = std::unique_ptr<Skeleton>;
 using SkeletonRef = Skeleton*;

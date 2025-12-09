@@ -19,16 +19,7 @@ class ServerConnection {
         scp_(communication_protocol) {}
     virtual ~ServerConnection() = default;
 
-    void pushCmd(const ClientCommands& cmd) { scp_.pushCommand(cmd); }
-
-    void pump() {
-        scp_.pump();
-
-        ClientCommands cmd;
-        while (scp_.tryPopCommand(cmd)) {
-            std::visit([this](const auto& cmd) { handleCommand(std::forward<decltype(cmd)>(cmd)); }, cmd);
-        }
-    }
+    void pushCmd(ClientCommands&& cmd) { scp_.pushCommand(std::move(cmd)); }
 
     template <typename EvT>
     Expected<EvT> waitForEvent(std::chrono::milliseconds timeout) {
@@ -40,7 +31,7 @@ class ServerConnection {
 
             if (scp_.tryPopEvent(ev)) {
                 if (auto* ev_ptr = std::get_if<EvT>(&ev)) {
-                    return *ev_ptr;
+                    return std::move(*ev_ptr);
                 }
                 MLE_W("Received unexpected event type while waiting");
             }
@@ -53,12 +44,26 @@ class ServerConnection {
         }
     }
 
-    template <typename CmdT>
-    void handleCommand(const CmdT& /*cmd*/) {
-        MLE_W("Unhandled server command received");
+    Expected<ServerEvents> waitForEvent(std::chrono::milliseconds timeout) {
+        Stopwatch sw;
+
+        ServerEvents ev;
+        while (true) {
+            scp_.pump();
+
+            if (scp_.tryPopEvent(ev)) {
+                return ev;
+            }
+
+            if (sw.elapsed<std::chrono::milliseconds>() >= timeout) {
+                return std::unexpected(Result::TIMEOUT);
+            }
+
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
     }
 
-  private:
+  protected:
     SCP& scp_;
 };
 }  // namespace mle

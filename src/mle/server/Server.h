@@ -36,7 +36,7 @@ class Server {
   protected:
     virtual void shutdown() { MLE_I("Server shut down successfully after {}s", running_sw_.elapsedSecFloat()); }
 
-    void pushEvent(const ServerEvents& event) { scp_.pushEvent(event); }
+    void pushEvent(ServerEvents event) { scp_.pushEvent(std::move(event)); }
 
     virtual void update() = 0;
 

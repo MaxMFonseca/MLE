@@ -8,14 +8,14 @@
 namespace mle {
 
 Result GLTF::load(const Path& path) {
-    tinygltf::TinyGLTF loader;
-    std::string err;
-    std::string warn;
-
     if (!std::filesystem::exists(path)) {
         MLE_E("GLTF file does not exist: {}", path);
         return Result::FAILED_TO_OPEN;
     }
+
+    tinygltf::TinyGLTF loader;
+    std::string err;
+    std::string warn;
 
     bool is_binary = path.extension() == ".glb";
 
