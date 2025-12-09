@@ -64,3 +64,7 @@ target_include_directories(MLE PUBLIC json)
 # stdc++exp: C++ experimental library, for stacktrace
 # TODO: remove on release builds
 target_link_libraries(MLE stdc++exp)
+
+# ceral: C++11 serialization library
+target_include_directories(MLE PUBLIC ceral/include)
+target_link_libraries(MLE ${CEREAL_THREAD_LIBS})
