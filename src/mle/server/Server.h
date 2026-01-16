@@ -33,10 +33,15 @@ class Server {
 
     [[nodiscard]] const auto& getRunningStopwatch() const { return running_sw_; }
 
+    void pushEvent(ServerEvents event) {
+        if (player_connected_) {
+            scp_.pushEvent(std::move(event));
+        }
+    }
+    void pushConnectingEvent(ServerEvents event) { scp_.pushEvent(std::move(event)); }
+
   protected:
     virtual void shutdown() { MLE_I("Server shut down successfully after {}s", running_sw_.elapsedSecFloat()); }
-
-    void pushEvent(ServerEvents event) { scp_.pushEvent(std::move(event)); }
 
     virtual void update() = 0;
 
@@ -102,6 +107,9 @@ class Server {
 
   protected:
     SCP& scp_;
+
+    // FIXME: temporary single-player flag
+    bool player_connected_ = false;
 
   private:
     Stopwatch running_sw_{};
