@@ -12,13 +12,13 @@ void Logger::init() {
 
     // File sink
     file_sink_ = std::make_shared<spdlog::sinks::basic_file_sink_mt>("logs/latest.log", true);
-    file_sink_->set_pattern("[%L][%T.%e][%@][%!] %v");
+    file_sink_->set_pattern("[%L][%T.%e][%@][%!][%t] %v");
     auto file_level = as<LogLevel>(mle::RuntimeConfig::i().getInt("log.level.file").value_or(as<int>(MAX_LOG_LEVEL)));
     file_sink_->set_level(static_cast<spdlog::level::level_enum>(file_level));
 
     // Stdout sink
     stdout_sink_ = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
-    stdout_sink_->set_pattern("[%L][%T.%e][%s.%#][%!] %v%$");
+    stdout_sink_->set_pattern("[%L][%T.%e][%s.%#][%!][%t] %v%$");
     auto stdout_level = as<LogLevel>(mle::RuntimeConfig::i().getInt("log.level.stdout").value_or(as<int>(DEFAULT_LOG_LEVEL_STDOUT)));
     stdout_sink_->set_level(static_cast<spdlog::level::level_enum>(stdout_level));
 

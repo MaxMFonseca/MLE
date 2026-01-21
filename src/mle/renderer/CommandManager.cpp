@@ -2,6 +2,7 @@
 
 #include "Renderer.h"
 #include "mle/core/Assert.h"
+#include "mle/core/Logger.h"
 #include "mle/core/Unwrap.h"
 
 namespace mle {
@@ -196,6 +197,7 @@ CommandBuffer RendererCommandManager::getOTS(QueueDataIdx queue_data_idx) {
 
         if (!ots_pool_data.available_primary_buffers.empty()) {
             cmd = ots_pool_data.available_primary_buffers.back();
+            std::ignore = cmd.reset();
             ots_pool_data.available_primary_buffers.pop_back();
         } else {
             auto alloc_info = vk::CommandBufferAllocateInfo{};
@@ -279,7 +281,6 @@ void RendererCommandManager::submitOTSAsync(CommandBuffer&& cmd, vk::SubmitInfo2
 
 // NOLINTNEXTLINE(cppcoreguidelines-rvalue-reference-param-not-moved) enforcing ownership transfer
 void RendererCommandManager::reclaimOTS(CommandBuffer&& cmd) {
-    check(cmd().reset(vk::CommandBufferResetFlagBits::eReleaseResources));
     auto& q_data = queue_data_.at(cmd.queue_data_idx_);
     std::scoped_lock lock(q_data.pool_map_mutex);
     auto& pool_data = q_data.thread_ots_pool_map[cmd.tid()];

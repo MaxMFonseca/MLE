@@ -9,6 +9,8 @@
 
 // command buffers must be single threaded, so it is the user's responsibility to ensure that
 // get and submit are called from the same thread
+// FIXME: REWORK THIS WHOLE THING!!!!!!!!
+// This is extremely jank and bad and needs to be redone from the ground up
 
 namespace mle {
 class CommandBuffer {
