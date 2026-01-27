@@ -438,7 +438,7 @@ void VkCtx::pickImageFormats() {
 
     static constexpr std::array NORMALS{vk::Format::eR16G16Sfloat, vk::Format::eR16G16Unorm};
 
-    // FIXME: fix formats ffs, colors should be b10g10r10a2 if possible, but the current layer suff braks alpha if I do that. sooooooooooo fix
+    // FIXME: fix formats!, colors should be b10g10r10a2 if possible, but the current layer suff braks alpha if I do that.
     static constexpr std::array COLOR{vk::Format::eB8G8R8A8Unorm, vk::Format::eR8G8B8A8Unorm};
     static constexpr std::array STORAGE_4U8{vk::Format::eR8G8B8A8Unorm};
     static constexpr std::array STORAGE_F32{vk::Format::eR32Sfloat};
@@ -459,7 +459,7 @@ void VkCtx::pickImageFormats() {
                                                                        vk::FormatFeatureFlagBits2::eSampledImage | vk::FormatFeatureFlagBits2::eTransferSrc |
                                                                        vk::FormatFeatureFlagBits2::eTransferDst | vk::FormatFeatureFlagBits2::eBlitSrc |
                                                                        vk::FormatFeatureFlagBits2::eBlitDst | vk::FormatFeatureFlagBits2::eStorageImage;
-    // FIXME: FFS: this is dumb af
+    // FIXME: FFS: this is dumb af...
     static constexpr vk::FormatFeatureFlags2 STORAGE_REQUIRED_FEATURES =
         vk::FormatFeatureFlagBits2::eStorageImage | vk::FormatFeatureFlagBits2::eTransferSrc | vk::FormatFeatureFlagBits2::eTransferDst;
     static constexpr vk::FormatFeatureFlags2 STORAGE_4U8_REQUIRED_FEATURES = STORAGE_REQUIRED_FEATURES | vk::FormatFeatureFlagBits2::eSampledImage;

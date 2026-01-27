@@ -55,6 +55,8 @@ class Model {
     [[nodiscard]] auto getNodeCount() const { return nodes_.size(); }
     [[nodiscard]] const Node& getNode(usize index) const { return nodes_.at(index); }
     [[nodiscard]] usize getNodeIdxByName(const std::string& name) const;
+    [[nodiscard]] const auto& getMesh() const { return meshes_.at(0).mesh; }
+    [[nodiscard]] const auto& getMeshes() const { return meshes_; }
 
     [[nodiscard]] const std::vector<Animation>& getAnimations() const { return animations_; }
     [[nodiscard]] usize getAnimationIndexByName(const std::string& name) const;

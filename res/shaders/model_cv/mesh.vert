@@ -10,12 +10,13 @@ layout(location = 5) in vec4 ini_model0;
 layout(location = 6) in vec4 ini_model1;
 layout(location = 7) in vec4 ini_model2;
 layout(location = 8) in vec4 ini_model3;
+// FIXME: check if this is a bad way of doing this
+// I believe having mix and non mix pipelines/models would be better
 layout(location = 9) in int ini_color_mix_ioffset;
 
 layout(set = 0, binding = 0) uniform UBO {
   mat4 proj;
   mat4 view;
-  vec3 cam_pos;
 } ubo;
 
 layout(set = 0, binding = 1) readonly buffer Colors {
