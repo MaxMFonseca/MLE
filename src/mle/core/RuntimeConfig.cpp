@@ -40,6 +40,7 @@ void RuntimeConfig::init() {
 }
 
 void RuntimeConfig::addKey(const std::string& key, const std::string& desc) {
+    std::scoped_lock<std::mutex> lock(keys_mutex_);
     map_[key] = Key{
         .value = "",
         .description = desc,
@@ -99,24 +100,38 @@ void RuntimeConfig::log(const std::string& key) const {
     }
 }
 
+/// FIXME: do not lock everything! This could be done with atomics if I give up on string storage...
+/// or maybe simply split the locks for keys and listeners
 void RuntimeConfig::set(const std::string& key, const std::string& value) {
     if (!value.empty()) {
         std::scoped_lock<std::mutex> lock(keys_mutex_);
         MLE_I("RuntimeConfig set: {} = {}", key, value);
-        auto kit = map_.find(key);
-        if (kit != map_.end()) {
+        if (auto kit = map_.find(key); kit != map_.end()) {
             kit->second.value = value;
         }
     }
 
-    std::scoped_lock<std::mutex> lock(listeners_mutex_);
-    auto it = key_listeners_.find(key);
-    if (it != key_listeners_.end()) {
-        for (auto l_it = it->second.begin(); l_it != it->second.end(); ++l_it) {
-            auto remove = (*l_it)->cb_(value);
-            if (remove) {
-                l_it = it->second.erase(l_it);
-                --l_it;
+    std::vector<RuntimeConfigListenerRef> listeners;
+    {
+        std::scoped_lock<std::mutex> lock(listeners_mutex_);
+        if (auto it = key_listeners_.find(key); it != key_listeners_.end()) {
+            listeners.assign(it->second.begin(), it->second.end());
+        }
+    }
+
+    std::vector<RuntimeConfigListenerRef> to_remove;
+    for (auto* l : listeners) {
+        if (l && l->cb_ && l->cb_(value)) {
+            to_remove.push_back(l);
+        }
+    }
+
+    if (!to_remove.empty()) {
+        std::scoped_lock<std::mutex> lock(listeners_mutex_);
+        if (auto it = key_listeners_.find(key); it != key_listeners_.end()) {
+            for (auto* dead : to_remove) {
+                auto& vec = it->second;
+                std::ranges::remove(vec, dead);
             }
         }
     }
