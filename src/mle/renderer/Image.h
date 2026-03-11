@@ -8,6 +8,9 @@
 #include "mle/renderer/Utils.h"
 #include "mle/utils/Utils.h"
 
+/// TODO: create an Image ops file and move everything related to image operations there.
+/// Keep image as a resource only.
+
 namespace mle {
 struct ImageViewCreateInfo {
     vk::ComponentSwizzle r = vk::ComponentSwizzle::eIdentity;
