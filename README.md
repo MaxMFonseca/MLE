@@ -1,23 +1,16 @@
-# MLE (Max Lua Engine)
+# MLE
 
-MLE is a custom Vulkan-based voxel path-traced rendering engine purpose-built for large-scale open-world games. It combines high-performance C++ for core systems with Lua for user-modifiable game logic, providing a flexible and efficient development environment.
+MLE is a custom Vulkan based rendering engine purpose-built for large-scale open-world games. It combines high-performance C++ for core systems with Lua for user-modifiable game logic, providing a flexible and efficient development environment.
 
-The engine renders fully procedurally generated terrain, dynamic entities, and complex lighting interactions using a real-time voxel path tracer. It's designed for infinite, modifiable worlds with rich environmental interaction and minimal dependencies.
+The engine renders fully procedurally generated terrain, dynamic entities, and complex lighting interactions. It's designed for infinite, modifiable worlds with rich environmental interaction and minimal dependencies.
 
 This doc is very incomplete and will be updated as the project evolves. For now, it serves as a basic overview of the MLE engine and its features.
 
 ## Features
 
-- **Vulkan Path Tracing Core**
+- **Vulkan Core**
 
-  - Real-time voxel-based path tracing
-  - Block-based global illumination and colored light propagation
-
-- **Voxel World System**
-
-  - Infinite procedurally generated worlds
-  - Efficient memory layout with sparse octree entity representation
-  - Procedural terrain generation using random noise and fractal algorithms
+  - Real-time rendering systems
 
 - **Entity & Chunk Management**
 
