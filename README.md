@@ -12,41 +12,35 @@ This doc is very incomplete, and possibly wrong. It will be updated as the proje
 
   - Real-time rendering systems
 
-- **Entity & Chunk Management**
+* **Modding with Lua**
 
-  - Static entities aligned to the voxel grid
-  - Sparse octree structure for movable and large-scale entities
-  - Dynamic chunk loading and streaming for open-world scalability
+  * Lua scripting for gameplay and logic
+  * Safe bindings and helper functions for geometry, transforms, and asset references
 
-- **Modding with Lua**
+* **UI and Tools**
 
-  - Lua scripting for gameplay and logic
-  - Safe bindings and helper functions for geometry, transforms, and asset references
+  * Custom in-engine static UI system with post-processing support
+  * Tooling for asset generation, visualization, and debugging
 
-- **UI & Tools**
+* **Engine Internals**
 
   - Custom in-engine static UI system with post-processing support
   - Toolchain for asset generation, visualization, and debugging
 
-- **Engine Internals**
+* **Logging and Debugging**
 
-  - Zero-exception C++23 codebase with `Expected<T>` and `Result`-based error handling
-  - Explicit ownership model with `<T>Hnd` (owning) and `<T>Ref` (non-owning)
-  - Utility macros for assert, unreachable paths, and safe casting (`as<T>`, `asPtr<T>`)
+  * `spdlog`-based logging system
+  * Extensive macro support for logging, assertions, and debugging
 
-- Logging and Debugging
+* **Engine Tools**
 
-  - Spdlog based logging system
-  - Many used macros for logging, assertions, and debugging
-
-- Tools build for the engine using the engine
-
-  - These can be found in the `tools` directory and are built with the engine.
-  - Currently developing the MLECubes tool that will help create and visualize voxel-based assets.
+  * Internal tools built using the engine itself
+  * These tools are located in the `tools` directory
+  * The currently in-development `MLECubes` tool helps create and visualize voxel-based assets
 
 ## Building
 
-> **Requirements:**
+> **Requirements**
 >
 > - Clang v17+
 > - CMake 3.18+
@@ -73,16 +67,18 @@ Arguments after `--` are passed directly to the tool. The script handles environ
 
 ## Coding Conventions
 
-- No exceptions: all errors use `Expected<T>` and `Result`
-- Ownership is explicit:
-  - `<T>Hnd` = owning (`std::unique_ptr<T>`)
-  - `<T>Ref` = non-owning, must outlive the receiver
-- Safe casting helpers:
-  - `as<T>` replaces `static_cast<T>`
-  - `asPtr<T>` replaces `reinterpret_cast<T*>`
-- All public API elements must be documented using Doxygen-style comments
-- Inline and field comments are preferred for simplicity and readability
+* Exceptions are disabled; all errors use `Expected<T>` and `Result`
+* Ownership is explicit:
+
+  * `<T>Hnd` = owning (`std::unique_ptr<T>`)
+  * `<T>Ref` = non-owning and must outlive the receiver
+* Safe casting helpers:
+
+  * `as<T>` replaces `static_cast<T>`
+  * `asPtr<T>` replaces `reinterpret_cast<T*>`
+* Public API elements should be documented with Doxygen-style comments
+* Inline and field comments are preferred where they improve clarity without adding noise
 
 ## License
 
-This project is private and not licensed for external distribution at this time.
+This project is private and is not currently licensed for external distribution.
