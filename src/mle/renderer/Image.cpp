@@ -1,129 +1,180 @@
 #include "Image.h"
 
 #include <stb_image.h>
-#include <vulkan/vulkan_core.h>
 
-#include <typeinfo>
+#include <cstring>
+#include <mutex>
 #include <vulkan/vulkan_enums.hpp>
-#include <vulkan/vulkan_handles.hpp>
 #include <vulkan/vulkan_structs.hpp>
 
-#include "Renderer.h"
-#include "detail/VkContext.h"
-#include "mle/common/Assert.h"
-#include "mle/common/Utils.h"
-#include "mle/core/Core.h"
-#include "mle/renderer/Utils.h"
+#include "Buffer.h"
+#include "Utils.h"
+#include "VkCtx.h"
+#include "mle/core/Consts.h"
+#include "mle/core/Logger.h"
+#include "mle/renderer/Renderer.h"
+#include "vulkan/vulkan.hpp"
 
-namespace mle::renderer {
+namespace mle {
+namespace {
+[[maybe_unused]] std::pair<std::mutex&, std::vector<Image*>&> getAliveObjects() {
+    static std::vector<Image*> alloc_info;
+    static std::mutex mutex;
+    return {mutex, alloc_info};
+}
+
+void addAliveObject(Image* self) {
+    if constexpr (IS_DEBUG_BUILD) {
+        auto [m, v] = getAliveObjects();
+        std::scoped_lock lock(m);
+        v.emplace_back(self);
+    }
+}
+
+void removeAliveObject(Image* self) {
+    if constexpr (IS_DEBUG_BUILD) {
+        auto [m, v] = getAliveObjects();
+        std::scoped_lock lock(m);
+        std::erase(v, self);
+    }
+}
+}  // namespace
+
 ImageHnd Image::createHnd(const CI& ci) {
-    auto ret = std::make_unique<Image>();
-    ret->init(ci);
-    return ret;
+    auto img = std::make_unique<Image>();
+    img->init(ci);
+    return img;
 }
 
 Image::~Image() {
     if (!o_) {
         return;
     }
-
-    MLE_LOG_THIS_T;
-
     for (auto v : views_) {
-        detail::getDevice().destroy(v);
+        Renderer::i().destroy(v);
     }
     if (allocation_) {
-        vmaDestroyImage(detail::getVma(), o_, allocation_);
+        vmaDestroyImage(Renderer::i().vk().getVma(), o_, allocation_);
+        removeAliveObject(this);
     }
+}
+
+Image::Image(Image&& other) noexcept :
+    o_(other.o_),
+    vk_format_(other.vk_format_),
+    format_(other.format_),
+    usage_(other.usage_),
+    queue_data_idx_(other.queue_data_idx_),
+    extent_(other.extent_),
+    allocation_(other.allocation_),
+    allocation_info_(other.allocation_info_),
+    state_(other.state_),
+    views_(std::move(other.views_)) {
+    other.o_ = nullptr;
+    other.allocation_ = {};
+    other.allocation_info_ = {};
+    other.views_.clear();
+}
+
+Image& Image::operator=(Image&& other) noexcept {
+    if (this != &other) {
+        o_ = other.o_;
+        vk_format_ = other.vk_format_;
+        format_ = other.format_;
+        usage_ = other.usage_;
+        queue_data_idx_ = other.queue_data_idx_;
+        extent_ = other.extent_;
+        allocation_ = other.allocation_;
+        allocation_info_ = other.allocation_info_;
+        state_ = other.state_;
+        views_ = std::move(other.views_);
+        other.o_ = nullptr;
+        other.allocation_ = {};
+        other.allocation_info_ = {};
+        other.views_.clear();
+    }
+    return *this;
 }
 
 void Image::init(const CI& ci) {
-    MLE_T("Creating an image. extent: {}, format: {}, usage: {}, hnd: {}", ci.extent, vk::to_string(ci.format), vk::to_string(ci.usage), (void*)ci.o);
+    extent_ = ci.extent;
+    format_ = ci.format;
 
-    initImage(ci);
-}
+    if (ci.format != Format::SWAPCHAIN) {
+        vk_format_ = Renderer::i().vk().getVkImageFormat(ci.format);
+        usage_ = Renderer::i().vk().getVkImageUsage(ci.format);
+    } else {
+        vk_format_ = Renderer::i().frameRenderer().getSwapchainFormat();
+        usage_ = Renderer::i().frameRenderer().getSwapchianImageUsage();
+    }
 
-void Image::initImage(const CI& ci) {
-    MLE_ASSERT(ci.extent.x != 0 && ci.extent.y != 0);
+    usage_ |= ci.extra_usage;
 
-    if (!ci.o) {
-        vk::ImageCreateInfo image_ci = {};
+    if (!ci.non_owned_image) {
+        vk::ImageCreateInfo image_ci{};
         image_ci.imageType = vk::ImageType::e2D;
-        image_ci.format = ci.format;
-        image_ci.extent.width = ci.extent.x;
-        image_ci.extent.height = ci.extent.y;
+        image_ci.format = vk_format_;
+        image_ci.extent.width = extent_.x;
+        image_ci.extent.height = extent_.y;
         image_ci.extent.depth = 1;
         image_ci.mipLevels = 1;
         image_ci.arrayLayers = 1;
         image_ci.samples = vk::SampleCountFlagBits::e1;
         image_ci.tiling = vk::ImageTiling::eOptimal;
-        image_ci.usage = ci.usage;
+        image_ci.usage = usage_;
         image_ci.initialLayout = vk::ImageLayout::eUndefined;
         image_ci.sharingMode = vk::SharingMode::eExclusive;
 
-        VmaAllocationCreateInfo alloc_ci = {};
+        VmaAllocationCreateInfo alloc_ci{};
         alloc_ci.usage = VMA_MEMORY_USAGE_GPU_ONLY;
         alloc_ci.priority = 1.0F;
-        alloc_ci.requiredFlags = static_cast<VkMemoryPropertyFlags>(ci.required_mem_flags);
 
         VkImage vk_image = VK_NULL_HANDLE;
-        auto create_result = vmaCreateImage(detail::getVma(), rAs<VkImageCreateInfo*>(&image_ci), &alloc_ci, &vk_image, &allocation_, &allocation_info_);
-        if (create_result != VK_SUCCESS) {
-            core::unrecoverable("Failed to create image: {}", as<vk::Result>(create_result));
-        }
+
+        auto create_result = vmaCreateImage(Renderer::i().vk().getVma(), image_ci, &alloc_ci, &vk_image, &allocation_, &allocation_info_);
+        addAliveObject(this);
+        check(create_result);
         o_ = vk_image;
+
+        auto _ = createView();
     } else {
-        swapchain_ = true;
-        o_ = ci.o;
-    }
-
-    extent_ = {ci.extent.x, ci.extent.y};
-    format_ = ci.format;
-    image_usage_ = ci.usage;
-
-    if (!swapchain_) {
-        MLE_T("Creating default image view for image: {}", (void*)o_);
-        [[maybe_unused]] auto _ = createView();
+        o_ = ci.non_owned_image;
     }
 }
 
-usize Image::createView(const ViewCI& ci) {
-    MLE_LOG_THIS_T;
-
-    vk::ImageViewCreateInfo image_view_ci = {};
-
+vk::ImageView Image::createView(const ViewCI& ci) {
+    vk::ImageViewCreateInfo image_view_ci{};
     image_view_ci.image = o_;
     image_view_ci.viewType = vk::ImageViewType::e2D;
-    image_view_ci.format = format_;
+    image_view_ci.format = vk_format_;
     image_view_ci.components.r = ci.r;
     image_view_ci.components.g = ci.g;
     image_view_ci.components.b = ci.b;
     image_view_ci.components.a = ci.a;
-    if (image_usage_ & vk::ImageUsageFlagBits::eDepthStencilAttachment) {
-        image_view_ci.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eDepth;
-    } else {
-        image_view_ci.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
-    }
+    image_view_ci.subresourceRange.aspectMask =
+        (usage_ & vk::ImageUsageFlagBits::eDepthStencilAttachment) ? vk::ImageAspectFlagBits::eDepth : vk::ImageAspectFlagBits::eColor;
     image_view_ci.subresourceRange.baseMipLevel = 0;
     image_view_ci.subresourceRange.levelCount = 1;
     image_view_ci.subresourceRange.baseArrayLayer = 0;
     image_view_ci.subresourceRange.layerCount = 1;
 
-    vk::ImageView vkhnd = unwrap(detail::getDevice().createImageView(image_view_ci));
+    vk::ImageView vkhnd = unwrap(Renderer::i().vk().getDevice().createImageView(image_view_ci));
     views_.push_back(vkhnd);
-    return views_.size() - 1;
+    return vkhnd;
 }
 
-[[nodiscard]] vk::ImageView Image::getView(usize id) const {
-    MLE_ASSERT(!views_.empty());
-    if (id >= views_.size()) {
-        MLE_E("Image view id {} is out of range, using default view id 0", id);
-        id = 0;
+// TODO: SHOULD I DO THIS AUTO?
+void Image::checkQueueOwnership(const CommandBuffer& cmd) {
+    if (queue_data_idx_ == NO_QUEUE) {
+        queue_data_idx_ = cmd.queueDataIdx();
     }
-    return views_.at(id);
+    MLE_ASSERT_LOG(queue_data_idx_ == cmd.queueDataIdx(), "Queue ownership mismatch, transfer the ownerships! image: {}, cmd: {}", queue_data_idx_,
+                   cmd.queueDataIdx());
 }
 
-void Image::update(vk::CommandBuffer cmd, BufferRef buffer, vec2i extent, vec2i offset) {
+void Image::copyBuffer(const CommandBuffer& cmd, Buffer& src, vec2u extent, vec2i offset) {
+    checkQueueOwnership(cmd);
+
     if (extent.x == 0) {
         extent.x = extent_.x - offset.x;
     }
@@ -132,11 +183,9 @@ void Image::update(vk::CommandBuffer cmd, BufferRef buffer, vec2i extent, vec2i 
     }
 
     MLE_ASSERT(extent.x > 0 && extent.y > 0);
-    MLE_ASSERT(offset.x + extent.x <= extent_.x && offset.y + extent.y <= extent_.y);
+    MLE_ASSERT_LOG(offset.x + extent.x <= extent_.x && offset.y + extent.y <= extent_.y, "{} {} {}", offset, extent, extent_);
 
-    transitionState(cmd, State::TRANSFER_DST);
-
-    vk::BufferImageCopy region = {};
+    vk::BufferImageCopy region{};
     region.bufferOffset = 0;
     region.bufferRowLength = 0;
     region.bufferImageHeight = 0;
@@ -144,521 +193,688 @@ void Image::update(vk::CommandBuffer cmd, BufferRef buffer, vec2i extent, vec2i 
     region.imageSubresource.mipLevel = 0;
     region.imageSubresource.baseArrayLayer = 0;
     region.imageSubresource.layerCount = 1;
-    region.imageOffset = vk::Offset3D{static_cast<i32>(offset.x), static_cast<i32>(offset.y), 0};
-    region.imageExtent = vk::Extent3D{static_cast<u32>(extent.x), static_cast<u32>(extent.y), 1};
+    region.imageOffset = vk::Offset3D{offset.x, offset.y, 0};
+    region.imageExtent = toVkExtent3D(extent);
 
-    cmd.copyBufferToImage(buffer->get(), o_, vk::ImageLayout::eTransferDstOptimal, region);
+    transitionState(cmd, State::TRANSFER_DST);
+
+    cmd().copyBufferToImage(src.get(), o_, vk::ImageLayout::eTransferDstOptimal, region);
 }
 
-void Image::updateCopy(vk::CommandBuffer cmd, ImageRef src, Recti src_rect, Recti dst_rect) {
-    if (src_rect.size.x == 0) {
-        src_rect.size.x = src->getExtent().x - src_rect.pos.x;
+void Image::copyImage(const CommandBuffer& cmd, Image& src, vec2u extent, vec2i src_offset, vec2i dst_offset) {
+    checkQueueOwnership(cmd);
+    src.checkQueueOwnership(cmd);
+
+    if (extent.x == 0) {
+        extent.x = src.getExtent().x - src_offset.x;
     }
-    if (src_rect.size.y == 0) {
-        src_rect.size.y = src->getExtent().y - src_rect.pos.y;
-    }
-    if (dst_rect.size.x == 0) {
-        dst_rect.size.x = extent_.x - dst_rect.pos.x;
-    }
-    if (dst_rect.size.y == 0) {
-        dst_rect.size.y = extent_.y - dst_rect.pos.y;
+    if (extent.y == 0) {
+        extent.y = src.getExtent().y - src_offset.y;
     }
 
-    vk::ImageCopy2 region = {};
+    MLE_ASSERT(extent.x > 0 && extent.y > 0);
+    MLE_ASSERT(src_offset.x + extent.x <= src.getExtent().x && src_offset.y + extent.y <= src.getExtent().y);
+    MLE_ASSERT(dst_offset.x + extent.x <= extent_.x && dst_offset.y + extent.y <= extent_.y);
+
+    vk::ImageCopy2 region{};
     region.srcSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
     region.srcSubresource.mipLevel = 0;
     region.srcSubresource.baseArrayLayer = 0;
     region.srcSubresource.layerCount = 1;
-    region.srcOffset = vk::Offset3D{src_rect.pos.x, src_rect.pos.y, 0};
-
+    region.srcOffset = vk::Offset3D{src_offset.x, src_offset.y, 0};
     region.dstSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
     region.dstSubresource.mipLevel = 0;
     region.dstSubresource.baseArrayLayer = 0;
     region.dstSubresource.layerCount = 1;
-    region.dstOffset = vk::Offset3D{dst_rect.pos.x, dst_rect.pos.y, 0};
+    region.dstOffset = vk::Offset3D{dst_offset.x, dst_offset.y, 0};
+    region.extent = vk::Extent3D{extent.x, extent.y, 1};
 
-    region.extent = vk::Extent3D{
-        static_cast<uint32_t>(src_rect.size.x),
-        static_cast<uint32_t>(src_rect.size.y),
-        1,
-    };
-
-    vk::CopyImageInfo2 copy_info = {};
-    copy_info.srcImage = src->get();
+    vk::CopyImageInfo2 copy_info{};
+    copy_info.srcImage = src.get();
     copy_info.dstImage = o_;
     copy_info.srcImageLayout = vk::ImageLayout::eTransferSrcOptimal;
     copy_info.dstImageLayout = vk::ImageLayout::eTransferDstOptimal;
     copy_info.setRegions(region);
 
-    src->transitionState(cmd, State::TRANSFER_SRC);
+    src.transitionState(cmd, State::TRANSFER_SRC);
     transitionState(cmd, State::TRANSFER_DST);
-
-    cmd.copyImage2(copy_info);
+    cmd().copyImage2(copy_info);
 }
 
-void Image::updateBlit(vk::CommandBuffer cmd, ImageRef src, Recti src_rect, Recti dst_rect) {
-    if (src_rect.size.x == 0) {
-        src_rect.size.x = src->getExtent().x - src_rect.pos.x;
+void Image::blitImage(const CommandBuffer& cmd, Image& src, Recti src_rect, Recti dst_rect) {
+    checkQueueOwnership(cmd);
+    src.checkQueueOwnership(cmd);
+
+    if (src_rect.width() <= 0) {
+        src_rect.setWidth(as<int>(src.getExtent().x) - src_rect.width());
     }
-    if (src_rect.size.y == 0) {
-        src_rect.size.y = src->getExtent().y - src_rect.pos.y;
+    if (src_rect.height() <= 0) {
+        src_rect.setHeight(as<int>(src.getExtent().y) - src_rect.height());
     }
-    if (dst_rect.size.x == 0) {
-        dst_rect.size.x = extent_.x - dst_rect.pos.x;
+    if (dst_rect.width() <= 0) {
+        dst_rect.setWidth(as<int>(extent_.x) - dst_rect.width());
     }
-    if (dst_rect.size.y == 0) {
-        dst_rect.size.y = extent_.y - dst_rect.pos.y;
+    if (dst_rect.height() <= 0) {
+        dst_rect.setHeight(as<int>(extent_.y) - dst_rect.height());
     }
 
-    vk::ImageBlit2 blit = {};
+    MLE_ASSERT(src_rect.width() > 0 && src_rect.height() > 0);
+    MLE_ASSERT(dst_rect.width() > 0 && dst_rect.height() > 0);
+    MLE_ASSERT(src_rect.pos().x + src_rect.width() <= as<int>(src.getExtent().x) && src_rect.pos().y + src_rect.height() <= as<int>(src.getExtent().y));
+    MLE_ASSERT(dst_rect.pos().x + dst_rect.width() <= as<int>(extent_.x) && dst_rect.pos().y + dst_rect.height() <= as<int>(extent_.y));
+
+    vk::ImageBlit2 blit{};
     blit.srcSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
+    blit.srcSubresource.mipLevel = 0;
+    blit.srcSubresource.baseArrayLayer = 0;
     blit.srcSubresource.layerCount = 1;
-    blit.srcOffsets[0].x = src_rect.pos.x;
-    blit.srcOffsets[0].y = src_rect.pos.y;
+    blit.srcOffsets[0].x = src_rect.pos().x;
+    blit.srcOffsets[0].y = src_rect.pos().y;
     blit.srcOffsets[0].z = 0;
-    blit.srcOffsets[1].x = src_rect.pos.x + src_rect.size.x;
-    blit.srcOffsets[1].y = src_rect.pos.y + src_rect.size.y;
+    blit.srcOffsets[1].x = src_rect.pos().x + src_rect.size().x;
+    blit.srcOffsets[1].y = src_rect.pos().y + src_rect.size().y;
     blit.srcOffsets[1].z = 1;
     blit.dstSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
+    blit.dstSubresource.mipLevel = 0;
+    blit.dstSubresource.baseArrayLayer = 0;
     blit.dstSubresource.layerCount = 1;
-    blit.dstOffsets[0].x = dst_rect.pos.x;
-    blit.dstOffsets[0].y = dst_rect.pos.y;
+    blit.dstOffsets[0].x = dst_rect.pos().x;
+    blit.dstOffsets[0].y = dst_rect.pos().y;
     blit.dstOffsets[0].z = 0;
-    blit.dstOffsets[1].x = dst_rect.pos.x + dst_rect.size.x;
-    blit.dstOffsets[1].y = dst_rect.pos.y + dst_rect.size.y;
+    blit.dstOffsets[1].x = dst_rect.pos().x + dst_rect.size().x;
+    blit.dstOffsets[1].y = dst_rect.pos().y + dst_rect.size().y;
     blit.dstOffsets[1].z = 1;
 
-    vk::BlitImageInfo2 blit_info = {};
-    blit_info.srcImage = src->get();
+    vk::BlitImageInfo2 blit_info{};
+    blit_info.srcImage = src.get();
     blit_info.dstImage = o_;
     blit_info.srcImageLayout = vk::ImageLayout::eTransferSrcOptimal;
     blit_info.dstImageLayout = vk::ImageLayout::eTransferDstOptimal;
     blit_info.filter = vk::Filter::eLinear;
     blit_info.setRegions(blit);
 
-    src->transitionState(cmd, State::TRANSFER_SRC);
+    src.transitionState(cmd, State::TRANSFER_SRC);
     transitionState(cmd, State::TRANSFER_DST);
-
-    cmd.blitImage2(blit_info);
+    cmd().blitImage2(blit_info);
 }
 
-Image::FileInfo Image::readFileInfo(const std::string& path) {
-    int width = 0, height = 0, channels = 0;
-    int ok = stbi_info(path.c_str(), &width, &height, &channels);
-    if (!ok) {
-        core::unrecoverable("Failed to read image info from file: {}", path);
+namespace {
+const Pipeline* getBlendPipeline() {
+    static const Pipeline* pipeline;
+    if (pipeline == nullptr) {
+        Pipeline::CI pipeline_ci{};
+        pipeline_ci.vertex_shader = &Renderer::i().shaderCache().get("mle/ui/rect.vert");
+        pipeline_ci.fragment_shader = &Renderer::i().shaderCache().get("mle/blend.frag");
+        std::array color_attachment_formats = {Renderer::i().vk().getVkImageFormat(ImageFormat::COLOR)};
+        pipeline_ci.color_attachment_formats = color_attachment_formats;
+        auto blend_attachments = Pipeline::makeDefaultBlendAttachments<1>();
+        pipeline_ci.blend_attachments = blend_attachments;
+        pipeline_ci.topology = vk::PrimitiveTopology::eTriangleStrip;
+        pipeline_ci.cull_mode = vk::CullModeFlagBits::eNone;
+        pipeline_ci.push_descriptor = 0;
+
+        pipeline = &Renderer::i().pipelineCache().setPipeline("mle_ui_blend", pipeline_ci);
     }
-    return {.extent = {width, height}, .channels = channels};
+    return pipeline;
 }
+}  // namespace
 
-Image::RawData Image::readFile(const std::string& path, int target_channel_count) {
-    Image::RawData ret = {};
+void Image::blend(const CommandBuffer& cmd, Image& src, f32 opacity, Recti src_rect, Recti dst_rect) {
+    checkQueueOwnership(cmd);
+    src.checkQueueOwnership(cmd);
 
-    int width = 0, height = 0, channels_in_file = 0;
-
-    stbi_uc* pixels = stbi_load(path.c_str(), &width, &height, &channels_in_file, target_channel_count);
-
-    if (!pixels) {
-        core::unrecoverable("Failed to read image from file: {}", path);
+    if (src_rect.width() <= 0) {
+        src_rect.setWidth(as<int>(src.getExtent().x));
     }
-
-    ret.channels = target_channel_count == 0 ? channels_in_file : target_channel_count;
-    ret.extent = {width, height};
-
-    // FIXME: THIS... this is stupid
-    if (ret.channels == 3) {
-        ret.channels = 4;
-        ret.pixels.resize(width * height * 4);  // NOLINT
-        for (int i = 0; i < width * height; i++) {
-            ret.pixels[i * 4 + 0] = pixels[i * 3 + 0];  // NOLINT
-            ret.pixels[i * 4 + 1] = pixels[i * 3 + 1];  // NOLINT
-            ret.pixels[i * 4 + 2] = pixels[i * 3 + 2];  // NOLINT
-            ret.pixels[i * 4 + 3] = 0xFF;               // NOLINT
-        }
-    } else {
-        ret.pixels.resize(static_cast<usize>(width) * height * ret.channels);
-        memcpy(ret.pixels.data(), pixels, ret.pixels.size());
+    if (src_rect.height() <= 0) {
+        src_rect.setHeight(as<int>(src.getExtent().y));
     }
-
-    stbi_image_free(pixels);
-
-    MLE_T("Loaded image {}, size: {}, channel_count:{}", path, vec2f{width, height}, ret.channels);
-
-    return ret;
-}
-
-BufferHnd Image::createStagingBuffer(const void* data, vec2i extent, int channels) {
-    Buffer::CI staging_buffer_ci = {};
-    staging_buffer_ci.size = as<u64>(extent.x) * extent.y * channels;
-    staging_buffer_ci.usage = vk::BufferUsageFlagBits::eTransferSrc;
-    staging_buffer_ci.allocation_type = Buffer::CI::AllocationType::STAGING;
-
-    auto staging_buffer = Buffer::createHnd(staging_buffer_ci);
-    staging_buffer->update(data);
-
-    return staging_buffer;
-}
-
-ImageHnd Image::create(const RawData& data, vk::ImageUsageFlags usage, vk::Format format) {
-    MLE_ASSERT(data.extent.x > 0 && data.extent.y > 0);
-    MLE_ASSERT(data.channels > 0);
-
-    CI ci;
-    ci.extent = data.extent;
-    ci.format = format;
-    ci.usage = usage | vk::ImageUsageFlagBits::eTransferDst;
-
-    auto ret = createHnd(ci);
-
-    auto cmd = getOTSCmd(CmdType::GRAPHICS);
-
-    auto staging_buffer = createStagingBuffer(data);
-    ret->update(cmd, staging_buffer.get());
-
-    submitOTSWait(CmdType::GRAPHICS, cmd);
-
-    return ret;
-}
-
-void Image::transitionLayout(vk::CommandBuffer cmd, TransitionLayoutInfo info) {
-    if (current_layout_ == info.new_layout) {
-        return;
+    if (dst_rect.width() <= 0) {
+        dst_rect.setWidth(as<int>(extent_.x));
+    }
+    if (dst_rect.height() <= 0) {
+        dst_rect.setHeight(as<int>(extent_.y));
     }
 
-    vk::ImageMemoryBarrier2 barrier = {};
-    barrier.image = o_;
-    barrier.oldLayout = current_layout_;
-    barrier.newLayout = info.new_layout;
-    barrier.subresourceRange.baseMipLevel = 0;
-    barrier.subresourceRange.levelCount = 1;
-    barrier.subresourceRange.baseArrayLayer = 0;
-    barrier.subresourceRange.layerCount = 1;
-    if (image_usage_ & vk::ImageUsageFlagBits::eDepthStencilAttachment) {
-        barrier.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil;
-    } else {
-        barrier.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
+    dst_rect = dst_rect.clamp({0, 0, as<int>(extent_.x), as<int>(extent_.y)});
+
+    MLE_ASSERT(src_rect.width() > 0 && src_rect.height() > 0);
+    MLE_ASSERT(dst_rect.width() > 0 && dst_rect.height() > 0);
+    MLE_ASSERT(src_rect.pos().x + src_rect.width() <= as<int>(src.getExtent().x) && src_rect.pos().y + src_rect.height() <= as<int>(src.getExtent().y));
+    MLE_ASSERT_LOG(dst_rect.pos().x + dst_rect.width() <= as<int>(extent_.x) && dst_rect.pos().y + dst_rect.height() <= as<int>(extent_.y),
+                   "dst_rect:{} extent_:{}", dst_rect, extent_);
+
+    transitionState(cmd, State::COLOR_ATT);
+    src.transitionState(cmd, State::FS_READ);
+
+    vk::RenderingInfo ri{};
+    vk::RenderingAttachmentInfo color_att{};
+    color_att.imageView = this->getDefaultView();
+    color_att.imageLayout = vk::ImageLayout::eColorAttachmentOptimal;
+    color_att.loadOp = vk::AttachmentLoadOp::eLoad;
+    color_att.storeOp = vk::AttachmentStoreOp::eStore;
+
+    ri.setColorAttachments(color_att);
+    ri.renderArea.offset = vk::Offset2D{0, 0};
+    ri.renderArea.extent = toVkExtent2D(extent_);
+    ri.layerCount = 1;
+    ri.viewMask = 0;
+
+    cmd.get().beginRendering(ri);
+
+    auto dst_f = dst_rect.asF32();
+    vk::Viewport viewport;
+    viewport.x = dst_f.pos().x;
+    viewport.y = dst_f.pos().y;
+    viewport.width = dst_f.width();
+    viewport.height = dst_f.height();
+
+    vk::Rect2D scissor;
+    scissor.offset = vk::Offset2D{dst_rect.pos().x, dst_rect.pos().y};
+    scissor.extent = toVkExtent2D(dst_rect.size());
+
+    cmd.get().setViewport(0, viewport);
+    cmd.get().setScissor(0, scissor);
+
+    const auto* pipeline = getBlendPipeline();
+    cmd.get().bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline->get());
+
+    auto b0_0_in_tex = src.getDescriptorInfo();
+    auto s0 = pipeline->makeWrites(0, nullptr, &b0_0_in_tex);
+
+    cmd.get().pushDescriptorSet(vk::PipelineBindPoint::eGraphics, pipeline->getPipelineLayout(), 0, s0);
+
+    Rectf src_f = src_rect.asF32();
+    vec2f src_extent_f = vec2f(src.getExtent());
+
+    vec2f src_offset = src_f.pos() / src_extent_f;
+    vec2f src_size = src_f.size() / src_extent_f;
+
+    struct PC {
+        vec2f in_offset;
+        vec2f in_size;
+        f32 opacity;
+    } pc{};
+
+    pc.in_offset = src_offset;
+    pc.in_size = src_size;
+    pc.opacity = opacity;
+
+    cmd.get().pushConstants(pipeline->getPipelineLayout(), vk::ShaderStageFlagBits::eFragment, 0, sizeof(pc), &pc);
+
+    cmd.get().draw(4, 1, 0, 0);
+
+    cmd.get().endRendering();
+}
+
+BufferHnd Image::copyToBufferOTS(vec2u extent, vec2i offset) {
+    if (extent.x == 0) {
+        extent.x = extent_.x - offset.x;
+    }
+    if (extent.y == 0) {
+        extent.y = extent_.y - offset.y;
     }
 
-    barrier.srcStageMask = info.src_stage_mask;
-    barrier.srcAccessMask = info.src_access_mask;
-    barrier.dstStageMask = info.dst_stage_mask;
-    barrier.dstAccessMask = info.dst_access_mask;
+    auto& cmd_mgr = Renderer::i().cmdMgr();
+    auto cmd = cmd_mgr.getOTS(queue_data_idx_);
 
-    vk::DependencyInfo dependency_info = {};
-    dependency_info.setImageMemoryBarriers(barrier);
+    Buffer::CI buffer_ci{};
+    buffer_ci.size = as<usize>(extent.x) * extent.y * getChannelCount();
+    buffer_ci.usage = vk::BufferUsageFlagBits::eTransferDst;
+    buffer_ci.allocation_type = Buffer::CI::AllocationType::GPU_ONLY_HOST_READ;
+    auto buffer = Buffer::createHnd(buffer_ci);
 
-    cmd.pipelineBarrier2(dependency_info);
+    transitionState(cmd, State::TRANSFER_SRC);
 
-    current_layout_ = barrier.newLayout;
+    vk::BufferImageCopy2 region{};
+    region.bufferOffset = 0;
+    region.bufferRowLength = 0;
+    region.bufferImageHeight = 0;
+    region.imageSubresource.aspectMask = (format_ == ImageFormat::DEPTH) ? vk::ImageAspectFlagBits::eDepth : vk::ImageAspectFlagBits::eColor;
+    region.imageSubresource.mipLevel = 0;
+    region.imageSubresource.baseArrayLayer = 0;
+    region.imageSubresource.layerCount = 1;
+    region.imageOffset = vk::Offset3D{offset.x, offset.y, 0};
+    region.imageExtent = vk::Extent3D{extent.x, extent.y, 1};
+
+    vk::CopyImageToBufferInfo2 copy_info{};
+    copy_info.srcImage = o_;
+    copy_info.dstBuffer = buffer->get();
+    copy_info.srcImageLayout = vk::ImageLayout::eTransferSrcOptimal;
+    copy_info.setRegions(region);
+
+    cmd().copyImageToBuffer2(copy_info);
+
+    cmd_mgr.submitOTSWait(std::move(cmd));
+
+    return buffer;
 }
 
-void Image::changeOwnerQueue(CmdType curr, vk::CommandBuffer curr_cmd, CmdType next, vk::CommandBuffer next_cmd) {
-    if (curr == next) {
-        MLE_ASSERT_LOG(false, "Cannot change owner queue to the same queue");
-        return;
-    }
+void Image::clear(const CommandBuffer& cmd, vk::ClearColorValue color) {
+    checkQueueOwnership(cmd);
 
-    auto src_family = detail::getVk().getQueueIndex(curr);
-    auto dst_family = detail::getVk().getQueueIndex(next);
-
-    vk::ImageMemoryBarrier2KHR barrier = {};
-    barrier.image = o_;
-    barrier.oldLayout = current_layout_;
-    barrier.newLayout = current_layout_;
-    barrier.srcQueueFamilyIndex = static_cast<u32>(src_family);
-    barrier.dstQueueFamilyIndex = static_cast<u32>(dst_family);
-    barrier.subresourceRange.aspectMask = (image_usage_ & vk::ImageUsageFlagBits::eDepthStencilAttachment)
-                                              ? (vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil)
-                                              : vk::ImageAspectFlagBits::eColor;
-    barrier.subresourceRange.baseMipLevel = 0;
-    barrier.subresourceRange.levelCount = 1;
-    barrier.subresourceRange.baseArrayLayer = 0;
-    barrier.subresourceRange.layerCount = 1;
-    barrier.srcStageMask = vk::PipelineStageFlagBits2::eAllCommands;
-    barrier.srcAccessMask = vk::AccessFlagBits2::eMemoryWrite;
-    barrier.dstStageMask = vk::PipelineStageFlagBits2::eAllCommands;
-    barrier.dstAccessMask = vk::AccessFlagBits2::eMemoryRead;
-
-    vk::DependencyInfo dep_info = {};
-    dep_info.setImageMemoryBarriers(barrier);
-
-    curr_cmd.pipelineBarrier2(dep_info);
-    next_cmd.pipelineBarrier2(dep_info);
-}
-
-void Image::transitionState(vk::CommandBuffer cmd, State state) {
-    if (state == current_state_) {
-        return;
-    }
-
-    TransitionLayoutInfo info = {};
-
-    switch (current_state_) {
-        case State::INITIAL: {
-            switch (state) {
-                case State::TRANSFER_DST: {
-                    info.new_layout = vk::ImageLayout::eTransferDstOptimal;
-                    if (swapchain_) {
-                        info.src_stage_mask = vk::PipelineStageFlagBits2::eColorAttachmentOutput;
-                        info.src_access_mask = {};
-                    } else {
-                        info.src_stage_mask = {};
-                        info.src_access_mask = {};
-                    }
-                    info.dst_stage_mask = vk::PipelineStageFlagBits2::eTransfer;
-                    info.dst_access_mask = vk::AccessFlagBits2::eTransferWrite;
-                } break;
-                case State::COLOR_ATT: {
-                    info.new_layout = vk::ImageLayout::eAttachmentOptimal;
-                    info.src_stage_mask = {};
-                    info.src_access_mask = {};
-                    info.dst_stage_mask = vk::PipelineStageFlagBits2::eColorAttachmentOutput;
-                    info.dst_access_mask = vk::AccessFlagBits2::eColorAttachmentWrite;
-                } break;
-                case State::DEPTH_ATT: {
-                    info.new_layout = vk::ImageLayout::eAttachmentOptimal;
-                    info.src_stage_mask = {};
-                    info.src_access_mask = {};
-                    info.dst_stage_mask = vk::PipelineStageFlagBits2::eEarlyFragmentTests;
-                    info.dst_access_mask = vk::AccessFlagBits2::eDepthStencilAttachmentWrite;
-                } break;
-                case State::COMPUTE_RW: {
-                    info.new_layout = vk::ImageLayout::eGeneral;
-                    info.src_stage_mask = {};
-                    info.src_access_mask = {};
-                    info.dst_stage_mask = vk::PipelineStageFlagBits2::eComputeShader;
-                    info.dst_access_mask = vk::AccessFlagBits2::eShaderRead | vk::AccessFlagBits2::eShaderWrite;
-                } break;
-                default: {
-                    MLE_UNREACHABLE_LOG("Invalid state transition from INITIAL to {}", state);
-                } break;
-            }
-        } break;
-        case State::TRANSFER_SRC: {
-            switch (state) {
-                case State::TRANSFER_DST: {
-                    info.new_layout = vk::ImageLayout::eTransferDstOptimal;
-                    info.src_stage_mask = vk::PipelineStageFlagBits2::eTransfer;
-                    info.src_access_mask = vk::AccessFlagBits2::eTransferRead;
-                    info.dst_stage_mask = vk::PipelineStageFlagBits2::eTransfer;
-                    info.dst_access_mask = vk::AccessFlagBits2::eTransferWrite;
-                } break;
-                case State::COLOR_ATT: {
-                    info.new_layout = vk::ImageLayout::eAttachmentOptimal;
-                    info.src_stage_mask = vk::PipelineStageFlagBits2::eTransfer;
-                    info.src_access_mask = vk::AccessFlagBits2::eTransferRead;
-                    info.dst_stage_mask = vk::PipelineStageFlagBits2::eColorAttachmentOutput;
-                    info.dst_access_mask = vk::AccessFlagBits2::eColorAttachmentWrite;
-                } break;
-                default: {
-                    MLE_UNREACHABLE_LOG("Invalid state transition from TRANSFER_SRC to {}", state);
-                } break;
-            }
-        } break;
-        case State::TRANSFER_DST: {
-            switch (state) {
-                case State::PRESENT: {
-                    info.new_layout = vk::ImageLayout::ePresentSrcKHR;
-                    info.src_stage_mask = vk::PipelineStageFlagBits2::eTransfer;
-                    info.src_access_mask = vk::AccessFlagBits2::eTransferWrite;
-                    info.dst_stage_mask = vk::PipelineStageFlagBits2::eNone;
-                    info.dst_access_mask = {};
-                } break;
-                case State::COLOR_ATT: {
-                    info.new_layout = vk::ImageLayout::eAttachmentOptimal;
-                    info.src_stage_mask = vk::PipelineStageFlagBits2::eTransfer;
-                    info.src_access_mask = vk::AccessFlagBits2::eTransferWrite;
-                    info.dst_stage_mask = vk::PipelineStageFlagBits2::eColorAttachmentOutput;
-                    info.dst_access_mask = vk::AccessFlagBits2::eColorAttachmentWrite;
-                } break;
-                case State::SHADER_READ: {
-                    info.new_layout = vk::ImageLayout::eReadOnlyOptimal;
-                    info.src_stage_mask = vk::PipelineStageFlagBits2::eTransfer;
-                    info.src_access_mask = vk::AccessFlagBits2::eTransferWrite;
-                    info.dst_stage_mask = vk::PipelineStageFlagBits2::eFragmentShader;
-                    info.dst_access_mask = vk::AccessFlagBits2::eShaderRead;
-                } break;
-                case State::COMPUTE_RW: {
-                    info.new_layout = vk::ImageLayout::eGeneral;
-                    info.src_stage_mask = vk::PipelineStageFlagBits2::eTransfer;
-                    info.src_access_mask = vk::AccessFlagBits2::eTransferWrite;
-                    info.dst_stage_mask = vk::PipelineStageFlagBits2::eComputeShader;
-                    info.dst_access_mask = vk::AccessFlagBits2::eShaderRead | vk::AccessFlagBits2::eShaderWrite;
-                } break;
-                default: {
-                    MLE_UNREACHABLE_LOG("Invalid state transition from TRANSFER_DST to {}", state);
-                } break;
-            }
-        } break;
-        case State::COLOR_ATT: {
-            switch (state) {
-                case State::TRANSFER_SRC: {
-                    info.new_layout = vk::ImageLayout::eTransferSrcOptimal;
-                    info.src_stage_mask = vk::PipelineStageFlagBits2::eColorAttachmentOutput;
-                    info.src_access_mask = vk::AccessFlagBits2::eColorAttachmentWrite;
-                    info.dst_stage_mask = vk::PipelineStageFlagBits2::eTransfer;
-                    info.dst_access_mask = vk::AccessFlagBits2::eTransferRead;
-                } break;
-                case State::TRANSFER_DST: {
-                    info.new_layout = vk::ImageLayout::eTransferDstOptimal;
-                    info.src_stage_mask = vk::PipelineStageFlagBits2::eColorAttachmentOutput;
-                    info.src_access_mask = vk::AccessFlagBits2::eColorAttachmentWrite;
-                    info.dst_stage_mask = vk::PipelineStageFlagBits2::eTransfer;
-                    info.dst_access_mask = vk::AccessFlagBits2::eTransferWrite;
-                } break;
-                case State::SHADER_READ: {
-                    info.new_layout = vk::ImageLayout::eReadOnlyOptimal;
-                    info.src_stage_mask = vk::PipelineStageFlagBits2::eColorAttachmentOutput;
-                    info.src_access_mask = vk::AccessFlagBits2::eColorAttachmentWrite;
-                    info.dst_stage_mask = vk::PipelineStageFlagBits2::eFragmentShader;
-                    info.dst_access_mask = vk::AccessFlagBits2::eShaderRead;
-                } break;
-                default: {
-                    MLE_UNREACHABLE_LOG("Invalid state transition from COLOR_ATT to {}", state);
-                } break;
-            }
-        } break;
-        case State::PRESENT: {
-            switch (state) {
-                case State::TRANSFER_DST: {
-                    info.new_layout = vk::ImageLayout::eTransferDstOptimal;
-                    info.src_stage_mask = vk::PipelineStageFlagBits2::eColorAttachmentOutput;
-                    info.src_access_mask = {};
-                    info.dst_stage_mask = vk::PipelineStageFlagBits2::eTransfer;
-                    info.dst_access_mask = vk::AccessFlagBits2::eTransferWrite;
-                } break;
-                default: {
-                    MLE_UNREACHABLE_LOG("Invalid state transition from PRESENT to {}", state);
-                } break;
-            }
-        } break;
-        case State::DEPTH_ATT: {
-            switch (state) {
-                case State::SHADER_READ: {
-                    info.new_layout = vk::ImageLayout::eReadOnlyOptimal;
-                    info.src_stage_mask = vk::PipelineStageFlagBits2::eEarlyFragmentTests;
-                    info.src_access_mask = vk::AccessFlagBits2::eDepthStencilAttachmentWrite;
-                    info.dst_stage_mask = vk::PipelineStageFlagBits2::eFragmentShader;
-                    info.dst_access_mask = vk::AccessFlagBits2::eShaderRead;
-                } break;
-                default: {
-                    MLE_UNREACHABLE_LOG("Invalid state transition from DEPTH_ATT to {}", state);
-                } break;
-            }
-        } break;
-        case State::COMPUTE_RW: {
-            switch (state) {
-                case State::TRANSFER_SRC: {
-                    info.new_layout = vk::ImageLayout::eTransferDstOptimal;
-                    info.src_stage_mask = vk::PipelineStageFlagBits2::eComputeShader;
-                    info.src_access_mask = vk::AccessFlagBits2::eShaderRead | vk::AccessFlagBits2::eShaderWrite;
-                    info.dst_stage_mask = vk::PipelineStageFlagBits2::eTransfer;
-                    info.dst_access_mask = vk::AccessFlagBits2::eTransferRead;
-                } break;
-                case State::SHADER_READ: {
-                    info.new_layout = vk::ImageLayout::eReadOnlyOptimal;
-                    info.src_stage_mask = vk::PipelineStageFlagBits2::eComputeShader;
-                    info.src_access_mask = vk::AccessFlagBits2::eShaderRead | vk::AccessFlagBits2::eShaderWrite;
-                    info.dst_stage_mask = vk::PipelineStageFlagBits2::eFragmentShader;
-                    info.dst_access_mask = vk::AccessFlagBits2::eShaderRead;
-                } break;
-                default: {
-                    MLE_UNREACHABLE_LOG("Invalid state transition from COMPUTE to {}", state);
-                } break;
-            }
-        } break;
-        case State::SHADER_READ: {
-            switch (state) {
-                case State::TRANSFER_DST: {
-                    info.new_layout = vk::ImageLayout::eTransferDstOptimal;
-                    info.src_stage_mask = vk::PipelineStageFlagBits2::eFragmentShader;
-                    info.src_access_mask = vk::AccessFlagBits2::eShaderRead;
-                    info.dst_stage_mask = vk::PipelineStageFlagBits2::eTransfer;
-                    info.dst_access_mask = vk::AccessFlagBits2::eTransferWrite;
-                } break;
-                case State::COLOR_ATT: {
-                    info.new_layout = vk::ImageLayout::eAttachmentOptimal;
-                    info.src_stage_mask = vk::PipelineStageFlagBits2::eFragmentShader;
-                    info.src_access_mask = vk::AccessFlagBits2::eShaderRead;
-                    info.dst_stage_mask = vk::PipelineStageFlagBits2::eColorAttachmentOutput;
-                    info.dst_access_mask = vk::AccessFlagBits2::eColorAttachmentWrite;
-                } break;
-                case State::COMPUTE_RW: {
-                    info.new_layout = vk::ImageLayout::eGeneral;
-                    info.src_stage_mask = vk::PipelineStageFlagBits2::eFragmentShader;
-                    info.src_access_mask = vk::AccessFlagBits2::eShaderRead;
-                    info.dst_stage_mask = vk::PipelineStageFlagBits2::eComputeShader;
-                    info.dst_access_mask = vk::AccessFlagBits2::eShaderRead | vk::AccessFlagBits2::eShaderWrite;
-                } break;
-                case State::DEPTH_ATT: {
-                    info.new_layout = vk::ImageLayout::eAttachmentOptimal;
-                    info.src_stage_mask = vk::PipelineStageFlagBits2::eFragmentShader;
-                    info.src_access_mask = vk::AccessFlagBits2::eShaderRead;
-                    info.dst_stage_mask = vk::PipelineStageFlagBits2::eEarlyFragmentTests;
-                    info.dst_access_mask = vk::AccessFlagBits2::eDepthStencilAttachmentWrite;
-                } break;
-                default: {
-                    MLE_UNREACHABLE_LOG("Invalid state transition from SHADER_READ to {}", state);
-                } break;
-            }
-        }
-    }
-
-    transitionLayout(cmd, info);
-
-    current_state_ = state;
-}
-
-int Image::getFormatChannelCount(vk::Format format) {
-    switch (format) {
-        case vk::Format::eR8G8B8A8Unorm:
-        case vk::Format::eB8G8R8A8Unorm:
-        case vk::Format::eB8G8R8A8Srgb:
-        case vk::Format::eR8G8B8A8Srgb:
-            return 4;
-        case vk::Format::eR8G8B8Unorm:
-        case vk::Format::eB8G8R8Unorm:
-            return 3;
-        case vk::Format::eR8Unorm:
-        case vk::Format::eR8Snorm:
-            return 1;
-        default:
-            break;
-    }
-    MLE_UNREACHABLE_LOG("Unsupported format: {}", vk::to_string(format));
-}
-
-vk::Format Image::getDefaultFormatForChannelCount(int c) {
-    switch (c) {
-        case 1:
-            return vk::Format::eR8Unorm;
-        case 2:
-            return vk::Format::eR8G8Unorm;
-        case 3:
-        case 4:
-            return vk::Format::eR8G8B8A8Srgb;
-        default:
-            std::unreachable();
-            break;
-    }
-}
-
-u64 Image::getAllocationSize() const {
-    return allocation_info_.size;
-}
-
-u64 Image::getSizeInBytes() const {
-    return static_cast<u64>(extent_.x) * extent_.y * getFormatChannelCount(format_);
-}
-
-void Image::clear(vk::CommandBuffer cmd, const vk::ClearColorValue& color) {
     transitionState(cmd, State::TRANSFER_DST);
-    vk::ImageSubresourceRange range = {};
+    vk::ImageSubresourceRange range{};
     range.aspectMask = vk::ImageAspectFlagBits::eColor;
     range.baseMipLevel = 0;
     range.levelCount = 1;
     range.baseArrayLayer = 0;
     range.layerCount = 1;
-    cmd.clearColorImage(o_, vk::ImageLayout::eTransferDstOptimal, color, range);
+    cmd().clearColorImage(o_, vk::ImageLayout::eTransferDstOptimal, color, range);
 }
-}  // namespace mle::renderer
+
+void Image::clear(const CommandBuffer& cmd, vk::ClearDepthStencilValue depth) {
+    checkQueueOwnership(cmd);
+
+    transitionState(cmd, State::TRANSFER_DST);
+    vk::ImageSubresourceRange range{};
+    range.aspectMask = vk::ImageAspectFlagBits::eDepth;
+    range.baseMipLevel = 0;
+    range.levelCount = 1;
+    range.baseArrayLayer = 0;
+    range.layerCount = 1;
+    cmd().clearDepthStencilImage(o_, vk::ImageLayout::eTransferDstOptimal, depth, range);
+}
+
+BufferHnd Image::copyRaw(CommandBuffer& cmd, const RawData& data, vec2i offset) {
+    Buffer::CI staging_ci{};
+    staging_ci.size = data.pixels.size();
+    staging_ci.usage = vk::BufferUsageFlagBits::eTransferSrc;
+    staging_ci.allocation_type = Buffer::CI::AllocationType::STAGING;
+
+    MLE_ASSERT(offset.x + data.extent.x <= extent_.x && offset.y + data.extent.y <= extent_.y);
+    MLE_ASSERT(data.channels == getChannelCount());
+
+    auto staging = Buffer::createHnd(staging_ci);
+
+    staging->write(data.pixels.data(), data.pixels.size());
+
+    copyBuffer(cmd, *staging, data.extent, offset);
+
+    return staging;
+}
+
+Expected<Image::RawData> Image::readFile(const std::string& path, int desired_channels) {
+    MLE_ASSERT_LOG(!path.empty(), "Image path is empty");
+
+    if (std::filesystem::exists(path) == false) {
+        MLE_E("File does not exist: {}", path);
+        return std::unexpected(Result::NOT_FOUND);
+    }
+
+    int width = 0, height = 0, channels = 0;
+    stbi_uc* pixels = stbi_load(path.c_str(), &width, &height, &channels, desired_channels);
+    MLE_ASSERT_LOG(pixels && width > 0 && height > 0 && channels > 0, "Problem loading image: {}, pixels: {}, w: {}, h: {}, c: {}", path, as<void*>(pixels),
+                   width, height, channels);
+
+    if (desired_channels) {
+        channels = desired_channels;
+    }
+
+    Image::RawData data;
+    data.extent = vec2u{as<u32>(width), as<u32>(height)};
+    data.channels = channels;
+    data.pixels.resize(as<usize>(width) * height * channels);
+    std::memcpy(data.pixels.data(), pixels, data.pixels.size());
+
+    stbi_image_free(pixels);
+    return data;
+}
+
+[[nodiscard]] int Image::getChannelCount() const {
+    switch (format_) {
+        case ImageFormat::TEXTURE_4U:
+        case ImageFormat::TEXTURE_4SRGB:
+        case ImageFormat::STORAGE_4U8:
+        case ImageFormat::COLOR:
+        case ImageFormat::GBUF_PARAMS:
+            return 4;
+        case ImageFormat::NORMALS:
+        case ImageFormat::TEXTURE_2U:
+            return 2;
+        case ImageFormat::DEPTH:
+        case ImageFormat::TEXTURE_1U:
+        case ImageFormat::STORAGE_F32:
+        case ImageFormat::STORAGE_U32:
+            return 1;
+        default:
+            MLE_UNREACHABLE_LOG("Unsupported image format: {}", as<u32>(format_));
+    }
+};
+
+void Image::transitionLayout(const CommandBuffer& cmd, TransitionLayoutInfo info) {
+    if (layout_ == info.new_layout) {
+        return;
+    }
+
+    checkQueueOwnership(cmd);
+
+    vk::ImageMemoryBarrier2 barrier{};
+    barrier.oldLayout = layout_;
+    barrier.newLayout = info.new_layout;
+    barrier.srcStageMask = info.src_stage_mask;
+    barrier.srcAccessMask = info.src_access_mask;
+    barrier.dstStageMask = info.dst_stage_mask;
+    barrier.dstAccessMask = info.dst_access_mask;
+    barrier.image = o_;
+    barrier.subresourceRange.aspectMask = (usage_ & vk::ImageUsageFlagBits::eDepthStencilAttachment)
+                                              ? vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil
+                                              : vk::ImageAspectFlagBits::eColor;
+    barrier.subresourceRange.baseMipLevel = 0;
+    barrier.subresourceRange.levelCount = 1;
+    barrier.subresourceRange.baseArrayLayer = 0;
+    barrier.subresourceRange.layerCount = 1;
+
+    vk::DependencyInfo dep_info{};
+    dep_info.setImageMemoryBarriers(barrier);
+
+    cmd().pipelineBarrier2(dep_info);
+
+    layout_ = barrier.newLayout;
+}
+
+constexpr Image::StateProps Image::getStateProps(State state) {
+    switch (state) {
+        case State::INITIAL:
+            return {.layout = vk::ImageLayout::eUndefined, .stage = {}, .access = {}};
+        case State::PRESENT:
+            return {.layout = vk::ImageLayout::ePresentSrcKHR, .stage = vk::PipelineStageFlagBits2::eNone, .access = {}};
+        case State::TRANSFER_SRC:
+            return {
+                .layout = vk::ImageLayout::eTransferSrcOptimal, .stage = vk::PipelineStageFlagBits2::eTransfer, .access = vk::AccessFlagBits2::eTransferRead};
+        case State::TRANSFER_DST:
+            return {
+                .layout = vk::ImageLayout::eTransferDstOptimal, .stage = vk::PipelineStageFlagBits2::eTransfer, .access = vk::AccessFlagBits2::eTransferWrite};
+        case State::COLOR_ATT:
+            return {.layout = vk::ImageLayout::eAttachmentOptimal,
+                    .stage = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+                    .access = vk::AccessFlagBits2::eColorAttachmentWrite | vk::AccessFlagBits2::eColorAttachmentRead};
+        case State::DEPTH_ATT:
+            return {.layout = vk::ImageLayout::eAttachmentOptimal,
+                    .stage = vk::PipelineStageFlagBits2::eEarlyFragmentTests | vk::PipelineStageFlagBits2::eLateFragmentTests,
+                    .access = vk::AccessFlagBits2::eDepthStencilAttachmentWrite};
+        case State::FS_READ:
+            return {.layout = vk::ImageLayout::eShaderReadOnlyOptimal,
+                    .stage = vk::PipelineStageFlagBits2::eFragmentShader,
+                    .access = vk::AccessFlagBits2::eShaderRead};
+        case State::COMPUTE_RW:
+            return {.layout = vk::ImageLayout::eGeneral,
+                    .stage = vk::PipelineStageFlagBits2::eComputeShader,
+                    .access = vk::AccessFlagBits2::eShaderWrite | vk::AccessFlagBits2::eShaderRead};
+        case State::COMPUTE_R:
+            return {
+                .layout = vk::ImageLayout::eReadOnlyOptimal, .stage = vk::PipelineStageFlagBits2::eComputeShader, .access = vk::AccessFlagBits2::eShaderRead};
+        default:
+            MLE_UNREACHABLE_LOG("Invalid state: {}", state);
+            break;
+    }
+}
+
+void Image::transitionState(const CommandBuffer& cmd, State state) {
+    if (state == state_) {
+        return;
+    }
+
+    auto current_state_props = getStateProps(state_);
+    auto new_state_props = getStateProps(state);
+
+    TransitionLayoutInfo info = {};
+    info.new_layout = new_state_props.layout;
+    info.src_stage_mask = current_state_props.stage;
+    info.src_access_mask = current_state_props.access;
+    info.dst_stage_mask = new_state_props.stage;
+    info.dst_access_mask = new_state_props.access;
+
+    transitionLayout(cmd, info);
+
+    state_ = state;
+}
+
+void Image::ownershipRelease(const CommandBuffer& cmd, QueueDataIdx dst_queue_data_idx) {
+    if (dst_queue_data_idx == queue_data_idx_) {
+        return;
+    }
+
+    vk::ImageMemoryBarrier2 mb{};
+    mb.srcStageMask = vk::PipelineStageFlagBits2::eAllCommands;
+    mb.srcAccessMask = vk::AccessFlagBits2::eMemoryWrite | vk::AccessFlagBits2::eMemoryRead;
+    mb.dstStageMask = vk::PipelineStageFlagBits2::eNone;
+    mb.dstAccessMask = vk::AccessFlagBits2::eNone;
+    mb.srcQueueFamilyIndex = Renderer::i().cmdMgr().queueFamilyIdx(queue_data_idx_);
+    mb.dstQueueFamilyIndex = Renderer::i().cmdMgr().queueFamilyIdx(dst_queue_data_idx);
+    mb.image = o_;
+    mb.subresourceRange.aspectMask = (usage_ & vk::ImageUsageFlagBits::eDepthStencilAttachment)
+                                         ? vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil
+                                         : vk::ImageAspectFlagBits::eColor;
+    mb.subresourceRange.baseMipLevel = 0;
+    mb.subresourceRange.levelCount = 1;
+    mb.subresourceRange.baseArrayLayer = 0;
+    mb.subresourceRange.layerCount = 1;
+
+    vk::DependencyInfo dep{};
+    dep.imageMemoryBarrierCount = 1;
+    dep.pImageMemoryBarriers = &mb;
+
+    cmd().pipelineBarrier2(dep);
+
+    prev_queue_data_idx_ = queue_data_idx_;
+    queue_data_idx_ = INVALID_QUEUE;
+}
+
+std::optional<Semaphore> Image::ownershipReleaseOTS(QueueDataIdx dst_queue_data_idx) {
+    if (dst_queue_data_idx == queue_data_idx_) {
+        return {};
+    }
+
+    auto cmd = Renderer::i().cmdMgr().getOTS(queue_data_idx_);
+
+    ownershipRelease(cmd, dst_queue_data_idx);
+
+    vk::CommandBufferSubmitInfo command_buffer_info{};
+    command_buffer_info.commandBuffer = cmd.get();
+    command_buffer_info.deviceMask = 0;
+
+    vk::SubmitInfo2 submit_info{};
+    submit_info.setCommandBufferInfos(command_buffer_info);
+
+    auto semaphore = Renderer::i().syncMgr().acquireSemaphore();
+
+    vk::SemaphoreSubmitInfo signal_info{};
+    signal_info.semaphore = semaphore.get();
+    signal_info.stageMask = vk::PipelineStageFlagBits2::eAllCommands;
+    submit_info.setSignalSemaphoreInfos(signal_info);
+
+    Renderer::i().cmdMgr().submitOTSAsync(std::move(cmd), submit_info);
+
+    return semaphore;
+}
+
+void Image::ownershipAcquire(const CommandBuffer& cmd, vk::PipelineStageFlags2 dst_stage_mask, vk::AccessFlags2 dst_access_mask) {
+    MLE_ASSERT_LOG(queue_data_idx_ == INVALID_QUEUE, "Release wasn't called.");
+    MLE_ASSERT(prev_queue_data_idx_ != INVALID_QUEUE && prev_queue_data_idx_ != NO_QUEUE);
+    auto next_queue_data_idx = cmd.queueDataIdx();
+
+    vk::ImageMemoryBarrier2 mb{};
+    mb.srcStageMask = vk::PipelineStageFlagBits2::eNone;
+    mb.srcAccessMask = vk::AccessFlagBits2::eNone;
+    mb.dstStageMask = dst_stage_mask;
+    mb.dstAccessMask = dst_access_mask;
+    mb.srcQueueFamilyIndex = Renderer::i().cmdMgr().queueFamilyIdx(prev_queue_data_idx_);
+    mb.dstQueueFamilyIndex = Renderer::i().cmdMgr().queueFamilyIdx(next_queue_data_idx);
+    mb.image = o_;
+    mb.subresourceRange.aspectMask = (usage_ & vk::ImageUsageFlagBits::eDepthStencilAttachment)
+                                         ? vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil
+                                         : vk::ImageAspectFlagBits::eColor;
+    mb.subresourceRange.baseMipLevel = 0;
+    mb.subresourceRange.levelCount = 1;
+    mb.subresourceRange.baseArrayLayer = 0;
+    mb.subresourceRange.layerCount = 1;
+
+    vk::DependencyInfo dep{};
+    dep.imageMemoryBarrierCount = 1;
+    dep.pImageMemoryBarriers = &mb;
+
+    cmd().pipelineBarrier2(dep);
+
+    queue_data_idx_ = next_queue_data_idx;
+    prev_queue_data_idx_ = NO_QUEUE;
+}
+
+std::optional<Semaphore> Image::ownershipReleaseOTSAcquire(CommandBuffer& cmd, vk::PipelineStageFlags2 dst_stage_mask, vk::AccessFlags2 dst_access_mask) {
+    if (queue_data_idx_ == NO_QUEUE) {
+        queue_data_idx_ = cmd.queueDataIdx();
+        return {};
+    }
+    if (queue_data_idx_ == cmd.queueDataIdx()) {
+        return {};
+    }
+
+    auto semaphore = ownershipReleaseOTS(cmd.queueDataIdx());
+    ownershipAcquire(cmd, dst_stage_mask, dst_access_mask);
+    return semaphore;
+}
+
+void Image::ownershipAcquireOTSWait(QueueDataIdx dst_queue_data_idx) {
+    if (queue_data_idx_ == NO_QUEUE) {
+        queue_data_idx_ = dst_queue_data_idx;
+        return;
+    }
+    if (queue_data_idx_ == dst_queue_data_idx) {
+        return;
+    }
+    MLE_ASSERT_LOG(queue_data_idx_ == INVALID_QUEUE, "Release wasn't called.");
+
+    auto cmd = Renderer::i().cmdMgr().getOTS(dst_queue_data_idx);
+
+    ownershipAcquire(cmd);
+
+    Renderer::i().cmdMgr().submitOTSWait(std::move(cmd));
+}
+
+void Image::ownershipReleaseOTSAcquireOTSWait(GCmdType type) {
+    MLE_ASSERT(queue_data_idx_ != INVALID_QUEUE);
+
+    auto queue_data_idx = Renderer::i().cmdMgr().queueDataIdx(type);
+    if (queue_data_idx_ == NO_QUEUE) {
+        queue_data_idx_ = queue_data_idx;
+        return;
+    }
+    if (queue_data_idx_ == queue_data_idx) {
+        return;
+    }
+
+    auto cmd = Renderer::i().cmdMgr().getOTS(queue_data_idx);
+
+    auto semaphore = ownershipReleaseOTSAcquire(cmd);
+
+    vk::SemaphoreSubmitInfo wait_info{};
+    if (semaphore.has_value()) {
+        wait_info.semaphore = semaphore->get();
+        wait_info.stageMask = vk::PipelineStageFlagBits2::eAllCommands;
+    }
+
+    vk::CommandBufferSubmitInfo command_buffer_info{};
+    command_buffer_info.commandBuffer = cmd.get();
+    command_buffer_info.deviceMask = 0;
+
+    vk::SubmitInfo2 submit_info{};
+    if (semaphore.has_value()) {
+        submit_info.setWaitSemaphoreInfos(wait_info);
+    }
+    submit_info.setCommandBufferInfos(command_buffer_info);
+
+    Renderer::i().cmdMgr().submitOTSWait(std::move(cmd), submit_info);
+}
+
+constexpr u32 Image::getFormatChannelCount(vk::Format format) noexcept {
+    switch (format) {
+        case vk::Format::eR8Unorm:
+        case vk::Format::eR8Snorm:
+        case vk::Format::eR8Uint:
+        case vk::Format::eR8Sint:
+        case vk::Format::eR16Sfloat:
+        case vk::Format::eR16Unorm:
+        case vk::Format::eR16Snorm:
+        case vk::Format::eR16Uint:
+        case vk::Format::eR16Sint:
+        case vk::Format::eR32Sfloat:
+        case vk::Format::eR32Uint:
+        case vk::Format::eR32Sint:
+        case vk::Format::eD16Unorm:
+        case vk::Format::eD32Sfloat:
+        case vk::Format::eS8Uint:
+            return 1;
+
+        case vk::Format::eR8G8Unorm:
+        case vk::Format::eR8G8Snorm:
+        case vk::Format::eR8G8Uint:
+        case vk::Format::eR8G8Sint:
+        case vk::Format::eR16G16Sfloat:
+        case vk::Format::eR16G16Unorm:
+        case vk::Format::eR16G16Snorm:
+        case vk::Format::eR16G16Uint:
+        case vk::Format::eR16G16Sint:
+        case vk::Format::eR32G32Sfloat:
+        case vk::Format::eR32G32Uint:
+        case vk::Format::eR32G32Sint:
+        case vk::Format::eD24UnormS8Uint:
+        case vk::Format::eD32SfloatS8Uint:
+            return 2;
+
+        case vk::Format::eR8G8B8Unorm:
+        case vk::Format::eR8G8B8Snorm:
+        case vk::Format::eR8G8B8Uint:
+        case vk::Format::eR8G8B8Sint:
+        case vk::Format::eR16G16B16Sfloat:
+        case vk::Format::eR16G16B16Unorm:
+        case vk::Format::eR16G16B16Snorm:
+        case vk::Format::eR16G16B16Uint:
+        case vk::Format::eR16G16B16Sint:
+        case vk::Format::eR32G32B32Sfloat:
+        case vk::Format::eR32G32B32Uint:
+        case vk::Format::eR32G32B32Sint:
+            return 3;
+
+        case vk::Format::eR8G8B8A8Unorm:
+        case vk::Format::eR8G8B8A8Snorm:
+        case vk::Format::eR8G8B8A8Uint:
+        case vk::Format::eR8G8B8A8Sint:
+        case vk::Format::eB8G8R8A8Unorm:
+        case vk::Format::eB8G8R8A8Srgb:
+        case vk::Format::eR16G16B16A16Sfloat:
+        case vk::Format::eR16G16B16A16Unorm:
+        case vk::Format::eR16G16B16A16Snorm:
+        case vk::Format::eR16G16B16A16Uint:
+        case vk::Format::eR16G16B16A16Sint:
+        case vk::Format::eR32G32B32A32Sfloat:
+        case vk::Format::eR32G32B32A32Uint:
+        case vk::Format::eR32G32B32A32Sint:
+            return 4;
+
+        default:
+            MLE_UNREACHABLE_LOG("Unsupported format: {}", to_string(format));
+    }
+}
+
+[[nodiscard]] vk::DescriptorImageInfo Image::getDescriptorInfo(vk::Sampler sampler, vk::ImageView view) const {
+    vk::DescriptorImageInfo info{};
+    info.imageView = view ? view : getDefaultView();
+    info.sampler = sampler ? sampler : Renderer::i().textureCache().getSampler();
+    info.imageLayout = layout_;
+    return info;
+}
+
+void Image::logAliveObjects() {
+    if constexpr (IS_DEBUG_BUILD) {
+        auto [m, v] = getAliveObjects();
+        std::scoped_lock lock(m);
+        if (v.empty()) {
+            MLE_I("No alive images!");
+        } else {
+            for (const auto* i : v) {
+                MLE_C("Alive image: {}", *i);
+            }
+        }
+    }
+};
+}  // namespace mle

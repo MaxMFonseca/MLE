@@ -1,29 +1,96 @@
 #include "Buffer.h"
 
-#include <vulkan/vulkan_core.h>
+#include <vulkan/vulkan_structs.hpp>
 
-#include <expected>
-#include <vulkan/vulkan.hpp>
-
-#include "mle/common/Assert.h"
-#include "mle/common/Utils.h"
-#include "mle/core/Core.h"
+#include "mle/core/Assert.h"
+#include "mle/core/Logger.h"
 #include "mle/renderer/Renderer.h"
-#include "mle/renderer/Utils.h"
+#include "mle/renderer/Types.h"
 
-namespace mle::renderer {
-BufferHnd Buffer::createHnd(const CI& ci) {
-    auto ret = std::make_unique<Buffer>();
-    ret->init(ci);
-    return ret;
+namespace mle {
+namespace {
+[[maybe_unused]] std::pair<std::mutex&, std::vector<Buffer*>&> getAliveObjects() {
+    static std::vector<Buffer*> alloc_info;
+    static std::mutex mutex;
+    return {mutex, alloc_info};
 }
 
-void Buffer::init(const CI& ci) {
+void addAliveObject(Buffer* self) {
+    if constexpr (IS_DEBUG_BUILD) {
+        auto [m, v] = getAliveObjects();
+        std::scoped_lock lock(m);
+        v.emplace_back(self);
+    }
+}
+
+void removeAliveObject(Buffer* self) {
+    if constexpr (IS_DEBUG_BUILD) {
+        auto [m, v] = getAliveObjects();
+        std::scoped_lock lock(m);
+        std::erase(v, self);
+    }
+}
+}  // namespace
+
+Buffer::Buffer(Buffer&& other) noexcept :
+    o_(other.o_),
+    usage_(other.usage_),
+    allocation_(other.allocation_),
+    allocation_info_(other.allocation_info_),
+    size_(other.size_),
+    queue_data_idx_(other.queue_data_idx_),
+    mapped_data_(other.mapped_data_),
+    persistent_(other.persistent_),
+    can_be_mapped_(other.can_be_mapped_) {
+    other.size_ = 0;
+    other.usage_ = {};
+    other.allocation_ = {};
+    other.allocation_info_ = {};
+    other.mapped_data_ = nullptr;
+    other.persistent_ = false;
+    other.can_be_mapped_ = false;
+    other.queue_data_idx_ = INVALID_QUEUE;
+}
+
+Buffer& Buffer::operator=(Buffer&& other) noexcept {
+    if (this != &other) {
+        o_ = other.o_;
+        usage_ = other.usage_;
+        allocation_ = other.allocation_;
+        allocation_info_ = other.allocation_info_;
+        size_ = other.size_;
+        queue_data_idx_ = other.queue_data_idx_;
+        mapped_data_ = other.mapped_data_;
+        persistent_ = other.persistent_;
+        can_be_mapped_ = other.can_be_mapped_;
+
+        other.size_ = 0;
+        other.usage_ = {};
+        other.allocation_ = {};
+        other.allocation_info_ = {};
+        other.mapped_data_ = nullptr;
+        other.persistent_ = false;
+        other.can_be_mapped_ = false;
+        other.queue_data_idx_ = INVALID_QUEUE;
+    }
+    return *this;
+}
+
+BufferHnd Buffer::createHnd(const CI& ci) {
+    auto buffer = std::make_unique<Buffer>();
+    buffer->create(ci);
+    return buffer;
+}
+
+void Buffer::create(const CI& ci) {
+    MLE_ASSERT(ci.size > 0);
+
     MLE_T("Creating a buffer. size: {}, usage: {}", ci.size, vk::to_string(ci.usage));
 
     vk::BufferCreateInfo buffer_ci{};
     buffer_ci.size = ci.size;
     buffer_ci.usage = ci.usage;
+    buffer_ci.sharingMode = vk::SharingMode::eExclusive;
 
     VmaAllocationCreateInfo allocation_ci{};
 
@@ -35,7 +102,6 @@ void Buffer::init(const CI& ci) {
         case CI::AllocationType::GPU_ONLY_HOST_WRITE_SEQ:
             allocation_ci.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
             allocation_ci.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
-            // TODO: check VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT
             can_be_mapped_ = true;
             break;
         case CI::AllocationType::GPU_ONLY_HOST_READ:
@@ -56,11 +122,11 @@ void Buffer::init(const CI& ci) {
     }
 
     VkBuffer temp_buffer = VK_NULL_HANDLE;
-    auto create_result = vmaCreateBuffer(detail::getVma(), (VkBufferCreateInfo*)&buffer_ci, &allocation_ci,  // NOLINT
+    auto* vma = Renderer::i().vk().getVma();
+    auto create_result = vmaCreateBuffer(vma, buffer_ci, &allocation_ci,  // NOLINT
                                          &temp_buffer, &allocation_, &allocation_info_);
-    if (create_result != VK_SUCCESS) {
-        core::unrecoverable("Failed to create buffer. VkResult: {}", vk::Result(create_result));
-    }
+    check(create_result);
+    addAliveObject(this);
 
     o_ = temp_buffer;
     size_ = ci.size;
@@ -75,29 +141,26 @@ Buffer::~Buffer() {
     if (!o_) {
         return;
     }
-
     unmap();
-    vmaDestroyBuffer(detail::getVma(), o_, allocation_);
+    vmaDestroyBuffer(Renderer::i().vk().getVma(), o_, allocation_);
+    removeAliveObject(this);
 }
 
 void* Buffer::map() {
     if (!mapped_data_) {
-        auto map_result = vmaMapMemory(detail::getVma(), allocation_, &mapped_data_);
-        if (map_result != VK_SUCCESS) {
-            core::unrecoverable("Failed to map buffer memory. VkResult: {}", vk::Result(map_result));
-        }
+        check(vmaMapMemory(Renderer::i().vk().getVma(), allocation_, &mapped_data_));
     }
     return mapped_data_;
 }
 
 void Buffer::unmap() {
     if (mapped_data_ && !persistent_) {
-        vmaUnmapMemory(detail::getVma(), allocation_);
+        vmaUnmapMemory(Renderer::i().vk().getVma(), allocation_);
         mapped_data_ = nullptr;
     }
 }
 
-void Buffer::update(const void* data, u64 data_size, u64 offset) {
+void Buffer::write(const void* data, usize data_size, usize offset) {
     MLE_ASSERT(can_be_mapped_);
 
     if (data_size == max<u64>()) {
@@ -106,54 +169,247 @@ void Buffer::update(const void* data, u64 data_size, u64 offset) {
     MLE_ASSERT_LOG(data_size + offset <= size_, "Invalid buffer update. offset_({}) + size_({}) > m_size({})", offset, data_size, size_);
 
     map();
-    std::memcpy(getMappedWithOffset(offset), data, data_size);
+    std::memcpy(getMappedOffset(offset), data, data_size);
     unmap();
 }
 
-void Buffer::update(vk::CommandBuffer cmd, BufferRef src, u64 data_size, u64 offset) {
-    if (data_size == max<u64>()) {
-        data_size = src->size_ - offset;
+void Buffer::copy(CommandBuffer& cmd, BufferRef src, usize size, usize src_offset, usize dst_offset) {
+    if (size == max<usize>()) {
+        size = src->getSize() - src_offset;
     }
-    MLE_ASSERT_LOG(data_size + offset <= size_, "Invalid buffer update. offset_({}) + size_({}) > m_size({})", offset, data_size, size_);
+
+    MLE_ASSERT(queue_data_idx_ != INVALID_QUEUE && src->queue_data_idx_ != INVALID_QUEUE);
+    MLE_ASSERT_LOG(dst_offset + size <= size_, "Invalid buffer copy. dst_offset({}) + size({}) > m_size({})", dst_offset, size, size_);
+    MLE_ASSERT_LOG(src_offset + size <= src->getSize(), "Invalid buffer copy. src_offset({}) + size({}) > src.m_size({})", src_offset, size, src->getSize());
+    MLE_ASSERT_LOG(queue_data_idx_ == NO_QUEUE || queue_data_idx_ == cmd.queueDataIdx(),
+                   "Buffer copy across different queue families is not supported, transfer the ownerships. buffer: {}, cmd: {}", queue_data_idx_,
+                   cmd.queueDataIdx());
 
     vk::BufferCopy copy_region{};
-    copy_region.size = data_size;
-    cmd.copyBuffer(src->get(), o_, copy_region);
+    copy_region.srcOffset = src_offset;
+    copy_region.dstOffset = dst_offset;
+    copy_region.size = size;
+
+    cmd().copyBuffer(src->get(), o_, copy_region);
+
+    queue_data_idx_ = cmd.queueDataIdx();
 }
 
-BufferHnd Buffer::updateStaged(vk::CommandBuffer cmd, const void* data, u64 data_size, u64 offset) {
-    if (data_size == max<u64>()) {
-        data_size = size_ - offset;
+BufferHnd Buffer::writeStaged(CommandBuffer& cmd, const void* data, usize size, usize src_offset, usize dst_offset) {
+    if (size == max<usize>()) {
+        size = size_ - dst_offset;
     }
-    MLE_ASSERT_LOG(data_size + offset <= size_, "Invalid buffer update. offset_({}) + size_({}) > m_size({})", offset, data_size, size_);
 
-    CI staging_ci{};
-    staging_ci.size = data_size;
+    MLE_ASSERT_LOG(dst_offset + size <= size_, "Invalid buffer staged write. dst_offset({}) + size({}) > m_size({})", dst_offset, size, size_);
+    MLE_ASSERT_LOG(src_offset + size <= size, "Invalid buffer staged write. src_offset({}) + size({}) > size({})", src_offset, size, size);
+
+    CI staging_ci;
+    staging_ci.size = size;
     staging_ci.usage = vk::BufferUsageFlagBits::eTransferSrc;
     staging_ci.allocation_type = CI::AllocationType::STAGING;
 
-    auto staging_buffer = createHnd(staging_ci);
-    staging_buffer->update(data, data_size, 0);
+    auto staging_buffer = Buffer::createHnd(staging_ci);
+    staging_buffer->write(data, size, src_offset);
 
-    update(cmd, staging_buffer.get(), data_size, offset);
+    copy(cmd, staging_buffer.get(), size, 0, dst_offset);
 
     return staging_buffer;
 }
 
-vk::DescriptorBufferInfo Buffer::makeDescriptorInfo(u64 size, u64 offset) const {
-    if (size == max<u64>()) {
+vk::DescriptorBufferInfo Buffer::makeDescriptorInfo(const CommandBuffer& cmd, usize size, usize offset) {
+    MLE_ASSERT(queue_data_idx_ != INVALID_QUEUE);
+
+    if (size == max<usize>()) {
         size = size_ - offset;
     }
     MLE_ASSERT_LOG(size + offset <= size_, "Invalid buffer update. offset_({}) + size_({}) > m_size({})", offset, size, size_);
+
+    if (queue_data_idx_ == NO_QUEUE) {
+        queue_data_idx_ = cmd.queueDataIdx();
+    }
+
+    MLE_ASSERT_LOG(queue_data_idx_ == cmd.queueDataIdx(),
+                   "Buffer used in descriptor across different queue families is not supported, transfer the ownerships. buffer: {}, cmd: {}", queue_data_idx_,
+                   cmd.queueDataIdx());
 
     vk::DescriptorBufferInfo buffer_info{};
     buffer_info.buffer = o_;
     buffer_info.offset = offset;
     buffer_info.range = size;
+
     return buffer_info;
 }
 
-vk::DeviceAddress Buffer::getDeviceAddress() {
-    return detail::getDevice().getBufferAddress({o_});
+void* Buffer::getMappedOffset(usize offset) {
+    MLE_ASSERT(offset < size_);
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic) kind of the point of this function
+    return as<u8*>(map()) + offset;
 }
-}  // namespace mle::renderer
+
+vk::DeviceAddress Buffer::getDeviceAddress() {
+    return Renderer::i().vk().getDevice().getBufferAddress({o_});
+}
+
+void Buffer::ownershipRelease(CommandBuffer& cmd, QueueDataIdx dst_queue_data_idx) {
+    if (dst_queue_data_idx == queue_data_idx_) {
+        return;
+    }
+
+    vk::BufferMemoryBarrier2 mb{};
+    mb.srcStageMask = vk::PipelineStageFlagBits2::eAllCommands;
+    mb.srcAccessMask = vk::AccessFlagBits2::eMemoryWrite | vk::AccessFlagBits2::eMemoryRead;
+    mb.dstStageMask = vk::PipelineStageFlagBits2::eNone;
+    mb.dstAccessMask = vk::AccessFlagBits2::eNone;
+    mb.srcQueueFamilyIndex = Renderer::i().cmdMgr().queueFamilyIdx(queue_data_idx_);
+    mb.dstQueueFamilyIndex = Renderer::i().cmdMgr().queueFamilyIdx(dst_queue_data_idx);
+    mb.buffer = o_;
+    mb.offset = 0;
+    mb.size = size_;
+
+    vk::DependencyInfo dep{};
+    dep.bufferMemoryBarrierCount = 1;
+    dep.pBufferMemoryBarriers = &mb;
+
+    cmd().pipelineBarrier2(dep);
+
+    prev_queue_data_idx_ = queue_data_idx_;
+    queue_data_idx_ = INVALID_QUEUE;
+}
+
+void Buffer::ownershipAcquire(CommandBuffer& cmd, vk::PipelineStageFlags2 dst_stage_mask, vk::AccessFlags2 dst_access_mask) {
+    MLE_ASSERT_LOG(queue_data_idx_ == INVALID_QUEUE, "Release wasnt called.");
+    MLE_ASSERT(prev_queue_data_idx_ != INVALID_QUEUE && prev_queue_data_idx_ != NO_QUEUE);
+    auto next_queue_data_idx = cmd.queueDataIdx();
+
+    vk::BufferMemoryBarrier2 mb{};
+    mb.srcStageMask = vk::PipelineStageFlagBits2::eNone;
+    mb.srcAccessMask = vk::AccessFlagBits2::eNone;
+    mb.dstStageMask = dst_stage_mask;
+    mb.dstAccessMask = dst_access_mask;
+    mb.srcQueueFamilyIndex = Renderer::i().cmdMgr().queueFamilyIdx(prev_queue_data_idx_);
+    mb.dstQueueFamilyIndex = Renderer::i().cmdMgr().queueFamilyIdx(next_queue_data_idx);
+    mb.buffer = o_;
+    mb.offset = 0;
+    mb.size = size_;
+
+    vk::DependencyInfo dep{};
+    dep.bufferMemoryBarrierCount = 1;
+    dep.pBufferMemoryBarriers = &mb;
+
+    cmd().pipelineBarrier2(dep);
+
+    queue_data_idx_ = next_queue_data_idx;
+    prev_queue_data_idx_ = NO_QUEUE;
+}
+
+std::optional<Semaphore> Buffer::ownershipReleaseOTS(QueueDataIdx dst_queue_data_idx) {
+    if (dst_queue_data_idx == queue_data_idx_) {
+        return {};
+    }
+
+    MLE_ASSERT_LOG(queue_data_idx_ != INVALID_QUEUE, "Release wasnt called.");
+
+    auto cmd = Renderer::i().cmdMgr().getOTS(queue_data_idx_);
+
+    ownershipRelease(cmd, dst_queue_data_idx);
+
+    vk::CommandBufferSubmitInfo command_buffer_info{};
+    command_buffer_info.commandBuffer = cmd.get();
+    command_buffer_info.deviceMask = 0;
+
+    vk::SubmitInfo2 submit_info{};
+    submit_info.setCommandBufferInfos(command_buffer_info);
+
+    auto semaphore = Renderer::i().syncMgr().acquireSemaphore();
+
+    vk::SemaphoreSubmitInfo signal_info{};
+    signal_info.semaphore = semaphore.get();
+    signal_info.stageMask = vk::PipelineStageFlagBits2::eAllCommands;
+    submit_info.setSignalSemaphoreInfos(signal_info);
+
+    Renderer::i().cmdMgr().submitOTSAsync(std::move(cmd), submit_info);
+
+    return semaphore;
+}
+
+std::optional<Semaphore> Buffer::ownershipReleaseOTSAcquire(CommandBuffer& cmd, vk::PipelineStageFlags2 dst_stage_mask, vk::AccessFlags2 dst_access_mask) {
+    if (queue_data_idx_ == NO_QUEUE) {
+        queue_data_idx_ = cmd.queueDataIdx();
+        return {};
+    }
+    if (queue_data_idx_ == cmd.queueDataIdx()) {
+        return {};
+    }
+
+    auto semaphore = ownershipReleaseOTS(cmd.queueDataIdx());
+    ownershipAcquire(cmd, dst_stage_mask, dst_access_mask);
+    return semaphore;
+}
+
+void Buffer::ownershipReleaseOTSAcquireOTSWait(GCmdType type) {
+    MLE_ASSERT(queue_data_idx_ != INVALID_QUEUE);
+
+    auto queue_data_idx = Renderer::i().cmdMgr().queueDataIdx(type);
+    if (queue_data_idx_ == NO_QUEUE) {
+        queue_data_idx_ = queue_data_idx;
+        return;
+    }
+    if (queue_data_idx_ == queue_data_idx) {
+        return;
+    }
+
+    auto cmd = Renderer::i().cmdMgr().getOTS(queue_data_idx);
+
+    auto semaphore = ownershipReleaseOTSAcquire(cmd);
+
+    vk::SemaphoreSubmitInfo wait_info{};
+    if (semaphore.has_value()) {
+        wait_info.semaphore = semaphore->get();
+        wait_info.stageMask = vk::PipelineStageFlagBits2::eAllCommands;
+    }
+
+    vk::CommandBufferSubmitInfo command_buffer_info{};
+    command_buffer_info.commandBuffer = cmd.get();
+    command_buffer_info.deviceMask = 0;
+
+    vk::SubmitInfo2 submit_info{};
+    if (semaphore.has_value()) {
+        submit_info.setWaitSemaphoreInfos(wait_info);
+    }
+    submit_info.setCommandBufferInfos(command_buffer_info);
+
+    Renderer::i().cmdMgr().submitOTSWait(std::move(cmd), submit_info);
+}
+
+void Buffer::ownershipAcquireOTSWait(QueueDataIdx dst_queue_data_idx) {
+    if (queue_data_idx_ == NO_QUEUE) {
+        queue_data_idx_ = dst_queue_data_idx;
+        return;
+    }
+    if (queue_data_idx_ == dst_queue_data_idx) {
+        return;
+    }
+    MLE_ASSERT_LOG(queue_data_idx_ == INVALID_QUEUE, "Release wasnt called.");
+
+    auto cmd = Renderer::i().cmdMgr().getOTS(dst_queue_data_idx);
+
+    ownershipAcquire(cmd);
+
+    Renderer::i().cmdMgr().submitOTSWait(std::move(cmd));
+}
+
+void Buffer::logAliveObjects() {
+    if constexpr (IS_DEBUG_BUILD) {
+        auto [m, v] = getAliveObjects();
+        std::scoped_lock lock(m);
+        if (v.empty()) {
+            MLE_I("No alive buffers!");
+        } else {
+            for (const auto* i : v) {
+                MLE_C("Alive buffer: {}", *i);
+            }
+        }
+    }
+};
+
+}  // namespace mle

@@ -1,14 +1,17 @@
 #pragma once
 
 #include "Types.h"
-#include "mle/common/Assert.h"
-#include "mle/common/math/Types2D.h"
-#include "mle/renderer/Buffer.h"
-#include "mle/renderer/Renderer.h"
+#include "mle/core/Assert.h"
+#include "mle/math/Types2D.h"
+#include "mle/renderer/CommandManager.h"
+#include "mle/renderer/SyncManager.h"
+#include "mle/renderer/Utils.h"
+#include "mle/utils/Utils.h"
 
-namespace mle::renderer {
-/// Specifies parameters for creating an image view.
-/// Declaring it out of Image because of clang constructor bug
+/// TODO: create an Image ops file and move everything related to image operations there.
+/// Keep image as a resource only.
+
+namespace mle {
 struct ImageViewCreateInfo {
     vk::ComponentSwizzle r = vk::ComponentSwizzle::eIdentity;
     vk::ComponentSwizzle g = vk::ComponentSwizzle::eIdentity;
@@ -16,183 +19,113 @@ struct ImageViewCreateInfo {
     vk::ComponentSwizzle a = vk::ComponentSwizzle::eIdentity;
 };
 
-/**
- * @brief Represents a Vulkan image with associated memory allocation.
- *
- * This class wraps a `vk::Image` and manages its lifetime, memory allocation and data uploads using VMA.
- * It supports different image usage types such as color attachment, depth attachment, and transfer operations.
- * There are a bunch of helper functions for updating the image data, transitioning its state, and reading image files.
- *
- * All images must be owned by the graphics queue! I will not perform any checks for that.
- * So just be mindful of that.
- * If you want to do comput work on an image, use the g queue. Ask for a GRAPHICS cmd pool.
- *
- * It is fine to bind images on mt, but state transitions are not thread-safe. I still dont know how to propper handle that.
- * For now just be really careful with that.
- */
-class Image final : LiveCounter<Image> {
+class Image final {
   public:
-    /// Specifies parameters for image creation.
-    struct CreateInfo {
-        vk::Image o;                                      ///< Existing Vulkan image handle.
-        vec2i extent;                                     ///< Image size in pixels.
-        vk::Format format;                                ///< Pixel format.
-        vk::ImageUsageFlags usage;                        ///< Vulkan usage flags.
-        vk::MemoryPropertyFlags required_mem_flags = {};  ///< Required memory flags (optional).
-    };
-    using CI = CreateInfo;  ///< Alias for CreateInfo.
-
-    using ViewCI = ImageViewCreateInfo;  ///< Alias for ViewCreateInfo.
-
-    /// Describes the current state of the image.
     enum class State : u8 {
         INITIAL,       ///< Undefined initial state.
+        PRESENT,       ///< Used as source in a present operation.
         TRANSFER_SRC,  ///< Used as source in a transfer.
         TRANSFER_DST,  ///< Used as destination in a transfer.
         COLOR_ATT,     ///< Used as a color attachment.
         DEPTH_ATT,     ///< Used as a depth attachment.
-        PRESENT,       ///< Presentable (swapchain).
         COMPUTE_RW,    ///< Compute read/write.
-        SHADER_READ    ///< Readable in shaders. TODO: rename this to FS_READ and add COMPUTE_R
+        COMPUTE_R,     ///< Compute read only
+        FS_READ        ///< Readable in shaders.
     };
 
-  public:
-    Image(const Image&) = default;
-    Image& operator=(const Image&) = delete;
-    Image(Image&&) = delete;
-    Image& operator=(Image&&) = delete;
-
-    /**
-     * @brief Creates a Vulkan image with the specified configuration and returns a handle.
-     * @param ci Image creation info.
-     * @return An Image object initialized with the given parameters.
-     */
-    static ImageHnd createHnd(const CI& ci);
-
-    /**
-     * @brief Creates an empty image handle without initializing it.
-     * Use init(ci) to set up the image parameters.
-     */
-    Image() = default;
-
-    /// Destroys the image and associated resources.
-    ~Image();
-
-    /**
-     * @brief Initializes the image with the given parameters.
-     * @param ci Image creation info.
-     */
-    void init(const CI& ci);
-
-    /**
-     * @brief Uploads image data from a GPU buffer.
-     *
-     * Copies a region of data from a Vulkan buffer into this image. Both extent and offset are
-     * in pixels. If `extent` is zero, the full image size is assumed.
-     *
-     * @param cmd Command buffer used for the copy.
-     * @param buffer GPU buffer containing the source image data.
-     * @param extent Size of the region to copy. Defaults to full image.
-     * @param offset Offset in the destination image. Defaults to (0, 0).
-     */
-    void update(vk::CommandBuffer cmd, BufferRef buffer, vec2i extent = {0, 0}, vec2i offset = {0, 0});
-
-    /// Same as `update(cmd, buffer, {extent.x, extent.y}, {offset.x, offset.y})` but using a rect.
-    /// @see update(vk::CommandBuffer cmd, BufferRef buffer, vec2i extent, vec2i offset)
-    void update(vk::CommandBuffer cmd, BufferRef buffer, Recti rect) { update(cmd, buffer, {rect.size.x, rect.size.y}, {rect.pos.x, rect.pos.y}); }
-
-    void update(vk::CommandBuffer cmd, BufferRef buffer, Rectu rect) { update(cmd, buffer, {rect.size.x, rect.size.y}, {rect.pos.x, rect.pos.y}); }
-
-    /**
-     * @brief Performs a copy operation from another image.
-     *
-     * Copies a region of one image into this image.
-     *
-     * @param cmd Command buffer to record the copy.
-     * @param src Source image.
-     * @param src_rect Region of the source image to read from.
-     * @param dst_rect Region of this image to write into.
-     */
-    void updateCopy(vk::CommandBuffer cmd, ImageRef src, Recti src_rect = {}, Recti dst_rect = {});
-
-    /**
-     * @brief Performs a blit operation from another image.
-     *
-     * Copies a region of one image into this image.
-     *
-     * @param cmd Command buffer to record the blit.
-     * @param src Source image.
-     * @param src_rect Region of the source image to read from.
-     * @param dst_rect Region of this image to write into.
-     */
-    void updateBlit(vk::CommandBuffer cmd, ImageRef src, Recti src_rect = {}, Recti dst_rect = {});
-
-    /**
-     * @brief Transitions the image to a new logical state.
-     *
-     * Performs a layout transition and memory barrier so the image can be used in the given state.
-     *
-     * @param cmd Command buffer to record the transition.
-     * @param state New logical image state.
-     */
-    void transitionState(vk::CommandBuffer cmd, State state);
-
-    /**
-     * @brief Changes the ownership of the image to a different queue family.
-     *
-     * @param curr Current queue family index.
-     * @param next Next queue family index to transfer ownership to.
-     */
-    void changeOwnerQueue(CmdType curr, vk::CommandBuffer curr_cmd, CmdType next, vk::CommandBuffer next_cmd);
-
-    /// Clears the image with a specified color value.
-    void clear(vk::CommandBuffer cmd, const vk::ClearColorValue& color = {0.0F, 0.0F, 0.0F, 1.0F});
-
-    [[nodiscard]] auto getVkHnd() const { return o_; }        ///< Returns the Vulkan image handle.
-    [[nodiscard]] auto get() const { return getVkHnd(); }     /// Alias for getVkHnd().
-    [[nodiscard]] auto getExtent() const { return extent_; }  /// Returns the image size in pixels.
-    /// Returns the image size in pixels as a Vulkan extent structure (3D).
-    [[nodiscard]] vk::Extent3D getVkExtent3D() const { return {static_cast<u32>(extent_.x), static_cast<u32>(extent_.y), 1}; }
-    /// Returns the image size in pixels as a Vulkan extent structure (2D).
-    [[nodiscard]] vk::Extent2D getVkExtent2D() const { return {static_cast<u32>(extent_.x), static_cast<u32>(extent_.y)}; }
-    [[nodiscard]] auto getFormat() const { return format_; }                 ///< Returns the image format
-    [[nodiscard]] auto getImageUsage() const { return image_usage_; }        ///< Result the image usage flags.
-    [[nodiscard]] auto getCurrentLayout() const { return current_layout_; }  ///< Returns the current image layout.
-    [[nodiscard]] u64 getAllocationSize() const;                             ///< Returns the size of the image allocation in bytes.
-    [[nodiscard]] u64 getSizeInBytes() const;                                ///< Returns the size of the image in bytes (extent * format size).
-
-    /// Returns the view created with id
-    [[nodiscard]] vk::ImageView getView(usize id = 0) const;
-
-    static int getFormatChannelCount(vk::Format format);
-    static vk::Format getDefaultFormatForChannelCount(int c);
-
-    [[nodiscard]] f32 getAspectRatio() const { return static_cast<f32>(extent_.x) / static_cast<f32>(extent_.y); }
-
-    struct FileInfo {
-        vec2i extent;
-        int channels;
+    struct StateProps {
+        vk::ImageLayout layout;
+        vk::PipelineStageFlags2 stage;
+        vk::AccessFlags2 access;
     };
-    [[nodiscard]] static FileInfo readFileInfo(const std::string& path);
+
+    using Format = ImageFormat;
 
     struct RawData {
-        std::vector<u8> pixels;
-        vec2i extent;
+        vec2u extent;
         int channels;
+        bool srgb = true;
+        Bytes pixels;
     };
-    [[nodiscard]] static RawData readFile(const std::string& path, int target_channel_count = 0);
 
-    [[nodiscard]] static BufferHnd createStagingBuffer(const void* data, vec2i extent, int channels);
-    [[nodiscard]] static BufferHnd createStagingBuffer(const RawData& data) {
-        return createStagingBuffer(rAs<const void*>(data.pixels.data()), data.extent, data.channels);
-    }
-    static ImageHnd create(const RawData& data, vk::ImageUsageFlags usage, vk::Format format);
+    struct CreateInfo {
+        vec2u extent;
+        Format format;
+        vk::ImageUsageFlags extra_usage;
 
-    [[nodiscard]] usize createView(const ViewCI& ci = ViewCI{});
+        vk::Image non_owned_image = {};
+    };
+    using CI = CreateInfo;
+
+    using ViewCI = ImageViewCreateInfo;
+
+  public:
+    Image() = default;
+    ~Image();
+
+    Image(Image&& other) noexcept;
+    Image& operator=(Image&& other) noexcept;
+
+    MLE_NO_COPY(Image);
+
+    void init(const CI& ci);
+    void initSwapchain(vk::Image o);
+
+    void copyBuffer(const CommandBuffer& cmd, Buffer& src, vec2u extent = {0, 0}, vec2i offset = {0, 0});
+    void copyBuffer(const CommandBuffer& cmd, Buffer& src, Recti rect) { copyBuffer(cmd, src, vec2u{rect.size()}, {rect.pos()}); }
+    void copyImage(const CommandBuffer& cmd, Image& src, vec2u extent = {0, 0}, vec2i src_offset = {0, 0}, vec2i dst_offset = {0, 0});
+    void blitImage(const CommandBuffer& cmd, Image& src, Recti src_rect = {0, 0, 0, 0}, Recti dst_rect = {0, 0, 0, 0});
+    void blend(const CommandBuffer& cmd, Image& src, f32 opacity = 1, Recti src_rect = {0, 0, 0, 0}, Recti dst_rect = {0, 0, 0, 0});
+
+    [[nodiscard]] BufferHnd copyToBufferOTS(vec2u extent = {0, 0}, vec2i offset = {0, 0});
+
+    [[nodiscard]] BufferHnd copyRaw(CommandBuffer& cmd, const RawData& data, vec2i offset = {0, 0});
+
+    void clear(const CommandBuffer& cmd, vk::ClearColorValue color);
+    void clear(const CommandBuffer& cmd, const Color& color = Color::ZERO) { clear(cmd, toVkColor(color)); }
+    void clear(const CommandBuffer& cmd, vk::ClearDepthStencilValue depth);
+
+    void transitionState(const CommandBuffer& cmd, State state);
+
+    void ownershipRelease(const CommandBuffer& cmd, QueueDataIdx dst_queue_data_idx);
+    [[nodiscard]] std::optional<Semaphore> ownershipReleaseOTS(QueueDataIdx dst_queue_data_idx);
+    void ownershipAcquireOTSWait(QueueDataIdx dst_queue_data_idx);
+    void ownershipAcquire(const CommandBuffer& cmd, vk::PipelineStageFlags2 dst_stage_mask = vk::PipelineStageFlagBits2::eAllCommands,
+                          vk::AccessFlags2 dst_access_mask = vk::AccessFlagBits2::eMemoryWrite | vk::AccessFlagBits2::eMemoryRead);
+    [[nodiscard]] std::optional<Semaphore> ownershipReleaseOTSAcquire(CommandBuffer& cmd,
+                                                                      vk::PipelineStageFlags2 dst_stage_mask = vk::PipelineStageFlagBits2::eAllCommands,
+                                                                      vk::AccessFlags2 dst_access_mask = vk::AccessFlagBits2::eMemoryWrite |
+                                                                                                         vk::AccessFlagBits2::eMemoryRead);
+    void ownershipReleaseOTSAcquireOTSWait(GCmdType type);
+
+    [[nodiscard]] vk::Image get() const { return o_; }
+    [[nodiscard]] Format getFormat() const { return format_; }
+    [[nodiscard]] vk::Format getVkFormat() const { return vk_format_; }
+    [[nodiscard]] vk::ImageUsageFlags getUsage() const { return usage_; }
+    [[nodiscard]] vec2u getExtent() const { return extent_; }
+    [[nodiscard]] State getCurrentState() const { return state_; }
+    [[nodiscard]] vk::ImageLayout getLayout() const { return layout_; }
+    [[nodiscard]] vk::Extent2D getVkExtent() const { return {extent_.x, extent_.y}; }
+    [[nodiscard]] vk::Extent3D getVkExtent3D() const { return {extent_.x, extent_.y, 1}; }
+    [[nodiscard]] f32 aspect() const { return static_cast<f32>(extent_.x) / static_cast<f32>(extent_.y); }
+
+    [[nodiscard]] VmaAllocation getAllocation() const { return allocation_; }
+    [[nodiscard]] VmaAllocationInfo getAllocationInfo() const { return allocation_info_; }
+
+    [[nodiscard]] vk::ImageView getDefaultView() const { return views_.at(0); }
+    [[nodiscard]] vk::ImageView createView(const ViewCI& ci = {});
+
+    [[nodiscard]] int getChannelCount() const;
+
+    [[nodiscard]] vk::DescriptorImageInfo getDescriptorInfo(vk::Sampler sampler = nullptr, vk::ImageView view = nullptr) const;
+
+    static Expected<RawData> readFile(const std::string& path, int desired_channels = 0);
+
+    static ImageHnd createHnd(const CI& ci);
+
+    static void logAliveObjects();
 
   private:
-    void initImage(const CI& ci);
-
     struct TransitionLayoutInfo {
         vk::ImageLayout new_layout;
         vk::PipelineStageFlags2 src_stage_mask;
@@ -200,52 +133,67 @@ class Image final : LiveCounter<Image> {
         vk::PipelineStageFlags2 dst_stage_mask;
         vk::AccessFlags2 dst_access_mask;
     };
-    void transitionLayout(vk::CommandBuffer cmd, TransitionLayoutInfo info);
+    void transitionLayout(const CommandBuffer& cmd, TransitionLayoutInfo info);
+    void checkQueueOwnership(const CommandBuffer& cmd);
+
+    static constexpr StateProps getStateProps(State state);
+
+    static constexpr u32 getFormatChannelCount(vk::Format format) noexcept;
 
   private:
-    vk::Image o_;
-    vec2i extent_{};
-    vk::Format format_ = {};
-    vk::ImageUsageFlags image_usage_;
-    bool swapchain_ = false;
-
+    vk::Image o_{};
+    vk::Format vk_format_{};
+    ImageFormat format_ = ImageFormat::COUNT;
+    vk::ImageUsageFlags usage_;
+    QueueDataIdx queue_data_idx_ = NO_QUEUE;
+    QueueDataIdx prev_queue_data_idx_ = NO_QUEUE;
+    vec2u extent_{};
     VmaAllocation allocation_ = {};
     VmaAllocationInfo allocation_info_ = {};
-
-    State current_state_ = State::INITIAL;
-
-    vk::ImageLayout current_layout_ = vk::ImageLayout::eUndefined;
+    State state_ = State::INITIAL;
+    vk::ImageLayout layout_ = vk::ImageLayout::eUndefined;
 
     std::vector<vk::ImageView> views_;
 };
-
-}  // namespace mle::renderer
+}  // namespace mle
 
 namespace fmt {
-using namespace mle::renderer;  // NOLINT
 template <>
-struct formatter<Image::State> : formatter<std::string> {
+struct formatter<mle::Image::State> : formatter<std::string> {
     template <typename FormatContext>
-    constexpr auto format(Image::State v, FormatContext& ctx) const {
+    constexpr auto format(mle::Image::State v, FormatContext& ctx) const {
+        using mle::Image;
         switch (v) {
             case Image::State::INITIAL:
                 return format_to(ctx.out(), "INITIAL");
+            case Image::State::PRESENT:
+                return format_to(ctx.out(), "PRESENT");
             case Image::State::TRANSFER_SRC:
                 return format_to(ctx.out(), "TRANSFER_SRC");
             case Image::State::TRANSFER_DST:
                 return format_to(ctx.out(), "TRANSFER_DST");
             case Image::State::COLOR_ATT:
                 return format_to(ctx.out(), "COLOR_ATT");
-            case Image::State::PRESENT:
-                return format_to(ctx.out(), "PRESENT");
             case Image::State::DEPTH_ATT:
                 return format_to(ctx.out(), "DEPTH_ATT");
             case Image::State::COMPUTE_RW:
                 return format_to(ctx.out(), "COMPUTE_RW");
-            case Image::State::SHADER_READ:
-                return format_to(ctx.out(), "SHADER_READ");
+            case Image::State::COMPUTE_R:
+                return format_to(ctx.out(), "COMPUTE_R");
+            case Image::State::FS_READ:
+                return format_to(ctx.out(), "FS_READ");
         }
         MLE_TODO;
     }
 };
+
+template <>
+struct formatter<mle::Image> : formatter<std::string> {
+    template <typename FormatContext>
+    constexpr auto format(const mle::Image& v, FormatContext& ctx) const {
+        return fmt::format_to(ctx.out(), "vk: {}, format: {}, usage: {}, extent: {}", static_cast<void*>(v.get()), vk::to_string(v.getVkFormat()),
+                              vk::to_string(v.getUsage()), v.getExtent());
+    }
+};
+
 }  // namespace fmt

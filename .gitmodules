@@ -1,9 +1,6 @@
 [submodule "external/spdlog"]
 	path = external/spdlog
 	url = https://github.com/gabime/spdlog
-[submodule "external/glfw"]
-	path = external/glfw
-	url = https://github.com/glfw/glfw
 [submodule "external/glm"]
 	path = external/glm
 	url = https://github.com/g-truc/glm
@@ -28,3 +25,9 @@
 [submodule "external/dr_libs"]
 	path = external/dr_libs
 	url = https://github.com/mackron/dr_libs
+[submodule "external/SDL"]
+	path = external/SDL
+	url = https://github.com/libsdl-org/SDL.git
+[submodule "external/ceral"]
+	path = external/ceral
+	url = https://github.com/USCiLab/cereal.git

@@ -9,188 +9,161 @@
 
 #pragma once
 
+#include <chrono>
 #include <functional>
-#include <map>
-#include <set>
-#include <unordered_map>
 #include <utility>
-#include <vector>
 
-#include "mle/common/Flags.h"
-#include "mle/common/Types.h"
-#include "mle/common/math/Types.h"
-#include "mle/common/math/Types2D.h"
-#include "mle/window/Types.h"
-#include "mle/window/Utils.h"
+#include "Types.h"
+#include "mle/math/Types2D.h"
+#include "mle/utils/Stopwatch.h"
+#include "mle/utils/Types.h"
+#include "mle/utils/Utils.h"
 
-namespace mle::window {
-/// Listens for a specific key and invokes a callback when triggered.
+// TODO: Maybe run this on a separate thread.
+// along with window event handling
+namespace mle {
 class KeyListener final {
   public:
-    /// Callback function signature.
-    using CallbackFunction = std::function<void()>;
+    using CallbackFn = std::move_only_function<void()>;
 
   public:
-    KeyListener(const KeyListener&) = delete;
-    KeyListener& operator=(const KeyListener&) = delete;
-    KeyListener(KeyListener&&) = delete;
-    KeyListener& operator=(KeyListener&&) = delete;
+    MLE_NO_COPY_MOVE(KeyListener);
 
-    /// Constructs a key listener and signs it.
-    KeyListener(CallbackFunction&& callback, Key key, KeyState state = KeyState::PRESSED, KeyModFlags mods = KeyModFlagBits::NONE, int priority = 0) noexcept :
+    KeyListener(CallbackFn&& callback, Keybinding kb) :
         callback_(std::move(callback)),
-        key_(key),
-        state_(state),
-        mods_(mods),
-        priority_(priority) {
-        sign();
-    }
-    KeyListener() = default;  ///< Default constructor.
+        kb_(kb) {}
 
-    ~KeyListener() { unsign(); }  ///< Destructor. Automatically unsigns.
+    KeyListener(CallbackFn&& callback, Key key, KeyState state = KeyState::PRESSED, KeyModFlags mods = KeyModFlagBits::ANY) :
+        KeyListener(std::move(callback), Keybinding{.key = key, .state = state, .mods = mods}) {}
 
-    KeyListener& setCallback(CallbackFunction&& callback);  ///< Sets the callback function.
-    KeyListener& setKey(Key key);                           ///< Sets the key to listen for.
-    KeyListener& setState(KeyState state);                  ///< Sets the key state to listen for.
-    KeyListener& setMods(KeyModFlags mods);                 ///< Sets the key modifier flags.
-    KeyListener& setPriority(int priority);                 /// Sets the priority of the listener.
+    KeyListener() = default;
 
-    [[nodiscard]] auto getCallback() const { return callback_; }  ///< Returns the callback function.
-    [[nodiscard]] auto getKey() const { return key_; }            ///< Returns the key being listened for.
-    [[nodiscard]] auto getState() const { return state_; }        ///< Returns the key state being listened for.
-    [[nodiscard]] auto getMods() const { return mods_; }          ///< Returns the key modifier flags.
-    [[nodiscard]] auto getPriority() const { return priority_; }  ///< Returns the priority of the listener.
+    ~KeyListener() { unlisten(); }
 
-    [[nodiscard]] bool isSigned() const { return signed_; }  ///< Returns whether the listener is signed.
+    KeyListener& setCallback(CallbackFn&& callback);
+    KeyListener& setKey(Key key);
+    KeyListener& setState(KeyState state);
+    KeyListener& setMods(KeyModFlags mods);
+    KeyListener& setKeybinding(Keybinding kb);
+    KeyListener& setRepeat(bool enable);
 
-    [[nodiscard]] bool checkMods(bool shift, bool ctrl, bool alt) const;  ///< Checks if the given modifier state matches this listener.
-    [[nodiscard]] bool tryCall(bool shift, bool ctrl, bool alt) const;    ///< Attempts to call the callback function if the key state matches.
+    [[nodiscard]] auto getKb() const { return kb_; }
+    [[nodiscard]] auto getKey() const { return kb_.key; }
+    [[nodiscard]] auto getState() const { return kb_.state; }
+    [[nodiscard]] auto getMods() const { return kb_.mods; }
 
-    void sign();    ///< Signs the listener.
-    void unsign();  ///< Unsings the listener.
+    void listen();
+    void unlisten();
 
   private:
-    friend class UserInputManager;                  ///< Friend class to allow access to private members.
-    void setSigned(bool v = true) { signed_ = v; }  ///< Returns whether the listener is signed.
+    friend UserInputManager;
+    [[nodiscard]] bool checkMods(bool shift, bool ctrl, bool alt) const;
+    [[nodiscard]] bool tryCall(bool shift, bool ctrl, bool alt, bool text_active);
+    void call() { callback_(); }
 
   private:
-    CallbackFunction callback_{};              ///< Callback to invoke on match.
-    Key key_{};                                ///< Key being listened for.
-    KeyState state_{};                         ///< Key state to match.
-    KeyModFlags mods_ = KeyModFlagBits::NONE;  ///< Required key modifiers.
-    int priority_ = 0;                         ///< Execution priority.
-    bool signed_ = false;                      ///< Whether the listener is active.
+    CallbackFn callback_{};
+    Keybinding kb_{};
+    bool repeat_ = false;
+    bool listening_ = false;
 };
 
-/// Central input manager that handles key, mouse, scroll, and text input.
-class UserInputManager {
+class TextListener final {
   public:
-    UserInputManager(const UserInputManager&) = delete;
-    UserInputManager& operator=(const UserInputManager&) = delete;
-    UserInputManager(UserInputManager&&) = delete;
-    UserInputManager& operator=(UserInputManager&&) = delete;
+    using CallbackFn = std::move_only_function<void(char32)>;
 
-    /// Constructs a new input manager.
-    UserInputManager() = default;
+  public:
+    MLE_NO_COPY_MOVE(TextListener);
 
-    UserInputManager(std::vector<std::pair<Key, KeyState>> active_keys, std::unordered_map<u32, std::vector<KeyListenerRef>> listeners,
-                     IDVec<std::function<void(char32)>> text_listeners) :
-        active_keys_(std::move(active_keys)),
-        listeners_(std::move(listeners)),
-        text_listeners_(std::move(text_listeners)) {}
-    /// Destructor.
-    ~UserInputManager() = default;
+    explicit TextListener(CallbackFn&& callback) :
+        callback_(std::move(callback)) {}
 
-    /// Updates internal state each frame.
+    TextListener() = default;
+
+    ~TextListener() { unlisten(); }
+
+    TextListener& setCallback(CallbackFn&& callback);
+
+    void listen();
+    void unlisten();
+
+  private:
+    friend UserInputManager;
+    void call(char32 codepoint) { callback_(codepoint); }
+
+  private:
+    CallbackFn callback_{};
+};
+
+class UserInputManager {
+    MLE_SINGLETON(UserInputManager)
+
+  public:
     void update();
-
-    /// Updates internal state on frame end.
     void lateUpdate();
 
-    /// Sets the current cursor position in screen space.
-    void setCursorPos(const vec2d& pos);
+    [[nodiscard]] Expected<vec2f> getCursorPos() const;
+    [[nodiscard]] Expected<vec2f> getCursorPosNormalized() const;
+    [[nodiscard]] Expected<vec2f> getCursorDelta() const;
+    [[nodiscard]] Expected<f32> getScrollOffset() const;
 
-    /// Sets the scroll wheel offset.
-    void setScrollOffset(f64 offset);
-
-    /// Marks a key as pressed.
-    void setPressed(Key key);
-
-    /// Marks a key as released.
-    void setReleased(Key key);
-
-    /// Pushes a typed Unicode character to listeners.
-    void pushChar(char32 codepoint);
-
-    /// Returns the current state of the given key.
     [[nodiscard]] KeyState getState(Key key) const;
-
-    /// Returns the current cursor position in screen space.
-    [[nodiscard]] vec2f getCursorPos() const { return cursor_pos_; }
-
-    /// Returns the current normalized cursor position.
-    vec2f getCursorPosNormalized() const { return cursor_pos_normalized_; }
-
-    /// Returns the screen-space cursor delta since the last frame.
-    [[nodiscard]] vec2f getCursorDelta() const { return cursor_pos_delta_; }
-
-    /// Returns the current scroll offset.
-    [[nodiscard]] f32 getScrollOffset() const { return scroll_offset_; }
-
-    /// Returns true if the key is in the pressed state.
     bool isPressed(Key key) const;
-
-    /// Returns true if the key is in the released state.
     bool isReleased(Key key) const;
-
-    /// Returns true if the key is held down.
     bool isDown(Key key) const;
 
-    /// Returns true if the cursor is inside the given rect (in screen space).
-    bool isCursorInside(const Rectf& rect) { return rect.contains(cursor_pos_); }
+    bool isCursorInside(const Rectf& rect);
+    bool isCursorInsideNormalized(const Rectf& rect);
 
-    /// Returns true if the cursor is inside the given rect (in normalized space).
-    bool isCursorInsideNormalized(const Rectf& rect) { return rect.contains(cursor_pos_normalized_); }
-
-    /// Signs a key listener.
-    void signKeylistener(KeyListenerRef listener);
-
-    /// Unsigns a key listener.
-    void unsignKeylistener(KeyListenerRef listener);
-
-    /**
-     * @brief Adds a UTF-32 character input listener.
-     *
-     * @param callback Function to invoke when a character is typed.
-     * @return A unique ID used to remove the listener later.
-     * @note The callback receives a single `char32_t` codepoint.
-     */
-    ID addTextListener(std::function<void(char32)>&& callback);
-
-    /// Removes a text input listener by ID.
-    void removeTextListener(ID id);
+    bool isCtrl() const { return ctrl_; }
+    bool isShift() const { return shift_; }
+    bool isAlt() const { return alt_; }
 
   private:
-    /// Sets the state of a key.
-    void setKeyState(Key key, KeyState state);
+    friend Window;
+    friend KeyListener;
+    friend TextListener;
+
+    void init();
+
+    void setCursorPos(const vec2d& pos);
+    void setScrollOffset(f64 offset);
+
+    void setPressed(Key key);
+    void setReleased(Key key);
+
+    void pushChar(char32 codepoint);
+
+    void listenKey(KeyListenerRef listener);
+    void unlistenKey(KeyListenerRef listener);
+
+    void listenText(TextListenerRef listener);
+    void unlistenText(TextListenerRef listener);
+
+    void setMouseInsideWindow(bool inside);
 
   private:
-    std::vector<std::pair<Key, KeyState>> active_keys_;               ///< Active key states.
-    std::unordered_map<u32, std::vector<KeyListenerRef>> listeners_;  ///< Map of key to listeners.
-    IDVec<std::function<void(char32)>> text_listeners_;               ///< Text input listeners.
+    std::vector<std::tuple<Key, KeyState, Stopwatch>> active_keys_;
+    std::unordered_map<u32, std::vector<KeyListenerRef>> listeners_;
+    std::vector<TextListenerRef> text_listeners_;
+    std::vector<Key> text_input_;
 
-    bool shift_ = false;  ///< Current shift state.
-    bool ctrl_ = false;   ///< Current ctrl state.
-    bool alt_ = false;    ///< Current alt state.
+    bool shift_ = false;
+    bool ctrl_ = false;
+    bool alt_ = false;
 
-    vec2f cursor_pos_ = {nan<f32>(), nan<f32>()};       ///< Current cursor position.
-    vec2f cursor_pos_prev_ = {nan<f32>(), nan<f32>()};  ///< Previous cursor position.
+    bool mouse_inside_window_ = true;
+
+    vec2f cursor_pos_ = {nan<f32>(), nan<f32>()};
+    vec2f cursor_pos_prev_ = {nan<f32>(), nan<f32>()};
     vec2f cursor_pos_delta_{0};
 
-    vec2f cursor_pos_normalized_ = {nan<f32>(), nan<f32>()};        ///< Normalized cursor position.
-    vec2f cursor_pos_delta_normalized_ = {nan<f32>(), nan<f32>()};  ///< Normalized cursor delta.
+    vec2f cursor_pos_normalized_ = {nan<f32>(), nan<f32>()};
+    vec2f cursor_pos_delta_normalized_ = {nan<f32>(), nan<f32>()};
 
-    f32 scroll_offset_ = 0.0;       ///< Current scroll offset.
-    f32 scroll_offset_next_ = 0.0;  ///< Scroll offset accumulator.
+    f32 scroll_offset_ = 0.0;
+    f32 scroll_offset_next_ = 0.0;
+
+    f32 key_repeat_delay_s_ = 0.5F;
 };
-}  // namespace mle::window
+}  // namespace mle

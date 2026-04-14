@@ -1,52 +1,91 @@
 #pragma once
 
-#include <variant>
+#include "mle/core/Assert.h"
 
-#include "mle/common/math/Types3D.h"
 #define VULKAN_HPP_ASSERT(expr) ((void)0)
 #define VULKAN_HPP_DISPATCH_LOADER_DYNAMIC 1
+#define VULKAN_HPP_NO_EXCEPTIONS
 
-#include <spdlog/fmt/fmt.h>
 #include <vk_mem_alloc.h>
 
-#include <memory>
-#include <vulkan/vulkan.hpp>  // This must be the only Vulkan header included directly.
+#include <vulkan/vulkan.hpp>
 
-#include "mle/common/Assert.h"
-#include "mle/common/Types.h"
-#include "mle/common/Utils.h"
-#include "mle/common/math/Types.h"
-#include "mle/common/math/Types2D.h"
+#include "mle/math/Types.h"
+#include "mle/utils/Types.h"
 
-namespace mle::renderer {
-enum class DataType : u8 { F32, U32, I32, VEC2F, VEC3F, VEC4F, MAT2, MAT4, SAMPLER2D, COUNT, UNKNOWN };
+namespace mle {
+class Renderer;
+class VkCtx;
+class RendererCommandManager;
 
-enum class CmdType : u8 { GRAPHICS, TRANSFER, COMPUTE, INVALID };
-
-struct PushConstantField {
-    std::string name;
-    u64 offset;
-    u64 size;
-    DataType type;
-};
-
-struct PipelineVertexInputState {
-    std::vector<vk::VertexInputBindingDescription> binding_descriptions;
-    std::vector<vk::VertexInputAttributeDescription> attribute_descriptions;
-    vk::PipelineVertexInputStateCreateInfo ci;
-};
-
-namespace detail {
-class VkContext;
-class FencePool;
-class CommandPoolManager;
-class FrameRenderer;
-class ShaderCache;
-};  // namespace detail
+class Image;
+using ImageHnd = std::unique_ptr<Image>;
+using ImageRef = Image*;
 
 class Buffer;
 using BufferHnd = std::unique_ptr<Buffer>;
 using BufferRef = Buffer*;
+
+class Shader;
+using ShaderHnd = std::unique_ptr<Shader>;
+using ShaderRef = Shader*;
+
+class CommandBuffer;
+using CommandBufferHnd = std::unique_ptr<CommandBuffer>;
+using CommandBufferRef = CommandBuffer*;
+
+class RendererCommandManager;
+class ResetCommandPool;
+
+class Pipeline;
+using PipelineHnd = std::unique_ptr<Pipeline>;
+using PipelineRef = Pipeline*;
+
+class TextureAtlas;
+using TextureAtlasHnd = std::unique_ptr<TextureAtlas>;
+using TextureAtlasRef = TextureAtlas*;
+
+class Font;
+using FontHnd = std::unique_ptr<Font>;
+using FontRef = Font*;
+
+class Model;
+using ModelHnd = std::unique_ptr<Model>;
+using ModelRef = Model*;
+
+class Mesh;
+using MeshHnd = std::unique_ptr<Mesh>;
+using MeshRef = Mesh*;
+
+class Skeleton;
+using SkeletonHnd = std::unique_ptr<Skeleton>;
+using SkeletonRef = Skeleton*;
+
+class PipelineCache;
+
+enum class GCmdType : u8 { GRAPHICS = 0, COMPUTE = 1, TRANSFER = 2, G = GRAPHICS, C = COMPUTE, T = TRANSFER };
+
+using QueueDataIdx = u32;
+constexpr QueueDataIdx NO_QUEUE = max<QueueDataIdx>() - 1;
+constexpr QueueDataIdx INVALID_QUEUE = max<QueueDataIdx>();
+
+enum class ImageFormat : u8 {
+    DEPTH,
+    TEXTURE_4U,
+    TEXTURE_4SRGB,
+    TEXTURE_2U,
+    TEXTURE_1U,
+    GBUF_PARAMS,
+    NORMALS,
+    COLOR,
+    STORAGE_4U8,
+    STORAGE_F32,
+    STORAGE_U32,
+    COUNT,
+    SWAPCHAIN
+};
+
+constexpr u64 DEFAULT_TIMEOUT_NS = 1'000'000'000;
 
 struct BufferSlice {
     BufferRef buffer{};
@@ -54,149 +93,24 @@ struct BufferSlice {
     vk::DeviceSize offset = 0;
 };
 
-class Image;
-using ImageHnd = std::unique_ptr<Image>;
-using ImageRef = Image*;
-
-class Pipeline;
-using PipelineHnd = std::unique_ptr<Pipeline>;
-using PipelineRef = Pipeline*;
-
-class Shader;
-using ShaderHnd = std::unique_ptr<Shader>;
-using ShaderRef = Shader*;
-
-class Fence;
-using FenceHnd = std::unique_ptr<Fence>;
-using FenceRef = Fence*;
-
-class CommandPool;
-using CommandPoolHnd = std::unique_ptr<CommandPool>;
-using CommandPoolRef = CommandPool*;
-
-class CommandBuffer;
-using CommandBufferHnd = std::unique_ptr<CommandBuffer>;
-using CommandBufferRef = CommandBuffer*;
-
-class RenderingThread;
-using RenderingThreadHnd = std::unique_ptr<RenderingThread>;
-using RenderingThreadRef = RenderingThread*;
-
-struct Texture {
-    ImageRef image{};
-    u32 idx = 0;
-    bool ready = false;
-};
-
-struct PCNVertex {
-    vec3f pos{0.0F};
-    vec3f color{1.0F};
-    vec3f normal{0.0F};
-};
-
-struct TexVertex {
-    vec3f pos{0.0F};
-    vec2f uv{0.0F};
-};
-
-struct UploadVoxMeshData {
-    std::vector<PCNVertex> vertices;
-    std::vector<u32> indices;
-    f32 metalness = 0.0F;
-    f32 roughness = 0.0F;
-    f32 emissive = 0.0F;
-    bool recolor = false;
-    AABB aabb;
-};
-
-using UploadMeshData = std::variant<UploadVoxMeshData>;
-
-enum class UploadState : u8 { OK, UPLOADING, OUT };
-
-struct Model {
-    struct Mesh {
-        BufferHnd vertex_buffer;
-        BufferHnd index_buffer;
-        int index_count = 0;
-        f32 metalness = 0.0F;
-        f32 roughness = 0.0F;
-        f32 emissive = 0.0F;
-        bool recolor = false;
-
-        enum class Type : u8 { VOX };
-        Type type = Mesh::Type::VOX;
-    };
-    AABB aabb;
-    std::vector<Mesh> meshes;
-    UploadState state = UploadState::OUT;
-};
-using ModelHnd = std::unique_ptr<Model>;
-using ModelRef = Model*;
-
-struct UploadModelData {
-    std::vector<UploadMeshData> meshes;
-};
-
-struct TextureUpdateJobData {
-    BufferHnd buffer;
-    Rectu area;
-    u32 idx;
-};
-
-struct CmdPoolData {
-    vk::CommandPool o;
-    std::vector<vk::CommandBuffer> available_buffers;
-};
-
-struct WriteDescriptorSet {
-    vk::WriteDescriptorSet write;
-    std::vector<vk::DescriptorImageInfo> image_infos;
-};
-
 struct AttachmentInfo {
     ImageRef image{};
     vk::ImageView view{};
-    vk::AttachmentLoadOp load = vk::AttachmentLoadOp::eLoad;
-    vk::AttachmentStoreOp store = vk::AttachmentStoreOp::eStore;
+    vk::AttachmentLoadOp load_op = vk::AttachmentLoadOp::eLoad;
+    vk::AttachmentStoreOp store_op = vk::AttachmentStoreOp::eStore;
     vk::ClearValue clear_value{};
 };
-}  // namespace mle::renderer
 
-namespace fmt {
-using namespace mle::renderer;  // NOLINT
-
-template <>
-struct formatter<DataType> : formatter<std::string> {
-    template <typename FormatContext>
-    constexpr auto format(DataType v, FormatContext& ctx) const {
-        switch (v) {
-            case DataType::F32:
-                return format_to(ctx.out(), "F32");
-            case DataType::U32:
-                return format_to(ctx.out(), "U32");
-            case DataType::I32:
-                return format_to(ctx.out(), "I32");
-            case DataType::VEC2F:
-                return format_to(ctx.out(), "VEC2F");
-            case DataType::VEC3F:
-                return format_to(ctx.out(), "VEC3F");
-            case DataType::VEC4F:
-                return format_to(ctx.out(), "VEC4F");
-            case DataType::MAT2:
-                return format_to(ctx.out(), "MAT2");
-            case DataType::MAT4:
-                return format_to(ctx.out(), "MAT4");
-            case DataType::SAMPLER2D:
-                return format_to(ctx.out(), "SAMPLER2D");
-            case DataType::UNKNOWN:
-                return format_to(ctx.out(), "UNKNOWN");
-            case DataType::COUNT:
-                return format_to(ctx.out(), "COUNT");
-        }
-        MLE_TODO;
-    }
+struct GBuffer {
+    ImageHnd albedo_metal;
+    ImageHnd normal_roughness;
+    ImageHnd emissive;
+    ImageHnd depth;
 };
 
+}  // namespace mle
+
+namespace fmt {
 template <>
 struct formatter<vk::Result> : formatter<std::string> {
     template <typename FormatContext>
@@ -222,28 +136,66 @@ struct formatter<vk::Format> : formatter<std::string> {
 };
 
 template <>
-struct formatter<mle::renderer::CmdType> : formatter<std::string> {
+struct formatter<mle::GCmdType> : formatter<std::string> {
     template <typename FormatContext>
-    constexpr auto format(mle::renderer::CmdType cmd_type, FormatContext& ctx) const {
-        switch (cmd_type) {
-            case mle::renderer::CmdType::GRAPHICS:
+    constexpr auto format(mle::GCmdType type, FormatContext& ctx) const {
+        switch (type) {
+            case mle::GCmdType::GRAPHICS:
                 return format_to(ctx.out(), "GRAPHICS");
-            case mle::renderer::CmdType::TRANSFER:
-                return format_to(ctx.out(), "TRANSFER");
-            case mle::renderer::CmdType::COMPUTE:
+            case mle::GCmdType::COMPUTE:
                 return format_to(ctx.out(), "COMPUTE");
-            case mle::renderer::CmdType::INVALID:
-                return format_to(ctx.out(), "INVALID");
+            case mle::GCmdType::TRANSFER:
+                return format_to(ctx.out(), "TRANSFER");
+            default:
+                return format_to(ctx.out(), "UNKNOWN");
         }
-        MLE_TODO;
     }
 };
 
-// template <>
-// struct formatter<mle::renderer::Texture> : formatter<std::string> {
-//     template <typename FormatContext>
-//     constexpr auto format(const mle::renderer::Texture& texture, FormatContext& ctx) const {
-//         return format_to(ctx.out(), "[idx: {}, rect: {}, ar: {}]", texture.idx, texture.rect, texture.aspect_ratio);
-//     }
-// };
+template <>
+struct formatter<mle::ImageFormat> : formatter<std::string> {
+    template <typename FormatContext>
+    constexpr auto format(mle::ImageFormat format, FormatContext& ctx) const {
+        switch (format) {
+            case mle::ImageFormat::DEPTH:
+                return format_to(ctx.out(), "DEPTH");
+            case mle::ImageFormat::TEXTURE_4U:
+                return format_to(ctx.out(), "TEXTURE_4U");
+            case mle::ImageFormat::TEXTURE_4SRGB:
+                return format_to(ctx.out(), "TEXTURE_4SRGB");
+            case mle::ImageFormat::TEXTURE_2U:
+                return format_to(ctx.out(), "TEXTURE_2U");
+            case mle::ImageFormat::TEXTURE_1U:
+                return format_to(ctx.out(), "TEXTURE_1U");
+            case mle::ImageFormat::GBUF_PARAMS:
+                return format_to(ctx.out(), "GBUF_PARAMS");
+            case mle::ImageFormat::NORMALS:
+                return format_to(ctx.out(), "NORMALS");
+            case mle::ImageFormat::COLOR:
+                return format_to(ctx.out(), "COLOR");
+            case mle::ImageFormat::STORAGE_4U8:
+                return format_to(ctx.out(), "STORAGE_4U8");
+            case mle::ImageFormat::STORAGE_F32:
+                return format_to(ctx.out(), "STORAGE_F32");
+            case mle::ImageFormat::STORAGE_U32:
+                return format_to(ctx.out(), "STORAGE_U32");
+            case mle::ImageFormat::SWAPCHAIN:
+                return format_to(ctx.out(), "SWAPCHAIN");
+            case mle::ImageFormat::COUNT:
+                return format_to(ctx.out(), "COUNT");
+            default:
+                MLE_UNREACHABLE_LOG("Unknown ImageFormat: {}", as<mle::u8>(format));
+        }
+    }
+};
+
+template <>
+
+struct formatter<vk::DescriptorPoolSize> : formatter<std::string> {
+    template <typename FormatContext>
+    constexpr auto format(const vk::DescriptorPoolSize& size, FormatContext& ctx) const {
+        return format_to(ctx.out(), "{{type: {}, count: {}}}", vk::to_string(size.type), size.descriptorCount);
+    }
+};
+
 }  // namespace fmt

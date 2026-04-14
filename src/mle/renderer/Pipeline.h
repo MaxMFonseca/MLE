@@ -1,117 +1,164 @@
-/**
- * @file
- * @brief Vulkan graphics pipeline abstraction.
- */
-
 #pragma once
 
+#include "Shader.h"
 #include "Types.h"
-#include "glm/fwd.hpp"
-#include "mle/common/LiveCounter.h"
-#include "mle/common/math/Types.h"
+#include "mle/core/Assert.h"
+#include "vulkan/vulkan.hpp"
 
-namespace mle::renderer {
-/**
- * @brief Represents a Vulkan graphics pipeline.
- *
- * This class wraps a `vk::Pipeline` object and its associated layout,
- * managing dynamic states, push constants, blending, and other pipeline settings.
- */
-class Pipeline final : public LiveCounter<Pipeline> {
+namespace mle {
+class Pipeline final {
   public:
-    /// Configuration for creating a graphics pipeline.
-    /// TODO: I hate the fact that I use vectors here...
     struct CreateInfo {
-        ShaderRef vertex_shader = nullptr;    ///< Vertex shader module.
-        ShaderRef fragment_shader = nullptr;  ///< Fragment shader module.
-        ShaderRef compute_shader = nullptr;
-        vk::PrimitiveTopology topology = vk::PrimitiveTopology::eTriangleList;                                     ///< Primitive topology.
-        vk::PolygonMode polygon_mode = vk::PolygonMode::eFill;                                                     ///< Polygon rasterization mode.
-        vk::CullModeFlags cull_mode = vk::CullModeFlagBits::eBack;                                                 ///< Face culling mode.
-        vk::FrontFace front_face = vk::FrontFace::eCounterClockwise;                                               ///< Vertex winding order.
-        bool line_width_dynamic = false;                                                                           ///< Whether line width is dynamic.
-        std::vector<vk::Format> color_attachment_formats;                                                          ///< Color attachment formats.
-        std::vector<vk::PipelineColorBlendAttachmentState> blend_attachments;                                      ///< Blend states per attachment.
-        std::vector<vk::DynamicState> dynamic_states = {vk::DynamicState::eViewport, vk::DynamicState::eScissor};  ///< Enabled dynamic states.
-        std::vector<vk::DescriptorSetLayout> descriptor_set_layouts;  ///< Descriptor set layouts used by the pipeline.
-        bool depth = false;                                           ///< Whether depth testing is enabled.
-        bool depth_write = true;                                      ///< Whether depth writes are enabled.
+        Shader const* vertex_shader = nullptr;
+        Shader const* fragment_shader = nullptr;
+        Shader const* compute_shader = nullptr;
+        vk::PrimitiveTopology topology = vk::PrimitiveTopology::eTriangleList;
+        vk::PolygonMode polygon_mode = vk::PolygonMode::eFill;
+        vk::CullModeFlags cull_mode = vk::CullModeFlagBits::eBack;
+        vk::FrontFace front_face = vk::FrontFace::eCounterClockwise;
+        std::span<const vk::Format> color_attachment_formats;
+        std::span<const vk::PipelineColorBlendAttachmentState> blend_attachments;
+        std::span<const vk::DynamicState> dynamic_states;
+        bool depth = false;
+        bool depth_write = true;
         bool depth_bias = false;
+        u8 push_descriptor = max<u8>();
+
+        std::vector<std::pair<u8, vk::DescriptorSetLayout>> external_descriptor_set_layouts;
     };
 
     using CI = CreateInfo;  ///< Alias for CreateInfo.
-
   public:
-    Pipeline(const Pipeline&) = delete;
-    Pipeline(Pipeline&&) = delete;
-    Pipeline& operator=(const Pipeline&) = delete;
-    Pipeline& operator=(Pipeline&&) = delete;
+    MLE_NO_COPY_MOVE(Pipeline)
 
-    /// Constructs an empty Pipeline instance. Use `init` to initialize it.
-    Pipeline() = default;
-    /// Destroys the pipeline and associated Vulkan objects.
     ~Pipeline();
 
-    /**
-     * @brief Creates and returns a new pipeline handle.
-     *
-     * @param ci Configuration for the pipeline.
-     * @return A owning hnd to the created Pipeline instance.
-     */
-    static PipelineHnd createHnd(const CI& ci);
-
-    /**
-     * @brief Initializes the pipeline with the given configuration.
-     *
-     * @param ci Configuration for the pipeline.
-     */
     void init(const CI& ci);
 
-    /// Resets the pipeline to an uninitialized state.
-    void reset();
-
-    /// Returns the Vulkan pipeline object.
     [[nodiscard]] auto get() const { return o_; }
-    /// Returns the Vulkan pipeline object.
-    [[nodiscard]] auto getVkHnd() const { return get(); }
-
-    /// Returns true if the pipeline uses push constants.
-    [[nodiscard]] bool hasPushConstants() const { return pc_size_ > 0; }
-    /// Returns the size of push constants in bytes.
+    [[nodiscard]] auto hasPushConstants() const { return pc_size_ > 0; }
     [[nodiscard]] auto getPushConstantSize() const { return pc_size_; }
-    /// Returns the offset to fragment-stage push constants, or `max<u8>()` if not applicable.
     [[nodiscard]] auto getPushConstantFragOffset() const { return pc_frag_offset_; }
-    /// Returns the pipeline layout used by this pipeline.
     [[nodiscard]] auto getPipelineLayout() const { return pipeline_layout_; }
+    [[nodiscard]] auto hasInstance() const { return first_instance_binding_ != max<u8>(); }
+    [[nodiscard]] auto getFirstInstanceBinding() const { return first_instance_binding_; }
+    [[nodiscard]] auto isCompute() const { return compute_; }
+    [[nodiscard]] const Shader::PushConstantField& getPushConstantField(std::string_view name) const;
+    [[nodiscard]] const auto& getPushConstantFields() const { return pc_fields_; }
 
-    [[nodiscard]] bool hasInstance() const { return first_instance_binding_ != max<u8>(); }  ///< Returns true if the pipeline has instance attributes.
-    [[nodiscard]] u8 getFirstInstanceBinding() const { return first_instance_binding_; }     ///< Returns the first instance binding index.
-
-    [[nodiscard]] bool isCompute() const { return compute_; }  ///< Returns true if this is a compute pipeline.
-
-    /**
-     * @brief Finds a push constant field by name.
-     * @param name The name of the field.
-     * @return The push constant field or an empty/default-initialized one if not found.
-     */
-    [[nodiscard]] PushConstantField getPushConstantField(const std::string& name) const;
+    template <usize Size>
+    static constexpr std::array<vk::PipelineColorBlendAttachmentState, Size> makeDefaultBlendAttachments() {
+        std::array<vk::PipelineColorBlendAttachmentState, Size> blend_attachments{};
+        for (usize i = 0; i < Size; i++) {
+            blend_attachments[i].blendEnable = VK_TRUE;
+            blend_attachments[i].srcColorBlendFactor = vk::BlendFactor::eSrcAlpha;
+            blend_attachments[i].dstColorBlendFactor = vk::BlendFactor::eOneMinusSrcAlpha;
+            blend_attachments[i].colorBlendOp = vk::BlendOp::eAdd;
+            blend_attachments[i].srcAlphaBlendFactor = vk::BlendFactor::eSrcAlpha;
+            blend_attachments[i].dstAlphaBlendFactor = vk::BlendFactor::eDstAlpha;
+            blend_attachments[i].alphaBlendOp = vk::BlendOp::eMax;
+            blend_attachments[i].colorWriteMask =
+                vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
+        }
+        return blend_attachments;
+    }
+    static constexpr std::vector<vk::PipelineColorBlendAttachmentState> makeDefaultBlendAttachments(usize size) {
+        std::vector<vk::PipelineColorBlendAttachmentState> blend_attachments{};
+        blend_attachments.resize(size);
+        for (usize i = 0; i < size; i++) {
+            blend_attachments[i].blendEnable = VK_TRUE;
+            blend_attachments[i].srcColorBlendFactor = vk::BlendFactor::eSrcAlpha;
+            blend_attachments[i].dstColorBlendFactor = vk::BlendFactor::eOneMinusSrcAlpha;
+            blend_attachments[i].colorBlendOp = vk::BlendOp::eAdd;
+            blend_attachments[i].srcAlphaBlendFactor = vk::BlendFactor::eSrcAlpha;
+            blend_attachments[i].dstAlphaBlendFactor = vk::BlendFactor::eDstAlpha;
+            blend_attachments[i].alphaBlendOp = vk::BlendOp::eMax;
+            blend_attachments[i].colorWriteMask =
+                vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
+        }
+        return blend_attachments;
+    }
 
   private:
-    /// Creates the internal pipeline layout based on the configuration.
+    template <typename Elem>
+    void setPayload(vk::WriteDescriptorSet& w, const Elem* ptr) const {
+        if constexpr (std::is_same_v<Elem, const vk::DescriptorBufferInfo>) {
+            w.pBufferInfo = ptr;
+        } else if constexpr (std::is_same_v<Elem, const vk::DescriptorImageInfo>) {
+            w.pImageInfo = ptr;
+        } else if constexpr (std::is_same_v<Elem, const vk::BufferView>) {
+            w.pTexelBufferView = ptr;
+        } else {
+            MLE_UNREACHABLE_LOG("Unsupported descriptor info type for WriteDescriptorSet. {}", __PRETTY_FUNCTION__);
+        }
+    }
+
+  public:
+    template <typename... InfosPtr>
+    [[nodiscard]] auto makeWrites(usize set, vk::DescriptorSet dst_set, const InfosPtr*... infos_ptrs) const {
+        constexpr usize SIZE = sizeof...(InfosPtr);
+        using Ret = std::array<vk::WriteDescriptorSet, SIZE>;
+
+        using Tup = std::tuple<const InfosPtr*...>;
+        const Tup tup{infos_ptrs...};
+
+        const auto it = std::ranges::find_if(ds_infos_, [set](const auto& ds) { return ds.set == set; });
+        if (it == ds_infos_.end()) {
+            MLE_E("Descriptor set {} not found in pipeline descriptor sets.", set);
+            return Ret{};
+        }
+        const Shader::DescriptorSet& dsi = *it;
+        MLE_ASSERT_LOG(dsi.bindings.size() >= SIZE, "Requested {} writes but set {} has only {} bindings.", SIZE, set, dsi.bindings.size());
+
+        std::array<vk::WriteDescriptorSet, SIZE> writes{};
+
+        auto build_at = [&](auto Iconst) {
+            constexpr usize I = decltype(Iconst)::value;
+
+            const auto& b = dsi.bindings[I];
+
+            vk::WriteDescriptorSet w{};
+            w.dstSet = dst_set;
+            w.dstBinding = b.binding;
+            w.dstArrayElement = 0;
+            w.descriptorType = b.descriptorType;
+            w.descriptorCount = b.descriptorCount;
+
+            using Ptr = std::tuple_element_t<I, Tup>;
+            using Elem = std::remove_pointer_t<std::remove_cv_t<Ptr>>;
+            const Ptr info_ptr = std::get<I>(tup);
+
+            setPayload<Elem>(w, info_ptr);
+
+            writes[I] = w;
+        };
+
+        [&]<std::size_t... Is>(std::index_sequence<Is...>) { (build_at(std::integral_constant<std::size_t, Is>{}), ...); }(std::make_index_sequence<SIZE>{});
+
+        return writes;
+    }
+
+  private:
+    friend PipelineCache;
+    Pipeline() = default;
+    PipelineHnd static createHnd(const CI& ci);
+
+    void createGraphicsPipeline(const CI& ci);
+    void createComputePipeline(const CI& ci);
+
     void createPipelineLayout(const CI& ci);
 
-    void initGraphicsPipeline(const CI& ci);
-    void initComputePipeline(const CI& ci);
-
   private:
-    vk::Pipeline o_;                            ///< Vulkan pipeline object.
-    vk::PipelineLayout pipeline_layout_;        ///< Pipeline layout object.
-    std::vector<PushConstantField> pc_fields_;  ///< Push constant fields.
-    u8 pc_size_ = 0;                            ///< Total size of push constants in bytes.
-    u8 pc_frag_offset_ = max<u8>();             ///< Offset to fragment-stage constants (if any).
-    u8 first_instance_binding_ = max<u8>();     ///< First instance binding index.
-    bool compute_ = false;                      ///< True if this is a compute pipeline.
+    vk::Pipeline o_ = nullptr;
+    vk::PipelineLayout pipeline_layout_ = nullptr;
 
-    std::vector<vk::DescriptorSetLayout> owned_dsls_;
+    std::vector<Shader::PushConstantField> pc_fields_;  ///< Push constant fields.
+    u8 pc_size_ = 0;                                    ///< Size of the push constant block.
+    u8 pc_frag_offset_ = max<u8>();                     ///< Offset of fragment shader push constants.
+    u8 first_instance_binding_ = max<u8>();             ///< First instance attribute binding location.
+    bool compute_ = false;                              ///< Whether this is a compute pipeline.
+
+    std::vector<Shader::DescriptorSet> ds_infos_;      ///< Descriptor set infos for this pipeline.
+    std::vector<vk::DescriptorSetLayout> owned_dsls_;  ///< Descriptor set layouts owned by this pipeline.
 };
-}  // namespace mle::renderer
+}  // namespace mle

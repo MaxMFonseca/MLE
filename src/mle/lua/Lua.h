@@ -16,10 +16,9 @@
 #include <sol/state.hpp>
 
 #include "Types.h"
-#include "mle/common/Logger.h"
-#include "mle/common/Result.h"
-#include "mle/common/Types.h"
-#include "mle/common/Utils.h"
+#include "mle/core/Assert.h"
+#include "mle/core/Logger.h"
+#include "mle/utils/Utils.h"
 
 namespace mle {
 class Lua {
@@ -32,19 +31,18 @@ class Lua {
     void init();
 
     sol::object require(const std::string& module_name);
+    Expected<sol::object> tryRequire(const std::string& module_name);
 
     sol::table createTable();
     sol::table createTable(const std::string& name);
     sol::table createTable(const sol::table& table, bool deep = false);
+    sol::table mergeTablesNew(const sol::table& a, const sol::table& b);
     void mergeTables(sol::table& dst, const sol::table& src);
 
     sol::table getTable(const std::string& name);
 
   private:
     sol::state& getSol() { return sol_; };
-
-    void registerCommonTypes();
-    void registerCommonTypesColor();
 
   public:
     template <class T>
@@ -67,6 +65,8 @@ class Lua {
     template <class T, class... Args>
     auto newUsertype(const std::string& name, Args&&... args) {
         MLE_I("Adding lua usertype: {}", name);
+        MLE_ASSERT_LOG(!name.empty(), "Lua usertype name must not be empty");
+        MLE_ASSERT_LOG(!sol_.get<sol::object>(name).valid(), "An object with the name '{}' already exists!", name);
         return sol_.new_usertype<T>(name, std::forward<Args>(args)...);
     }
 

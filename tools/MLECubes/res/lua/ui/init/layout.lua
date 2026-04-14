@@ -1,16 +1,16 @@
-local color = Color.fromString("ZERO")
+local color = C.Colors.ZERO
 
 return {
 	on_init = function(self)
 		print("on_init layout")
 	end,
 	on_update = function(self)
-		color = Color.mix(Color.fromString("red800"), Color.fromString("blue800"), (math.sin(C.time) + 1) / 2)
+		color = Color.mix(C.Colors.red800, C.Colors.blue800, (math.sin(C.time) + 1) / 2)
 	end,
 
 	root_image = {
 		extent = { 1920, 1080 },
-		clear_color = "slate300",
+		clear_color = C.Colors.slate300,
 	},
 	c = {
 		{
@@ -38,7 +38,7 @@ return {
 			origin = "ct",
 			text = {
 				". MLECubes .",
-				color = "emerald300",
+				color = C.Colors.emerald300,
 				outline = "BLACK:2",
 			},
 			on_update = function(self)

@@ -1,129 +1,52 @@
-/**
- * @file
- * @brief Main renderer interface
- */
-
 #pragma once
 
-#include "Events.h"
-#include "Pipeline.h"
-#include "Types.h"
-#include "mle/common/Result.h"
-#include "mle/renderer/detail/TextureCache.h"
+#include "CommandManager.h"
+#include "FrameRenderer.h"
+#include "PipelineCache.h"
+#include "ShaderCache.h"
+#include "SyncManager.h"
+#include "VkCtx.h"
+#include "mle/renderer/FontCache.h"
+#include "mle/renderer/ModelCache.h"
+#include "mle/renderer/TextureCache.h"
+#include "mle/utils/Utils.h"
 
-namespace mle::renderer {
-/// Renderer initialization parameters.
-struct CreateInfo {};
-using CI = CreateInfo;  ///< Alias for renderer CreateInfo.
+namespace mle {
+class Renderer {
+    MLE_SINGLETON(Renderer)
 
-/**
- * @brief Initializes the renderer with the given parameters.
- * @param ci Renderer creation info.
- */
-void init(const CI& ci);
+  public:
+    void init();
+    void shutdown();
 
-/// Shuts down the renderer and releases all resources.
-void shutdown();
+    auto& vkCtx() { return vk_ctx_; }
+    auto& vk() { return vk_ctx_; }
+    vk::Device vkDevice() { return vk_ctx_.getDevice(); }
+    auto& commandManager() { return command_manager_; }
+    auto& cmdMgr() { return command_manager_; }
+    auto& syncManager() { return sync_manager_; }
+    auto& syncMgr() { return sync_manager_; }
+    auto& shaderCache() { return shader_cache_; }
+    auto& pipelineCache() { return pipeline_cache_; }
+    auto& frameRenderer() { return frame_renderer_; }
+    auto& textureCache() { return texture_cache_; }
+    auto& fontCache() { return font_cache_; }
+    auto& modelCache() { return model_cache_; }
 
-/// Updates the renderer state, processing events and performing necessary updates.
-void update();
-
-/**
- * @brief Adds a function to be called on renderer shutdown.
- *
- * @param func Function to call on shutdown.
- */
-void addOnShutdown(std::function<void(void)>&& func);
-
-/**
- * @brief Begins a new rendering frame.
- * @return Result indicating success or failure.
- */
-Result beginFrame();
-
-/**
- * @brief Ends the current rendering frame and presents the given image.
- * @param image Image to present at the end of the frame.
- */
-void endFrame(ImageRef image);
-
-/**
- * @brief Adds a function to be called at the end of the current frame.
- * @param func Function to call at the end of the frame.
- */
-void addToCallOnFrameEnd(std::function<void()>&& fn);
-
-void deleteAfterFrame(ImageHnd&& image);  ///< Schedules an image for destruction at the end of the frame.
-
-void deleteAfterFrame(BufferHnd&& buffer);  ///< Schedules a buffer for destruction at the end of the frame.
-
-vk::Format getDefaultColorFormat();  ///< Returns the default image format used by the renderer.
-
-vk::Format getDepthFormat();  ///< Returns the default depth format used by the renderer.
-
-ShaderRef getShader(const std::string& name);  ///< Returns a shader reference by name, loading it if necessary.
-
-Texture addTexture(const std::string& name, ImageHnd&& img);  ///< Gives an image to the texture cache, allowing it to be used by name.
-
-Texture getTexture(const std::string& name);  ///< Returns a texture reference by name, loading it if necessary.
-
-ModelRef getModel(const std::string& name);  ///< Returns a model reference by name, loading it if necessary.
-
-ModelRef loadModel(const std::string& name);  ///< Requests loading a model by name.
-
-ModelRef addModel(const std::string& name, const UploadModelData& upload_data);  ///< Adds a model to the cache with the given name and upload data.
-
-void enqueueTextureUpdateJob(TextureUpdateJobData&& data);
-
-vk::DescriptorSetLayout getTexturesDescriptorSetLayout();  ///< Returns the descriptor set layout used for textures.
-
-void bindTexturesDSet(RenderingThread& thread);
-
-[[nodiscard]] vk::CommandBuffer getOTSCmd(CmdType cmd_type);
-void submitOTSWait(CmdType cmd_type, vk::CommandBuffer cmd);
-void submitOTSAsync(CmdType cmd_type, vk::CommandBuffer cmd, std::move_only_function<void(void)>&& callback = {});
-void submitOTSAsync(CmdType cmd_type, vk::SubmitInfo2 submit_info, std::move_only_function<void(void)>&& callback = {});
-
-vk::CommandBuffer getFrameSecondaryCmd();
-void submitJobOnFrame(vk::CommandBuffer cmd);
-
-vk::Sampler getLinearSampler();   ///< Returns the linear sampler used by the renderer.
-vk::Sampler getNearestSampler();  ///< Returns the nearest sampler used by the renderer.
-vk::Sampler getShadowSampler();   ///< Returns the shadow sampler used by the renderer.
-
-BufferSlice getHostVisibleBuffer(usize size, vk::BufferUsageFlags usage);  ///< Gets a slice of a host-visible buffer for the current frame.
-
-/// Add a named pipeline to the renderer.
-PipelineRef setPipeline(const std::string& name, const Pipeline::CI& pipeline_ci);
-
-/// Returns a named pipelne
-PipelineRef getPipeline(const std::string& name);
-
-/// Returns a named pipeline or creates it if it does not exist.
-PipelineRef getPipelineOrSet(const std::string& name, const Pipeline::CI& pipeline_ci);
-
-namespace detail {
-ED& getED();                                  ///< Returns the event dispatcher instance for the renderer.
-VkContext& getVk();                           ///< Returns the Vulkan context instance.
-vk::Device getDevice();                       ///< Returns the Vulkan device handle.
-VmaAllocator getVma();                        ///< Returns the Vulkan Memory Allocator instance.
-FencePool& getFencePool();                    ///< Returns the fence pool for managing Vulkan fences.
-CommandPoolManager& getCommandPoolManager();  ///< Returns the command pool manager.
-FrameRenderer& getFrameRenderer();            ///< Returns the frame renderer instance.
-void waitIdle();                              ///< Waits for the Vulkan device to become idle, ensuring all operations are complete.
-vk::CommandBuffer getFramePrimaryCmd();
-}  // namespace detail
-
-template <typename T>
-void destroy(T t) {
-    detail::getDevice().destroy(t);
-}
-
-template <typename T>
-void destroyVkObjOnFrameEnd(T t) {
-    if (t != nullptr) {
-        addToCallOnFrameEnd([t]() { destroy(t); });
+    template <class T>
+    void destroy(T o) {
+        vk_ctx_.destroy(o);
     }
-}
 
-}  // namespace mle::renderer
+  private:
+    VkCtx vk_ctx_;
+    RendererCommandManager command_manager_;
+    RendererSyncManager sync_manager_;
+    ShaderCache shader_cache_;
+    PipelineCache pipeline_cache_;
+    FrameRenderer frame_renderer_;
+    TextureCache texture_cache_;
+    FontCache font_cache_;
+    ModelCache model_cache_;
+};
+}  // namespace mle

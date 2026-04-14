@@ -13,6 +13,7 @@ Checks: "*,
   -cppcoreguidelines-pro-type-static-cast-downcast,
   -readability-redundant-member-init,
   -bugprone-easily-swappable-parameters,
+  -bugprone-lambda-function-name,
   -llvmlibc-*,
   -llvm-header-guard,
   -misc-static-assert,
@@ -42,6 +43,7 @@ Checks: "*,
 # -cppcoreguidelines-pro-type-static-cast-downcast: This hurts performance. Maybe create a macro to use `static_cast` in release and `dynamic_cast` in dev?
 # -readability-redundant-member-init: Sometimes explicitness is desired.
 # -bugprone-easily-swappable-parameters: This warns on vendor interfaces.
+# -bugprone-lambda-function-name: Not a problem
 # -llvmlibc-*: LLVM libc rules not relevant.
 # -llvm-header-guard: `#pragma once` is preferred.
 # -misc-static-assert: This breaks `MLE_UNREACHABLE` (because `assert(false)` is used in debug builds) and the check is trivial.

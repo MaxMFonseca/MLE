@@ -1,0 +1,301 @@
+#include "TextBox.h"
+
+#include <SDL3/SDL.h>
+
+#include <algorithm>
+#include <cassert>
+#include <cstring>
+
+#include "Types.h"
+#include "UserInputManager.h"
+
+namespace mle {
+
+TextBox::TextBox() {
+    text_listener_.setCallback([this](char32 codepoint) { onTextInput(codepoint); });
+    backspace_kl_.setKey(Key::BACKSPACE).setState(KeyState::PRESSED).setCallback([this]() { onBackspace(); }).setRepeat(true);
+    delete_kl_.setKey(Key::DELETE).setState(KeyState::PRESSED).setCallback([this]() { onDelete(); }).setRepeat(true);
+    left_kl_.setKey(Key::LEFT).setState(KeyState::PRESSED).setCallback([this]() { onLeft(); }).setRepeat(true);
+    right_kl_.setKey(Key::RIGHT).setState(KeyState::PRESSED).setCallback([this]() { onRight(); }).setRepeat(true);
+    home_kl_.setKey(Key::HOME).setState(KeyState::PRESSED).setCallback([this]() { onHome(); });
+    end_kl_.setKey(Key::END).setState(KeyState::PRESSED).setCallback([this]() { onEnd(); }).setRepeat(true);
+    enter_kl_.setKey(Key::ENTER).setState(KeyState::PRESSED).setCallback([this]() { onEnter(); });
+    ctrl_a_.setKey(Key::A).setState(KeyState::PRESSED).setMods(KeyModFlagBits::CTRL).setCallback([this]() { onCtrlA(); });
+    ctrl_c_.setKey(Key::C).setState(KeyState::PRESSED).setMods(KeyModFlagBits::CTRL).setCallback([this]() { onCtrlC(); });
+    ctrl_v_.setKey(Key::V).setState(KeyState::PRESSED).setMods(KeyModFlagBits::CTRL).setCallback([this]() { onCtrlV(); });
+    ctrl_x_.setKey(Key::X).setState(KeyState::PRESSED).setMods(KeyModFlagBits::CTRL).setCallback([this]() { onCtrlX(); });
+}
+
+void TextBox::onTextInput(char32 codepoint) {
+    insertChar(codepoint);
+}
+
+void TextBox::onBackspace() {
+    beginChange();
+    if (selection_start_ != selection_end_) {
+        deleteSelection();
+    } else if (selection_start_ > 0) {
+        text_.erase(selection_start_ - 1, 1);
+        selection_start_--;
+        selection_end_ = selection_start_;
+    }
+    endChange();
+}
+
+void TextBox::onDelete() {
+    beginChange();
+
+    if (selection_start_ != selection_end_) {
+        deleteSelection();
+    } else if (selection_start_ < text_.size()) {
+        text_.erase(selection_start_, 1);
+    }
+
+    selection_end_ = selection_start_;
+
+    endChange();
+}
+
+void TextBox::onLeft() {
+    moveCursorLeft(UserInputManager::i().isShift());
+}
+
+void TextBox::onRight() {
+    moveCursorRight(UserInputManager::i().isShift());
+}
+
+void TextBox::onHome() {
+    moveCursorToStart(UserInputManager::i().isShift());
+}
+
+void TextBox::onEnd() {
+    moveCursorToEnd(UserInputManager::i().isShift());
+}
+
+void TextBox::onEnter() {
+    if (!allow_new_line_) {
+        return;
+    }
+
+    if (!new_line_ctrl_enter_ || UserInputManager::i().isCtrl()) {
+        beginChange();
+        insertChar(U'\n');
+        selection_end_ = selection_start_;
+        endChange();
+    }
+}
+
+void TextBox::onCtrlA() {
+    beginChange();
+    selection_start_ = 0;
+    selection_end_ = text_.size();
+    endChange();
+}
+
+void TextBox::onCtrlC() {
+    if (selection_start_ == selection_end_) {
+        return;
+    }
+
+    MLE_ASSERT_LOG(selection_start_ <= text_.size(), "Selection start out of bounds");
+    MLE_ASSERT_LOG(selection_end_ <= text_.size(), "Selection end out of bounds");
+    MLE_ASSERT_LOG(selection_start_ <= selection_end_, "Selection start greater than end");
+
+    auto selected = toUtf8(text_.substr(selection_start_, selection_end_ - selection_start_));
+    SDL_SetClipboardText(selected.c_str());
+}
+
+void TextBox::onCtrlV() {
+    char* clip = SDL_GetClipboardText();
+    if (clip) {
+        beginChange();
+        deleteSelection();
+        insertText(clip);
+        SDL_free(clip);
+        endChange();
+    }
+}
+
+void TextBox::onCtrlX() {
+    beginChange();
+    onCtrlC();
+    deleteSelection();
+    endChange();
+}
+
+// void TextBox::onCtrlZ() {
+// }
+
+void TextBox::setFocused(bool focused) {
+    if (focused != focused_) {
+        focused_ = focused;
+
+        if (!focused) {
+            clearSelection();
+            text_listener_.unlisten();
+            backspace_kl_.unlisten();
+            delete_kl_.unlisten();
+            left_kl_.unlisten();
+            right_kl_.unlisten();
+            home_kl_.unlisten();
+            enter_kl_.unlisten();
+            enter_kl_.unlisten();
+            ctrl_a_.unlisten();
+            ctrl_c_.unlisten();
+            ctrl_v_.unlisten();
+            ctrl_x_.unlisten();
+        } else {
+            text_listener_.listen();
+            backspace_kl_.listen();
+            delete_kl_.listen();
+            left_kl_.listen();
+            right_kl_.listen();
+            home_kl_.listen();
+            enter_kl_.listen();
+            enter_kl_.listen();
+            ctrl_a_.listen();
+            ctrl_c_.listen();
+            ctrl_v_.listen();
+            ctrl_x_.listen();
+        }
+    }
+}
+
+void TextBox::setSelection(usize start, usize end) {
+    beginChange();
+    selection_start_ = start;
+    selection_end_ = end;
+    endChange();
+}
+
+void TextBox::setNewLineCtrlEnter(bool enable) {
+    new_line_ctrl_enter_ = enable;
+}
+
+void TextBox::deleteSelection() {
+    if (selection_start_ == selection_end_) {
+        return;
+    }
+
+    beginChange();
+    usize start = std::min(selection_start_, selection_end_);
+    usize end = std::max(selection_start_, selection_end_);
+    text_.erase(start, end - start);
+    selection_start_ = selection_end_ = start;
+    endChange();
+}
+
+void TextBox::clearSelection() {
+    beginChange();
+    selection_end_ = selection_start_;
+    endChange();
+}
+
+void TextBox::insertText(std::u32string_view text) {
+    beginChange();
+    deleteSelection();
+    text_.insert(selection_start_, text);
+    selection_start_ += text.size();
+    selection_end_ = selection_start_;
+    endChange();
+}
+
+void TextBox::insertText(std::string_view text) {
+    insertText(toUtf32(text));
+};
+
+void TextBox::moveCursorLeft(bool select) {
+    if (selection_start_ > 0) {
+        beginChange();
+        selection_start_--;
+        if (!select) {
+            selection_end_ = selection_start_;
+        }
+        endChange();
+    }
+}
+
+void TextBox::moveCursorRight(bool select) {
+    if (selection_end_ < text_.size()) {
+        beginChange();
+        selection_end_++;
+        if (!select) {
+            selection_start_ = selection_end_;
+        }
+        endChange();
+    }
+}
+
+void TextBox::moveCursorToStart(bool select) {
+    beginChange();
+    selection_start_ = 0;
+    if (!select) {
+        selection_end_ = selection_start_;
+    }
+    endChange();
+}
+
+void TextBox::moveCursorToEnd(bool select) {
+    beginChange();
+    selection_start_ = text_.size();
+    if (!select) {
+        selection_end_ = selection_start_;
+    }
+    endChange();
+}
+
+void TextBox::setText(std::u32string_view text) {
+    beginChange();
+    text_ = text;
+    selection_start_ = selection_end_ = text.size();
+    endChange();
+}
+
+void TextBox::insertChar(char32 c) {
+    beginChange();
+    insertText(std::u32string_view(&c, 1));
+    endChange();
+}
+
+std::string TextBox::makeSelectionString() {
+    if (text_.empty()) {
+        return "";
+    }
+
+    std::string text_utf8 = toUtf8(text_);
+    std::string ret;
+
+    for (usize i = 0; i <= text_utf8.size(); ++i) {
+        if (i == selection_end_) {
+            ret += '^';
+        } else if (i >= selection_start_ && i < selection_end_) {
+            ret += '|';
+        } else {
+            ret += ' ';
+        }
+    }
+
+    return ret;
+}
+
+void TextBox::endChange() {
+    MLE_ASSERT_LOG(changing_ > 0, "Mismatched beginChange/endChange calls!");
+
+    changing_--;
+
+    fixSelectionBounds();
+    if (changing_ == 0) {
+        if (changed_callback_) {
+            changed_callback_();
+        }
+    }
+}
+
+void TextBox::fixSelectionBounds() {
+    if (selection_start_ > selection_end_) {
+        std::swap(selection_start_, selection_end_);
+    }
+    selection_start_ = std::min(selection_start_, text_.size());
+    selection_end_ = std::min(selection_end_, text_.size());
+}
+}  // namespace mle

@@ -1,226 +1,283 @@
 #include "Window.h"
 
-#include "GLFW/glfw3.h"
-#include "mle/common/Logger.h"
+#include <SDL3/SDL.h>
+
+#include <iostream>
+
+#include "SDL3/SDL_events.h"
+#include "SDL3/SDL_video.h"
+#include "SDL3/SDL_vulkan.h"
+#include "UserInputManager.h"
+#include "mle/core/Assert.h"
 #include "mle/core/Core.h"
-#include "mle/lua/Utils.h"
-#include "mle/window/Types.h"
-#include "mle/window/UserInputManager.h"
+#include "mle/utils/String.h"
+#include "mle/window/KeyUtils.h"
+#include "utf8/unchecked.h"
 
-namespace mle::window {
-namespace {
-class Impl {
-  public:
-    inline void init(const CI& ci);
-    inline void update();
-    void lateUpdate() { uim_.lateUpdate(); }
-    inline void shutdown();
+namespace mle {
+void Window::init() {
+    MLE_I("Initializing Window module.");
 
-    auto& getCurrentConfig() { return current_config_; }
-    ED& getED() { return ed_; }
-    UserInputManager& getUIM() { return uim_; }
-    GLFWWindowRef getGlfwWindowRef() { return window_; }
-    vec2i getSize() const { return current_config_.size; }
-    f32 getAspectRatio() const { return static_cast<f32>(current_config_.size.x) / static_cast<f32>(current_config_.size.y); }
+    SDL_SetHint(SDL_HINT_APP_ID, "MLE");
 
-  private:
-    inline void handleGLFWErrors();
-    inline void applyLuaOverrides(const sol::table& table);
-    inline void registerCallbacks();
+    if (!SDL_WasInit(SDL_INIT_VIDEO)) {
+        if (!SDL_Init(SDL_INIT_VIDEO)) {
+            MLE_UNREACHABLE_LOG("SDL_Init failed: {}", SDL_GetError());
+        }
+    }
 
-    static void onWindowClose(GLFWWindowRef glfw_window);
-    static void onWindowResize(GLFWWindowRef glfw_window, int width, int height);
-    static void onWindowIconify(GLFWWindowRef glfw_window, int iconified);
-    static void onCursorMove(GLFWWindowRef glfw_window, double x, double y);
-    static void onMouseScroll(GLFWWindowRef glfw_window, double x, double y);
-    static void onMouseButton(GLFWWindowRef glfw_window, int button, int action, int mods);
-    static void onKey(GLFWWindowRef glfw_window, int key, int scancode, int action, int mods);
-    static void onChar(GLFWWindowRef glfw_window, unsigned codepoint);
+    logDisplays();
 
-  private:
-    GLFWWindowRef window_ = nullptr;
-    Config current_config_;
-    Config target_config_;
-    bool target_config_changed_ = false;
+    const char* driver = SDL_GetCurrentVideoDriver();
+    if (driver) {
+        MLE_I("Using video driver: {}", driver);
+    } else {
+        MLE_W("SDL_GetCurrentVideoDriver returned null.");
+    }
 
-    ED ed_;
-    UserInputManager uim_;
+    u32 flags = SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE;
+
+    window_ = SDL_CreateWindow("MLE APP", 800, 600, flags);
+    if (!window_) {
+        MLE_UNREACHABLE_LOG("SDL_CreateWindow failed: {}", SDL_GetError());
+    }
+
+    SDL_StartTextInput(window_);
+    SDL_ShowWindow(window_);
+
+    log();
+}
+
+void Window::shutdown() {
+    MLE_I("Shutting down Window module.");
+
+    if (window_) {
+        SDL_DestroyWindow(window_);
+        window_ = nullptr;
+    }
+
+    if (SDL_WasInit(SDL_INIT_VIDEO)) {
+        SDL_QuitSubSystem(SDL_INIT_VIDEO);
+    }
+
+    SDL_Quit();
+}
+
+void Window::poolEvents() {
+    SDL_Event event;
+    while (SDL_PollEvent(&event)) {
+        switch (event.type) {
+            case SDL_EVENT_QUIT: {
+                ed_.dispatch(window::ev::Close{});
+            } break;
+            case SDL_EVENT_KEY_DOWN: {
+                auto key = systemKeyToKey(event.key.key);
+                UserInputManager::i().setPressed(key);
+            } break;
+            case SDL_EVENT_KEY_UP: {
+                auto key = systemKeyToKey(event.key.key);
+                UserInputManager::i().setReleased(key);
+            } break;
+            case SDL_EVENT_MOUSE_BUTTON_DOWN: {
+                auto key = systemMouseButtonToKey(event.button.button);
+                UserInputManager::i().setPressed(key);
+            } break;
+            case SDL_EVENT_MOUSE_BUTTON_UP: {
+                auto key = systemMouseButtonToKey(event.button.button);
+                UserInputManager::i().setReleased(key);
+            } break;
+            case SDL_EVENT_MOUSE_MOTION: {
+                UserInputManager::i().setCursorPos({event.motion.x, event.motion.y});
+            } break;
+            case SDL_EVENT_MOUSE_WHEEL: {
+                UserInputManager::i().setScrollOffset(event.wheel.y);
+            } break;
+            case SDL_EVENT_TEXT_INPUT: {
+                std::u32string u32str = toUtf32(std::string(event.text.text));
+                for (auto cp : u32str) {
+                    UserInputManager::i().pushChar(cp);
+                }
+            } break;
+            case SDL_EVENT_WINDOW_MOUSE_ENTER: {
+                UserInputManager::i().setMouseInsideWindow(true);
+            } break;
+            case SDL_EVENT_WINDOW_MOUSE_LEAVE: {
+                UserInputManager::i().setMouseInsideWindow(false);
+            } break;
+            case SDL_EVENT_WINDOW_RESIZED: {
+                MLE_I("Window resized to {}x{}", event.window.data1, event.window.data2);
+                ed_.dispatch(window::ev::Resize{.size = {event.window.data1, event.window.data2}});
+            } break;
+            default:
+                MLE_NOOP;
+                break;
+        }
+    }
+}
+
+VkSurfaceKHR Window::createSurface(VkInstance instance) const {
+    MLE_ASSERT_LOG(window_, "Window not created.");
+    VkSurfaceKHR ret = nullptr;
+    if (!SDL_Vulkan_CreateSurface(window_, instance, nullptr, &ret)) {
+        Core::i().unrecoverable("Failed to create Vulkan surface.");
+    }
+    return ret;
+}
+
+[[nodiscard]] std::vector<const char*> Window::getRequiredInstanceExtensions() {
+    Uint32 count = 0;
+    const char* const* names = SDL_Vulkan_GetInstanceExtensions(&count);
+    if (!names || count == 0) {
+        MLE_UNREACHABLE_LOG("SDL_Vulkan_GetInstanceExtensions returned no extensions. SDL error: {}", SDL_GetError());
+    }
+    std::vector<const char*> ret;
+    ret.reserve(count);
+    for (Uint32 i = 0; i < count; ++i) {
+        /// NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic) safe
+        ret.push_back(names[i]);
+    }
+    return ret;
+}
+
+vec2i Window::getSize() const {
+    MLE_ASSERT_LOG(window_, "Window not created.");
+    int w = 0, h = 0;
+    if (!SDL_GetWindowSizeInPixels(window_, &w, &h)) {
+        MLE_UNREACHABLE_LOG("SDL_GetWindowSizeInPixels failed: {}", SDL_GetError());
+    }
+    return {w, h};
+}
+
+void Window::setTitle(const char* title) {
+    MLE_ASSERT_LOG(window_, "Window not created.");
+    MLE_T("Setting window title to '{}'", title);
+    SDL_SetWindowTitle(window_, title);
+}
+
+void Window::show() {
+    MLE_ASSERT_LOG(window_, "Window not created.");
+    SDL_ShowWindow(window_);
+}
+
+void Window::hide() {
+    MLE_ASSERT_LOG(window_, "Window not created.");
+    SDL_HideWindow(window_);
+}
+
+void Window::setFullscreen(bool enable) const {
+    if (!SDL_SetWindowFullscreen(window_, enable)) {
+        MLE_UNREACHABLE_LOG("Failed to set window fullscreen mode: {}", SDL_GetError());
+    }
+}
+
+void Window::setBorderlessFullscreen(bool enable) const {
+    if (enable) {
+        SDL_DisplayID display = SDL_GetDisplayForWindow(window_);
+        SDL_Rect bounds;
+        if (!SDL_GetDisplayBounds(display, &bounds)) {
+            MLE_UNREACHABLE_LOG("Failed to get display bounds: {}", SDL_GetError());
+        }
+
+        SDL_SetWindowBordered(window_, false);
+        SDL_SetWindowResizable(window_, false);
+        SDL_SetWindowPosition(window_, bounds.x, bounds.y);
+        SDL_SetWindowSize(window_, bounds.w, bounds.h);
+    } else {
+        SDL_SetWindowBordered(window_, true);
+        SDL_SetWindowResizable(window_, true);
+    }
+}
+
+[[nodiscard]] SDL_DisplayID Window::currentDisplay() const {
+    return SDL_GetDisplayForWindow(window_);
+}
+
+void Window::moveToDisplay(SDL_DisplayID display, bool center, bool resizeToDisplay) const {
+    SDL_Rect b{};
+    if (!SDL_GetDisplayBounds(display, &b)) {
+        MLE_UNREACHABLE_LOG("SDL_GetDisplayBounds failed: {}", SDL_GetError());
+    }
+    int win_w = 0, win_h = 0;
+    if (!SDL_GetWindowSize(window_, &win_w, &win_h)) {
+        MLE_UNREACHABLE_LOG("SDL_GetWindowSize failed: {}", SDL_GetError());
+    }
+    if (resizeToDisplay) {
+        SDL_SetWindowBordered(window_, false);
+        SDL_SetWindowResizable(window_, false);
+        SDL_SetWindowPosition(window_, b.x, b.y);
+        SDL_SetWindowSize(window_, b.w, b.h);
+    } else if (center) {
+        const int x = b.x + ((b.w - win_w) / 2);
+        const int y = b.y + ((b.h - win_h) / 2);
+        SDL_SetWindowPosition(window_, x, y);
+    } else {
+        SDL_SetWindowPosition(window_, b.x, b.y);
+    }
+}
+
+std::vector<Window::DisplayInfo> Window::listDisplays() {
+    int count = 0;
+    SDL_DisplayID* ids = SDL_GetDisplays(&count);
+    if (!ids || count <= 0) {
+        MLE_UNREACHABLE_LOG("SDL_GetDisplays returned no displays. SDL error: {}", SDL_GetError());
+    }
+    std::vector<DisplayInfo> ret;
+    ret.reserve(count);
+    for (int i = 0; i < count; ++i) {
+        DisplayInfo display;
+        /// NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic) safe
+        display.id = ids[i];
+        if (const char* name = SDL_GetDisplayName(display.id)) {
+            display.name = name;
+        }
+        SDL_GetDisplayBounds(display.id, &display.bounds);
+        display.contentScale = SDL_GetDisplayContentScale(display.id);
+        ret.push_back(std::move(display));
+    }
+    SDL_free(ids);
+    return ret;
+}
+
+void Window::log() const {
+    u32 flags = SDL_GetWindowFlags(window_);
+    int x = 0, y = 0, wpx = 0, hpx = 0;
+    SDL_GetWindowPosition(window_, &x, &y);
+    SDL_GetWindowSizeInPixels(window_, &wpx, &hpx);
+    SDL_DisplayID dpy = currentDisplay();
+    const auto* display_name = SDL_GetDisplayName(dpy);
+    SDL_Rect b{};
+    SDL_GetDisplayBounds(dpy, &b);
+    MLE_I("Window info: pos:{},{}, size:{}x{}, flags:0x{:x}, display:{}({}) [{},{},{}x{}]", x, y, wpx, hpx, flags, display_name, (u32)dpy, b.x, b.y, b.w, b.h);
 };
 
-void Impl::init(const CI& ci) {
-    MLE_I("Initializing Window Module");
-
-    MLE_T("GLFW");
-    if (!glfwInit()) {
-        core::unrecoverable("glfwInit() failed!");
+void Window::logDisplayInfo(SDL_DisplayID id) {
+    const char* name = SDL_GetDisplayName(id);
+    SDL_Rect bounds{};
+    if (!SDL_GetDisplayBounds(id, &bounds)) {
+        MLE_UNREACHABLE_LOG("SDL_GetDisplayBounds failed: {}", SDL_GetError());
     }
-
-    MLE_T("GLFW initialized successfully");
-
-    glfwSetErrorCallback([]([[maybe_unused]] int code, [[maybe_unused]] const char* desc) {
-        MLE_UNREACHABLE_LOG("GLFW error : {}: {}", code, desc);  // NOLINT(bugprone-lambda-function-name)
-    });
-
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
-
-    target_config_ = ci.target_config;
-    if (lua::valid<sol::table>(ci.table)) {
-        applyLuaOverrides(ci.table);
-    }
-
-    window_ = glfwCreateWindow(target_config_.size.x, target_config_.size.y, target_config_.title.c_str(), nullptr, nullptr);
-    if (!window_) {
-        core::unrecoverable("glfwCreateWindow() failed!");  // NOLINT(bugprone-lambda-function-name)
-    }
-
-    current_config_.title = target_config_.title;
-    glfwGetWindowSize(window_, &current_config_.size.x, &current_config_.size.y);
-
-    registerCallbacks();
-
-    MLE_I("Window created successfully! name: {}, size: {}x{}", current_config_.title, current_config_.size.x, current_config_.size.y);
-    MLE_D("Module initialized successfully!");
+    float scale = SDL_GetDisplayContentScale(id);
+    MLE_I("Display {} (ID: {}): name='{}', bounds=[{}, {}, {}x{}], contentScale={:.2f}", name ? name : "<unknown>", (u32)id, name ? name : "<unknown>",
+          bounds.x, bounds.y, bounds.w, bounds.h, scale);
 }
 
-void Impl::applyLuaOverrides(const sol::table& table) {
-    lua::tryGetKey(table, "title", target_config_.title);
-    lua::tryGetKey(table, "width", target_config_.size.x);
-    lua::tryGetKey(table, "height", target_config_.size.y);
-    lua::tryAs(table["size"], target_config_.size);
-}
-
-void Impl::registerCallbacks() {
-    glfwSetWindowUserPointer(window_, this);
-
-    glfwSetWindowCloseCallback(window_, onWindowClose);
-    glfwSetWindowSizeCallback(window_, onWindowResize);
-    glfwSetWindowIconifyCallback(window_, onWindowIconify);
-
-    glfwSetCursorPosCallback(window_, onCursorMove);
-    glfwSetMouseButtonCallback(window_, onMouseButton);
-    glfwSetScrollCallback(window_, onMouseScroll);
-    glfwSetKeyCallback(window_, onKey);
-    glfwSetCharCallback(window_, onChar);
-}
-
-void Impl::shutdown() {
-    MLE_I("Shutting down Window Module");
-    glfwDestroyWindow(window_);
-    glfwTerminate();
-    MLE_D("Module shut down successfully!");
-}
-
-void Impl::update() {
-    glfwPollEvents();
-    uim_.update();
-}
-
-auto& windowToSelf(GLFWWindowRef glfw_window) {
-    return rVoidAsRef<Impl>(glfwGetWindowUserPointer(glfw_window));
-}
-
-void Impl::onWindowClose(GLFWWindowRef glfw_window) {
-    auto& self = windowToSelf(glfw_window);
-    self.ed_.dispatch(events::WindowClose{});
-}
-
-void Impl::onWindowResize(GLFWWindowRef glfw_window, int width, int height) {
-    auto& self = windowToSelf(glfw_window);
-    MLE_I("Window resized to {}x{}", width, height);
-    self.current_config_.size = {width, height};
-    self.ed_.dispatch(events::WindowResize{{width, height}});
-}
-
-void Impl::onWindowIconify(GLFWWindowRef glfw_window, int iconified) {
-    auto& self = windowToSelf(glfw_window);
-    MLE_I("Window iconify: {}", iconified);
-    self.ed_.dispatch(events::WindowIconify{as<bool>(iconified)});
-}
-
-void Impl::onCursorMove(GLFWWindowRef glfw_window, double x, double y) {
-    auto& self = windowToSelf(glfw_window);
-    self.uim_.setCursorPos({x, y});
-}
-
-void Impl::onMouseScroll(GLFWWindowRef glfw_window, [[maybe_unused]] double x, double y) {
-    auto& self = windowToSelf(glfw_window);
-    self.uim_.setScrollOffset(y);
-}
-
-void Impl::onMouseButton(GLFWWindowRef glfw_window, int button, int action, int /*mods*/) {
-    auto& self = windowToSelf(glfw_window);
-    if (action == GLFW_PRESS) {
-        self.uim_.setPressed(castGlfwMouseButtonToKey(button));
-    } else if (action == GLFW_RELEASE) {
-        self.uim_.setReleased(castGlfwMouseButtonToKey(button));
+void Window::logDisplays() {
+    auto displays = listDisplays();
+    MLE_I("Found {} displays:", displays.size());
+    for (const auto& d : displays) {
+        MLE_I("  ID: {} Name: '{}' Bounds: [{}, {}, {}x{}] ContentScale: {:.2f}", (u32)d.id, d.name, d.bounds.x, d.bounds.y, d.bounds.w, d.bounds.h,
+              d.contentScale);
     }
 }
 
-void Impl::onKey(GLFWWindowRef glfw_window, int key, int /*scancode*/, int action, int /*mods*/) {
-    auto& self = windowToSelf(glfw_window);
-    if (action == GLFW_PRESS) {
-        self.uim_.setPressed(castGlfwKeyToKey(key));
-    } else if (action == GLFW_RELEASE) {
-        self.uim_.setReleased(castGlfwKeyToKey(key));
-    }
+void Window::setPosition(int x, int y) const {
+    MLE_ASSERT_LOG(window_, "Window not created.");
+    SDL_SetWindowPosition(window_, x, y);
 }
 
-void Impl::onChar(GLFWWindowRef glfw_window, unsigned codepoint) {
-    auto& self = windowToSelf(glfw_window);
-    self.uim_.pushChar(codepoint);
+void Window::setSize(int w, int h) const {
+    MLE_ASSERT_LOG(window_, "Window not created.");
+    SDL_SetWindowSize(window_, w, h);
 }
 
-// TODO: I will probably allocate this at a linear allocator along the other core singletons in the future
-std::unique_ptr<Impl> i_;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
-}  // namespace
-
-void init(const CI& ci) {
-    MLE_ASSERT(!i_);
-    i_ = std::make_unique<Impl>();
-    i_->init(ci);
-}
-
-void update() {
-    MLE_ASSERT(i_);
-    i_->update();
-}
-
-void lateUpdate() {
-    MLE_ASSERT(i_);
-    i_->lateUpdate();
-}
-
-void shutdown() {
-    if (i_) {
-        MLE_I("Shutting down Window Module");
-        i_->shutdown();
-        i_.reset();
-    }
-}
-
-ED& detail::getED() {
-    MLE_ASSERT(i_);
-    return i_->getED();
-}
-
-UserInputManager& getUIM() {
-    MLE_ASSERT(i_);
-    return i_->getUIM();
-}
-
-GLFWWindowRef getGlfwWindowRef() {
-    MLE_ASSERT(i_);
-    return i_->getGlfwWindowRef();
-}
-
-vec2i getSize() {
-    MLE_ASSERT(i_);
-    return i_->getSize();
-}
-
-const Config& getCurrentConfig() {
-    MLE_ASSERT(i_);
-    return i_->getCurrentConfig();
-}
-}  // namespace mle::window
+}  // namespace mle

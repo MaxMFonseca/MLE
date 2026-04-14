@@ -1,8 +1,6 @@
 #include "Types.h"
 
-#include "mle/common/Assert.h"
-#include "mle/common/math/Types.h"
-#include "sol/sol.hpp"
+#include "mle/core/Assert.h"
 
 namespace mle::lua {
 std::string toString(const sol::object& obj, const std::string& prefix) {

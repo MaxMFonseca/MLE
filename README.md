@@ -1,22 +1,16 @@
-## MLE
+# MLE
 
-MLE is a custom Vulkan-based rendering engine built for large-scale open-world games. It combines high-performance C++ for core systems with Lua for user-modifiable game logic, providing a flexible and efficient development environment.
+MLE is a custom Vulkan based rendering engine purpose-built for large-scale open-world games. It combines high-performance C++ for core systems with Lua for user-modifiable game logic, providing a flexible and efficient development environment.
 
-The engine is designed to render fully procedural terrain, dynamic entities, and complex lighting interactions. It targets infinite, modifiable worlds with rich environmental interaction and minimal external dependencies.
+The engine renders fully procedurally generated terrain, dynamic entities, and complex lighting interactions. It's designed for infinite, modifiable worlds with rich environmental interaction and minimal dependencies.
 
-This document is still incomplete and may contain outdated or inaccurate information. It will evolve alongside the project. For now, it serves as a high-level overview of the MLE engine and its current direction.
+This doc is very incomplete, and possibly wrong. It will be updated as the project evolves. For now, it serves as a basic overview of the MLE engine and its features.
 
-## Planned Features
+## Planed Features
 
-* **Vulkan Core**
+- **Vulkan Core**
 
-  * Real-time rendering systems
-
-* **Entity and Chunk Management**
-
-  * Static entities aligned to the voxel grid
-  * Sparse octree structures for movable and large-scale entities
-  * Dynamic chunk loading and streaming for open-world scalability
+  - Real-time rendering systems
 
 * **Modding with Lua**
 
@@ -30,9 +24,8 @@ This document is still incomplete and may contain outdated or inaccurate informa
 
 * **Engine Internals**
 
-  * Zero-exception C++23 codebase using `Expected<T>` and `Result`-based error handling
-  * Explicit ownership model with `<T>Hnd` for owning references and `<T>Ref` for non-owning references
-  * Utility macros for assertions, unreachable paths, and safe casting (`as<T>`, `asPtr<T>`)
+  - Custom in-engine static UI system with post-processing support
+  - Toolchain for asset generation, visualization, and debugging
 
 * **Logging and Debugging**
 
@@ -49,17 +42,17 @@ This document is still incomplete and may contain outdated or inaccurate informa
 
 > **Requirements**
 >
-> * Clang 17+
-> * CMake 3.18+
-> * Vulkan SDK 1.3+
+> - Clang v17+
+> - CMake 3.18+
+> - Vulkan SDK 1.3+
 
-A helper script is provided to automate most of the setup process:
+Then there is a helper script that automates the rest or the process:
 
 ```bash
 source ./scripts/envsetup.sh
-mle_setup   # Fetches all submodules and sets up the environment
-mle_config  # Configures CMake and tooling
-mle_build   # Builds the engine and tools
+mle_setup -> Fetches all submodules and set up the environment
+mle_config -> Config cmake and tooling
+mle_build -> Build the engine and tools
 ```
 
 ## Running a Tool

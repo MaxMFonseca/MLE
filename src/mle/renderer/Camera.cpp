@@ -1,12 +1,6 @@
 #include "Camera.h"
 
-#include <cmath>
-#include <cstddef>
-#include <glm/gtc/matrix_transform.hpp>
-
-#include "mle/common/Utils.h"
-
-namespace mle::renderer {
+namespace mle {
 void Camera::setEye(const vec3f& eye) {
     eye_ = eye;
     view_dirty_ = true;
@@ -18,8 +12,13 @@ void Camera::lookAtDir(const vec3f& dir) {
 }
 
 void Camera::move(const vec3f& offset) {
-    eye_ += offset;
-    target_ += offset;
+    vec3f forward = glm::normalize(target_ - eye_);
+    vec3f right = glm::normalize(glm::cross(forward, up_));
+    vec3f up = glm::normalize(up_);
+
+    vec3f local_offset = offset.x * right + offset.y * up + offset.z * forward;
+    eye_ += local_offset;
+    target_ += local_offset;
     view_dirty_ = true;
 }
 
@@ -260,4 +259,4 @@ std::vector<AABB> Camera::computeViewClusters(u32 tile_size_px, u32 screen_width
 
     return clusters;
 };
-}  // namespace mle::renderer
+}  // namespace mle

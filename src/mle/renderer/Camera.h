@@ -1,10 +1,8 @@
 #pragma once
 
-#include "glm/exponential.hpp"
-#include "mle/common/math/Types.h"
-#include "mle/common/math/Types3D.h"
-#include "spdlog/common.h"
-namespace mle::renderer {
+#include "mle/math/Types3D.h"
+
+namespace mle {
 class Camera {
   public:
     enum class ProjType : u8 { PERSPECTIVE, ORTH };
@@ -109,14 +107,14 @@ class Camera {
     mat4f view_proj_ = mat4f(1.0F);
     bool view_proj_dirty_ = true;
 };
-}  // namespace mle::renderer
+}  // namespace mle
 
 namespace fmt {
 template <>
-struct formatter<mle::renderer::Camera> : formatter<std::string> {
+struct formatter<mle::Camera> : formatter<std::string> {
     template <typename FormatContext>
-    constexpr auto format(const mle::renderer::Camera& cam, FormatContext& ctx) const {
-        if (cam.getProjType() == mle::renderer::Camera::ProjType::PERSPECTIVE) {
+    constexpr auto format(const mle::Camera& cam, FormatContext& ctx) const {
+        if (cam.getProjType() == mle::Camera::ProjType::PERSPECTIVE) {
             return format_to(ctx.out(), "Camera[pos: {} target: {}] (Perspective, FOV: {:.2f}, Aspect: {:.2f}, Near: {:.2f}, Far: {:.2f})", cam.getPos(),
                              cam.getTarget(), cam.getFov(), cam.getAspect(), cam.getNear(), cam.getFar());
         }

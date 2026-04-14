@@ -1,139 +1,86 @@
-/**
- * @file
- * @brief Vulkan buffer wrapper using VMA for memory allocation.
- */
-
 #pragma once
 
 #include "Types.h"
-#include "mle/common/LiveCounter.h"
-#include "mle/common/Result.h"
-#include "mle/common/Utils.h"
+#include "mle/renderer/SyncManager.h"
+#include "mle/utils/Utils.h"
 
-namespace mle::renderer {
-/**
- * @brief Represents a Vulkan buffer with associated memory allocation.
- *
- * This class wraps a `vk::Buffer` and manages its lifetime, memory mapping,
- * and data uploads using VMA. It supports different allocation types for staging,
- * GPU-only, and host-visible memory.
- */
-class Buffer final : public LiveCounter<Buffer> {
+namespace mle {
+class Buffer {
   public:
-    /// Configuration structure for buffer creation.
     struct CreateInfo {
-        usize size;                  ///< Size of the buffer in bytes.
-        vk::BufferUsageFlags usage;  ///< Vulkan buffer usage flags.
-
-        bool dedicated_memory = false;  ///< Whether to use a dedicated memory allocation.
-
-        /// Specifies the memory allocation strategy for the buffer.
-        enum class AllocationType : i8 {
-            GPU_ONLY,                 ///< Allocated only on the GPU, not accessible by host.
-            GPU_ONLY_HOST_WRITE_SEQ,  ///< GPU memory with host-visible sequential write access.
-            GPU_ONLY_HOST_READ,       ///< GPU memory with host-visible read access.
-            STAGING                   ///< CPU-visible staging buffer for data upload.
-        };
-
-        AllocationType allocation_type;  ///< Memory allocation strategy.
+        usize size;
+        vk::BufferUsageFlags usage;
+        bool dedicated_memory = false;
+        enum class AllocationType : i8 { GPU_ONLY, GPU_ONLY_HOST_WRITE_SEQ, GPU_ONLY_HOST_READ, STAGING };
+        AllocationType allocation_type;
     };
-    using CI = CreateInfo;  ///< Alias for CreateInfo.
+    using CI = CreateInfo;
 
   public:
-    Buffer(const Buffer&) = delete;
-    Buffer& operator=(const Buffer&) = delete;
-    Buffer& operator=(Buffer&&) = delete;
-    Buffer(Buffer&& other) = delete;
+    MLE_NO_COPY(Buffer);
 
-    /// Constructs an empty Buffer instance. Use init to initialize it.
     Buffer() = default;
-
-    /// Destroys the Vulkan buffer and frees its memory.
     ~Buffer();
 
-    /**
-     * @brief Creates a Vulkan buffer with the specified configuration and returns a handle.
-     *
-     * @param ci Buffer creation configuration.
-     * @return a BufferHnd containing the created buffer.
-     */
-    static BufferHnd createHnd(const CI& ci);
+    Buffer(Buffer&& other) noexcept;
+    Buffer& operator=(Buffer&& other) noexcept;
 
-    /**
-     * @brief Initializes the buffer with the provided creation info.
-     *
-     * @param ci Buffer creation info.
-     */
-    void init(const CI& ci);
+    void create(const CI& ci);
 
-    /**
-     * @brief Releases the Vulkan buffer and its associated memory.
-     */
-    void release();
-
-    /**
-     * @brief Maps the buffer memory and returns a pointer to the mapped region.
-     *
-     * @return an `Expected<void*>` containing the mapped memory pointer or an error.
-     */
     void* map();
-
-    /// Unmaps the buffer memory if it was previously mapped.
     void unmap();
 
-    /**
-     * @brief Updates the buffer with raw data.
-     * @param data Pointer to the data.
-     * @param size Size of the data to copy. Defaults to entire buffer.
-     * @param offset Offset in the buffer to start writing to.
-     */
-    void update(const void* data, u64 size = max<u64>(), u64 offset = 0);
+    void write(const void* data, usize size = max<u64>(), usize offset = 0);
+    void copy(CommandBuffer& cmd, BufferRef src, usize size = max<usize>(), usize src_offset = 0, usize dst_offset = 0);
+    [[nodiscard]] BufferHnd writeStaged(CommandBuffer& cmd, const void* data, usize size, usize src_offset = 0, usize dst_offset = 0);
 
-    /**
-     * @brief Copies data from another buffer using a command buffer.
-     * @param cmd The command buffer used for the copy.
-     * @param src Source buffer to copy from.
-     * @param size Number of bytes to copy. Defaults to entire buffer.
-     * @param offset Offset in the destination buffer.
-     */
-    void update(vk::CommandBuffer cmd, BufferRef src, u64 size = max<u64>(), u64 offset = 0);
+    [[nodiscard]] vk::DescriptorBufferInfo makeDescriptorInfo(const CommandBuffer& cmd, usize size = max<usize>(), usize offset = 0);
 
-    /**
-     * @brief Uploads data using a temporary staging buffer and a copy command.
-     *
-     * @param cmd Command buffer used to record the copy.
-     * @param data Pointer to source data.
-     * @param size Size of data to copy. Defaults to entire buffer.
-     * @param offset Offset in the destination buffer.
-     * @return A temporary staging buffer that must be kept alive until the copy completes or an error.
-     */
-    [[nodiscard]] BufferHnd updateStaged(vk::CommandBuffer cmd, const void* data, u64 size = max<u64>(), u64 offset = 0);
+    [[nodiscard]] vk::Buffer get() const { return o_; }
+    [[nodiscard]] vk::BufferUsageFlags getUsage() const { return usage_; }
+    [[nodiscard]] vk::DeviceSize getSize() const { return size_; }
+    [[nodiscard]] bool isPersistent() const { return persistent_; }
 
-    /**
-     * @brief Returns a descriptor buffer info used for descriptor bindings.
-     * @param size Size of the buffer to expose. Defaults to full size.
-     * @param offset Offset within the buffer. Defaults to 0.
-     * @return Vulkan descriptor buffer info.
-     */
-    [[nodiscard]] vk::DescriptorBufferInfo makeDescriptorInfo(u64 size = max<u64>(), u64 offset = 0) const;
-
-    [[nodiscard]] const vk::Buffer& getVkHnd() { return o_; }                           ///< Returns the Vulkan buffer handle.
-    [[nodiscard]] const vk::Buffer& get() { return getVkHnd(); }                        ///< Alias for getVkHnd().
-    [[nodiscard]] vk::BufferUsageFlags getUsage() const { return usage_; }              ///< Returns the buffer usage flags.
-    [[nodiscard]] vk::DeviceSize getSize() const { return size_; }                      ///< Returns the total size of the buffer in bytes.
-    void* getMappedWithOffset(usize offset) { return as<u8*>(mapped_data_) + offset; }  ///< Returns a pointer to the mapped memory with an offset.
+    void* getMappedOffset(usize offset);
 
     vk::DeviceAddress getDeviceAddress();
 
-  private:
-    vk::Buffer o_;  ///< Vulkan buffer handle.
+    void ownershipRelease(CommandBuffer& cmd, QueueDataIdx dst_queue_data_idx);
+    [[nodiscard]] std::optional<Semaphore> ownershipReleaseOTS(QueueDataIdx dst_queue_data_idx);
+    void ownershipAcquireOTSWait(QueueDataIdx dst_queue_data_idx);
+    void ownershipAcquire(CommandBuffer& cmd, vk::PipelineStageFlags2 dst_stage_mask = vk::PipelineStageFlagBits2::eAllCommands,
+                          vk::AccessFlags2 dst_access_mask = vk::AccessFlagBits2::eMemoryWrite | vk::AccessFlagBits2::eMemoryRead);
+    [[nodiscard]] std::optional<Semaphore> ownershipReleaseOTSAcquire(CommandBuffer& cmd,
+                                                                      vk::PipelineStageFlags2 dst_stage_mask = vk::PipelineStageFlagBits2::eAllCommands,
+                                                                      vk::AccessFlags2 dst_access_mask = vk::AccessFlagBits2::eMemoryWrite |
+                                                                                                         vk::AccessFlagBits2::eMemoryRead);
+    void ownershipReleaseOTSAcquireOTSWait(GCmdType type);
 
-    vk::BufferUsageFlags usage_;           ///< Usage flags for the Vulkan buffer.
-    VmaAllocation allocation_{};           ///< VMA allocation handle.
-    VmaAllocationInfo allocation_info_{};  ///< VMA allocation info for mapped memory access.
-    u64 size_ = 0;                         ///< Size of the buffer in bytes.
-    void* mapped_data_ = nullptr;          ///< Pointer to mapped memory if applicable.
-    bool persistent_ = false;              ///< Whether the buffer stays mapped for its lifetime.
-    bool can_be_mapped_ = false;           ///< Whether the buffer memory is host-visible.
+    [[nodiscard]] static BufferHnd createHnd(const CI& ci);
+
+    static void logAliveObjects();
+
+  private:
+    vk::Buffer o_;
+
+    vk::BufferUsageFlags usage_;
+    VmaAllocation allocation_{};
+    VmaAllocationInfo allocation_info_{};
+    usize size_ = 0;
+    QueueDataIdx queue_data_idx_ = NO_QUEUE;
+    QueueDataIdx prev_queue_data_idx_ = NO_QUEUE;
+    void* mapped_data_ = nullptr;
+    bool persistent_ = false;
+    bool can_be_mapped_ = false;
 };
-}  // namespace mle::renderer
+}  // namespace mle
+
+namespace fmt {
+template <>
+struct formatter<mle::Buffer> : formatter<std::string> {
+    template <typename FormatContext>
+    constexpr auto format(const mle::Buffer& v, FormatContext& ctx) const {
+        return fmt::format_to(ctx.out(), "vk: {}, usage: {}, size: {}", static_cast<void*>(v.get()), vk::to_string(v.getUsage()), v.getSize());
+    }
+};
+}  // namespace fmt

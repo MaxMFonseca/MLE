@@ -2,13 +2,51 @@
 
 #include <spirv_reflect.h>
 
-#include "Renderer.h"
-#include "mle/common/Logger.h"
-#include "mle/renderer/Utils.h"
+#include "mle/core/Unwrap.h"
+#include "mle/renderer/Renderer.h"
+#include "vulkan/vulkan.hpp"
 
-namespace mle::renderer {
+namespace mle {
+void Shader::init(const Bytes& spv, vk::ShaderStageFlagBits stage) {
+    MLE_D("Creating shader module");
+
+    vk::ShaderModuleCreateInfo module_ci;
+    module_ci.codeSize = spv.size();
+    module_ci.pCode = rAs<const u32*>(spv.data());
+    o_ = unwrap(Renderer::i().vkDevice().createShaderModule(module_ci));
+    stage_ = stage;
+
+    reflect(spv);
+}
+
+Shader::~Shader() {
+    if (o_) {
+        Renderer::i().destroy(o_);
+    }
+}
+
+vk::ShaderStageFlagBits Shader::stageFromExtension(const Path& filename) {
+    auto stage_extension = filename.stem().extension();
+    if (stage_extension == ".frag") {
+        return vk::ShaderStageFlagBits::eFragment;
+    }
+    if (stage_extension == ".vert") {
+        return vk::ShaderStageFlagBits::eVertex;
+    }
+    if (stage_extension == ".comp") {
+        return vk::ShaderStageFlagBits::eCompute;
+    }
+    MLE_UNREACHABLE_LOG("Unsupported shader stage extension {} on file: {}, filename should be <name>.<stage>.spv", stage_extension, filename);
+}
+
+Bytes Shader::readSPV(const Path& path) {
+    return unwrap(readFileBytes(path));
+}
+
 namespace {
-DataType spvTypeToType(SpvReflectTypeDescription& td) {
+Shader::DataType spvTypeToShaderDataType(SpvReflectTypeDescription& td) {
+    using DataType = Shader::DataType;
+
     bool is_vector = static_cast<bool>(td.type_flags & SPV_REFLECT_TYPE_FLAG_VECTOR);
     bool is_matrix = static_cast<bool>(td.type_flags & SPV_REFLECT_TYPE_FLAG_MATRIX);
 
@@ -17,13 +55,13 @@ DataType spvTypeToType(SpvReflectTypeDescription& td) {
         if (is_vector) {
             auto vec_size = td.traits.numeric.vector.component_count;
             if (vec_size == 2) {
-                return DataType::VEC2F;
+                return DataType::VEC2;
             }
             if (vec_size == 3) {
-                return DataType::VEC3F;
+                return DataType::VEC3;
             }
             if (vec_size == 4) {
-                return DataType::VEC4F;
+                return DataType::VEC4;
             }
         }
         if (is_matrix) {
@@ -36,25 +74,101 @@ DataType spvTypeToType(SpvReflectTypeDescription& td) {
             }
         }
         MLE_ASSERT_LOG(td.type_flags == SPV_REFLECT_TYPE_FLAG_FLOAT, "Unsupported float type: {}", td.type_flags);
-        return DataType::F32;
+        return DataType::FLOAT;
     }
 
-    bool is_int = static_cast<bool>(td.type_flags & SPV_REFLECT_TYPE_FLAG_INT);
+    bool is_int = as<bool>(td.type_flags & SPV_REFLECT_TYPE_FLAG_INT);
     if (is_int) {
-        MLE_ASSERT_LOG(td.type_flags == SPV_REFLECT_TYPE_FLAG_INT, "Unsupported integer type: {}", td.type_flags);
-        return DataType::F32;
+        if (td.traits.numeric.scalar.signedness) {
+            return DataType::INT;
+        }
+
+        return DataType::UINT;
     }
 
     MLE_UNREACHABLE_LOG("Unsupported type. Fixme! {}", td.type_flags);
 }
-}  // namespace
 
-Shader::~Shader() {
-    if (shader_module_) {
-        MLE_D("Destroying shader module: {}");
-        detail::getDevice().destroy(shader_module_);
+void reflectVertexInput(auto& reflection, auto& vertex_attributes_, auto& vertex_bindings_, u32& first_instance_attribute_location_) {
+    std::vector<SpvReflectInterfaceVariable*> input_vars;
+    u32 count = 0;
+    if (reflection.EnumerateInputVariables(&count, nullptr) != SPV_REFLECT_RESULT_SUCCESS) {
+        Core::i().unrecoverable("Failed to enumerate input variables");
+    }
+    input_vars.resize(count);
+    if (reflection.EnumerateInputVariables(&count, input_vars.data()) != SPV_REFLECT_RESULT_SUCCESS) {
+        Core::i().unrecoverable("Failed to enumerate input variables");
+    }
+
+    std::ranges::sort(input_vars, [](const SpvReflectInterfaceVariable* a, const SpvReflectInterfaceVariable* b) { return a->location < b->location; });
+
+    u32 last_location = max<u32>();
+    u32 offset = 0;
+    for (auto& input_var : input_vars) {
+        const SpvReflectInterfaceVariable& refl_var = *input_var;
+        if (refl_var.decoration_flags & SPV_REFLECT_DECORATION_BUILT_IN) {
+            continue;
+        }
+
+        auto& attribute = vertex_attributes_.emplace_back();
+        attribute.format = as<vk::Format>(refl_var.format);
+        attribute.offset = offset;
+        offset += Shader::typeSize(Shader::vkFormatToDataType(attribute.format));
+
+        attribute.location = refl_var.location;
+        MLE_T("Attribute {}: location: {}, format: {}", refl_var.name, attribute.location, vk::to_string(attribute.format));
+
+        MLE_ASSERT_LOG(!(last_location == max<u32>() && attribute.location != 0), "First attribute location must be 0");
+        MLE_ASSERT_LOG(last_location == max<u32>() || last_location + 1 == attribute.location, "Attribute locations must be consecutive, last: {}, current: {}",
+                       last_location, attribute.location);
+
+        std::string var_name = refl_var.name;
+        if (var_name.starts_with("ini_")) {
+            if (first_instance_attribute_location_ == max<u32>()) {
+                first_instance_attribute_location_ = attribute.location;
+            }
+        } else {
+            if (first_instance_attribute_location_ != max<u32>()) {
+                Core::i().unrecoverable("All instance attributes must be defined after vertex attributes, instance at {}, vertex at {}",
+                                        first_instance_attribute_location_, attribute.location);
+            }
+        }
+
+        last_location = attribute.location;
+    }
+
+    bool has_instance_attributes = first_instance_attribute_location_ != max<uint>();
+    bool has_vertex_attributes = !vertex_attributes_.empty() && (!has_instance_attributes || first_instance_attribute_location_ > 0);
+    u32 last_vertex_attribute = has_instance_attributes ? first_instance_attribute_location_ - 1 : vertex_attributes_.size() - 1;
+    u32 vert_bind_stride = 0;
+
+    if (has_vertex_attributes) {
+        auto& vertex_binding = vertex_bindings_.emplace_back();
+        vertex_binding.binding = 0;
+        vertex_binding.inputRate = vk::VertexInputRate::eVertex;
+        vertex_binding.stride = 0;
+        for (u32 i = 0; i <= last_vertex_attribute; ++i) {
+            MLE_T("Vertex attribute {}: location: {}, format: {}", i, vertex_attributes_[i].location, vk::to_string(vertex_attributes_[i].format));
+            vertex_binding.stride += Shader::typeSize(Shader::vkFormatToDataType(vertex_attributes_[i].format));
+            vertex_attributes_[i].binding = vertex_binding.binding;
+        }
+        vert_bind_stride = vertex_binding.stride;
+    }
+
+    if (has_instance_attributes) {
+        auto& instance_binding = vertex_bindings_.emplace_back();
+        instance_binding.binding = has_vertex_attributes ? 1 : 0;
+        instance_binding.inputRate = vk::VertexInputRate::eInstance;
+        instance_binding.stride = 0;
+        for (u32 i = first_instance_attribute_location_; i < vertex_attributes_.size(); ++i) {
+            MLE_T("Instance attribute {}: location: {}, format: {}", i, vertex_attributes_[i].location, vk::to_string(vertex_attributes_[i].format));
+            instance_binding.stride += Shader::typeSize(Shader::vkFormatToDataType(vertex_attributes_[i].format));
+            vertex_attributes_[i].binding = instance_binding.binding;
+            vertex_attributes_[i].offset -= vert_bind_stride;
+        }
     }
 }
+}  // namespace
 
 void Shader::reflect(const Bytes& spv_data) {
     MLE_D("SPIR-V reflection");
@@ -62,99 +176,52 @@ void Shader::reflect(const Bytes& spv_data) {
     spv_reflect::ShaderModule reflection(spv_data.size(), spv_data.data());
     MLE_ASSERT(reflection.GetResult() == SPV_REFLECT_RESULT_SUCCESS);
 
-    std::vector<SpvReflectInterfaceVariable*> input_vars;
-
-    u32 count = 0;
-
     if (stage_ == vk::ShaderStageFlagBits::eVertex) {
-        if (reflection.EnumerateInputVariables(&count, nullptr) != SPV_REFLECT_RESULT_SUCCESS) {
-            core::unrecoverable("Failed to enumerate input variables");
-        }
-        input_vars.resize(count);
-        if (reflection.EnumerateInputVariables(&count, input_vars.data()) != SPV_REFLECT_RESULT_SUCCESS) {
-            core::unrecoverable("Failed to enumerate input variables");
-        }
-        std::ranges::sort(input_vars, [](const SpvReflectInterfaceVariable* a, const SpvReflectInterfaceVariable* b) { return a->location < b->location; });
-
-        auto last_location = max<u32>();
-        u32 offset = 0;
-        for (auto& input_var : input_vars) {
-            const SpvReflectInterfaceVariable& refl_var = *input_var;
-            if (refl_var.decoration_flags & SPV_REFLECT_DECORATION_BUILT_IN) {
-                continue;
-            }
-
-            auto& attribute = vertex_attributes_.emplace_back();
-            attribute.format = static_cast<vk::Format>(refl_var.format);
-
-            attribute.offset = offset;
-            offset += typeSize(attribute.format);
-
-            attribute.location = refl_var.location;
-            MLE_T("Attribute {}: location: {}, format: {}", refl_var.name, attribute.location, vk::to_string(attribute.format));
-
-            MLE_ASSERT_LOG(!(last_location == max<u32>() && attribute.location != 0), "First attribute location must be 0");
-            MLE_ASSERT_LOG(last_location == max<u32>() || last_location + 1 == attribute.location,
-                           "Attribute locations must be consecutive, last: {}, current: {}", last_location, attribute.location);
-
-            std::string var_name = refl_var.name;
-            if (var_name.starts_with("ini_")) {
-                if (first_instance_attribute_location_ == max<u32>()) {
-                    first_instance_attribute_location_ = attribute.location;
-                }
-            } else {
-                if (first_instance_attribute_location_ != max<u32>()) {
-                    core::unrecoverable("All instance attributes must be defined after vertex attributes, instance at {}, vertex at {}",
-                                        first_instance_attribute_location_, attribute.location);
-                }
-            }
-
-            last_location = attribute.location;
-        }
+        reflectVertexInput(reflection, vertex_attributes_, vertex_bindings_, first_instance_attribute_location_);
     }
 
-    count = 0;
+    u32 count = 0;
     if (reflection.EnumerateDescriptorSets(&count, nullptr) != SPV_REFLECT_RESULT_SUCCESS) {
-        core::unrecoverable("Failed to enumerate descriptor sets");
+        Core::i().unrecoverable("Failed to enumerate descriptor sets");
     }
     if (count > 0) {
         std::vector<SpvReflectDescriptorSet*> sets;
         sets.resize(count);
         if (reflection.EnumerateDescriptorSets(&count, sets.data()) != SPV_REFLECT_RESULT_SUCCESS) {
-            core::unrecoverable("Failed to enumerate descriptor sets");
+            Core::i().unrecoverable("Failed to enumerate descriptor sets");
         }
         for (auto& set : sets) {
-            auto& dsl = dsls_.emplace_back();
-            dsl.set = set->set;
+            auto& ds_bindings = descriptor_sets_.emplace_back();
+            ds_bindings.set = set->set;
 
             MLE_T("Descriptor set: {}, binding_count: {}", set->set, set->binding_count);
 
             for (usize i = 0; i < set->binding_count; ++i) {
                 auto& spvbinding = *set->bindings[i];  // NOLINT
-                auto& b = dsl.bindings.emplace_back();
+                auto& b = ds_bindings.bindings.emplace_back();
                 b.binding = spvbinding.binding;
                 b.descriptorType = as<vk::DescriptorType>(spvbinding.descriptor_type);
                 b.descriptorCount = spvbinding.count;
                 b.stageFlags = stage_;
                 b.pImmutableSamplers = nullptr;
-                MLE_T("Descriptor set: {}, binding: {}, type: {}, count: {}", dsl.set, b.binding, vk::to_string(b.descriptorType), b.descriptorCount);
+                MLE_T("Descriptor set: {}, binding: {}, type: {}, count: {}", ds_bindings.set, b.binding, vk::to_string(b.descriptorType), b.descriptorCount);
             }
 
-            std::ranges::sort(dsl.bindings,
+            std::ranges::sort(ds_bindings.bindings,
                               [](const vk::DescriptorSetLayoutBinding& a, const vk::DescriptorSetLayoutBinding& b) { return a.binding < b.binding; });
         }
 
-        std::ranges::sort(dsls_, [](const DSL& a, const DSL& b) { return a.set < b.set; });
+        std::ranges::sort(descriptor_sets_, [](const DescriptorSet& a, const DescriptorSet& b) { return a.set < b.set; });
     }
 
     std::vector<SpvReflectBlockVariable*> push_constants;
     count = 0;
     if (reflection.EnumeratePushConstantBlocks(&count, nullptr) != SPV_REFLECT_RESULT_SUCCESS) {
-        core::unrecoverable("Failed to enumerate push constant blocks");
+        Core::i().unrecoverable("Failed to enumerate push constant blocks");
     }
     push_constants.resize(count);
     if (reflection.EnumeratePushConstantBlocks(&count, push_constants.data()) != SPV_REFLECT_RESULT_SUCCESS) {
-        core::unrecoverable("Failed to enumerate push constant blocks");
+        Core::i().unrecoverable("Failed to enumerate push constant blocks");
     }
 
     MLE_ASSERT_LOG(push_constants.size() <= 1, "Only one push constant block is supported");
@@ -171,196 +238,113 @@ void Shader::reflect(const Bytes& spv_data) {
             field.name = m.name;
             field.size = static_cast<int>(m.size);
             field.offset = static_cast<int>(m.offset);
-            field.type = spvTypeToType(*m.type_description);
+            field.type = spvTypeToShaderDataType(*m.type_description);
 
             MLE_T("Push constant field {}: name: {}, offset: {}, size: {}, type: {}", i, field.name, field.offset, field.size, field.type);
         }
     }
 }
-vk::PipelineShaderStageCreateInfo Shader::getPipelineShaderStageCreateInfo() const {
+
+vk::PipelineShaderStageCreateInfo Shader::makePipelineShaderStageCreateInfo() const {
     vk::PipelineShaderStageCreateInfo ret;
     ret.stage = stage_;
-    ret.module = shader_module_;
+    ret.module = o_;
     ret.pName = "main";
     return ret;
 }
 
-[[nodiscard]] PipelineVertexInputState Shader::makePipelineVertexInputStateCreateInfo() const {
+vk::PipelineVertexInputStateCreateInfo Shader::makePipelineVertexInputStateCreateInfo() const {
     if (vertex_attributes_.empty()) {
         return {};
     }
 
-    PipelineVertexInputState ret;
-    ret.attribute_descriptions = vertex_attributes_;
-
-    bool has_instance_attributes = first_instance_attribute_location_ != max<uint>();
-    bool has_vertex_attributes = !has_instance_attributes || first_instance_attribute_location_ > 0;
-    u32 last_vertex_attribute = has_instance_attributes ? first_instance_attribute_location_ - 1 : vertex_attributes_.size() - 1;
-    u32 vert_bind_stride = 0;
-
-    if (has_vertex_attributes) {
-        auto& vertex_binding = ret.binding_descriptions.emplace_back();
-        vertex_binding.binding = 0;
-        vertex_binding.inputRate = vk::VertexInputRate::eVertex;
-        vertex_binding.stride = 0;
-        for (u32 i = 0; i <= last_vertex_attribute; ++i) {
-            MLE_T("Vertex attribute {}: location: {}, format: {}", i, vertex_attributes_[i].location, vk::to_string(vertex_attributes_[i].format));
-            vertex_binding.stride += typeSize(ret.attribute_descriptions[i].format);
-            ret.attribute_descriptions[i].binding = vertex_binding.binding;
-        }
-        vert_bind_stride = vertex_binding.stride;
-    }
-
-    if (has_instance_attributes) {
-        auto& instance_binding = ret.binding_descriptions.emplace_back();
-        instance_binding.binding = has_vertex_attributes ? 1 : 0;
-        instance_binding.inputRate = vk::VertexInputRate::eInstance;
-        instance_binding.stride = 0;
-        for (uint i = first_instance_attribute_location_; i < vertex_attributes_.size(); ++i) {
-            MLE_T("Instance attribute {}: location: {}, format: {}", i, vertex_attributes_[i].location, vk::to_string(vertex_attributes_[i].format));
-            instance_binding.stride += typeSize(ret.attribute_descriptions[i].format);
-            ret.attribute_descriptions[i].binding = instance_binding.binding;
-            ret.attribute_descriptions[i].offset -= vert_bind_stride;
-        }
-    }
-
-    ret.ci.setVertexAttributeDescriptions(ret.attribute_descriptions);
-    ret.ci.setVertexBindingDescriptions(ret.binding_descriptions);
+    vk::PipelineVertexInputStateCreateInfo ret{};
+    ret.setVertexBindingDescriptions(vertex_bindings_);
+    ret.setVertexAttributeDescriptions(vertex_attributes_);
 
     return ret;
 }
 
-void Shader::mergeDSLs(std::vector<DSL>& a, const std::vector<DSL>& b) {
-    for (const auto& dsl : b) {
-        auto found = std::ranges::find_if(a, [&](const DSL& existing) { return existing.set == dsl.set; });
-
-        if (found != a.end()) {
-            mergeDSL(*found, dsl);
-        } else {
-            a.push_back(dsl);
-        }
-    }
-
-    std::ranges::sort(a, [](const DSL& a, const DSL& b) { return a.set < b.set; });
-}
-
-void Shader::mergeDSL(DSL& a, const DSL& b) {
+void Shader::mergeSetBindings(DescriptorSet& a, const DescriptorSet& b) {
     MLE_ASSERT(a.set == b.set);
 
     for (const auto& b_binding : b.bindings) {
         auto it = std::ranges::find_if(a.bindings, [&](const vk::DescriptorSetLayoutBinding& a_binding) { return a_binding.binding == b_binding.binding; });
 
         if (it != a.bindings.end()) {
-            MLE_ASSERT_LOG(it->descriptorType == b_binding.descriptorType, "Descriptor type mismatch on binding {}.{}, a: {}, b: {}", a.set, it->binding,
-                           vk::to_string(it->descriptorType), vk::to_string(b_binding.descriptorType));
-            MLE_ASSERT_LOG(it->descriptorCount == b_binding.descriptorCount, "Descriptor count mismatch on binding {}.{}, a: {}, b: {}", a.set, it->binding,
-                           it->descriptorCount, b_binding.descriptorCount);
+            auto match = it->descriptorType == b_binding.descriptorType && it->descriptorCount == b_binding.descriptorCount;
+            if (!match) {
+                Core::i().unrecoverable("Descriptor binding mismatch on set {} binding {}, a: (type: {}, count: {}), b: (type: {}, count: {})", a.set,
+                                        it->binding, vk::to_string(it->descriptorType), it->descriptorCount, vk::to_string(b_binding.descriptorType),
+                                        b_binding.descriptorCount);
+            }
 
             it->stageFlags |= b_binding.stageFlags;
         } else {
             a.bindings.push_back(b_binding);
         }
     }
-}
-}  // namespace mle::renderer
 
-// TODO: maybe reimplement glslang shader compilation here and allow the engine user to opt-in to it.
-// Or even better.. use SLANG
-// std::string ShaderModule::readShaderSource(const fs::path& path) {
-//     if (!fs::exists(path)) {
-//         MLE_THROW(RESOURCE_NOT_FOUND, "Shader source file not found: {}", path);
-//     }
-//
-//     std::ifstream file(path);
-//     std::string ret;
-//     for (std::string line; std::getline(file, line);) {
-//         if (line.starts_with('#')) {
-//             if (line.starts_with("#include")) {
-//                 std::string mod = line.substr(10);
-//                 mod.pop_back();
-//                 fs::path include_path;
-//                 if (mod.starts_with("~")) {
-//                     include_path = mle::addShadersBasePath(mod);
-//                 } else {
-//                     include_path = path.parent_path() / mod;
-//                 }
-//                 ret += readShaderSource(include_path);
-//                 continue;
-//             }
-//
-//             if (line.starts_with("#instance")) {
-//                 first_instance_attribute_location_ = std::stoi(line.substr(10));
-//                 continue;
-//             }
-//         }
-//         ret += line + '\n';
-//     }
-//     return ret;
-// }
-//
-// std::vector<u32> ShaderModule::compile(std::string_view src) {
-//     glslang::InitializeProcess();
-//
-//     EShLanguage env_stage = {};
-//
-//     switch (stage_) {
-//         case vk::ShaderStageFlagBits::eVertex:
-//             env_stage = EShLangVertex;
-//             break;
-//         case vk::ShaderStageFlagBits::eFragment:
-//             env_stage = EShLangFragment;
-//             break;
-//         case vk::ShaderStageFlagBits::eCompute:
-//             env_stage = EShLangCompute;
-//             break;
-//         default:
-//             MLE_UNREACHABLE_LOG("Unsupported shader stage: {}", vk::to_string(stage_));
-//     }
-//
-//     MLE_T("Compiling {} shader module: {}\n{}", vk::to_string(stage_), debug_name_, src);
-//
-//     glslang::TShader shader{env_stage};
-//     const char* const src_char = src.data();
-//     shader.setStrings(&src_char, 1);
-//     shader.setEnvInput(glslang::EShSourceGlsl, env_stage, glslang::EShClientVulkan, 450);
-//     shader.setEnvClient(glslang::EShClientVulkan, glslang::EShTargetVulkan_1_3);
-//     shader.setEnvTarget(glslang::EShTargetSpv, glslang::EShTargetSpv_1_3);
-//     shader.setEntryPoint("main");
-//     shader.setSourceEntryPoint("main");
-//
-//     MLE_ASSERT_LOG(shader.parse(GetDefaultResources(), 450, false, EShMsgDefault), "Shader compilation error:\n{}", shader.getInfoLog());
-//
-//     glslang::TProgram program;
-//     program.addShader(&shader);
-//
-//     MLE_ASSERT(program.link(EShMsgDefault));
-//
-//     std::vector<u32> spv_data;
-//     spv::SpvBuildLogger spv_logger;
-//     glslang::SpvOptions spv_options;
-//     spv_options.disableOptimizer = false;
-//     spv_options.optimizeSize = true;
-//
-//     GlslangToSpv(*program.getIntermediate(env_stage), spv_data, &spv_logger, &spv_options);
-//
-//     bool compilation_error = false;
-//     std::string spv_logger_msg;
-//     spv_logger.error(spv_logger_msg);
-//     while (!spv_logger_msg.empty()) {
-//         compilation_error = true;
-//         MLE_E("Spirv log error:\n{}", spv_logger_msg);
-//         spv_logger_msg.clear();
-//         spv_logger.error(spv_logger_msg);
-//     }
-//     while (!spv_logger_msg.empty()) {
-//         MLE_W("Spirv log warn:\n{}", spv_logger_msg);
-//         spv_logger_msg.clear();
-//         spv_logger.warning(spv_logger_msg);
-//     }
-//
-//     MLE_ASSERT(!compilation_error);
-//
-//     glslang::FinalizeProcess();
-//
-//     return spv_data;
-// }
+    std::ranges::sort(a.bindings, [](const vk::DescriptorSetLayoutBinding& a, const vk::DescriptorSetLayoutBinding& b) { return a.binding < b.binding; });
+}
+
+std::vector<Shader::DescriptorSet> Shader::mergeDescriptorSets(const Shader& other) const {
+    std::vector<DescriptorSet> ret = descriptor_sets_;
+
+    for (const auto& other_ds : other.descriptor_sets_) {
+        auto found = std::ranges::find_if(ret, [&](const DescriptorSet& existing) { return existing.set == other_ds.set; });
+
+        if (found != ret.end()) {
+            mergeSetBindings(*found, other_ds);
+        } else {
+            ret.push_back(other_ds);
+        }
+    }
+
+    std::ranges::sort(ret, [](const DescriptorSet& a, const DescriptorSet& b) { return a.set < b.set; });
+
+    return ret;
+}
+
+u32 Shader::typeSize(DataType type) {
+    switch (type) {
+        case DataType::FLOAT:
+        case DataType::INT:
+        case DataType::UINT:
+            return 4;
+        case DataType::VEC2:
+            return 8;
+        case DataType::VEC3:
+            return 12;
+        case DataType::VEC4:
+        case DataType::VEC4U:
+        case DataType::MAT2:
+            return 16;
+        case DataType::MAT4:
+            return 64;
+        default:
+            MLE_UNREACHABLE_LOG("Unsupported type size query: {}", type);
+    }
+}
+
+Shader::DataType Shader::vkFormatToDataType(vk::Format format) {
+    switch (format) {
+        case vk::Format::eR32Sfloat:
+            return DataType::FLOAT;
+        case vk::Format::eR32Sint:
+            return DataType::INT;
+        case vk::Format::eR32Uint:
+            return DataType::UINT;
+        case vk::Format::eR32G32Sfloat:
+            return DataType::VEC2;
+        case vk::Format::eR32G32B32Sfloat:
+            return DataType::VEC3;
+        case vk::Format::eR32G32B32A32Sfloat:
+            return DataType::VEC4;
+        case vk::Format::eR32G32B32A32Uint:
+            return DataType::VEC4U;
+        default:
+            MLE_UNREACHABLE_LOG("Unsupported format to type conversion: {}", vk::to_string(format));
+    }
+};
+}  // namespace mle

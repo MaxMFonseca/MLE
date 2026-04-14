@@ -1,33 +1,29 @@
-/**
- * @file
- * @brief Event definitions and listener types for window-related events.
- */
-
 #pragma once
 
-#include "mle/common/EventDispatcher.h"
+#include "mle/math/Types.h"
+#include "mle/utils/EventDispatcher.h"
 
-namespace mle::window {
-namespace events {
-/// Event signaling that the window should close.
-struct WindowClose {};
-/// Event signaling that the window was resized.
-struct WindowResize {
-    vec2i size;  ///< New window size in pixels.
+namespace mle::window::ev {
+struct Close {};
+struct Resize {
+    vec2i size{0};
 };
-/// Event signaling that the window was iconified (minimized).
-struct WindowIconify {
-    bool iconified;  ///< True if the window is iconified, false if restored.
+struct Iconify {
+    bool iconified;
 };
-}  // namespace events
+struct Focus {
+    bool focus;
+};
 
 /// Dispatcher type for window-related events.
-using ED = EventDispatcher<events::WindowClose, events::WindowResize, events::WindowIconify>;
+using Dispatcher = EventDispatcherST<Close, Resize, Iconify, Focus>;
 
 /// Listener handle for `WindowClose` events.
-using WindowCloseListener = ED::ListenerHnd<events::WindowClose>;
+using CloseL = Dispatcher::ListenerHnd<Close>;
 /// Listener handle for `WindowResize` events.
-using WindowResizeListener = ED::ListenerHnd<events::WindowResize>;
+using ResizeL = Dispatcher::ListenerHnd<Resize>;
 /// Listener handle for `WindowIconify` events.
-using WindowIconifyListener = ED::ListenerHnd<events::WindowIconify>;
-}  // namespace mle::window
+using IconifyL = Dispatcher::ListenerHnd<Iconify>;
+/// Listener handle for `WindowFocus` events.
+using FocusL = Dispatcher::ListenerHnd<Focus>;
+}  // namespace mle::window::ev

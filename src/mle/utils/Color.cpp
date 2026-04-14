@@ -1,0 +1,287 @@
+#include "Color.h"
+
+#include <random>
+
+#include "mle/core/Logger.h"
+#include "mle/lua/Lua.h"
+#include "mle/lua/Utils.h"
+
+namespace mle {
+const Color Color::ZERO = Color{0U};
+const Color Color::ONE = Color{MAX_U8, MAX_U8, MAX_U8, MAX_U8};
+const Color Color::BLACK = Color{0U, 0U, 0U};
+const Color Color::WHITE = Color{MAX_U8, MAX_U8, MAX_U8};
+const Color Color::RED = Color{MAX_U8, 0U, 0U};
+const Color Color::GREEN = Color{0U, MAX_U8, 0U};
+const Color Color::BLUE = Color{0U, 0U, MAX_U8};
+const Color Color::MAGENTA = Color{MAX_U8, 0U, MAX_U8};
+const Color Color::YELLOW = Color{MAX_U8, MAX_U8, 0U};
+const Color Color::CYAN = Color{0U, MAX_U8, MAX_U8};
+const Color Color::GRAY = Color(0.4F, 0.4F, 0.4F);
+const Color Color::LIGHT_GRAY = Color(0.75F, 0.75F, 0.75F);
+const Color Color::DARK_GRAY = Color(0.1F, 0.1F, 0.1F);
+
+Color Color::fromString(const std::string& str) {
+    if (str.size() > 2) {
+        if (str[0] == '0' && str[1] == 'x') {
+            return Color{static_cast<u32>(std::stoul(str, nullptr, 16))};
+        }
+        if (str[0] == '#') {
+            auto s2 = str.substr(1);
+            if (s2.size() == 6) {
+                s2 += "FF";
+            }
+            return Color{static_cast<u32>(std::stoul(s2, nullptr, 16))};
+        }
+    }
+
+    return Color::WHITE;
+}
+
+Color Color::fromLua(const sol::object& object) {
+    if (!object.valid()) {
+        MLE_W("Invalid color object, returning WHITE");
+        return WHITE;
+    }
+
+    if (object.is<Color>()) {
+        return object.as<Color>();
+    }
+
+    switch (object.get_type()) {
+        case sol::type::number:
+            return Color{object.as<u32>()};
+        case sol::type::string:
+            return fromString(object.as<std::string>());
+        case sol::type::table: {
+            auto table = object.as<sol::table>();
+
+            f32 a = 1;
+            if (const auto a_r = table["a"]; a_r.valid()) {
+                a = a_r.get<f32>();
+                if (a > 1.0) {
+                    a /= 255.0;
+                }
+            }
+
+            if (const auto h_r = table["h"]; h_r.valid()) {
+                f32 h = h_r.get<f32>();
+                f32 s = lua::getKeyOr(table, "s", 0.F);
+                f32 v = lua::getKeyOr(table, "v", 0.F);
+
+                fromHSVA({h, s, v, a});
+            }
+
+            if (const auto r_r = table["r"]; r_r.valid()) {
+                f32 r = r_r.get<f32>();
+                f32 g = lua::getKeyOr(table, "g", 0.F);
+                f32 b = lua::getKeyOr(table, "b", 0.F);
+
+                if (r > 1 || g > 1 || b > 1) {
+                    return Color{as<u32>(r), as<u32>(g), as<u32>(b), as<u32>(a * MAX_U8)};
+                }
+
+                return Color{r, g, b, a};
+            }
+
+            f32 r = NAN, g = NAN, b = NAN;
+            if (!lua::tryGetList<f32>(table, r, g, b)) {
+                MLE_W("Invalid Lua color table, returning WHITE");
+                return WHITE;
+            }
+
+            if (r > 1 || g > 1 || b > 1) {
+                u32 a = lua::getIdxOr(table, 4, MAX_U8);
+                return Color{as<u32>(r), as<u32>(g), as<u32>(b), a};
+            }
+
+            a = lua::getIdxOr(table, 4, 1.F);
+            return Color{r, g, b, a};
+        }
+        case sol::type::userdata: {
+            if (object.is<Color>()) {
+                return object.as<Color>();
+            }
+            if (object.is<vec4u>()) {
+                return Color{object.as<vec4u>()};
+            }
+            if (object.is<vec4f>()) {
+                return Color{object.as<vec4f>()};
+            }
+            if (object.is<vec3u>()) {
+                return Color{object.as<vec3u>()};
+            }
+            if (object.is<vec3f>()) {
+                return Color{object.as<vec3f>()};
+            }
+        }
+        default:
+            break;
+    }
+    MLE_UNREACHABLE_LOG("Invalid color type");
+}
+
+Color Color::fromHex(u32 hex) noexcept {
+    Color ret;
+    ret.r = static_cast<f32>((hex >> 24U) & 0xFFU) / MAX_U8_F;
+    ret.g = static_cast<f32>((hex >> 16U) & 0xFFU) / MAX_U8_F;
+    ret.b = static_cast<f32>((hex >> 8U) & 0xFFU) / MAX_U8_F;
+    ret.a = static_cast<f32>(hex & 0xFFU) / MAX_U8_F;
+    return ret;
+}
+
+Color Color::random(u32 alpha) {
+    static thread_local std::mt19937 rng(std::random_device{}());
+    static thread_local std::uniform_int_distribution<u32> dist(0, MAX_U8);
+    return Color{dist(rng), dist(rng), dist(rng), alpha};
+}
+
+u32 Color::asRGBA() const {
+    return static_cast<u32>(r * MAX_U8) << 24U | static_cast<u32>(g * MAX_U8) << 16U | static_cast<u32>(b * MAX_U8) << 8U | static_cast<u32>(a * MAX_U8);
+};
+
+u32 Color::asARGB() const {
+    return static_cast<u32>(a * MAX_U8) << 24U | static_cast<u32>(r * MAX_U8) << 16U | static_cast<u32>(g * MAX_U8) << 8U | static_cast<u32>(b * MAX_U8);
+}
+
+u32 Color::asABGR() const {
+    return static_cast<u32>(a * MAX_U8) << 24U | static_cast<u32>(b * MAX_U8) << 16U | static_cast<u32>(g * MAX_U8) << 8U | static_cast<u32>(r * MAX_U8);
+}
+
+Color Color::toLinear() const {
+    Color ret;
+
+    if (r <= 0.04045F) {
+        ret.r = r / 12.92F;
+    } else {
+        ret.r = glm::pow((r + 0.055F) / 1.055F, 2.4F);
+    }
+
+    if (g <= 0.04045F) {
+        ret.g = g / 12.92F;
+    } else {
+        ret.g = glm::pow((g + 0.055F) / 1.055F, 2.4F);
+    }
+
+    if (b <= 0.04045F) {
+        ret.b = b / 12.92F;
+    } else {
+        ret.b = glm::pow((b + 0.055F) / 1.055F, 2.4F);
+    }
+
+    ret.a = a;
+    return ret;
+}
+
+Color Color::toSRGB() const {
+    Color ret;
+
+    if (r <= 0.0031308F) {
+        ret.r = r * 12.92F;
+    } else {
+        ret.r = (1.055F * glm::pow(r, 1.0F / 2.4F)) - 0.055F;
+    }
+
+    if (g <= 0.0031308F) {
+        ret.g = g * 12.92F;
+    } else {
+        ret.g = (1.055F * glm::pow(g, 1.0F / 2.4F)) - 0.055F;
+    }
+
+    if (b <= 0.0031308F) {
+        ret.b = b * 12.92F;
+    } else {
+        ret.b = (1.055F * glm::pow(b, 1.0F / 2.4F)) - 0.055F;
+    }
+
+    ret.a = a;
+    return ret;
+}
+
+Color Color::mix(const Color& a, const Color& b, f32 factor) {
+    MLE_ASSERT_LOG(factor >= 0.0F && factor <= 1.0F, "Factor must be in the range [0, 1]. {}", factor);
+    auto ret = a * (1.0F - factor) + b * factor;
+    ret.a = (a.a * (1.0F - factor)) + (b.a * factor);
+    return ret;
+}
+
+Color Color::fromHSVA(vec4f hsva) {
+    f32 h = hsva.x, s = hsva.y, v = hsva.z;
+
+    f32 c = v * s;
+    f32 x = c * (1 - std::fabs(std::fmod(h / 60.0F, 2.0F) - 1));
+    f32 m = v - c;
+
+    f32 r = 0, g = 0, b = 0;
+
+    if (h >= 0 && h < 60) {
+        r = c, g = x, b = 0;
+    } else if (h >= 60 && h < 120) {
+        r = x, g = c, b = 0;
+    } else if (h >= 120 && h < 180) {
+        r = 0, g = c, b = x;
+    } else if (h >= 180 && h < 240) {
+        r = 0, g = x, b = c;
+    } else if (h >= 240 && h < 300) {
+        r = x, g = 0, b = c;
+    } else if (h >= 300 && h < 360) {
+        r = c, g = 0, b = x;
+    }
+
+    r += m;
+    g += m;
+    b += m;
+
+    return Color{r, g, b, hsva.w};
+}
+
+vec4f Color::toHSVA(Color c) {
+    auto r = c.r, g = c.g, b = c.b;
+    f32 max_component = std::max({r, g, b});
+    float min_component = std::min({r, g, b});
+    float delta = max_component - min_component;
+
+    float h = 0.0F;
+    if (delta > 0.0F) {
+        if (max_component == r) {
+            h = 60.0F * (std::fmod(((g - b) / delta), 6.0F));
+        } else if (max_component == g) {
+            h = 60.0F * (((b - r) / delta) + 2.0F);
+        } else if (max_component == b) {
+            h = 60.0F * (((r - g) / delta) + 4.0F);
+        }
+    }
+
+    if (h < 0.0F) {
+        h += 360.0F;
+    }
+
+    float s = (max_component == 0.0F) ? 0.0F : (delta / max_component);
+    float v = max_component;
+    return {h, s, v, c.a};
+}
+
+Color Color::lighten(f32 factor) const {
+    auto hsva = toHSVA();
+    hsva.z *= factor;
+    return fromHSVA(hsva);
+}
+
+std::vector<Color> Color::lerpCount(Color a, Color b, usize count) {
+    std::vector<Color> ret;
+    if (count == 0) {
+        return ret;
+    }
+    if (count == 1) {
+        return {mix(a, b, 0.5F)};
+    }
+
+    ret.reserve(count);
+    for (usize i = 0; i < count; ++i) {
+        f32 t = as<f32>(i) / as<f32>(count - 1);
+        ret.emplace_back(mix(a, b, t));
+    }
+
+    return ret;
+}
+}  // namespace mle

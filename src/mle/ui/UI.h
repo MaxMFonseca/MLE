@@ -1,49 +1,61 @@
 #pragma once
 
-#include <functional>
+#include "mle/core/Result.h"
+#include "mle/lua/Lua.h"
+#include "mle/ui/systems/Bounds.h"
+#include "mle/ui/systems/Events.h"
+#include "mle/ui/systems/Hover.h"
+#include "mle/ui/systems/LuaElementOps.h"
+#include "mle/ui/systems/Rendering.h"
+#include "mle/utils/ECS.h"
+#include "mle/window/Events.h"
+#include "sol/forward.hpp"
 
-#include "Types.h"
-#include "mle/renderer/RenderingThread.h"
-#include "mle/renderer/Types.h"
-#include "mle/ui/Events.h"
-#include "mle/ui/detail/FontCache.h"
-#include "mle/ui/element/Base.h"
+namespace mle {
+class UI {
+  public:
+    UI();
 
-namespace mle::ui {
-void init();
-void shutdown();
-void update();
-renderer::ImageRef render();
-entt::registry& getRegistry();
-FontRef getFont(const std::string& font_name = "");
+    void setRoot(const std::string& element_name);
+    void setRoot(sol::table root_table);
+    void clear();
+    void shutdown() { clear(); }
 
-vk::CommandBuffer getPreRenderCmdBuffer();
-void addJobToQueue(vk::CommandBuffer cmd);
-vec2u getRootSize();
+    [[nodiscard]] auto& getRegistry() { return registry_; }
+    [[nodiscard]] auto getRoot() const { return root_; }
+    [[nodiscard]] vec2u getRootMaxSize() const { return root_max_size_; }
+    [[nodiscard]] f32 getRootAspectRatio() const { return root_aspect_ratio_; }
 
-void setNextRoot(const sol::table& next_root);
-void setNextRoot(const std::string& path);
+    [[nodiscard]] Expected<std::reference_wrapper<const sol::table>> getStyle(std::string_view style_name);
+    void addStyle(const std::string& style_name, const sol::table& style_table);
 
-void namedElementCreated(const std::string& name, entt::entity element);
-void listenNamedElementCreated(const std::string& name, std::function<void(entt::entity)>&& callback);
+    void update();
+    ImageRef render();
 
-entt::entity getElement(const std::string& name);
+    Expected<ui::Entt> getE(std::span<const std::string_view> tree = {});
+    Expected<ui::Entt> getE(const std::string& id);
 
-ID listenUIEvent(const std::string& name, std::move_only_function<void(const sol::object& o)>&& func, bool once = false);
-void removeUIEventListener(const std::string& name, ID id);
-void dispatchUIEvent(const std::string& name, const sol::object& o);
+    auto& eventSystem() { return events_; }
+    auto& hoverSystem() { return hover_system_; }
+    auto& boundsSystem() { return bounds_system_; }
+    auto& renderingSystem() { return rendering_system_; }
 
-namespace detail {
-ED& getED();
-}  // namespace detail
+  private:
+    void addRootStyles(const sol::object& obj);
 
-template <typename Event>
-ED::ListenerHnd<Event> listen(std::function<void(const Event&)>&& callback) {
-    return detail::getED().makeEventListener(std::move(callback));
-}
+  private:
+    entt::registry registry_;
+    entt::entity root_ = entt::null;
+    vec2u root_max_size_{0};
+    f32 root_aspect_ratio_ = 1;
 
-template <typename Event>
-void dispatch(const Event& event) {
-    detail::getED().dispatch(event);
-}
-}  // namespace mle::ui
+    std::map<std::string, sol::table> styles_;
+
+    ui::system::Bounds bounds_system_{*this};
+    ui::system::Rendering rendering_system_{*this};
+    ui::system::Hover hover_system_{*this};
+    ui::system::Events events_{*this};
+
+    window::ev::ResizeL window_resize_el_;  // FIXME: This should not be here, the user should do this explicitly
+};
+}  // namespace mle

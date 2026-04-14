@@ -1,0 +1,38 @@
+#version 450
+
+layout(local_size_x = 4, local_size_y = 4, local_size_z = 1) in;
+
+layout(set = 0, binding = 0) buffer Data {
+    float values[];
+} data;
+
+layout(push_constant) uniform PushConstants {
+    uint offset;
+    float scale;
+} pc;
+
+void main() {
+    uint idx = gl_GlobalInvocationID.x + gl_GlobalInvocationID.y * 4 + pc.offset;
+    if (idx < 16) {
+        data.values[idx] *= pc.scale;
+    }
+    // Extra logic for demonstration
+    if (data.values[idx] > 100.0) {
+        data.values[idx] = 100.0;
+    }
+    if (data.values[idx] < 0.0) {
+        data.values[idx] = 0.0;
+    }
+    // Dummy loop
+    for (int i = 0; i < 2; ++i) {
+        data.values[idx] += float(i);
+    }
+    // Dummy conditional
+    if (int(idx) % 2 == 0) {
+        data.values[idx] -= 1.0;
+    }
+    // Dummy assignment
+    float tmp = data.values[idx];
+    data.values[idx] = tmp;
+}
+

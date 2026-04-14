@@ -1,83 +1,83 @@
-/**
- * @file
- * @brief Provides the RenderingThread class used for issuing Vulkan rendering commands in a thread context.
- */
-
 #pragma once
 
-#include "Types.h"
-#include "mle/renderer/Image.h"
-#include "mle/renderer/Utils.h"
+#include <functional>
 
-namespace mle::renderer {
-/**
- * @brief Manages Vulkan command buffer recording for rendering in a thread-local context.
- *
- * The RenderingThread class encapsulates state related to Vulkan rendering operations such as
- * beginning a render pass, binding buffers, setting viewports, and issuing draw calls.
- * It maintains minimal internal state to track the currently bound pipeline and rendering region.
- */
+#include "Types.h"
+#include "mle/math/Types2D.h"
+#include "mle/renderer/CommandManager.h"
+#include "mle/renderer/Image.h"
+#include "mle/utils/Utils.h"
+
+namespace mle {
+// Please be mindfull that the lifetime of RenderingThread must be managed by the main thread.
+// So create and end MUST be called from the main thread.
 class RenderingThread {
   public:
-    RenderingThread(const RenderingThread&) = delete;
-    RenderingThread(RenderingThread&&) = delete;
-    RenderingThread& operator=(const RenderingThread&) = delete;
-    RenderingThread& operator=(RenderingThread&&) = delete;
-
-    /// Constructs an empty RenderingThread. Use `init()` before before anything.
-    /// TODO: call init here
     RenderingThread() = default;
-    explicit RenderingThread(vk::CommandBuffer cmd) :
-        cmd_(cmd) {}
     ~RenderingThread() = default;
 
-    /**
-     * @brief Initializes the rendering thread state.
-     */
+    MLE_NO_COPY(RenderingThread);
+
+    RenderingThread(RenderingThread&&) = default;
+    RenderingThread& operator=(RenderingThread&&) = default;
+
     void init();
+    void executeCommands();
 
-    /// Ends the current command buffer recording and submit
-    void submit();
+    const auto& cmd() { return cmd_; }
 
-    /// Returns the internal Vulkan command buffer used for issuing commands.
-    auto cmd() { return cmd_; }
+    vk::CommandBuffer operator()() { return cmd_.get(); }
 
-    void setColorAttachments(std::vector<AttachmentInfo>&& attachments);
+    auto getAttachmentDescription(u8 idx) { return color_attachments_.at(idx); }
+
+    void setColorAttachment(const AttachmentInfo& attachment, u8 idx);
+    void setColorAttachments(std::span<const AttachmentInfo> attachments);
+    void removeAllColorAttachments();
+    void setNoClear();
     void setDepthAttachment(const AttachmentInfo& attachment);
-    void setPipeline(PipelineRef p);
-    void beginRendering(Recti render_area = {}, bool can_clear = true);
-    void beginRenderingKeepState();
-    void endRendering();
-    void setViewport(const Rectf& viewport = {});
+
+    void setPipeline(const Pipeline* p);
+    void setPipeline(const std::string& name);
+
+    void setViewport(Rectf viewport = {});
+    void setScissor(Recti scissor = {});
+    void setViewportAndScissor(Rectf viewport = {});
+    void setLineWidth(f32 v) const;
+
     void bindVertexBuffer(BufferRef buffer, usize offset = 0) const;
     void bindInstanceBuffer(BufferRef buffer, usize offset = 0) const;
     void bindIndexBuffer(BufferRef buffer, usize offset = 0) const;
-    void pushConstants(const void* push_constants);
     void bindDescriptorSet(vk::DescriptorSet set, u32 binding) const;
-    void pushDescriptor(u32 set, const std::vector<vk::WriteDescriptorSet>& writes);
-    void setLineWidth(f32 v);
-    void draw(int instance_count, int vertex_count);
-    void drawIndexed(int instance_count, int index_count, usize index_offset = 0);
-    void dispatchCompute(int group_count_x, int group_count_y = 1, int group_count_z = 1) const;
 
-    void endCmd() { check(cmd_.end()); };
+    void pushConstants(const void* push_constants) const;
+    void pushDescriptor(u32 set, std::span<const vk::WriteDescriptorSet> writes) const;
+
+    void beginRendering(Recti render_area = {});
+    void endRendering();
+
+    void draw(u32 vertex_count, u32 instance_count, u32 first_vertex = 0, u32 first_instance = 0);
+    void drawIndexed(u32 index_count, u32 instance_count, u32 first_index = 0, int vertex_offset = 0, u32 first_instance = 0);
+    void dispatchCompute(int group_count_x, int group_count_y = 1, int group_count_z = 1) const;
 
     [[nodiscard]] Recti getRenderArea() const { return render_area_; }
     [[nodiscard]] auto getViewport() const { return viewport_; }
-    [[nodiscard]] auto getColor0Image() const { return color_attachments_.at(0).image; }
-    [[nodiscard]] auto getColor0Size() const { return color_attachments_.at(0).image->getExtent(); }
+    [[nodiscard]] auto getScissor() const { return scissor_; }
+
+    [[nodiscard]] ImageRef getColor0() const { return color_attachments_.at(0).image; }
+    [[nodiscard]] vec2u getColor0Size() const { return getColor0()->getExtent(); }
 
   private:
-    vk::CommandBuffer cmd_;  ///< Thread-local Vulkan command buffer for recording rendering commands.
+    CommandBuffer cmd_{};
 
-    bool in_rendering_ = false;  ///< Flag indicating if currently in a rendering pass.
+    bool in_rendering_ = false;
 
-    std::vector<AttachmentInfo> color_attachments_{};  ///< Framebuffer attachments.
-    AttachmentInfo depth_attachment_{};                ///< Depth attachment info.
+    std::array<AttachmentInfo, 4> color_attachments_{};
+    AttachmentInfo depth_attachment_{};
 
-    Rectf viewport_{0, 0, 0, 0};  ///< Current viewport size.
+    Rectf viewport_{0, 0, 0, 0};
+    Recti scissor_{0, 0, 0, 0};
 
-    PipelineRef pipeline_{nullptr};  ///< Currently bound pipeline.
-    Recti render_area_{};            ///< Current rendering area.
+    const Pipeline* pipeline_{};
+    Recti render_area_{};
 };
-}  // namespace mle::renderer
+}  // namespace mle

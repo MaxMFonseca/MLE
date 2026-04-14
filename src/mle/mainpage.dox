@@ -68,8 +68,8 @@
  *
  * ## 🧭 Coding Conventions
  *
- * - **No Exceptions**: The engine is compiled with `-fno-exceptions`. All error handling uses return codes or `Expected<T>`.
- * - **No shared ownership**: `shared_ptr` is a code smell. All ownership is explicit.
+ * - **No Exceptions**: The engine is compiled with `-fno-exceptions`. Error handling is done by return codes and Expected<T>.
+ * - **Avoid shared_ptr**: Prefer unique ownership (`std::unique_ptr`) and raw pointers for non-owning references.
  *
  * ### Ownership Types
  * - `<T>Hnd` → owning handle (`std::unique_ptr<T>`)

@@ -13,13 +13,10 @@
 #include <sol/sol.hpp>
 
 #include "Types.h"
-#include "mle/common/Assert.h"
-#include "mle/common/Color.h"
-#include "mle/common/Logger.h"
-#include "mle/common/math/Types.h"
-#include "mle/common/math/Types2D.h"
+#include "mle/core/Assert.h"
 #include "mle/core/Core.h"
-#include "sol/forward.hpp"
+#include "mle/math/Types2D.h"
+#include "mle/utils/Color.h"
 
 namespace mle::lua {
 /**
@@ -37,7 +34,7 @@ inline bool valid(const sol::object& obj) {
 template <typename T>
 inline void assertIs(const sol::object& obj) {
     if (!valid<T>(obj)) {
-        core::unrecoverable("Object is not valid or not of type {}", obj.get_type());
+        Core::i().unrecoverable("Object is not valid or not of type {}", obj.get_type());
     }
 }
 
@@ -66,7 +63,7 @@ inline bool validAll(const sol::object& first, const Args&... rest) {
  */
 template <typename T>
 inline T as(const sol::object& obj) {
-    MLE_ASSERT_LOG(valid<T>(obj), "Object is not valid or not of type {}", obj.get_type());
+    assertIs<T>(obj);
     return obj.as<T>();
 }
 
@@ -91,6 +88,15 @@ inline bool tryAs(const sol::object& obj, T& out) {
     }
     out = obj.as<T>();
     return true;
+}
+
+template <typename T>
+std::optional<T> tryAs(const sol::object& obj) {
+    T out;
+    if (!tryAs<T>(obj, out)) {
+        return std::nullopt;
+    }
+    return out;
 }
 
 /**
@@ -155,7 +161,7 @@ inline bool tryGetList(const sol::table& table, Args&... out) {
  * @return A vector containing the extracted values.
  */
 template <typename T>
-inline T getKey(const sol::table& table, const std::string& key) {
+inline T getKeyAs(const sol::table& table, const std::string& key) {
     return as<T>(table[key]);
 }
 
@@ -170,9 +176,36 @@ inline T getKey(const sol::table& table, const std::string& key) {
  * @param out Output reference to store the extracted value.
  * @return True if the value was successfully extracted, false otherwise.
  */
-template <typename T>
-inline bool tryGetKey(const sol::table& table, const std::string& key, T& out) {
+template <typename T, typename V>
+inline bool tryGetKeyAs(const sol::table& table, const V& key, T& out) {
     return tryAs(table[key], out);
+}
+
+template <typename... Keys>
+sol::object getFirstKey(const sol::table& table, const Keys&... keys) {
+    sol::object result = sol::nil;
+    bool found = false;
+
+    auto check = [&](const auto& key) {
+        if (found) {
+            return;
+        }
+        sol::object o = table[key];
+        if (o.valid() && !o.is<sol::nil_t>()) {
+            result = o;
+            found = true;
+        }
+    };
+
+    (check(keys), ...);
+
+    return result;
+}
+
+template <typename T, typename... Keys>
+bool tryGetFirstKeyAs(const sol::table& table, T& ret, const Keys&... keys) {
+    sol::object obj = getFirstKey(table, keys...);
+    return tryAs<T>(obj, ret);
 }
 
 /**
@@ -252,37 +285,6 @@ template <typename T>
 inline bool tryGetIdx(const sol::table& table, int idx, T& out) {
     return tryAs(table[idx], out);
 }
-
-/**
- * @brief Try to get a value from a Lua table by key or index.
- *
- * @tparam T Expected value type.
- * @param table Lua table object.
- * @param key Key to look for in the table.
- * @param idx Index to look for in the table.
- * @param ret Output reference to store the extracted value.
- * @return True if the value was successfully extracted from either key or index, false otherwise.
- */
-template <typename T>
-inline bool tryGetKeyOrIdx(const sol::table& table, const std::string& key, int idx, T& ret) {
-    if (tryGetKey(table, key, ret)) {
-        return true;
-    }
-    if (tryGetIdx(table, idx, ret)) {
-        return true;
-    }
-    return false;
-}
-
-/**
- * @brief Try to get a value from a Lua table by key or index.
- *
- * @parem table Lua table object.
- * @param key Key to look for in the table.
- * @param idx Index to look for in the table.
- * @return An optional containing the extracted value if it exists, or an empty optional otherwise.
- */
-std::optional<sol::object> getKeyOrIdx(const sol::table& table, const std::string& key, int idx);
 
 /**
  * @brief As overload for `vec2f`. Accepts o as num, vec2f, or a table(list) with 2 numeric elements.
@@ -413,9 +415,9 @@ inline Recti as(const sol::object& o) {
         return o.as<Recti>();
     }
     if (o.is<sol::table>()) {
-        Recti ret;
-        getList<i32>(o, ret.pos.x, ret.pos.y, ret.size.x, ret.size.y);
-        return ret;
+        int x = 0, y = 0, w = 0, h = 0;
+        getList<int>(o, x, y, w, h);
+        return {x, y, w, h};
     }
 
     MLE_UNREACHABLE_LOG("Cannot convert to Recti from {}", o.get_type());
@@ -426,16 +428,16 @@ template <>
 inline Rectf as(const sol::object& o) {
     MLE_ASSERT(o.valid());
 
-    if (o.is<Recti>()) {
+    if (o.is<Rectf>()) {
         return o.as<Rectf>();
     }
     if (o.is<sol::table>()) {
-        Rectf ret;
-        getList<f32>(o, ret.pos.x, ret.pos.y, ret.size.x, ret.size.y);
-        return ret;
+        f32 x = 0, y = 0, w = 0, h = 0;
+        getList<f32>(o, x, y, w, h);
+        return {x, y, w, h};
     }
 
-    MLE_UNREACHABLE_LOG("Cannot convert to Recti from {}", o.get_type());
+    MLE_UNREACHABLE_LOG("Cannot convert to Rectf from {}", o.get_type());
 }
 
 /**

@@ -1,0 +1,100 @@
+#version 450
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(set = 0, binding = 0) uniform sampler2D in_img;
+layout(set = 0, binding = 1) writeonly uniform image2D out_img;
+
+layout(push_constant) uniform PC {
+  ivec2 viewport_size;
+  ivec2 target_offset;
+  ivec4 rounding_corners_radius_px; // lt, rt, lb, rb
+  int pass;
+  float sigma;
+  int radius;
+} pc;
+
+float roundedRectCoverage(vec2 p, vec2 size, vec4 r) {
+  vec2 half_size = size * 0.5;
+  float rmax = min(half_size.x, half_size.y);
+  r = clamp(r, vec4(0.0), vec4(rmax));
+
+  bool in_lt = (p.x < r.x) && (p.y < r.x);
+  bool in_rt = (p.x > size.x - r.y) && (p.y < r.y);
+  bool in_rb = (p.x > size.x - r.w) && (p.y > size.y - r.w);
+  bool in_lb = (p.x < r.z) && (p.y > size.y - r.z);
+
+  if (!(in_lt || in_rt || in_rb || in_lb)) {
+    return 1.0;
+  }
+
+  vec2 c;
+  float rad;
+  if (in_lt) {
+    c = vec2(r.x, r.x);
+    rad = r.x;
+  } else if (in_rt) {
+    c = vec2(size.x - r.y, r.y);
+    rad = r.y;
+  } else if (in_rb) {
+    c = vec2(size.x - r.w, size.y - r.w);
+    rad = r.w;
+  } else {
+    c = vec2(r.z, size.y - r.z);
+    rad = r.z;
+  }
+
+  float d = length(p - c) - rad;
+  return d < 0.0 ? 1.0 : 0.0;
+}
+
+float gaussianWeight(int x, float sigma) {
+  if (sigma <= 0.0) {
+    return (x == 0) ? 1.0 : 0.0;
+  }
+  float s2 = 2.0 * sigma * sigma;
+  return exp(-(float(x * x)) / s2);
+}
+
+void main() {
+  ivec2 gid = ivec2(gl_GlobalInvocationID.xy);
+
+  if (gid.x >= pc.viewport_size.x || gid.y >= pc.viewport_size.y) {
+    return;
+  }
+
+  float cov = roundedRectCoverage(vec2(gid + 0.5), vec2(pc.viewport_size), vec4(pc.rounding_corners_radius_px));
+  if (cov <= 0.5) {
+    return;
+  }
+
+  ivec2 base_sample_uv = pc.pass == 0 ? pc.target_offset : ivec2(0);
+  ivec2 base_output_uv = pc.pass == 0 ? ivec2(0) : pc.target_offset;
+
+  ivec2 dir = (pc.pass == 0) ? ivec2(1, 0) : ivec2(0, 1);
+
+  vec4 sum = vec4(0.0);
+  float wsum = 0.0;
+
+  int r = pc.radius;
+  float s = pc.sigma;
+
+  for (int k = -r; k <= r; ++k) {
+    ivec2 local_sample_0 = gid + dir * k;
+    float cov = roundedRectCoverage(vec2(local_sample_0 + 0.5), vec2(pc.viewport_size), vec4(pc.rounding_corners_radius_px));
+    if (cov <= 0.5) {
+      continue;
+    }
+
+    ivec2 local_sample = base_sample_uv + local_sample_0;
+    local_sample = clamp(local_sample, ivec2(base_sample_uv), base_sample_uv + pc.viewport_size - ivec2(1, 1));
+
+    vec4 c = texelFetch(in_img, local_sample, 0);
+
+    float w = gaussianWeight(k, s);
+    sum += c * w;
+    wsum += w;
+  }
+
+  vec4 out_color = (wsum > 0.0) ? (sum / wsum) : texelFetch(in_img, base_output_uv + gid, 0);
+  imageStore(out_img, base_output_uv + gid, out_color);
+}
