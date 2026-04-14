@@ -1,72 +1,65 @@
-# MLE (Max Lua Engine)
+## MLE
 
-MLE is a custom Vulkan-based voxel path-traced rendering engine purpose-built for large-scale open-world games. It combines high-performance C++ for core systems with Lua for user-modifiable game logic, providing a flexible and efficient development environment.
+MLE is a custom Vulkan-based rendering engine built for large-scale open-world games. It combines high-performance C++ for core systems with Lua for user-modifiable game logic, providing a flexible and efficient development environment.
 
-The engine renders fully procedurally generated terrain, dynamic entities, and complex lighting interactions using a real-time voxel path tracer. It's designed for infinite, modifiable worlds with rich environmental interaction and minimal dependencies.
+The engine is designed to render fully procedural terrain, dynamic entities, and complex lighting interactions. It targets infinite, modifiable worlds with rich environmental interaction and minimal external dependencies.
 
-This doc is very incomplete and will be updated as the project evolves. For now, it serves as a basic overview of the MLE engine and its features.
+This document is still incomplete and may contain outdated or inaccurate information. It will evolve alongside the project. For now, it serves as a high-level overview of the MLE engine and its current direction.
 
-## Features
+## Planned Features
 
-- **Vulkan Path Tracing Core**
+* **Vulkan Core**
 
-  - Real-time voxel-based path tracing
-  - Block-based global illumination and colored light propagation
+  * Real-time rendering systems
 
-- **Voxel World System**
+* **Entity and Chunk Management**
 
-  - Infinite procedurally generated worlds
-  - Efficient memory layout with sparse octree entity representation
-  - Procedural terrain generation using random noise and fractal algorithms
+  * Static entities aligned to the voxel grid
+  * Sparse octree structures for movable and large-scale entities
+  * Dynamic chunk loading and streaming for open-world scalability
 
-- **Entity & Chunk Management**
+* **Modding with Lua**
 
-  - Static entities aligned to the voxel grid
-  - Sparse octree structure for movable and large-scale entities
-  - Dynamic chunk loading and streaming for open-world scalability
+  * Lua scripting for gameplay and logic
+  * Safe bindings and helper functions for geometry, transforms, and asset references
 
-- **Modding with Lua**
+* **UI and Tools**
 
-  - Lua scripting for gameplay and logic
-  - Safe bindings and helper functions for geometry, transforms, and asset references
+  * Custom in-engine static UI system with post-processing support
+  * Tooling for asset generation, visualization, and debugging
 
-- **UI & Tools**
+* **Engine Internals**
 
-  - Custom in-engine UI system with post-processing support
-  - Toolchain for asset generation, visualization, and debugging
+  * Zero-exception C++23 codebase using `Expected<T>` and `Result`-based error handling
+  * Explicit ownership model with `<T>Hnd` for owning references and `<T>Ref` for non-owning references
+  * Utility macros for assertions, unreachable paths, and safe casting (`as<T>`, `asPtr<T>`)
 
-- **Engine Internals**
+* **Logging and Debugging**
 
-  - Zero-exception C++23 codebase with `Expected<T>` and `Result`-based error handling
-  - Explicit ownership model with `<T>Hnd` (owning) and `<T>Ref` (non-owning)
-  - Utility macros for assert, unreachable paths, and safe casting (`as<T>`, `asPtr<T>`)
+  * `spdlog`-based logging system
+  * Extensive macro support for logging, assertions, and debugging
 
-- Logging and Debugging
+* **Engine Tools**
 
-  - Spdlog based logging system
-  - Many used macros for logging, assertions, and debugging
-
-- Tools build for the engine using the engine
-
-  - These can be found in the `tools` directory and are built with the engine.
-  - Currently developing the MLECubes tool that will help create and visualize voxel-based assets.
+  * Internal tools built using the engine itself
+  * These tools are located in the `tools` directory
+  * The currently in-development `MLECubes` tool helps create and visualize voxel-based assets
 
 ## Building
 
-> **Requirements:**
+> **Requirements**
 >
-> - C++23 compiler (Clang or GCC)
-> - CMake 3.18+
-> - Vulkan SDK
-> - Git submodules (`git submodule update --init --recursive`)
+> * Clang 17+
+> * CMake 3.18+
+> * Vulkan SDK 1.3+
 
-We use a helper script to set up the environment and build the project. It detects the platform and configures everything automatically:
+A helper script is provided to automate most of the setup process:
 
 ```bash
-. ./scripts/envsetup.sh
-mle_setup -> Fetches all submodules and set up the environment
-mle_config -> Config cmake and tooling
-mle_build -> Build the engine and tools
+source ./scripts/envsetup.sh
+mle_setup   # Fetches all submodules and sets up the environment
+mle_config  # Configures CMake and tooling
+mle_build   # Builds the engine and tools
 ```
 
 ## Running a Tool
@@ -81,16 +74,18 @@ Arguments after `--` are passed directly to the tool. The script handles environ
 
 ## Coding Conventions
 
-- No exceptions: all errors use `Expected<T>` and `Result`
-- Ownership is explicit:
-  - `<T>Hnd` = owning (`std::unique_ptr<T>`)
-  - `<T>Ref` = non-owning, must outlive the receiver
-- Safe casting helpers:
-  - `as<T>` replaces `static_cast<T>`
-  - `asPtr<T>` replaces `reinterpret_cast<T*>`
-- All public API elements must be documented using Doxygen-style comments
-- Inline and field comments are preferred for simplicity and readability
+* Exceptions are disabled; all errors use `Expected<T>` and `Result`
+* Ownership is explicit:
+
+  * `<T>Hnd` = owning (`std::unique_ptr<T>`)
+  * `<T>Ref` = non-owning and must outlive the receiver
+* Safe casting helpers:
+
+  * `as<T>` replaces `static_cast<T>`
+  * `asPtr<T>` replaces `reinterpret_cast<T*>`
+* Public API elements should be documented with Doxygen-style comments
+* Inline and field comments are preferred where they improve clarity without adding noise
 
 ## License
 
-This project is private and not licensed for external distribution at this time.
+This project is private and is not currently licensed for external distribution.
