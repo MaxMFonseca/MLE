@@ -4,9 +4,9 @@ MLE is a custom Vulkan based rendering engine purpose-built for large-scale open
 
 The engine renders fully procedurally generated terrain, dynamic entities, and complex lighting interactions. It's designed for infinite, modifiable worlds with rich environmental interaction and minimal dependencies.
 
-This doc is very incomplete and will be updated as the project evolves. For now, it serves as a basic overview of the MLE engine and its features.
+This doc is very incomplete, and possibly wrong. It will be updated as the project evolves. For now, it serves as a basic overview of the MLE engine and its features.
 
-## Features
+## Planed Features
 
 - **Vulkan Core**
 
@@ -25,7 +25,7 @@ This doc is very incomplete and will be updated as the project evolves. For now,
 
 - **UI & Tools**
 
-  - Custom in-engine UI system with post-processing support
+  - Custom in-engine static UI system with post-processing support
   - Toolchain for asset generation, visualization, and debugging
 
 - **Engine Internals**
