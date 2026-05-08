@@ -131,7 +131,7 @@ void RuntimeConfig::set(const std::string& key, const std::string& value) {
         if (auto it = key_listeners_.find(key); it != key_listeners_.end()) {
             for (auto* dead : to_remove) {
                 auto& vec = it->second;
-                std::ranges::remove(vec, dead);
+                std::ignore = std::ranges::remove(vec, dead);
             }
         }
     }
