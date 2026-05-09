@@ -221,11 +221,13 @@ void Client::checkNextGameLayer() {
             std::ignore = Renderer::i().vkDevice().waitIdle();
             MLE_I("Shutting down current game layer");
             game_layer_->shutdown();
+            game_layer_table_ = sol::nil;
             game_layer_.reset();
         }
 
         MLE_I("Switching to new game layer");
         game_layer_ = std::move(next_game_layer_);
+        game_layer_table_ = lua_.createTable("G");
         game_layer_->init();
     }
 }

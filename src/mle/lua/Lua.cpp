@@ -47,11 +47,21 @@ void Lua::init() {
 
 sol::object Lua::require(const std::string& module_name) {
     MLE_ASSERT_LOG(!module_name.empty(), "Module name must not be empty");
-    MLE_ASSERT_LOG(!module_name.ends_with(".lua"), "Module name must not end with .lua");
 
     MLE_D("Requiring Lua module: {}", module_name);
+    if (module_name.ends_with(".lua")) {
+        return sol_.script_file("res/lua/" + module_name);
+    }
 
     return sol_.script_file("res/lua/" + module_name + ".lua");
+}
+
+sol::object Lua::requirePath(const std::string& path) {
+    MLE_ASSERT_LOG(!path.empty(), "Path must not be empty");
+    MLE_ASSERT_LOG(path.ends_with(".lua"), "Path must end with .lua");
+
+    MLE_D("Requiring Lua module: {}", path);
+    return sol_.script_file(path);
 }
 
 Expected<sol::object> Lua::tryRequire(const std::string& module_name) {

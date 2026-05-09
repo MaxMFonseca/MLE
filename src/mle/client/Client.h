@@ -34,6 +34,7 @@ class Client final {
 
     auto& lua() { return lua_; }
     auto& getCTable() { return client_table_; }
+    auto& getGameLayerTable() { return game_layer_table_; }
 
   private:
     void update();
@@ -48,6 +49,7 @@ class Client final {
 
     Lua lua_;
     sol::table client_table_;
+    sol::table game_layer_table_;
 
     std::mutex game_layer_render_mutex_;
 
