@@ -9,6 +9,7 @@
 #include "mle/utils/RectPacker.h"
 #include "mle/utils/Utils.h"
 
+// FIXME: refactor this mess
 namespace mle {
 class TextureAtlas {
   public:
@@ -16,6 +17,7 @@ class TextureAtlas {
         Image::Format format;
         vec2u extent;
         vec2u padding{2, 2};
+        bool allow_next_atlas = true;
     };
     using CI = CreateInfo;
 
@@ -36,23 +38,27 @@ class TextureAtlas {
     Expected<std::pair<ImageRef, Entry>> copyOnFrame(entt::id_type id, const Image::RawData& data);
     Expected<std::pair<ImageRef, Entry>> copyOnFrame(entt::id_type id, ImageRef image);
 
-    void updateOnFrame();
     void requestFlushOnFrame();
+    void flushNow();
 
   private:
+    using PendingCopy = std::tuple<entt::id_type, Recti, BufferHnd>;
+
     TextureAtlas& getOrCreateNextAtlas();
     void emplaceEntry(entt::id_type id, const Recti& region);
+    [[nodiscard]] std::vector<PendingCopy> takePendingData();
+    void flushPendingData(const CommandBuffer& cmd, std::vector<PendingCopy>& pending_data, bool delete_after_frame);
+    void flushOnFrame();
 
   private:
     ImageHnd image_{nullptr};
 
     std::map<entt::id_type, Entry> entries_;
-    std::vector<std::tuple<entt::id_type, Recti, BufferHnd>> pending_data_;
+    std::vector<PendingCopy> pending_data_;
     std::mutex pending_data_mutex_;
-
     TextureAtlasHnd next_atlas_{nullptr};
     RectPacker packer_;
-
-    bool flush_requested_ = false;
+    bool allow_next_atlas_ = false;
+    bool flush_on_frame_requested_ = false;
 };
 }  // namespace mle

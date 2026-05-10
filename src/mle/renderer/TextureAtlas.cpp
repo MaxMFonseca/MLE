@@ -10,6 +10,7 @@ void TextureAtlas::init(const CreateInfo& ci) {
     image_ci.extent = ci.extent;
     image_ci.format = ci.format;
     image_ = Image::createHnd(image_ci);
+    allow_next_atlas_ = ci.allow_next_atlas;
     packer_ = RectPacker(ci.extent, ci.padding);
 }
 
@@ -28,6 +29,7 @@ void TextureAtlas::init(const CreateInfo& ci) {
 }
 
 TextureAtlas& TextureAtlas::getOrCreateNextAtlas() {
+    MLE_ASSERT_LOG(allow_next_atlas_, "TextureAtlas::getOrCreateNextAtlas: Next atlas not allowed");
     if (!next_atlas_) {
         next_atlas_ = std::make_unique<TextureAtlas>();
         CreateInfo ci;
@@ -60,6 +62,7 @@ void TextureAtlas::enqueueCopy(entt::id_type id, const Image::RawData& data) {
         return;
     }
 
+    MLE_VC(data.extent);
     auto packer_r = packer_.tryPackOne(data.extent);
 
     if (!packer_r) {
@@ -132,7 +135,7 @@ Expected<std::pair<ImageRef, TextureAtlas::Entry>> TextureAtlas::copyOnFrame(ent
         pending_data_.emplace_back(id, Recti{pos, data.extent}, std::move(buffer));
     }
 
-    updateOnFrame();
+    flushOnFrame();
 
     return get(id);
 }
@@ -174,34 +177,60 @@ Expected<std::pair<ImageRef, TextureAtlas::Entry>> TextureAtlas::copyOnFrame(ent
     return std::make_pair(image_.get(), entry);
 }
 
-// NOLINTNEXTLINE(misc-no-recursion) Know
-void TextureAtlas::updateOnFrame() {
-    if (!pending_data_.empty()) {
+std::vector<TextureAtlas::PendingCopy> TextureAtlas::takePendingData() {
+    std::vector<PendingCopy> pending_data;
+    {
         std::scoped_lock lock(pending_data_mutex_);
-        auto pd_it = pending_data_.begin();
-        while (pd_it != pending_data_.end()) {
-            image_->copyBuffer(Renderer::i().frameRenderer().cmd(), *std::get<BufferHnd>(*pd_it), std::get<Recti>(*pd_it));
-            Renderer::i().frameRenderer().deleteAfterFrame(std::move(std::get<BufferHnd>(*pd_it)));
-            pd_it++;
+        pending_data.swap(pending_data_);
+    }
+    return pending_data;
+}
+
+void TextureAtlas::flushPendingData(const CommandBuffer& cmd, std::vector<PendingCopy>& pending_data, bool delete_after_frame) {
+    for (auto& pending_copy : pending_data) {
+        image_->copyBuffer(cmd, *std::get<BufferHnd>(pending_copy), std::get<Recti>(pending_copy));
+        if (delete_after_frame) {
+            Renderer::i().frameRenderer().deleteAfterFrame(std::move(std::get<BufferHnd>(pending_copy)));
         }
+    }
 
-        pending_data_.clear();
+    image_->transitionState(cmd, Image::State::FS_READ);
+}
 
-        image_->transitionState(Renderer::i().frameRenderer().cmd(), Image::State::FS_READ);
+// NOLINTNEXTLINE(misc-no-recursion) Know
+void TextureAtlas::flushOnFrame() {
+    auto pending_data = takePendingData();
+    if (!pending_data.empty()) {
+        flushPendingData(Renderer::i().frameRenderer().cmd(), pending_data, true);
     }
     if (next_atlas_) {
-        next_atlas_->updateOnFrame();
+        next_atlas_->flushOnFrame();
     }
 }
 
 void TextureAtlas::requestFlushOnFrame() {
-    if (flush_requested_) {
+    if (flush_on_frame_requested_) {
         return;
     }
     Renderer::i().frameRenderer().callOnNextFrameBegin([this]() {
-        updateOnFrame();
-        flush_requested_ = false;
+        flushOnFrame();
+        flush_on_frame_requested_ = false;
     });
-    flush_requested_ = true;
+    flush_on_frame_requested_ = true;
+}
+
+// NOLINTNEXTLINE(misc-no-recursion) Know
+void TextureAtlas::flushNow() {
+    auto pending_data = takePendingData();
+    if (!pending_data.empty()) {
+        auto& cmd_mgr = Renderer::i().commandManager();
+        auto cmd = cmd_mgr.getOTS(GCmdType::GRAPHICS);
+        flushPendingData(cmd, pending_data, false);
+        cmd_mgr.submitOTSWait(std::move(cmd));
+    }
+
+    if (next_atlas_) {
+        next_atlas_->flushNow();
+    }
 }
 }  // namespace mle
