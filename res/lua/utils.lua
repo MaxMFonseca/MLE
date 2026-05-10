@@ -121,3 +121,5 @@ table.deep_copy = LuaUtils.deep_copy
 table.deep_copy_meta = LuaUtils.deep_copy_meta
 table.deep_merge = LuaUtils.deep_merge
 math.clamp = LuaUtils.clamp
+
+return LuaUtils
