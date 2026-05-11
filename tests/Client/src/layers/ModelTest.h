@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <string>
 #include <vector>
 
 #include "mle/client/Layer.h"
@@ -28,10 +29,12 @@ class ModelTestLayer : public mle::client::Layer {
     void renderModel(ImageRef target);
     void setCameraYaw01(f32 value);
     void setCameraPitch01(f32 value);
+    void setAnimation(const std::string& name);
 
     ModelRef model_ = nullptr;
     SkeletonRef skeleton_ = nullptr;
-    AnimationClipRef idle_ = nullptr;
+    AnimationClipRef current_animation_ = nullptr;
+    std::vector<AnimationClipRef> animations_;
     SkinBinding skin_binding_{};
     std::vector<mat4f> node_globals_;
     std::vector<mat4f> skin_mats_;

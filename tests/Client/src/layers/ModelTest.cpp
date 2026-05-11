@@ -89,20 +89,25 @@ void ModelTestLayer::init() {
     MLE_ASSERT_LOG(skeleton_->jointCount() == 25, "Unexpected skeleton joint count: {}", skeleton_->jointCount());
     MLE_ASSERT_LOG(!skeleton_->getJoints().empty(), "Skeleton has no joints");
 
-    std::vector<AnimationClipRef> animations = renderer.animationCache().addAnimations(ARMATURE_PATH);
-    MLE_ASSERT_LOG(animations.size() == 18, "Unexpected animation count: {}", animations.size());
+    animations_ = renderer.animationCache().addAnimations(ARMATURE_PATH);
+    MLE_ASSERT_LOG(animations_.size() == 18, "Unexpected animation count: {}", animations_.size());
+    auto animation_names = Client::i().lua().createTable();
+    for (usize i = 0; i < animations_.size(); ++i) {
+        MLE_ASSERT_LOG(animations_[i] != nullptr, "Animation clip {} is null", i);
+        animation_names[i + 1] = animations_[i]->getName();
+    }
 
-    idle_ = renderer.animationCache().getAnimation(IDLE_ANIMATION_NAME);
-    MLE_ASSERT_LOG(idle_ != nullptr, "Idle animation '{}' was not cached", IDLE_ANIMATION_NAME);
-    MLE_ASSERT_LOG(idle_->getDuration() > 0.0F, "Idle animation has invalid duration");
-    MLE_ASSERT_LOG(!idle_->getNodes().empty(), "Idle animation has no node channels");
+    current_animation_ = renderer.animationCache().getAnimation(IDLE_ANIMATION_NAME);
+    MLE_ASSERT_LOG(current_animation_ != nullptr, "Idle animation '{}' was not cached", IDLE_ANIMATION_NAME);
+    MLE_ASSERT_LOG(current_animation_->getDuration() > 0.0F, "Idle animation has invalid duration");
+    MLE_ASSERT_LOG(!current_animation_->getNodes().empty(), "Idle animation has no node channels");
 
     std::vector<mat4f> base_globals;
     model_->evaluateBase(base_globals);
     MLE_ASSERT_LOG(base_globals.size() == model_->getNodeCount(), "Base evaluation produced wrong node global count");
 
     std::vector<mat4f> animated_globals;
-    idle_->evaluate(*model_, 0.25F, animated_globals);
+    current_animation_->evaluate(*model_, 0.25F, animated_globals);
     MLE_ASSERT_LOG(animated_globals.size() == model_->getNodeCount(), "Animation evaluation produced wrong node global count");
 
     GLTF model_gltf;
@@ -119,6 +124,8 @@ void ModelTestLayer::init() {
     getModelTestPipeline();
     Client::i().getGameLayerTable()["model_test_set_camera_yaw"] = [this](f32 value) { setCameraYaw01(value); };
     Client::i().getGameLayerTable()["model_test_set_camera_pitch"] = [this](f32 value) { setCameraPitch01(value); };
+    Client::i().getGameLayerTable()["model_test_set_animation"] = [this](const std::string& name) { setAnimation(name); };
+    Client::i().getGameLayerTable()["model_test_animation_names"] = animation_names;
     ui_.setRoot("i/ui/ModelTestLayer");
 
     MLE_I("ModelTestLayer model/skeleton/animation/skin-binding checks passed");
@@ -193,14 +200,14 @@ ImageRef ModelTestLayer::getDepthImage(vec2u size) {
 }
 
 void ModelTestLayer::renderModel(ImageRef target) {
-    if (!target || !model_ || !idle_) {
+    if (!target || !model_ || !current_animation_) {
         return;
     }
 
     const auto& node_mesh = model_->getMeshes().front();
     const Mesh& mesh = node_mesh.mesh;
 
-    idle_->evaluate(*model_, animation_time_, node_globals_);
+    current_animation_->evaluate(*model_, animation_time_, node_globals_);
     skin_binding_.buildSkinMatrices(node_globals_, skin_mats_);
     if (skin_mats_.empty()) {
         return;
@@ -262,5 +269,17 @@ void ModelTestLayer::setCameraPitch01(f32 value) {
     constexpr f32 MAX_PITCH = glm::radians(70.0F);
     const f32 clamped = std::clamp(value, 0.0F, 1.0F);
     camera_pitch_ = (clamped - 0.5F) * 2.0F * MAX_PITCH;
+}
+
+void ModelTestLayer::setAnimation(const std::string& name) {
+    for (auto* animation : animations_) {
+        if (animation != nullptr && animation->getName() == name) {
+            current_animation_ = animation;
+            animation_time_ = 0.0F;
+            return;
+        }
+    }
+
+    MLE_W("ModelTestLayer animation '{}' was not found", name);
 }
 }  // namespace mle::user
