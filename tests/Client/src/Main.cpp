@@ -2,6 +2,7 @@
 #include <iostream>
 
 #include "layers/Init.h"
+#include "layers/ModelTest.h"
 #include "mle/client/Client.h"
 #include "mle/core/Consts.h"
 #include "mle/core/Core.h"

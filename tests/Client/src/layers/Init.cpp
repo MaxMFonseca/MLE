@@ -1,5 +1,7 @@
 #include "Init.h"
 
+#include "ModelTest.h"
+#include "mle/client/Client.h"
 #include "mle/renderer/Renderer.h"
 #include "mle/window/Window.h"
 
@@ -7,7 +9,9 @@ namespace mle::user {
 void InitLayer::init() {
     MLE_I("InitLayer::init()");
 
-    ui_.setRoot("i/ui/Test");
+    Client::i().getGameLayerTable()["init_model_test"] = []() { Client::i().pushGameLayer(std::make_unique<ModelTestLayer>()); };
+
+    ui_.setRoot("i/ui/InitLayer");
 };
 
 void InitLayer::update() {

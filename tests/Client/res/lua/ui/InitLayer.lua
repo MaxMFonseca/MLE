@@ -103,6 +103,14 @@ return {
 			},
 			c = {
 				{
+					text = "ModelTest",
+					on_keys = {
+						lmb = function(ew)
+							G.init_model_test()
+						end,
+					},
+				},
+				{
 					text = "OneShot",
 					on_keys = {
 						lmb = function(ew)
