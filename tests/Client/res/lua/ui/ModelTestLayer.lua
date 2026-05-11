@@ -4,6 +4,7 @@ local function make_camera_slider(label, callback)
 			pack = true,
 			gap = "6px",
 		},
+		size_x = "1f",
 		size_y = "50px",
 		c = {
 			{
@@ -16,7 +17,7 @@ local function make_camera_slider(label, callback)
 				},
 			},
 			{
-				size_x = "250px",
+				size_x = "1f",
 				size_y = "14px",
 				background = Colors.slate800:withA(0.86),
 				border = {
@@ -61,6 +62,7 @@ local function make_animation_selector()
 			cross_align = "c",
 			gap = "8px",
 		},
+		size_x = "1f",
 		size_y = "34px",
 		padding = "2px",
 		children_base = {
@@ -89,7 +91,7 @@ local function make_animation_selector()
 			},
 			{
 				name = "name",
-				size_x = "200px",
+				size_x = "1f",
 				text = initial_animation,
 				background = Colors.slate900:withA(0.86),
 				border = {
@@ -122,7 +124,7 @@ return {
 	c = {
 		camera_controls = {
 			pos = { "20px", "20px" },
-			size_x = "300px",
+			size_x = "30%r",
 			padding = "12px",
 			background = Colors.slate900:withA(0.58),
 			border = {
