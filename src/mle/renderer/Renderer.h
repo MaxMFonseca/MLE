@@ -6,8 +6,10 @@
 #include "ShaderCache.h"
 #include "SyncManager.h"
 #include "VkCtx.h"
+#include "mle/renderer/AnimationCache.h"
 #include "mle/renderer/FontCache.h"
 #include "mle/renderer/ModelCache.h"
+#include "mle/renderer/SkeletonCache.h"
 #include "mle/renderer/TextureCache.h"
 #include "mle/utils/Utils.h"
 
@@ -32,6 +34,8 @@ class Renderer {
     auto& textureCache() { return texture_cache_; }
     auto& fontCache() { return font_cache_; }
     auto& modelCache() { return model_cache_; }
+    auto& skeletonCache() { return skeleton_cache_; }
+    auto& animationCache() { return animation_cache_; }
 
     template <class T>
     void destroy(T o) {
@@ -48,5 +52,7 @@ class Renderer {
     TextureCache texture_cache_;
     FontCache font_cache_;
     ModelCache model_cache_;
+    SkeletonCache skeleton_cache_;
+    AnimationCache animation_cache_;
 };
 }  // namespace mle

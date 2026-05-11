@@ -2,6 +2,8 @@
 
 #include <tiny_gltf.h>
 
+#include <string>
+
 #include "mle/math/Types.h"
 #include "mle/renderer/GLTF.h"
 #include "mle/renderer/Types.h"
@@ -14,7 +16,6 @@ class Mesh {
         vec3f normal;
         vec3f color;
         vec3f mre;
-        int color_mix;
     };
 
     struct VertexSkin {
@@ -24,7 +25,6 @@ class Mesh {
         vec3f mre;
         vec4u joint0;
         vec4f weight0;
-        int color_mix;
     };
 
   public:
@@ -34,6 +34,7 @@ class Mesh {
     [[nodiscard]] BufferRef getIndexBuffer() const { return index_buffer_.get(); }
     [[nodiscard]] usize getIndexCount() const { return index_count_; }
     [[nodiscard]] bool isSkinned() const { return skinned_; }
+    [[nodiscard]] const std::string& getColorMultiplierName() const { return color_multiplier_name_; }
 
     [[nodiscard]] auto min() const { return min_; }
     [[nodiscard]] auto max() const { return max_; }
@@ -45,6 +46,7 @@ class Mesh {
     bool skinned_ = false;
     vec3f min_{+FLT_MAX, +FLT_MAX, +FLT_MAX};
     vec3f max_{-FLT_MAX, -FLT_MAX, -FLT_MAX};
+    std::string color_multiplier_name_;
 };
 
 }  // namespace mle

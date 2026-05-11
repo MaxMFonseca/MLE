@@ -1,8 +1,5 @@
 #include "Skeleton.h"
 
-#include <glm/gtc/type_ptr.hpp>
-#include <glm/gtx/matrix_decompose.hpp>
-
 #include "mle/core/Assert.h"
 
 namespace mle {
@@ -41,22 +38,11 @@ void Skeleton::loadFromGLTF(const GLTF& gltf) {
     std::vector<int> node_parent;
     buildNodeParents(model, node_parent);
 
-    std::vector<mat4f> ibms;
-    if (skin.inverseBindMatrices >= 0) {
-        const auto& ibm_acc = gltf.getAccessor(skin.inverseBindMatrices);
-        ibms = gltf.readAccessorMat4f(ibm_acc);
-        MLE_ASSERT_LOG(ibms.size() == joints_.size(), "inverseBindMatrices count does not match joint count");
-    } else {
-        ibms.assign(joints_.size(), mat4f{1.0F});
-    }
-
     for (usize j = 0; j < skin.joints.size(); ++j) {
         const int node_index = skin.joints[j];
         const auto& node = model.nodes[as<usize>(node_index)];
 
         Joint& joint = joints_[j];
-        joint.node_index = node_index;
-        joint.inverse_bind = ibms[j];
         joint.name = node.name;
 
         int parent_joint = -1;
@@ -69,17 +55,4 @@ void Skeleton::loadFromGLTF(const GLTF& gltf) {
         joint.parent = parent_joint;
     }
 }
-
-void Skeleton::buildSkinMatrices(const std::vector<mat4f>& node_globals, std::vector<mat4f>& out_skin_mats) const {
-    const usize joint_count = joints_.size();
-    out_skin_mats.resize(joint_count);
-
-    for (usize j = 0; j < joint_count; ++j) {
-        const Joint& joint = joints_[j];
-        MLE_ASSERT_LOG(joint.node_index >= 0 && as<usize>(joint.node_index) < node_globals.size(), "Joint node_index out of range for node_globals");
-        const mat4f& g = node_globals[as<usize>(joint.node_index)];
-        out_skin_mats[j] = g * joint.inverse_bind;
-    }
-}
-
 }  // namespace mle

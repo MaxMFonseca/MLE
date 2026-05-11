@@ -15,6 +15,8 @@ void Renderer::init() {
     texture_cache_.init();
     font_cache_.init();
     model_cache_.init();
+    skeleton_cache_.init();
+    animation_cache_.init();
 
     MLE_I("Renderer initialized successfully");
 }
@@ -28,6 +30,8 @@ void Renderer::shutdown() {
 
     std::ignore = device.waitIdle();
 
+    animation_cache_.shutdown();
+    skeleton_cache_.shutdown();
     model_cache_.shutdown();
     font_cache_.shutdown();
     texture_cache_.shutdown();

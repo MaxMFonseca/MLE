@@ -1,0 +1,227 @@
+#include "Animation.h"
+
+#include <algorithm>
+#include <cmath>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/quaternion.hpp>
+#include <type_traits>
+
+#include "mle/core/Assert.h"
+#include "mle/renderer/Model.h"
+
+namespace mle {
+namespace {
+mat4f makeTRS(const vec3f& t, const quat& r, const vec3f& s) {
+    mat4f f_t = glm::translate(mat4f{1.0F}, t);
+    mat4f f_r = glm::mat4_cast(r);
+    mat4f f_s = glm::scale(mat4f{1.0F}, s);
+    return f_t * f_r * f_s;
+}
+
+// NOLINTNEXTLINE(misc-no-recursion) ok
+void computeNodeGlobalRecursive(usize node_index, const std::vector<Model::Node>& nodes, const std::vector<mat4f>& local_mats, std::vector<mat4f>& global_mats,
+                                std::vector<bool>& visited) {
+    if (visited[node_index]) {
+        return;
+    }
+
+    const auto& node = nodes[node_index];
+    if (node.parent >= 0) {
+        const auto parent_idx = as<usize>(node.parent);
+        computeNodeGlobalRecursive(parent_idx, nodes, local_mats, global_mats, visited);
+        global_mats[node_index] = global_mats[parent_idx] * local_mats[node_index];
+    } else {
+        global_mats[node_index] = local_mats[node_index];
+    }
+
+    visited[node_index] = true;
+}
+
+template <typename KeyframeT, typename ValueT>
+ValueT sampleKeyframes(const std::vector<KeyframeT>& keys, f32 t, ValueT identity) {
+    if (keys.empty()) {
+        return identity;
+    }
+    if (t <= keys.front().time) {
+        return keys.front().value;
+    }
+    if (t >= keys.back().time) {
+        return keys.back().value;
+    }
+
+    for (usize i = 0; i + 1 < keys.size(); ++i) {
+        const auto& k0 = keys[i];
+        const auto& k1 = keys[i + 1];
+        if (t >= k0.time && t <= k1.time) {
+            const float dt = k1.time - k0.time;
+            const float alpha = (dt > 0.0F) ? ((t - k0.time) / dt) : 0.0F;
+            if constexpr (std::is_same_v<ValueT, vec3f>) {
+                return glm::mix(k0.value, k1.value, alpha);
+            } else {
+                return glm::slerp(k0.value, k1.value, alpha);
+            }
+        }
+    }
+
+    return keys.back().value;
+}
+
+template <typename KeyframeT, typename ValueT>
+ValueT sampleNearestKeyframeNoInterp(const std::vector<KeyframeT>& keys, f32 t, ValueT identity) {
+    if (keys.empty()) {
+        return identity;
+    }
+    if (t <= keys.front().time) {
+        return keys.front().value;
+    }
+    if (t >= keys.back().time) {
+        return keys.back().value;
+    }
+
+    for (usize i = 0; i + 1 < keys.size(); ++i) {
+        const auto& k0 = keys[i];
+        const auto& k1 = keys[i + 1];
+        if (t >= k0.time && t <= k1.time) {
+            const float mid = (k0.time + k1.time) * 0.5F;
+            return (t < mid) ? k0.value : k1.value;
+        }
+    }
+
+    return keys.back().value;
+}
+
+void evaluateImpl(const AnimationClip& clip, const Model& model, f32 time, std::vector<mat4f>& out_node_globals, bool interpolate) {
+    const auto& model_nodes = model.getNodes();
+    const usize node_count = model_nodes.size();
+
+    out_node_globals.resize(node_count);
+
+    std::vector<mat4f> local_mats(node_count);
+    std::vector<mat4f> global_mats(node_count);
+    std::vector<bool> visited(node_count, false);
+
+    const float anim_time = (clip.getDuration() > 0.0F) ? std::fmod(time, clip.getDuration()) : time;
+
+    for (usize nid = 0; nid < node_count; ++nid) {
+        const auto& node = model_nodes[nid];
+        local_mats[nid] = makeTRS(node.base_translation, node.base_rotation, node.base_scale);
+    }
+
+    for (const auto& node_anim : clip.getNodes()) {
+        const usize nid = model.getNodeIdxByName(node_anim.target_name);
+        if (nid == max<usize>()) {
+            continue;
+        }
+
+        const auto& node = model_nodes[nid];
+        vec3f t = node.base_translation;
+        quat r = node.base_rotation;
+        vec3f s = node.base_scale;
+
+        if (interpolate) {
+            t = sampleKeyframes<AnimationClip::KeyframeVec3, vec3f>(node_anim.translations, anim_time, t);
+            r = sampleKeyframes<AnimationClip::KeyframeQuat, quat>(node_anim.rotations, anim_time, r);
+            s = sampleKeyframes<AnimationClip::KeyframeVec3, vec3f>(node_anim.scales, anim_time, s);
+        } else {
+            t = sampleNearestKeyframeNoInterp<AnimationClip::KeyframeVec3, vec3f>(node_anim.translations, anim_time, t);
+            r = sampleNearestKeyframeNoInterp<AnimationClip::KeyframeQuat, quat>(node_anim.rotations, anim_time, r);
+            s = sampleNearestKeyframeNoInterp<AnimationClip::KeyframeVec3, vec3f>(node_anim.scales, anim_time, s);
+        }
+
+        local_mats[nid] = makeTRS(t, r, s);
+    }
+
+    for (usize nid = 0; nid < node_count; ++nid) {
+        if (!visited[nid]) {
+            computeNodeGlobalRecursive(nid, model_nodes, local_mats, global_mats, visited);
+        }
+    }
+
+    out_node_globals = global_mats;
+}
+}  // namespace
+
+void AnimationClip::loadFromGLTF(const GLTF& gltf, usize animation_index) {
+    const auto& model = gltf.model();
+    MLE_ASSERT_LOG(animation_index < model.animations.size(), "animation_index out of range");
+
+    const auto& anim_src = model.animations[animation_index];
+
+    name_ = anim_src.name;
+    duration_ = 0.0F;
+    nodes_.clear();
+
+    std::vector<int> node_to_anim(model.nodes.size(), -1);
+
+    for (const auto& channel : anim_src.channels) {
+        const int sampler_idx = channel.sampler;
+        MLE_ASSERT_LOG(sampler_idx >= 0 && sampler_idx < as<int>(anim_src.samplers.size()), "Invalid sampler index");
+
+        const auto& sampler = anim_src.samplers[as<usize>(sampler_idx)];
+        MLE_ASSERT_LOG(sampler.interpolation == "LINEAR" || sampler.interpolation == "STEP", "Only LINEAR/STEP interpolation supported for node animations");
+
+        const int target_node = channel.target_node;
+        if (target_node < 0 || target_node >= as<int>(model.nodes.size())) {
+            continue;
+        }
+
+        const auto& time_acc = gltf.getAccessor(sampler.input);
+        std::vector<f32> times = gltf.readAccessorFloat(time_acc);
+        if (!times.empty()) {
+            duration_ = std::max(duration_, times.back());
+        }
+
+        int node_anim_idx = node_to_anim[as<usize>(target_node)];
+        if (node_anim_idx < 0) {
+            node_anim_idx = as<int>(nodes_.size());
+            node_to_anim[as<usize>(target_node)] = node_anim_idx;
+
+            NodeAnim node_anim{};
+            node_anim.target_name = model.nodes[as<usize>(target_node)].name;
+            nodes_.push_back(std::move(node_anim));
+        }
+
+        NodeAnim& node_anim = nodes_[as<usize>(node_anim_idx)];
+        const std::string& path = channel.target_path;
+
+        if (path == "translation") {
+            const auto& out_acc = gltf.getAccessor(sampler.output);
+            std::vector<vec3f> values = gltf.readAccessorVec3f(out_acc);
+            MLE_ASSERT_LOG(values.size() == times.size(), "translation: times/values size mismatch");
+
+            node_anim.translations.reserve(node_anim.translations.size() + times.size());
+            for (usize i = 0; i < times.size(); ++i) {
+                node_anim.translations.push_back(KeyframeVec3{.time = times[i], .value = values[i]});
+            }
+        } else if (path == "rotation") {
+            const auto& out_acc = gltf.getAccessor(sampler.output);
+            std::vector<quat> values = gltf.readAccessorQuat(out_acc);
+            MLE_ASSERT_LOG(values.size() == times.size(), "rotation: times/values size mismatch");
+
+            node_anim.rotations.reserve(node_anim.rotations.size() + times.size());
+            for (usize i = 0; i < times.size(); ++i) {
+                node_anim.rotations.push_back(KeyframeQuat{.time = times[i], .value = glm::normalize(values[i])});
+            }
+        } else if (path == "scale") {
+            const auto& out_acc = gltf.getAccessor(sampler.output);
+            std::vector<vec3f> values = gltf.readAccessorVec3f(out_acc);
+            MLE_ASSERT_LOG(values.size() == times.size(), "scale: times/values size mismatch");
+
+            node_anim.scales.reserve(node_anim.scales.size() + times.size());
+            for (usize i = 0; i < times.size(); ++i) {
+                node_anim.scales.push_back(KeyframeVec3{.time = times[i], .value = values[i]});
+            }
+        } else {
+            MLE_NOOP;
+        }
+    }
+}
+
+void AnimationClip::evaluate(const Model& model, f32 time, std::vector<mat4f>& out_node_globals) const {
+    evaluateImpl(*this, model, time, out_node_globals, true);
+}
+
+void AnimationClip::evaluateNoInterpolation(const Model& model, f32 time, std::vector<mat4f>& out_node_globals) const {
+    evaluateImpl(*this, model, time, out_node_globals, false);
+}
+}  // namespace mle

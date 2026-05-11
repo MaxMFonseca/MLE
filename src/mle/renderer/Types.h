@@ -61,6 +61,14 @@ class Skeleton;
 using SkeletonHnd = std::unique_ptr<Skeleton>;
 using SkeletonRef = Skeleton*;
 
+class SkinBinding;
+using SkinBindingHnd = std::unique_ptr<SkinBinding>;
+using SkinBindingRef = SkinBinding*;
+
+class AnimationClip;
+using AnimationClipHnd = std::unique_ptr<AnimationClip>;
+using AnimationClipRef = AnimationClip*;
+
 class PipelineCache;
 
 enum class GCmdType : u8 { GRAPHICS = 0, COMPUTE = 1, TRANSFER = 2, G = GRAPHICS, C = COMPUTE, T = TRANSFER };

@@ -20,6 +20,13 @@ void Mesh::load(const GLTF& gltf, usize mesh_idx) {
     MLE_ASSERT_LOG(mesh_idx < model.meshes.size(), "Mesh index out of range");
     const auto& mesh = model.meshes.at(mesh_idx);
 
+    color_multiplier_name_.clear();
+    if (mesh.extras.IsObject() && mesh.extras.Has("color_multiplier")) {
+        const auto& value = mesh.extras.Get("color_multiplier");
+        MLE_ASSERT_LOG(value.IsString(), "mesh extras.color_multiplier must be a string");
+        color_multiplier_name_ = value.Get<std::string>();
+    }
+
     MLE_ASSERT_LOG(mesh.primitives.size() == 1, "Only single primitive meshes supported");
 
     const auto& prim = mesh.primitives.front();
@@ -88,19 +95,6 @@ void Mesh::load(const GLTF& gltf, usize mesh_idx) {
         emiss.resize(vert_count, 0.0F);
     }
 
-    std::vector<int> color_mix;
-    if (auto it = prim.attributes.find("_C"); it != prim.attributes.end()) {
-        const auto& acc = gltf.getAccessor(it->second);
-        std::vector<float> tmp = gltf.readAccessorFloat(acc);
-        MLE_ASSERT_LOG(tmp.size() == vert_count, "_C count does not match POSITION count");
-        color_mix.resize(vert_count);
-        for (usize i = 0; i < vert_count; ++i) {
-            color_mix[i] = as<int>(std::round(tmp[i]));
-        }
-    } else {
-        color_mix.resize(vert_count, -1);
-    }
-
     std::vector<vec4u> joints0;
     std::vector<vec4f> weights0;
 
@@ -139,7 +133,6 @@ void Mesh::load(const GLTF& gltf, usize mesh_idx) {
             v.mre = vec3f{metals[i], roughs[i], emiss[i]};
             v.joint0 = joints0[i];
             v.weight0 = weights0[i];
-            v.color_mix = color_mix[i];
             vertices_skinned.push_back(v);
         }
     } else {
@@ -149,7 +142,6 @@ void Mesh::load(const GLTF& gltf, usize mesh_idx) {
             v.normal = normals[i];
             v.color = colors[i];
             v.mre = vec3f{metals[i], roughs[i], emiss[i]};
-            v.color_mix = color_mix[i];
             vertices.push_back(v);
         }
     }

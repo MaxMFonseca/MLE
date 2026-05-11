@@ -14,8 +14,6 @@ class Skeleton {
   public:
     struct Joint {
         int parent = -1;
-        int node_index = -1;
-        mat4f inverse_bind;
         std::string name;
     };
 
@@ -24,8 +22,6 @@ class Skeleton {
 
     [[nodiscard]] const std::vector<Joint>& getJoints() const { return joints_; }
     [[nodiscard]] auto jointCount() const { return joints_.size(); }
-
-    void buildSkinMatrices(const std::vector<mat4f>& node_globals, std::vector<mat4f>& out_skin_mats) const;
 
   private:
     std::vector<Joint> joints_;
