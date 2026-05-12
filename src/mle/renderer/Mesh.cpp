@@ -62,7 +62,7 @@ void Mesh::load(const GLTF& gltf, usize mesh_idx) {
     std::vector<vec3f> colors;
     if (auto it = prim.attributes.find("COLOR_0"); it != prim.attributes.end()) {
         const auto& acc = gltf.getAccessor(it->second);
-        colors = gltf.readAccessorVec3f(acc);
+        colors = gltf.readAccessorColor3f(acc);
         MLE_ASSERT_LOG(colors.size() == vert_count, "COLOR_0 count does not match POSITION count");
     } else {
         colors.resize(vert_count, vec3f{1.0F, 1.0F, 1.0F});

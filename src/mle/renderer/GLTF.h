@@ -14,6 +14,7 @@ class GLTF {
     [[nodiscard]] const tinygltf::Buffer& getBuffer(const tinygltf::BufferView& view) const;
 
     [[nodiscard]] std::vector<vec3f> readAccessorVec3f(const tinygltf::Accessor& accessor) const;
+    [[nodiscard]] std::vector<vec3f> readAccessorColor3f(const tinygltf::Accessor& accessor) const;
     [[nodiscard]] std::vector<quat> readAccessorQuat(const tinygltf::Accessor& accessor) const;
     [[nodiscard]] std::vector<mat4f> readAccessorMat4f(const tinygltf::Accessor& accessor) const;
     [[nodiscard]] std::vector<f32> readAccessorFloat(const tinygltf::Accessor& accessor) const;
