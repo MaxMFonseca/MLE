@@ -74,7 +74,7 @@ mat4f makeViewProj(vec2u extent, f32 yaw, f32 pitch, f32 distance) {
         std::cos(yaw) * pitch_cos,
     };
     mat4f view = glm::lookAt(target + orbit_dir * distance, target, vec3f{0.0F, 1.0F, 0.0F});
-    mat4f proj = glm::perspective(glm::radians(45.0F), aspect, 0.01F, 100.0F);
+    mat4f proj = glm::perspective(glm::radians(45.0F), aspect, 0.01F, 1000.0F);
     proj[1][1] *= -1.0F;
     return proj * view;
 }
@@ -234,6 +234,7 @@ void ModelTestLayer::renderModel(ImageRef target) {
     if (skin_mats_.empty()) {
         return;
     }
+    MLE_VC(skin_mats_.size());
 
     auto& renderer = Renderer::i();
     auto& frame_renderer = renderer.frameRenderer();
@@ -407,8 +408,8 @@ void ModelTestLayer::setCameraPitch01(f32 value) {
 }
 
 void ModelTestLayer::setCameraDistance01(f32 value) {
-    constexpr f32 MIN_DISTANCE = 1.0F;
-    constexpr f32 MAX_DISTANCE = 100.0F;
+    constexpr f32 MIN_DISTANCE = 0.1F;
+    constexpr f32 MAX_DISTANCE = 1000.0F;
     const f32 clamped = std::clamp(value, 0.0F, 1.0F);
     camera_distance_ = MIN_DISTANCE + ((MAX_DISTANCE - MIN_DISTANCE) * clamped);
 }
