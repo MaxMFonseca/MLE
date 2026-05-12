@@ -165,6 +165,9 @@ return {
 				make_camera_slider("Pitch", function(value)
 					G.model_test_set_camera_pitch(value)
 				end),
+				make_camera_slider("Distance", function(value)
+					G.model_test_set_camera_distance(value)
+				end),
 				{
 					text = {
 						text = "Model",

@@ -64,8 +64,7 @@ mat4f makeModelMatrix(const std::vector<Model::NodeMesh>& meshes) {
     return glm::scale(mat4f{1.0F}, vec3f{scale}) * glm::translate(mat4f{1.0F}, -center);
 }
 
-mat4f makeViewProj(vec2u extent, f32 yaw, f32 pitch) {
-    constexpr f32 CAMERA_DISTANCE = 3.0F;
+mat4f makeViewProj(vec2u extent, f32 yaw, f32 pitch, f32 distance) {
     const f32 aspect = extent.y > 0 ? as<f32>(extent.x) / as<f32>(extent.y) : 1.0F;
     const vec3f target{0.0F, 0.15F, 0.0F};
     const f32 pitch_cos = std::cos(pitch);
@@ -74,7 +73,7 @@ mat4f makeViewProj(vec2u extent, f32 yaw, f32 pitch) {
         std::sin(pitch),
         std::cos(yaw) * pitch_cos,
     };
-    mat4f view = glm::lookAt(target + orbit_dir * CAMERA_DISTANCE, target, vec3f{0.0F, 1.0F, 0.0F});
+    mat4f view = glm::lookAt(target + orbit_dir * distance, target, vec3f{0.0F, 1.0F, 0.0F});
     mat4f proj = glm::perspective(glm::radians(45.0F), aspect, 0.01F, 100.0F);
     proj[1][1] *= -1.0F;
     return proj * view;
@@ -137,6 +136,7 @@ void ModelTestLayer::init() {
     getModelTestPipeline();
     Client::i().getGameLayerTable()["model_test_set_camera_yaw"] = [this](f32 value) { setCameraYaw01(value); };
     Client::i().getGameLayerTable()["model_test_set_camera_pitch"] = [this](f32 value) { setCameraPitch01(value); };
+    Client::i().getGameLayerTable()["model_test_set_camera_distance"] = [this](f32 value) { setCameraDistance01(value); };
     Client::i().getGameLayerTable()["model_test_set_model"] = [this](const std::string& name) { setModel(name); };
     Client::i().getGameLayerTable()["model_test_set_animation"] = [this](const std::string& name) { setAnimation(name); };
     Client::i().getGameLayerTable()["model_test_refresh_assets"] = [this]() { return refreshAssetsForLua(); };
@@ -271,7 +271,7 @@ void ModelTestLayer::renderModel(ImageRef target) {
     } pc{};
 
     pc.model = makeModelMatrix(meshes);
-    pc.view_proj = makeViewProj(target->getExtent(), camera_yaw_, camera_pitch_);
+    pc.view_proj = makeViewProj(target->getExtent(), camera_yaw_, camera_pitch_, camera_distance_);
     thread.pushConstants(&pc);
 
     for (const auto& node_mesh : meshes) {
@@ -404,6 +404,13 @@ void ModelTestLayer::setCameraPitch01(f32 value) {
     constexpr f32 MAX_PITCH = glm::radians(70.0F);
     const f32 clamped = std::clamp(value, 0.0F, 1.0F);
     camera_pitch_ = (clamped - 0.5F) * 2.0F * MAX_PITCH;
+}
+
+void ModelTestLayer::setCameraDistance01(f32 value) {
+    constexpr f32 MIN_DISTANCE = 1.0F;
+    constexpr f32 MAX_DISTANCE = 100.0F;
+    const f32 clamped = std::clamp(value, 0.0F, 1.0F);
+    camera_distance_ = MIN_DISTANCE + ((MAX_DISTANCE - MIN_DISTANCE) * clamped);
 }
 
 void ModelTestLayer::setAnimation(const std::string& name) {

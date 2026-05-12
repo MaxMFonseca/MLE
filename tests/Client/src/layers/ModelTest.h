@@ -28,12 +28,13 @@ class ModelTestLayer : public mle::client::Layer {
     ImageRef getDepthImage(vec2u size);
     void renderModel(ImageRef target);
     void refreshAssets();
-    sol::table refreshAssetsForLua();
-    sol::table makeModelNamesTable() const;
-    sol::table makeAnimationNamesTable() const;
+    [[nodiscard]] sol::table refreshAssetsForLua();
+    [[nodiscard]] sol::table makeModelNamesTable() const;
+    [[nodiscard]] sol::table makeAnimationNamesTable() const;
     bool setModel(const std::string& name);
     void setCameraYaw01(f32 value);
     void setCameraPitch01(f32 value);
+    void setCameraDistance01(f32 value);
     void setAnimation(const std::string& name);
 
     ModelRef model_ = nullptr;
@@ -50,6 +51,7 @@ class ModelTestLayer : public mle::client::Layer {
     f32 animation_time_ = 0.0F;
     f32 camera_yaw_ = 0.0F;
     f32 camera_pitch_ = 0.0F;
+    f32 camera_distance_ = 10.0F;
 
     UI ui_;
 
