@@ -4,6 +4,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "mle/core/Consts.h"
 #include "mle/renderer/Animation.h"
 #include "mle/renderer/Types.h"
 
@@ -14,9 +15,9 @@ class AnimationCache {
 
     ~AnimationCache() = default;
 
-    std::vector<AnimationClipRef> addAnimations(const std::string& animation_file);
-    AnimationClipRef addAnimation(const std::string& animation_file, usize animation_index);
-    AnimationClipRef getAnimation(const std::string& animation_name);
+    std::vector<AnimationClipRef> addAnimations(const std::string& animation_file, const std::string& resource_dir = ResPath::MODELS);
+    AnimationClipRef addAnimation(const std::string& animation_file, usize animation_index, const std::string& resource_dir = ResPath::MODELS);
+    AnimationClipRef getAnimation(const std::string& animation_name = "");
 
   private:
     friend class Renderer;

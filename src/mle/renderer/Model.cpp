@@ -168,7 +168,6 @@ usize Model::getNodeIdxByName(const std::string& name) const {
             return i;
         }
     }
-    MLE_E("Node '{}' not found in Model", name);
     return max<usize>();
 }
 

@@ -143,7 +143,7 @@ function mle_run_test() {
 
   rm -rf "build/${build_type}/tests/${test_name}/res"
   mkdir -p "build/${build_type}/tests/${test_name}/res"
-  local arr=("lua" "textures" "shaders" "fonts" "sounds" "models")
+  local arr=("lua" "textures" "shaders" "fonts" "sounds" "models" "animations")
   cd "build/${build_type}/tests/${test_name}/res"
 
   for i in "${arr[@]}"; do

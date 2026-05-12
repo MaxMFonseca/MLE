@@ -1,9 +1,9 @@
 #include "AnimationCache.h"
 
 namespace mle {
-std::vector<AnimationClipRef> AnimationCache::addAnimations(const std::string& animation_file) {
+std::vector<AnimationClipRef> AnimationCache::addAnimations(const std::string& animation_file, const std::string& resource_dir) {
     Path path = ResPath::RES;
-    path /= ResPath::MODELS;
+    path /= resource_dir;
     path /= animation_file;
 
     GLTF gltf;
@@ -22,17 +22,18 @@ std::vector<AnimationClipRef> AnimationCache::addAnimations(const std::string& a
 
         const std::string name = makeAnimationName(animation_file, *clip, i);
         auto [it, inserted] = animations_.emplace(name, std::move(clip));
-        MLE_ASSERT_LOG(inserted, "Animation '{}' already exists in AnimationCache", name);
         refs.push_back(it->second.get());
-        MLE_D("Added animation '{}' to AnimationCache from file: {}", name, path.string());
+        if (inserted) {
+            MLE_D("Added animation '{}' to AnimationCache from file: {}", name, path.string());
+        }
     }
 
     return refs;
 }
 
-AnimationClipRef AnimationCache::addAnimation(const std::string& animation_file, usize animation_index) {
+AnimationClipRef AnimationCache::addAnimation(const std::string& animation_file, usize animation_index, const std::string& resource_dir) {
     Path path = ResPath::RES;
-    path /= ResPath::MODELS;
+    path /= resource_dir;
     path /= animation_file;
 
     GLTF gltf;
@@ -47,12 +48,17 @@ AnimationClipRef AnimationCache::addAnimation(const std::string& animation_file,
 
     const std::string name = makeAnimationName(animation_file, *clip, animation_index);
     auto [it, inserted] = animations_.emplace(name, std::move(clip));
-    MLE_ASSERT_LOG(inserted, "Animation '{}' already exists in AnimationCache", name);
-    MLE_D("Added animation '{}' to AnimationCache from file: {}", name, path.string());
+    if (inserted) {
+        MLE_D("Added animation '{}' to AnimationCache from file: {}", name, path.string());
+    }
     return it->second.get();
 }
 
 AnimationClipRef AnimationCache::getAnimation(const std::string& animation_name) {
+    if (animation_name.empty()) {
+        return animations_.empty() ? nullptr : animations_.begin()->second.get();
+    }
+
     auto it = animations_.find(animation_name);
     if (it != animations_.end()) {
         return it->second.get();

@@ -33,14 +33,12 @@ local function make_camera_slider(label, callback)
 	}
 end
 
-local animations = G.model_test_animation_names or {}
-
-local function make_animation_selector()
-	local initial_animation = animations[1] or "No animations"
+local function make_asset_selector(empty_label, options, callback)
+	local initial = options[1] or empty_label
 
 	return {
 		fn = {
-			selectAnimation = function(ew, direction)
+			selectAsset = function(ew, direction)
 				local self_table = ew:get("table")
 				if #self_table.options == 0 then
 					return
@@ -50,11 +48,25 @@ local function make_animation_selector()
 				local selected = self_table.options[self_table.current_index + 1]
 
 				ew:getChild("name"):apply("text", selected)
-				G.model_test_set_animation(selected)
+				callback(selected)
+			end,
+			setOptions = function(ew, new_options)
+				local self_table = ew:get("table")
+				self_table.options = new_options or {}
+				self_table.current_index = 0
+
+				local selected = self_table.options[1]
+				if selected == nil then
+					ew:getChild("name"):apply("text", empty_label)
+					return
+				end
+
+				ew:getChild("name"):apply("text", selected)
+				callback(selected)
 			end,
 		},
 		table = {
-			options = animations,
+			options = options,
 			current_index = 0,
 		},
 		list = {
@@ -85,14 +97,14 @@ local function make_animation_selector()
 				},
 				on_keys = {
 					lmb = function(ew)
-						ew:parent():call("selectAnimation", -1)
+						ew:parent():call("selectAsset", -1)
 					end,
 				},
 			},
 			{
 				name = "name",
 				size_x = "1f",
-				text = initial_animation,
+				text = initial,
 				background = Colors.slate900:withA(0.86),
 				border = {
 					thickness = "1px",
@@ -111,7 +123,7 @@ local function make_animation_selector()
 				},
 				on_keys = {
 					lmb = function(ew)
-						ew:parent():call("selectAnimation", 1)
+						ew:parent():call("selectAsset", 1)
 					end,
 				},
 			},
@@ -119,12 +131,15 @@ local function make_animation_selector()
 	}
 end
 
+local models = G.model_test_model_names or {}
+local animations = G.model_test_animation_names or {}
+
 return {
 	free_container = {},
 	c = {
 		camera_controls = {
 			pos = { "20px", "20px" },
-			size_x = "30%r",
+			size_x = "34%r",
 			padding = "12px",
 			background = Colors.slate900:withA(0.58),
 			border = {
@@ -152,6 +167,22 @@ return {
 				end),
 				{
 					text = {
+						text = "Model",
+						height = "18px",
+						color = Colors.slate100,
+						border_thickness = 1,
+						border_color = Colors.slate950,
+					},
+				},
+				(function()
+					local selector = make_asset_selector("No models", models, function(selected)
+						G.model_test_set_model(selected)
+					end)
+					selector.name = "model_selector"
+					return selector
+				end)(),
+				{
+					text = {
 						text = "Animation",
 						height = "18px",
 						color = Colors.slate100,
@@ -159,7 +190,32 @@ return {
 						border_color = Colors.slate950,
 					},
 				},
-				make_animation_selector(),
+				(function()
+					local selector = make_asset_selector("No animations", animations, function(selected)
+						G.model_test_set_animation(selected)
+					end)
+					selector.name = "animation_selector"
+					return selector
+				end)(),
+				{
+					size_x = "1f",
+					size_y = "30px",
+					text = "Refresh",
+					background = Colors.slate800:withA(0.9),
+					border = {
+						thickness = "1px",
+						color = Colors.slate300,
+						roundness = "4px",
+					},
+					on_keys = {
+						lmb = function(ew)
+							local refreshed = G.model_test_refresh_assets()
+							local panel = ew:parent()
+							panel:getChild("model_selector"):call("setOptions", refreshed.models or {})
+							panel:getChild("animation_selector"):call("setOptions", refreshed.animations or {})
+						end,
+					},
+				},
 			},
 		},
 	},

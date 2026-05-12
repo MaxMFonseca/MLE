@@ -27,14 +27,23 @@ class ModelTestLayer : public mle::client::Layer {
   private:
     ImageRef getDepthImage(vec2u size);
     void renderModel(ImageRef target);
+    void refreshAssets();
+    sol::table refreshAssetsForLua();
+    sol::table makeModelNamesTable() const;
+    sol::table makeAnimationNamesTable() const;
+    bool setModel(const std::string& name);
     void setCameraYaw01(f32 value);
     void setCameraPitch01(f32 value);
     void setAnimation(const std::string& name);
 
     ModelRef model_ = nullptr;
-    SkeletonRef skeleton_ = nullptr;
     AnimationClipRef current_animation_ = nullptr;
     std::vector<AnimationClipRef> animations_;
+    std::vector<std::string> animation_names_;
+    std::vector<std::string> model_files_;
+    std::vector<std::string> animation_files_;
+    std::string current_model_name_;
+    std::string current_animation_name_;
     SkinBinding skin_binding_{};
     std::vector<mat4f> node_globals_;
     std::vector<mat4f> skin_mats_;
