@@ -5,6 +5,7 @@
 
 #include "mle/client/Client.h"
 #include "mle/lua/Utils.h"
+#include "mle/renderer/Image.h"
 #include "mle/renderer/Shader.h"
 #include "mle/ui/Entt.h"
 #include "mle/ui/UI.h"
@@ -137,6 +138,8 @@ void LuaElementOps::init() {
     ut["getBoundsOnRootNormalized"] = &Entt::getBoundsOnRootNormalized;
 
     comp::Hovered::makeLuaUsertype(lua);
+    auto image_ut = lua.newUsertype<Image>("mle_Image", sol::no_constructor);
+    image_ut["getExtent"] = &Image::getExtent;
 
     addBuiltingApply();
     addBuiltingGetters();

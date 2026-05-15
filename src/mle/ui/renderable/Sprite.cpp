@@ -33,12 +33,23 @@ void Sprite::apply(const Entt& e, const sol::object& obj) {
 };
 
 void Sprite::setTexture(const Entt& ew, const std::string& src) {
+    source = SpriteSource::TEXTURE;
+    image = nullptr;
     texture_id = entt::hashed_string{src.c_str()};
     auto load_r = Renderer::i().textureCache().loadTexture(src);
     if (!load_r.has_value() && load_r.error() != Result::NOT_READY) {
         MLE_E("Failed to load texture {}: {}", src, load_r.error());
         texture_id = {};
     }
+    versionUp();
+    ew.requestInternalBoundsUpdate();
+}
+
+void Sprite::setImage(const Entt& ew, ImageRef image_) {
+    source = SpriteSource::IMAGE;
+    image = image_;
+    texture_id = {};
+    versionUp();
     ew.requestInternalBoundsUpdate();
 }
 
@@ -81,9 +92,15 @@ void Sprite::set(const Entt& ew, const sol::object& obj) {
         setTexture(ew, obj.as<std::string>());
         return;
     }
+    if (obj.is<ImageRef>()) {
+        setImage(ew, obj.as<ImageRef>());
+        return;
+    }
     if (obj.is<sol::table>()) {
         auto table = obj.as<sol::table>();
-        if (const auto texture_r = lua::getFirstKey(table, "texture", 1); lua::valid<std::string>(texture_r)) {
+        if (const auto image_r = table["image"]; lua::valid<ImageRef>(image_r)) {
+            setImage(ew, image_r.get<ImageRef>());
+        } else if (const auto texture_r = lua::getFirstKey(table, "texture", 1); lua::valid<std::string>(texture_r)) {
             setTexture(ew, texture_r.as<std::string>());
         }
         if (const sol::object color_r = table["color"]; color_r.valid()) {
@@ -126,16 +143,33 @@ auto getPipeline() {
 }  // namespace
 
 void SpritePacket::render(CompRenderingCtx& ctx) {
-    if (!image || texture_id_changed) {
-        texture_id_changed = false;
-        auto load_r = Renderer::i().textureCache().get(texture_id);
-        if (load_r.has_value()) {
-            image = load_r.value();
-        } else if (load_r.error() != Result::NOT_READY) {
-            MLE_E("Failed to get texture id {}: {}", texture_id, load_r.error());
-            texture_id = 0;
-            image = Renderer::i().textureCache().getDefaultTexture();
+    if (source_changed) {
+        source_changed = false;
+        image = nullptr;
+    }
+
+    if (!image) {
+        if (source == SpriteSource::IMAGE) {
+            if (source_image != nullptr) {
+                image = source_image;
+            } else {
+                MLE_W("Sprite image pointer is null, using default texture");
+                image = Renderer::i().textureCache().getDefaultTexture();
+            }
+        } else {
+            auto load_r = Renderer::i().textureCache().get(texture_id);
+            if (load_r.has_value()) {
+                image = load_r.value();
+            } else if (load_r.error() != Result::NOT_READY) {
+                MLE_E("Failed to get texture id {}: {}", texture_id, load_r.error());
+                texture_id = 0;
+                image = Renderer::i().textureCache().getDefaultTexture();
+            }
         }
+    }
+
+    if (!image) {
+        return;
     }
 
     auto& thread = ctx.thread;
@@ -176,9 +210,13 @@ void SpritePacket::render(CompRenderingCtx& ctx) {
 
     vec2u image_extent{};
 
-    auto& cache = Renderer::i().textureCache();
-    auto image_extent_r = cache.getExtent(texture_id);
-    image_extent = image_extent_r.has_value() ? image_extent_r.value() : cache.getExtent(0).value();
+    if (source == SpriteSource::IMAGE) {
+        image_extent = image != nullptr ? image->getExtent() : Renderer::i().textureCache().getDefaultTexture()->getExtent();
+    } else {
+        auto& cache = Renderer::i().textureCache();
+        auto image_extent_r = cache.getExtent(texture_id);
+        image_extent = image_extent_r.has_value() ? image_extent_r.value() : cache.getExtent(0).value();
+    }
     vec2f image_extent_f = image_extent;
 
     f32 image_ar = image_extent_f.x / image_extent_f.y;
@@ -195,9 +233,11 @@ void SpritePacket::render(CompRenderingCtx& ctx) {
 
 void Sprite::doUpdatePacket(const Entt& /*ew*/, RenderablePacketI* packet) {
     auto* packet_p = as<SpritePacket*>(packet);
-    if (packet_p->texture_id != texture_id) {
+    if (packet_p->source != source || packet_p->source_image != image || packet_p->texture_id != texture_id) {
+        packet_p->source = source;
+        packet_p->source_image = image;
         packet_p->texture_id = texture_id;
-        packet_p->texture_id_changed = true;
+        packet_p->source_changed = true;
     }
     packet_p->color = color;
     packet_p->flip_x = flip_x;

@@ -3,6 +3,8 @@
 #include "mle/ui/renderable/RenderableI.h"
 #include "mle/utils/ECS.h"
 namespace mle::ui::renderable {
+enum class SpriteSource : u8 { TEXTURE, IMAGE };
+
 struct SpritePacket : public RenderablePacketI {
     SpritePacket() = default;
     ~SpritePacket() override = default;
@@ -11,8 +13,10 @@ struct SpritePacket : public RenderablePacketI {
 
     ImageRef image{};
     Color color = Color::ONE;
+    SpriteSource source = SpriteSource::TEXTURE;
+    ImageRef source_image{};
     entt::id_type texture_id{};
-    bool texture_id_changed = false;
+    bool source_changed = false;
     bool flip_x = false;
     bool flip_y = false;
 
@@ -20,6 +24,8 @@ struct SpritePacket : public RenderablePacketI {
 };
 
 struct Sprite : public RenderableI {
+    SpriteSource source = SpriteSource::TEXTURE;
+    ImageRef image{};
     entt::id_type texture_id{};
     Color color = Color::ONE;
     bool flip_x = false;
@@ -28,6 +34,7 @@ struct Sprite : public RenderableI {
     bool fit = false;
 
     void setTexture(const Entt& ew, const std::string& src);
+    void setImage(const Entt& ew, ImageRef image);
     void setColor(const Color& c);
     void setColor(const sol::object& obj) { setColor(Color::fromLua(obj)); }
     void setFit(const sol::object& obj);
