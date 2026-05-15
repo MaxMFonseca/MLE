@@ -36,6 +36,8 @@ class Client final {
     auto& getCTable() { return client_table_; }
     auto& getGameLayerTable() { return game_layer_table_; }
 
+    void addShutdownCallback(std::move_only_function<void(void)> cb) { shutdown_callbacks_.emplace_back(std::move(cb)); }
+
   private:
     void update();
     void shutdown();
@@ -66,5 +68,7 @@ class Client final {
     ColorCache color_cache_{};
 
     window::ev::CloseL window_close_el_;
+
+    std::vector<std::move_only_function<void(void)>> shutdown_callbacks_;
 };
 }  // namespace mle

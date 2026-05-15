@@ -204,6 +204,9 @@ void Client::shutdown() {
         }
         debug_layers_.clear();
     }
+    for (auto& cb : shutdown_callbacks_) {
+        cb();
+    }
     MLE_I("MLE Client shut down successfully after {}s", sw.elapsedSecFloat());
 }
 
