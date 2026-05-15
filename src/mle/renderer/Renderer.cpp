@@ -21,6 +21,13 @@ void Renderer::init() {
     MLE_I("Renderer initialized successfully");
 }
 
+void Renderer::stop() {
+    MLE_I("Stopping Renderer...");
+    frame_renderer_.stopRun();
+    frame_renderer_.waitStoped();
+    MLE_I("Renderer stopped.");
+}
+
 void Renderer::shutdown() {
     auto device = vk_ctx_.getDevice();
 

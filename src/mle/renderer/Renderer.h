@@ -19,6 +19,7 @@ class Renderer {
 
   public:
     void init();
+    void stop();
     void shutdown();
 
     auto& vkCtx() { return vk_ctx_; }

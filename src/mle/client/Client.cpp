@@ -186,7 +186,7 @@ void Client::update() {
 
 void Client::shutdown() {
     MLE_I("MLE Client shutting down after {}s", running_sw_.elapsedSecFloat());
-    std::ignore = Renderer::i().vkDevice().waitIdle();
+    Renderer::i().stop();
     Stopwatch sw;
     AudioEngine::i().shutdown();
     {
