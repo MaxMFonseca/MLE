@@ -68,6 +68,17 @@ struct OnCreate {
     static void apply(const Entt& e, const sol::object& obj);
 };
 
+struct ListenEvents {
+    // copy
+    std::vector<std::shared_ptr<system::EventListener>> listeners;
+
+    void set(const Entt& e, const sol::object& obj);
+    void addListener(const Entt& e, const std::string& event_name, sol::function fn);
+    void clear();
+
+    static void apply(const Entt& e, const sol::object& obj);
+};
+
 struct RenderScale {
     f32 scale{1.0F};
 

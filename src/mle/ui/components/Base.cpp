@@ -52,6 +52,75 @@ void OnCreate::apply(const Entt& e, const sol::object& obj) {
     e.patchOrEmplace<OnCreate>([&](OnCreate& oc) { oc.fn = obj.as<FuncType>(); });
 };
 
+void ListenEvents::clear() {
+    for (auto& listener : listeners) {
+        listener->unlisten();
+    }
+    listeners.clear();
+}
+
+void ListenEvents::addListener(const Entt& e, const std::string& event_name, sol::function fn) {
+    if (event_name.empty()) {
+        MLE_E("Cannot listen to an empty event name on entity {}.", e.fullName());
+        return;
+    }
+    if (!fn.valid()) {
+        MLE_E("Cannot listen to event '{}' on entity {} with invalid callback.", event_name, e.fullName());
+        return;
+    }
+
+    UI* ui = &e.ui();
+    entt::entity entity = e.e();
+    auto listener = std::make_shared<system::EventListener>(ui->eventSystem());
+    listener->setTargetEvent(event_name)
+        .setCallback([ui, entity, fn = std::move(fn)](const sol::object& obj) mutable {
+            if (!ui->getRegistry().valid(entity)) {
+                return;
+            }
+            Entt ew{*ui, entity};
+            if (ew.has<DisabledFlag>()) {
+                return;
+            }
+            fn(ew, obj);
+        })
+        .listen();
+    listeners.emplace_back(std::move(listener));
+}
+
+void ListenEvents::set(const Entt& e, const sol::object& obj) {
+    MLE_ASSERT(obj.valid());
+    clear();
+
+    if (!lua::valid<sol::table>(obj)) {
+        MLE_E("Invalid listen value for entity {}. Expected table.", e.fullName());
+        return;
+    }
+
+    auto table = lua::as<sol::table>(obj);
+    for (const auto& [key_r, value_r] : table) {
+        if (key_r.is<std::string>() && lua::valid<sol::function>(value_r)) {
+            addListener(e, lua::as<std::string>(key_r), lua::as<sol::function>(value_r));
+            continue;
+        }
+
+        if (lua::valid<sol::table>(value_r)) {
+            auto listener_table = lua::as<sol::table>(value_r);
+            const auto event_r = lua::getFirstKey(listener_table, "event", "name", 1);
+            const auto fn_r = lua::getFirstKey(listener_table, "fn", "callback", 2);
+            if (lua::valid<std::string>(event_r) && lua::valid<sol::function>(fn_r)) {
+                addListener(e, lua::as<std::string>(event_r), lua::as<sol::function>(fn_r));
+                continue;
+            }
+        }
+
+        MLE_E("Invalid listen entry for entity {}. Expected event_name = function or {{ event/name, fn/callback }}.", e.fullName());
+    }
+}
+
+void ListenEvents::apply(const Entt& e, const sol::object& obj) {
+    e.patchOrEmplace<ListenEvents>([&](ListenEvents& listen_events) { listen_events.set(e, obj); });
+};
+
 void RenderScale::apply(const Entt& e, const sol::object& obj) {
     lua::assertIs<f32>(obj);
     e.patchOrEmplace<RenderScale>([&](RenderScale& rs) {

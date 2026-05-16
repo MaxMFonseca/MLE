@@ -221,6 +221,7 @@ void LuaElementOps::addBuiltingApply() {
     addApplyKeyHandler("render_scale", comp::RenderScale::apply);
     addApplyKeyHandler("on_update", comp::OnUpdate::apply);
     addApplyKeyHandler("on_create", comp::OnCreate::apply);
+    addApplyKeyHandler("listen", comp::ListenEvents::apply);
     addApplyKeyHandler("id", comp::ID::apply);
     addApplyKeyHandler("layer", comp::Layer::apply);
     addApplyKeyHandler("fn", comp::Functions::apply);
