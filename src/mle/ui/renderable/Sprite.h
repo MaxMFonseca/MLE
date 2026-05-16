@@ -5,6 +5,8 @@
 namespace mle::ui::renderable {
 enum class SpriteSource : u8 { TEXTURE, IMAGE };
 
+[[nodiscard]] const Pipeline* getSpritePipeline();
+
 struct SpritePacket : public RenderablePacketI {
     SpritePacket() = default;
     ~SpritePacket() override = default;

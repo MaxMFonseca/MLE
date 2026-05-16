@@ -14,6 +14,7 @@
 #include "mle/ui/components/FreeContainer.h"
 #include "mle/ui/components/Hoverable.h"
 #include "mle/ui/components/ListContainer.h"
+#include "mle/ui/renderable/RenderImage.h"
 #include "mle/ui/renderable/Sprite.h"
 #include "mle/ui/renderable/Text.h"
 #include "mle/ui/shader/Blur.h"
@@ -229,6 +230,7 @@ void LuaElementOps::addBuiltingApply() {
     addApplyKeyHandler("force_fit", comp::ForceFitFlag::apply);
 
     addApplyKeyHandler("sprite", ui::renderable::Sprite::apply);
+    addApplyKeyHandler("render_image", ui::renderable::RenderImage::apply);
     addApplyKeyHandler("text", ui::renderable::Text::apply);
     addApplyKeyHandler("text_input_enable", ui::renderable::Text::applyInputEnable);
     addApplyKeyHandler("text_input_disable", ui::renderable::Text::applyInputDisable);

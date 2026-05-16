@@ -31,6 +31,7 @@ class UI {
 
     void update();
     ImageRef render();
+    [[nodiscard]] Expected<ImageRef> getRenderImage(entt::entity entity);
 
     Expected<ui::Entt> getE(std::span<const std::string_view> tree = {});
     Expected<ui::Entt> getE(const std::string& id);

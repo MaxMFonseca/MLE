@@ -12,6 +12,7 @@
 #include "mle/ui/components/Base.h"
 #include "mle/ui/components/Bounds.h"
 #include "mle/ui/components/Renderable.h"
+#include "mle/ui/renderable/RenderImage.h"
 #include "mle/utils/ECS.h"
 #include "mle/utils/ID.h"
 
@@ -89,6 +90,7 @@ Expected<Rendering::Packet::Node> Rendering::createPacketNode(u8 atomic_buffer_i
     }
     if (auto* renderable_r = ew.tryGet<comp::Renderable>(); renderable_r) {
         node.renderable_packet = renderable_r->updatePacket(ew, atomic_buffer_id);
+        node.renderable_dedicate_render_target = renderable_r->getType() == mle::ui::renderable::RenderImage::type();
     }
     if (auto* render_scale_r = ew.tryGet<comp::RenderScale>(); render_scale_r) {
         node.scale_factor = render_scale_r->scale;
@@ -214,23 +216,27 @@ void Rendering::renderNodeBackground(const Rendering::Packet::Node& node, Recti 
     ctx.thread.draw(4, 1, 0, 0);
 }
 
-ImageRef Rendering::getImageForEntity(const Packet::Node& node) {
-    auto& images = dedicated_images_[node.e_id];
+ImageRef Rendering::getDedicatedImageForEntity(entt::entity entity, vec2u extent) {
+    if (extent.x == 0 || extent.y == 0) {
+        return nullptr;
+    }
+
+    auto& images = dedicated_images_[entity];
     auto& frame_renderer = Renderer::i().frameRenderer();
     auto frame_idx = frame_renderer.getCurrentFrameId();
     auto& image = images.at(frame_idx);
 
     if (!image) {
         Image::CI image_ci{};
-        image_ci.extent = node.bounds.parent_px.size();
+        image_ci.extent = extent;
         image_ci.format = Image::Format::COLOR;
         image_ci.extra_usage |= vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst;
         image = Image::createHnd(image_ci);
-    } else if (image->getExtent() != vec2u(node.bounds.parent_px.size())) {
+    } else if (image->getExtent() != extent) {
         frame_renderer.deleteAfterFrame(std::move(image));
 
         Image::CI image_ci{};
-        image_ci.extent = node.bounds.parent_px.size();
+        image_ci.extent = extent;
         image_ci.format = Image::Format::COLOR;
         image_ci.extra_usage |= vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst;
         image = Image::createHnd(image_ci);
@@ -239,12 +245,57 @@ ImageRef Rendering::getImageForEntity(const Packet::Node& node) {
     return image.get();
 };
 
+ImageRef Rendering::getImageForNode(const Packet::Node& node) {
+    return getDedicatedImageForEntity(node.e_id, node.bounds.parent_px.size());
+};
+
+ImageRef Rendering::getExistingDedicatedImageForEntity(entt::entity entity, vec2u extent) {
+    auto it = dedicated_images_.find(entity);
+    if (it == dedicated_images_.end()) {
+        return nullptr;
+    }
+
+    auto& frame_renderer = Renderer::i().frameRenderer();
+    auto frame_idx = frame_renderer.getCurrentFrameId();
+    auto* image = it->second.at(frame_idx).get();
+    if ((image == nullptr) || image->getExtent() != extent) {
+        return nullptr;
+    }
+    return image;
+};
+
+Expected<ImageRef> Rendering::getRenderImage(entt::entity entity) {
+    if (entity == entt::null || !ui_.getRegistry().valid(entity)) {
+        return std::unexpected(Result::NOT_FOUND);
+    }
+
+    Entt ew(ui_, entity);
+    auto* renderable = ew.tryGet<comp::Renderable>();
+    if (!renderable) {
+        return std::unexpected(Result::NOT_FOUND);
+    }
+    if (renderable->getType() != mle::ui::renderable::RenderImage::type()) {
+        return std::unexpected(Result::INVALID_TYPE);
+    }
+
+    auto* bounds = ew.tryGet<comp::Bounds>();
+    if (!bounds) {
+        return std::unexpected(Result::NOT_READY);
+    }
+
+    ImageRef image = getDedicatedImageForEntity(entity, bounds->parent_px.size());
+    if (!image) {
+        return std::unexpected(Result::NOT_READY);
+    }
+    return image;
+};
+
 std::unique_ptr<Rendering::RenderingContext> Rendering::renderCreateNodeNewContext(const Rendering::Packet::Node& node) {
     auto new_ctx = std::make_unique<RenderingContext>();
     new_ctx->thread.init();
 
     AttachmentInfo color_attachment{};
-    color_attachment.image = getImageForEntity(node);
+    color_attachment.image = getImageForNode(node);
 
     color_attachment.image->clear(new_ctx->thread.cmd(), node.shader_clear_color);
 
@@ -267,10 +318,12 @@ void Rendering::renderNodeShader(const Rendering::Packet::Node& node, RenderingC
 }
 
 void Rendering::renderNodeRenderable(const Rendering::Packet::Node& node, RenderingContext& ctx) {
+    ImageRef dedicated_image = node.renderable_dedicate_render_target ? getExistingDedicatedImageForEntity(node.e_id, node.bounds.parent_px.size()) : nullptr;
     CompRenderingCtx renderable_packet_ctx{
         .thread = ctx.thread,
         .lua = lua_,
-        .rounding_corners_radius_px = vec4i{node.border.round_lt, node.border.round_rt, node.border.round_lb, node.border.round_rb}};
+        .rounding_corners_radius_px = vec4i{node.border.round_lt, node.border.round_rt, node.border.round_lb, node.border.round_rb},
+        .dedicated_image = dedicated_image};
     node.renderable_packet->render(renderable_packet_ctx);
 }
 

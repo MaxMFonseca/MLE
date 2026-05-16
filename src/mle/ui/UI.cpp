@@ -114,6 +114,10 @@ ImageRef UI::render() {
     return rendering_system_.render();
 };
 
+Expected<ImageRef> UI::getRenderImage(entt::entity entity) {
+    return rendering_system_.getRenderImage(entity);
+}
+
 [[nodiscard]] Expected<std::reference_wrapper<const sol::table>> UI::getStyle(std::string_view style_name) {
     if (auto it = styles_.find(std::string{style_name}); it != styles_.end()) {
         return std::cref(it->second);

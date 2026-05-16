@@ -38,6 +38,7 @@ class Rendering {
 
             std::shared_ptr<ShaderPacketI> shader_packet;
             std::shared_ptr<RenderablePacketI> renderable_packet;
+            bool renderable_dedicate_render_target = false;
             bool shader_before_children = false;
             bool shader_dedicate_render_target = false;
             Color shader_clear_color = Color::ZERO;
@@ -64,12 +65,15 @@ class Rendering {
 
     void update();
     [[nodiscard]] ImageRef render();
+    [[nodiscard]] Expected<ImageRef> getRenderImage(entt::entity entity);
     void clear();
 
   private:
     Expected<Packet::Node> createPacketNode(u8 atomic_buffer_id, entt::entity entity, usize depth = 0);
 
-    [[nodiscard]] ImageRef getImageForEntity(const Packet::Node& node);
+    [[nodiscard]] ImageRef getDedicatedImageForEntity(entt::entity entity, vec2u extent);
+    [[nodiscard]] ImageRef getExistingDedicatedImageForEntity(entt::entity entity, vec2u extent);
+    [[nodiscard]] ImageRef getImageForNode(const Packet::Node& node);
 
     void renderNode(const Rendering::Packet::Node& node, RenderingContext& ctx);
     std::unique_ptr<RenderingContext> renderCreateNodeNewContext(const Rendering::Packet::Node& node);

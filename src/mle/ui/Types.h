@@ -21,6 +21,7 @@ struct CompRenderingCtx {
     RenderingThread& thread;
     Lua& lua;
     vec4i rounding_corners_radius_px;
+    ImageRef dedicated_image = nullptr;
 };
 
 struct PaddingPx {

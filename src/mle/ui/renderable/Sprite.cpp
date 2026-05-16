@@ -121,8 +121,7 @@ void Sprite::set(const Entt& ew, const sol::object& obj) {
     MLE_W("Unsupported object type provided to Sprite::set");
 };
 
-namespace {
-auto getPipeline() {
+const Pipeline* getSpritePipeline() {
     static const Pipeline* pipeline = nullptr;
     if (pipeline == nullptr) {
         Pipeline::CI pipeline_ci{};
@@ -140,7 +139,6 @@ auto getPipeline() {
     }
     return pipeline;
 }
-}  // namespace
 
 void SpritePacket::render(CompRenderingCtx& ctx) {
     if (source_changed) {
@@ -174,7 +172,7 @@ void SpritePacket::render(CompRenderingCtx& ctx) {
 
     auto& thread = ctx.thread;
 
-    const auto* pipeline = getPipeline();
+    const auto* pipeline = getSpritePipeline();
 
     thread.setPipeline(pipeline);
 
