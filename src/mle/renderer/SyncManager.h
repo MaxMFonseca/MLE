@@ -8,6 +8,7 @@
 #include "Types.h"
 #include "mle/utils/Utils.h"
 
+// FIXME: Rework this
 namespace mle {
 class RendererSyncManager;
 
@@ -37,7 +38,7 @@ class Semaphore {
 
 class Fence {
   public:
-    ~Fence() { release(); }
+    ~Fence();
 
     MLE_NO_COPY(Fence);
 
@@ -51,7 +52,7 @@ class Fence {
     static Fence create();
 
   private:
-    void release();
+    vk::Fence releaseHnd();
 
   private:
     friend RendererSyncManager;

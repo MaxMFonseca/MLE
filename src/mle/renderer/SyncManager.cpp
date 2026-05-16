@@ -28,6 +28,7 @@ void Semaphore::release() {
 
 Fence& Fence::operator=(Fence&& rhs) {
     if (this != &rhs) {
+        releaseHnd();
         o_ = rhs.o_;
         rhs.o_ = nullptr;
     }
@@ -36,13 +37,6 @@ Fence& Fence::operator=(Fence&& rhs) {
 
 Fence Fence::create() {
     return Renderer::i().syncMgr().acquireFence();
-}
-
-void Fence::release() {
-    if (o_) {
-        Renderer::i().syncMgr().reclaimFence(o_);
-        o_ = nullptr;
-    }
 }
 
 Result Fence::wait(u32 timeout_ms) const {
@@ -109,6 +103,9 @@ Semaphore RendererSyncManager::acquireSemaphore() {
 }
 
 void RendererSyncManager::reclaimFence(vk::Fence fence) {
+    if (fence == nullptr) {
+        return;
+    }
     std::scoped_lock lock(free_mutex_);
     check(Renderer::i().vk().getDevice().resetFences(1, &fence));
     free_fences_.push_back(fence);
@@ -121,7 +118,7 @@ void RendererSyncManager::reclaimSemaphore(vk::Semaphore semaphore) {
 
 void RendererSyncManager::trackFence(Fence&& fence, std::move_only_function<void()>&& on_signal) {
     if (Renderer::i().vk().dev().getFenceStatus(fence.get()) == vk::Result::eSuccess) {
-        reclaimFence(fence.get());
+        reclaimFence(fence.releaseHnd());
         on_signal();
         return;
     }
@@ -220,4 +217,13 @@ void RendererSyncManager::waiterLoop(std::stop_token st) {
     }
 }
 
+Fence::~Fence() {
+    Renderer::i().syncMgr().reclaimFence(releaseHnd());
+}
+
+vk::Fence Fence::releaseHnd() {
+    auto ret = o_;
+    o_ = nullptr;
+    return ret;
+}
 }  // namespace mle
