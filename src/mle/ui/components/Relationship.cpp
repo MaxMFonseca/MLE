@@ -253,7 +253,16 @@ entt::entity Relationship::createChild(const Entt& e, const sol::table& table) {
 
     applyBaseOnChild(e, comp_table, child_e);
 
+    callOnCreate(e);
+
     return child_e;
+}
+
+void Relationship::callOnCreate(const Entt& child) {
+    if (child.has<comp::OnCreate>()) {
+        child.get<comp::OnCreate>().fn(child);
+        child.eraseChecked<comp::OnCreate>();
+    }
 }
 
 void Relationship::createChildren(const Entt& e, const sol::table& table) {
@@ -261,6 +270,7 @@ void Relationship::createChildren(const Entt& e, const sol::table& table) {
 
     for (const auto& [child_e, comp_table] : children_data) {
         applyBaseOnChild(e, comp_table, child_e);
+        callOnCreate(Entt{e.ui(), child_e});
     }
 }
 

@@ -60,6 +60,14 @@ struct OnUpdate {
     static void apply(const Entt& e, const sol::object& obj);
 };
 
+struct OnCreate {
+    using FuncType = std::function<void(const Entt& e)>;
+
+    FuncType fn;
+
+    static void apply(const Entt& e, const sol::object& obj);
+};
+
 struct RenderScale {
     f32 scale{1.0F};
 

@@ -47,6 +47,8 @@ class Relationship {
 
     static void applyBaseOnChild(const Entt& e, const sol::table& table, entt::entity child_e);
 
+    static void callOnCreate(const Entt& child);
+
   private:
     entt::entity parent_ = entt::null;
     entt::entity left_ = entt::null;

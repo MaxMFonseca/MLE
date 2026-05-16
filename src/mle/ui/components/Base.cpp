@@ -47,6 +47,11 @@ void OnUpdate::apply(const Entt& e, const sol::object& obj) {
     e.patchOrEmplace<OnUpdate>([&](OnUpdate& ou) { ou.fn = obj.as<FuncType>(); });
 };
 
+void OnCreate::apply(const Entt& e, const sol::object& obj) {
+    lua::assertIs<sol::function>(obj);
+    e.patchOrEmplace<OnCreate>([&](OnCreate& oc) { oc.fn = obj.as<FuncType>(); });
+};
+
 void RenderScale::apply(const Entt& e, const sol::object& obj) {
     lua::assertIs<f32>(obj);
     e.patchOrEmplace<RenderScale>([&](RenderScale& rs) {
