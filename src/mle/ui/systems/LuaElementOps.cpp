@@ -210,6 +210,7 @@ void LuaElementOps::addBuiltingApply() {
     addApplyKeyHandler("id", comp::ID::apply);
     addApplyKeyHandler("layer", comp::Layer::apply);
     addApplyKeyHandler("fn", comp::Functions::apply);
+    addApplyKeyHandler("active", comp::DisabledFlag::applyEnabled);
     addApplyKeyHandler("enabled", comp::DisabledFlag::applyEnabled);
     addApplyKeyHandler("disabled", comp::DisabledFlag::applyDisabled);
     addApplyKeyHandler("force_fit", comp::ForceFitFlag::apply);
