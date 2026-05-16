@@ -12,6 +12,7 @@
 #include "mle/core/PerfTracker.h"
 #include "mle/renderer/Image.h"
 #include "mle/renderer/Renderer.h"
+#include "mle/ui/LuaUTGUI.h"
 #include "mle/utils/Color.h"
 #include "mle/utils/ECS.h"
 #include "mle/utils/Stopwatch.h"
@@ -42,6 +43,8 @@ void Client::init() {
         MLE_I("Client stop requested from Lua");
         Client::i().requestStop();
     };
+
+    lua::makeUTGUI(lua_);
 
     MLE_D("Creaging colors table");
     auto colors_table = lua_.createTable("Colors");
