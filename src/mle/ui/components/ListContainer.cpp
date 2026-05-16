@@ -656,6 +656,29 @@ struct ListCalculator {
 
             finishFlexCross(lccd);
 
+            if (lccd.state.main == ListChildCalcData::CalcState::FIT) {
+                if (lccd.state.cross == ListChildCalcData::CalcState::DONE) {
+                    int fit_max_size_main = child_max_size_main - lccd.margin.main_a - lccd.margin.main_b - lccd.border.main_a - lccd.border.main_b;
+                    if (fit_max_size_main <= 0) {
+                        MLE_E("Child cannot FIT in the given max main size");
+                        lccd.valid = false;
+                        continue;
+                    }
+
+                    vec2u p_max_size =
+                        main_is_x ? vec2u{as<u32>(fit_max_size_main), as<u32>(lccd.size_cross)} : vec2u{as<u32>(lccd.size_cross), as<u32>(fit_max_size_main)};
+                    vec2u size_from_provider = cbcd.size_provider->call(centt, p_max_size);
+                    u32 main_size_from_provider = main_is_x ? size_from_provider.x : size_from_provider.y;
+
+                    lccd.size_main = as<int>(main_size_from_provider);
+                    lccd.state.main = ListChildCalcData::CalcState::DONE;
+                } else {
+                    MLE_E("This should be unreachable due to previous checks. Main state: FIT, Cross state:{}", (int)lccd.state.cross);
+                    lccd.valid = false;
+                    continue;
+                }
+            }
+
             if (lccd.state.main == ListChildCalcData::CalcState::AR) {
                 if (lccd.state.cross == ListChildCalcData::CalcState::DONE) {
                     if (main_is_x) {
@@ -665,7 +688,7 @@ struct ListCalculator {
                     }
                     lccd.state.main = ListChildCalcData::CalcState::DONE;
                 } else {
-                    MLE_E("This should be unreachable due to previous checks. Main state: AR, Cross state:{}", (int)lccd.state.cross);
+                    MLE_E("This should be unreachable due to previous checks. Main state: AR/FIT, Cross state:{}", (int)lccd.state.cross);
                     lccd.valid = false;
                     continue;
                 }
