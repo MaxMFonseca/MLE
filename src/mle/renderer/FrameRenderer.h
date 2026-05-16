@@ -1,5 +1,6 @@
 #pragma once
 
+#include <condition_variable>
 #include <functional>
 
 #include "Buffer.h"
@@ -45,6 +46,8 @@ class FrameRenderer final {
     void assertNotInFrame() const { MLE_ASSERT_LOG(!inFrame(), "In frame!"); }
 
     void waitStoped();
+    void pause();
+    void resume();
 
     [[nodiscard]] auto getSwapchainFormat() const { return surface_format_.format; }
     [[nodiscard]] auto getSwapchianImageUsage() const { return swapchain_usage_; }
@@ -133,6 +136,10 @@ class FrameRenderer final {
     std::jthread run_thread_{};
     std::atomic<u32> target_fps_ = max<u32>();
     std::atomic<bool> running_{false};
+    std::atomic<bool> pause_requested_{false};
+    std::atomic<bool> paused_{false};
+    std::mutex pause_mutex_;
+    std::condition_variable pause_cv_;
 
     RuntimeConfigListener swapchain_rtcl0_;
     RuntimeConfigListener swapchain_rtcl1_;

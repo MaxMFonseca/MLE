@@ -90,6 +90,10 @@ class ResetCommandPool {
 class RendererCommandManager {
   private:
     struct QueueData {
+        MLE_NO_COPY_MOVE(QueueData);
+        QueueData() = default;
+        ~QueueData();
+
         struct OTSCommandPoolData {
             vk::CommandPool pool;
             std::vector<vk::CommandBuffer> available_primary_buffers;
@@ -100,7 +104,7 @@ class RendererCommandManager {
         std::mutex submit_mutex;
 
         vk::Queue queue;
-        usize family_index;
+        usize family_index = 0;
     };
 
   public:
@@ -109,6 +113,7 @@ class RendererCommandManager {
     ~RendererCommandManager() = default;
 
     std::unique_lock<std::mutex> waitIdle(GCmdType type);
+    void waitDeviceIdle();
 
     [[nodiscard]] ResetCommandPool createResetCommandPool(GCmdType type);
 

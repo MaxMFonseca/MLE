@@ -218,20 +218,26 @@ void Client::requestStop() {
 void Client::checkNextGameLayer() {
     if (next_game_layer_) {
         MLE_I("Switching game layer");
-        std::scoped_lock lock(game_layer_render_mutex_);
+        Renderer::i().frameRenderer().pause();
+        Renderer::i().commandManager().waitDeviceIdle();
 
-        if (game_layer_) {
-            std::ignore = Renderer::i().vkDevice().waitIdle();
-            MLE_I("Shutting down current game layer");
-            game_layer_->shutdown();
-            game_layer_table_ = sol::nil;
-            game_layer_.reset();
+        {
+            std::scoped_lock lock(game_layer_render_mutex_);
+
+            if (game_layer_) {
+                MLE_I("Shutting down current game layer");
+                game_layer_->shutdown();
+                game_layer_table_ = sol::nil;
+                game_layer_.reset();
+            }
+
+            MLE_I("Switching to new game layer");
+            game_layer_ = std::move(next_game_layer_);
+            game_layer_table_ = lua_.createTable("G");
+            game_layer_->init();
         }
 
-        MLE_I("Switching to new game layer");
-        game_layer_ = std::move(next_game_layer_);
-        game_layer_table_ = lua_.createTable("G");
-        game_layer_->init();
+        Renderer::i().frameRenderer().resume();
     }
 }
 

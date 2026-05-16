@@ -296,10 +296,25 @@ std::unique_lock<std::mutex> RendererCommandManager::waitIdle(GCmdType type) {
     return lock;
 }
 
+void RendererCommandManager::waitDeviceIdle() {
+    MLE_D("waitDeviceIdle");
+    std::scoped_lock lock(queue_data_[0].submit_mutex, queue_data_[1].submit_mutex, queue_data_[2].submit_mutex);
+    check(Renderer::i().vkDevice().waitIdle());
+}
+
 vk::Result RendererCommandManager::submitPresent(const vk::PresentInfoKHR& present_info) {
     auto& q_data = queue_data_.at(queueDataIdx(GCmdType::G));
     std::scoped_lock lock(q_data.submit_mutex);
     return q_data.queue.presentKHR(present_info);
 }
 
+RendererCommandManager::QueueData::~QueueData() {
+    std::scoped_lock lock(pool_map_mutex);
+
+    for (auto& [_, pool_data] : thread_ots_pool_map) {
+        if (pool_data.pool) {
+            Renderer::i().destroy(pool_data.pool);
+        }
+    }
+}
 }  // namespace mle

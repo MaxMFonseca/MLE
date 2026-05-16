@@ -35,7 +35,7 @@ void Renderer::shutdown() {
         return;
     }
 
-    std::ignore = device.waitIdle();
+    command_manager_.waitDeviceIdle();
 
     animation_cache_.shutdown();
     skeleton_cache_.shutdown();

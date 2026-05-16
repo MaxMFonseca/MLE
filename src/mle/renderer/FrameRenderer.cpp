@@ -109,6 +109,22 @@ void FrameRenderer::runLoop(std::stop_token st) {
         MLE_PERF_SCOPE("FrameRenderer");
 
         {
+            std::unique_lock lock(pause_mutex_);
+            if (pause_requested_.load(std::memory_order_relaxed)) {
+                paused_.store(true, std::memory_order_relaxed);
+                pause_cv_.notify_all();
+                pause_cv_.wait(lock, [this, &st] {
+                    return !pause_requested_.load(std::memory_order_relaxed) || st.stop_requested();
+                });
+                paused_.store(false, std::memory_order_relaxed);
+                pause_cv_.notify_all();
+                if (st.stop_requested()) {
+                    break;
+                }
+            }
+        }
+
+        {
             if (gc_sw.elapsedMSFloat() > 1000) {
                 gc_sw.reset();
                 runGC();
@@ -196,6 +212,7 @@ void FrameRenderer::stopRun() {
     }
 
     MLE_I("Stopping FrameRenderer run thread...");
+    resume();
     run_thread_.request_stop();
     std::jthread old = std::move(run_thread_);
     running_.store(false, std::memory_order_relaxed);
@@ -656,5 +673,22 @@ void FrameRenderer::waitStoped() {
     if (run_thread_.joinable()) {
         run_thread_.join();
     }
+}
+
+void FrameRenderer::pause() {
+    if (!isRunning()) {
+        return;
+    }
+
+    pause_requested_.store(true, std::memory_order_relaxed);
+    std::unique_lock lock(pause_mutex_);
+    pause_cv_.wait(lock, [this] {
+        return paused_.load(std::memory_order_relaxed) || !isRunning();
+    });
+}
+
+void FrameRenderer::resume() {
+    pause_requested_.store(false, std::memory_order_relaxed);
+    pause_cv_.notify_all();
 }
 }  // namespace mle

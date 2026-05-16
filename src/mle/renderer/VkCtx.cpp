@@ -137,10 +137,6 @@ void VkCtx::shutdown() {
 
     MLE_I("Shutting down Vulkan context");
 
-    if (device_) {
-        check(device_.waitIdle());
-    }
-
     if (vma_) {
         VmaTotalStatistics stats{};
         vmaCalculateStatistics(vma_, &stats);
