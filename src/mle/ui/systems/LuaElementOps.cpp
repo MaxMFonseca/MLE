@@ -126,6 +126,18 @@ void LuaElementOps::init() {
         auto& relationship = ew.getRelationship();
         relationship.applyOnChildren(ew, table);
     };
+    ut["enableAll"] = [](const Entt& ew) {
+        auto& relationship = ew.getRelationship();
+        relationship.enableAll(ew);
+    };
+    ut["disableAll"] = [](const Entt& ew) {
+        auto& relationship = ew.getRelationship();
+        relationship.disableAll(ew);
+    };
+    ut["disableAllBut"] = [](const Entt& ew, const std::string& child_name) {
+        auto& relationship = ew.getRelationship();
+        relationship.disableAllBut(ew, child_name);
+    };
 
     ut["call"] = [](const Entt& ew, const std::string& fn_name, const sol::object& obj = {}) { ew.call(fn_name, obj); };
 

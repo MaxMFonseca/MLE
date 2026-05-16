@@ -34,6 +34,9 @@ class Relationship {
     void createChildren(const Entt& e, const sol::table& table);
 
     void applyOnChildren(const Entt& ew, const sol::table& table) const;
+    void enableAll(const Entt& e) const;
+    void disableAll(const Entt& e) const;
+    void disableAllBut(const Entt& e, std::string_view child_name) const;
 
     static void applyAddChildren(const Entt& e, const sol::object& obj);
     static void applyAddChild(const Entt& e, const sol::object& obj);

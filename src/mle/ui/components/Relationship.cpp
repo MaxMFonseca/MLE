@@ -3,6 +3,7 @@
 #include "../Entt.h"
 #include "mle/client/Client.h"
 #include "mle/lua/Utils.h"
+#include "mle/ui/components/Base.h"
 
 namespace mle::ui::comp {
 entt::entity Relationship::getChildAt(const Entt& e, usize idx) const {
@@ -300,6 +301,39 @@ void Relationship::applyAddChild(const Entt& e, const sol::object& obj) {
 void Relationship::applyOnChildren(const Entt& ew, const sol::table& table) const {
     for (const auto& child_e : getChildren(ew)) {
         ew.derive(child_e).applyTable(table);
+    }
+}
+
+void Relationship::enableAll(const Entt& e) const {
+    for (const auto& child_e : getChildren(e)) {
+        auto child = e.derive(child_e);
+        child.eraseChecked<DisabledFlag>();
+        child.requestExternalBoundsUpdate();
+    }
+}
+
+void Relationship::disableAll(const Entt& e) const {
+    for (const auto& child_e : getChildren(e)) {
+        auto child = e.derive(child_e);
+        child.addFlag<DisabledFlag>();
+        child.requestExternalBoundsUpdate();
+    }
+}
+
+void Relationship::disableAllBut(const Entt& e, std::string_view child_name) const {
+    const auto child_to_enable = getChildByName(e, child_name);
+    if (child_to_enable == entt::null) {
+        return;
+    }
+
+    for (const auto& child_e : getChildren(e)) {
+        auto child = e.derive(child_e);
+        if (child_e == child_to_enable) {
+            child.eraseChecked<DisabledFlag>();
+        } else {
+            child.addFlag<DisabledFlag>();
+        }
+        child.requestExternalBoundsUpdate();
     }
 }
 
