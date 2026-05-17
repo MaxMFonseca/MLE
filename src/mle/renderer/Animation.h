@@ -1,12 +1,14 @@
 #pragma once
 
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "mle/math/Types.h"
 #include "mle/renderer/GLTF.h"
 
 namespace mle {
+class AnimationCache;
 class Model;
 
 class AnimationClip {
@@ -29,7 +31,7 @@ class AnimationClip {
     };
 
   public:
-    void loadFromGLTF(const GLTF& gltf, usize animation_index);
+    void loadFromGLTF(const GLTF& gltf, std::string_view animation_name);
 
     [[nodiscard]] const std::string& getName() const { return name_; }
     [[nodiscard]] f32 getDuration() const { return duration_; }
@@ -39,6 +41,10 @@ class AnimationClip {
     void evaluateNoInterpolation(const Model& model, f32 time, std::vector<mat4f>& out_node_globals) const;
 
   private:
+    friend class AnimationCache;
+
+    void loadFromGLTF(const GLTF& gltf, usize animation_index);
+
     std::string name_;
     f32 duration_ = 0.0F;
     std::vector<NodeAnim> nodes_;

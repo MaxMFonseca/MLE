@@ -16,6 +16,7 @@
 #include "mle/renderer/Renderer.h"
 #include "mle/renderer/RenderingThread.h"
 #include "mle/utils/File.h"
+#include "mle/utils/ECS.h"
 #include "mle/window/Window.h"
 
 namespace mle::user {
@@ -213,11 +214,13 @@ std::vector<std::string> discoverAssets(const std::string& resource_dir) {
     return files;
 }
 
-std::string makeAnimationDisplayName(const std::string& animation_file, AnimationClipRef clip, usize animation_index) {
-    if (clip != nullptr && !clip->getName().empty()) {
-        return animation_file + "." + clip->getName();
-    }
-    return animation_file + "." + std::to_string(animation_index);
+entt::id_type makeAssetId(const std::string& name) {
+    return entt::hashed_string::value(name.c_str());
+}
+
+std::string makeAnimationDisplayName(const std::string& animation_file, AnimationClipRef clip) {
+    MLE_ASSERT_LOG(clip != nullptr && !clip->getName().empty(), "Animation display names require a valid named animation clip.");
+    return animation_file + "." + clip->getName();
 }
 
 bool animationTargetsModel(AnimationClipRef animation, ModelRef model) {
@@ -534,15 +537,33 @@ void ModelTestLayer::refreshAssets() {
     model_files_ = discoverAssets(ResPath::MODELS);
     animation_files_ = discoverAssets(ResPath::ANIMATIONS);
 
-    animations_.clear();
+    model_ids_.clear();
+    model_ids_.reserve(model_files_.size());
+    for (const auto& model_file : model_files_) {
+        model_ids_.push_back(makeAssetId(model_file));
+    }
+
+    animation_options_.clear();
     animation_names_.clear();
 
     auto& renderer = Renderer::i();
     for (const auto& animation_file : animation_files_) {
-        auto refs = renderer.animationCache().addAnimations(animation_file, ResPath::ANIMATIONS);
-        for (usize i = 0; i < refs.size(); ++i) {
-            animations_.push_back(refs[i]);
-            animation_names_.push_back(makeAnimationDisplayName(animation_file, refs[i], i));
+        GLTF animation_gltf;
+        const Path animation_path = Path{ResPath::RES} / ResPath::ANIMATIONS / animation_file;
+        if (animation_gltf.load(animation_path) != Result::OK) {
+            MLE_W("ModelTestLayer failed to load animations '{}'", animation_path.generic_string());
+            continue;
+        }
+
+        const entt::id_type source_id = makeAssetId(animation_file);
+        auto refs = renderer.animationCache().addAnimations(source_id, animation_gltf);
+        for (AnimationClipRef ref : refs) {
+            const std::string label = makeAnimationDisplayName(animation_file, ref);
+            animation_options_.push_back(AnimationOption{
+                .label = label,
+                .id = AnimationCache::makeAnimationId(source_id, ref->getName()),
+            });
+            animation_names_.push_back(label);
         }
     }
 
@@ -602,24 +623,28 @@ sol::table ModelTestLayer::makeShaderModeNamesTable() const {
 }
 
 bool ModelTestLayer::setModel(const std::string& name) {
-    if (std::ranges::find(model_files_, name) == model_files_.end()) {
+    auto model_it = std::ranges::find(model_files_, name);
+    if (model_it == model_files_.end()) {
         MLE_W("ModelTestLayer model '{}' was not found", name);
         return false;
     }
 
-    auto& model_cache = Renderer::i().modelCache();
-    ModelRef model = model_cache.getModel(name);
-    if (model == nullptr) {
-        model = model_cache.addModel(name);
-    }
-    if (model == nullptr) {
-        return false;
-    }
+    const usize model_idx = static_cast<usize>(std::distance(model_files_.begin(), model_it));
+    const entt::id_type model_id = model_ids_.at(model_idx);
 
     GLTF model_gltf;
     const Path model_path = Path{ResPath::RES} / ResPath::MODELS / name;
     if (model_gltf.load(model_path) != Result::OK) {
-        MLE_W("ModelTestLayer failed to load GLTF for skin binding '{}'", model_path.generic_string());
+        MLE_W("ModelTestLayer failed to load GLTF '{}'", model_path.generic_string());
+        return false;
+    }
+
+    auto& model_cache = Renderer::i().modelCache();
+    ModelRef model = model_cache.get(model_id);
+    if (model == nullptr) {
+        model = model_cache.add(model_id, model_gltf);
+    }
+    if (model == nullptr) {
         return false;
     }
 
@@ -713,9 +738,10 @@ void ModelTestLayer::setWireframeWidth01(f32 value) {
 }
 
 void ModelTestLayer::setAnimation(const std::string& name) {
-    for (usize i = 0; i < animations_.size(); ++i) {
-        if (animation_names_.at(i) == name) {
-            current_animation_ = animations_[i];
+    auto& animation_cache = Renderer::i().animationCache();
+    for (const auto& option : animation_options_) {
+        if (option.label == name) {
+            current_animation_ = animation_cache.get(option.id);
             current_animation_name_ = name;
             animation_time_ = 0.0F;
             if (model_ != nullptr && !animationTargetsModel(current_animation_, model_)) {

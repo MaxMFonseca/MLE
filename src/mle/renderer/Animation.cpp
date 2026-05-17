@@ -11,6 +11,26 @@
 
 namespace mle {
 namespace {
+usize findAnimationIndexByName(const GLTF& gltf, std::string_view animation_name) {
+    MLE_ASSERT_LOG(!animation_name.empty(), "Animation name cannot be empty.");
+
+    const auto& animations = gltf.model().animations;
+    usize found = max<usize>();
+    for (usize i = 0; i < animations.size(); ++i) {
+        const auto& name = animations[i].name;
+        if (name != animation_name) {
+            continue;
+        }
+
+        MLE_ASSERT_LOG(found == max<usize>(), "GLTF contains duplicate animation name '{}'. Animation clip names must be unique per file.",
+                       animation_name);
+        found = i;
+    }
+
+    MLE_ASSERT_LOG(found != max<usize>(), "Animation '{}' was not found in GLTF.", animation_name);
+    return found;
+}
+
 mat4f makeTRS(const vec3f& t, const quat& r, const vec3f& s) {
     mat4f f_t = glm::translate(mat4f{1.0F}, t);
     mat4f f_r = glm::mat4_cast(r);
@@ -140,6 +160,10 @@ void evaluateImpl(const AnimationClip& clip, const Model& model, f32 time, std::
     out_node_globals = global_mats;
 }
 }  // namespace
+
+void AnimationClip::loadFromGLTF(const GLTF& gltf, std::string_view animation_name) {
+    loadFromGLTF(gltf, findAnimationIndexByName(gltf, animation_name));
+}
 
 void AnimationClip::loadFromGLTF(const GLTF& gltf, usize animation_index) {
     const auto& model = gltf.model();

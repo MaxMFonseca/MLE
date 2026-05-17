@@ -7,6 +7,7 @@
 #include "mle/client/Layer.h"
 #include "mle/renderer/SkinBinding.h"
 #include "mle/ui/UI.h"
+#include "mle/utils/ECS.h"
 
 namespace mle::user {
 enum class ModelTestShaderMode : u8 {
@@ -33,6 +34,11 @@ class ModelTestLayer : public mle::client::Layer {
     ImageRef getImage();
 
   private:
+    struct AnimationOption {
+        std::string label;
+        entt::id_type id{};
+    };
+
     ImageRef getDepthImage(vec2u size);
     void renderModel(ImageRef target);
     void refreshAssets();
@@ -55,7 +61,8 @@ class ModelTestLayer : public mle::client::Layer {
 
     ModelRef model_ = nullptr;
     AnimationClipRef current_animation_ = nullptr;
-    std::vector<AnimationClipRef> animations_;
+    std::vector<entt::id_type> model_ids_;
+    std::vector<AnimationOption> animation_options_;
     std::vector<std::string> animation_names_;
     std::vector<std::string> model_files_;
     std::vector<std::string> animation_files_;
