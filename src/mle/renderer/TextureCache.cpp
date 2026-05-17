@@ -46,6 +46,19 @@ void TextureCache::init() {
     }
 
     default_texture_ = addTextureWait(entt::hashed_string{"default"}, default_image_data);
+
+    auto make_solid = [](u8 r, u8 g, u8 b, u8 a, bool srgb) {
+        Image::RawData data{};
+        data.extent = {1, 1};
+        data.channels = 4;
+        data.srgb = srgb;
+        data.pixels = {r, g, b, a};
+        return data;
+    };
+
+    white_texture_ = addTextureWait(entt::hashed_string{"mle_default_white"}, make_solid(255, 255, 255, 255, false));
+    black_texture_ = addTextureWait(entt::hashed_string{"mle_default_black"}, make_solid(0, 0, 0, 255, false));
+    flat_normal_texture_ = addTextureWait(entt::hashed_string{"mle_default_flat_normal"}, make_solid(128, 128, 255, 255, false));
 }
 
 void TextureCache::shutdown() {
@@ -96,6 +109,13 @@ Expected<ImageRef> TextureCache::get(entt::id_type id) {
     MLE_E("Texture id:{} not found", id);
     return std::unexpected(Result::NOT_FOUND);
 };
+
+bool TextureCache::contains(entt::id_type id) const {
+    if (id == 0 || id == entt::hashed_string{"default"}) {
+        return default_texture_ != nullptr;
+    }
+    return textures_.contains(id);
+}
 
 Expected<vec2u> TextureCache::getExtent(entt::id_type id) {
     if (id == 0 || id == entt::hashed_string{"default"}) {

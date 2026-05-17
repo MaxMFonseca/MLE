@@ -17,7 +17,11 @@ class TextureCache {
     void shutdown();
 
     Expected<ImageRef> get(entt::id_type id);
+    bool contains(entt::id_type id) const;
     ImageRef getDefaultTexture() const { return default_texture_; }
+    ImageRef getWhiteTexture() const { return white_texture_; }
+    ImageRef getBlackTexture() const { return black_texture_; }
+    ImageRef getFlatNormalTexture() const { return flat_normal_texture_; }
     Expected<vec2u> getExtent(entt::id_type id);
 
     void addTexture(entt::id_type id, ImageHnd&& img);
@@ -42,6 +46,9 @@ class TextureCache {
     std::mutex mutex_;
     std::unordered_map<entt::id_type, TextureData> textures_;
     ImageRef default_texture_{nullptr};
+    ImageRef white_texture_{nullptr};
+    ImageRef black_texture_{nullptr};
+    ImageRef flat_normal_texture_{nullptr};
 
     std::unordered_map<entt::id_type, vk::Sampler> samplers_;
     vk::Sampler default_sampler_{nullptr};

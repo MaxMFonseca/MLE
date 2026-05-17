@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <filesystem>
+#include <spdlog/fmt/fmt.h>
 #include <glm/gtc/matrix_transform.hpp>
 
 #include "mle/client/Client.h"
@@ -17,12 +18,35 @@
 
 namespace mle::user {
 namespace {
-const Pipeline* getModelTestPipeline() {
-    static const Pipeline* pipeline = nullptr;
-    if (pipeline == nullptr) {
+struct MaterialUniform {
+    vec4f base_color_factor;
+    vec4f emissive_factor;
+    vec4f pbr_factors;
+};
+
+const Pipeline* getModelTestPipeline(Mesh::VertexKind kind) {
+    static std::array<const Pipeline*, 4> pipelines{};
+    const usize idx = as<usize>(kind);
+    if (pipelines[idx] == nullptr) {
         Pipeline::CI pipeline_ci{};
-        pipeline_ci.vertex_shader = &Renderer::i().shaderCache().get("mle/model_test/skinned.vert");
-        pipeline_ci.fragment_shader = &Renderer::i().shaderCache().get("mle/model_test/color.frag");
+        switch (kind) {
+            case Mesh::VertexKind::PBR_COLOR:
+                pipeline_ci.vertex_shader = &Renderer::i().shaderCache().get("mle/model_pbr/color.vert");
+                pipeline_ci.fragment_shader = &Renderer::i().shaderCache().get("mle/model_pbr/color.frag");
+                break;
+            case Mesh::VertexKind::PBR_COLOR_SKINNED:
+                pipeline_ci.vertex_shader = &Renderer::i().shaderCache().get("mle/model_pbr/color_skinned.vert");
+                pipeline_ci.fragment_shader = &Renderer::i().shaderCache().get("mle/model_pbr/color.frag");
+                break;
+            case Mesh::VertexKind::PBR_TEXTURE:
+                pipeline_ci.vertex_shader = &Renderer::i().shaderCache().get("mle/model_pbr/texture.vert");
+                pipeline_ci.fragment_shader = &Renderer::i().shaderCache().get("mle/model_pbr/texture.frag");
+                break;
+            case Mesh::VertexKind::PBR_TEXTURE_SKINNED:
+                pipeline_ci.vertex_shader = &Renderer::i().shaderCache().get("mle/model_pbr/texture_skinned.vert");
+                pipeline_ci.fragment_shader = &Renderer::i().shaderCache().get("mle/model_pbr/texture.frag");
+                break;
+        }
         std::array color_attachment_formats = {Renderer::i().vk().getVkImageFormat(ImageFormat::COLOR)};
         pipeline_ci.color_attachment_formats = color_attachment_formats;
         auto blend_attachments = Pipeline::makeDefaultBlendAttachments<1>();
@@ -33,9 +57,10 @@ const Pipeline* getModelTestPipeline() {
         pipeline_ci.depth_write = true;
         pipeline_ci.push_descriptor = 0;
 
-        pipeline = &Renderer::i().pipelineCache().setPipeline("model_test_skinned", pipeline_ci);
+        const std::string name = fmt::format("model_test_pbr_{}", idx);
+        pipelines[idx] = &Renderer::i().pipelineCache().setPipeline(name, pipeline_ci);
     }
-    return pipeline;
+    return pipelines[idx];
 }
 
 mat4f makeModelMatrix(const std::vector<Model::NodeMesh>& meshes) {
@@ -81,7 +106,7 @@ mat4f makeViewProj(vec2u extent, f32 yaw, f32 pitch, f32 distance) {
 
 bool isGLTFAsset(const Path& path) {
     const std::string ext = path.extension().generic_string();
-    return ext == ".glb" || ext == ".gltf";
+    return ext == ".glb";
 }
 
 std::vector<std::string> discoverAssets(const std::string& resource_dir) {
@@ -126,6 +151,14 @@ bool animationTargetsModel(AnimationClipRef animation, ModelRef model) {
     return std::ranges::any_of(animation->getNodes(),
                                [&model](const auto& node_anim) { return model->getNodeIdxByName(node_anim.target_name) != max<usize>(); });
 }
+
+MaterialUniform makeMaterialUniform(const Mesh::PbrMaterial& material) {
+    return MaterialUniform{
+        .base_color_factor = material.base_color_factor,
+        .emissive_factor = vec4f{material.emissive_factor, 0.0F},
+        .pbr_factors = vec4f{material.metallic_factor, material.roughness_factor, material.normal_scale, material.occlusion_strength},
+    };
+}
 }  // namespace
 
 void ModelTestLayer::init() {
@@ -133,7 +166,10 @@ void ModelTestLayer::init() {
 
     refreshAssets();
 
-    getModelTestPipeline();
+    getModelTestPipeline(Mesh::VertexKind::PBR_COLOR);
+    getModelTestPipeline(Mesh::VertexKind::PBR_COLOR_SKINNED);
+    getModelTestPipeline(Mesh::VertexKind::PBR_TEXTURE);
+    getModelTestPipeline(Mesh::VertexKind::PBR_TEXTURE_SKINNED);
     Client::i().getGameLayerTable()["model_test_set_camera_yaw"] = [this](f32 value) { setCameraYaw01(value); };
     Client::i().getGameLayerTable()["model_test_set_camera_pitch"] = [this](f32 value) { setCameraPitch01(value); };
     Client::i().getGameLayerTable()["model_test_set_camera_distance"] = [this](f32 value) { setCameraDistance01(value); };
@@ -221,20 +257,18 @@ void ModelTestLayer::renderModel(ImageRef target) {
     }
 
     const auto& meshes = model_->getMeshes();
-    if (skin_binding_.jointCount() == 0) {
-        return;
-    }
 
     if (current_animation_ != nullptr) {
         current_animation_->evaluate(*model_, animation_time_, node_globals_);
     } else {
         model_->evaluateBase(node_globals_);
     }
-    skin_binding_.buildSkinMatrices(node_globals_, skin_mats_);
-    if (skin_mats_.empty()) {
-        return;
+    bool has_skinned_mesh = std::ranges::any_of(meshes, [](const auto& node_mesh) { return node_mesh.mesh.isSkinned(); });
+    if (has_skinned_mesh && skin_binding_.jointCount() != 0) {
+        skin_binding_.buildSkinMatrices(node_globals_, skin_mats_);
+    } else {
+        skin_mats_.clear();
     }
-    MLE_VC(skin_mats_.size());
 
     auto& renderer = Renderer::i();
     auto& frame_renderer = renderer.frameRenderer();
@@ -242,8 +276,13 @@ void ModelTestLayer::renderModel(ImageRef target) {
     RenderingThread thread;
     thread.init();
 
-    BufferSlice skin_mats_slice = frame_renderer.getHostVisibleBuffer(sizeof(mat4f) * skin_mats_.size(), vk::BufferUsageFlagBits::eStorageBuffer);
-    skin_mats_slice.buffer->write(skin_mats_.data(), skin_mats_slice.size, skin_mats_slice.offset);
+    BufferSlice skin_mats_slice{};
+    vk::DescriptorBufferInfo skin_mats_di{};
+    if (!skin_mats_.empty()) {
+        skin_mats_slice = frame_renderer.getHostVisibleBuffer(sizeof(mat4f) * skin_mats_.size(), vk::BufferUsageFlagBits::eStorageBuffer);
+        skin_mats_slice.buffer->write(skin_mats_.data(), skin_mats_slice.size, skin_mats_slice.offset);
+        skin_mats_di = skin_mats_slice.buffer->makeDescriptorInfo(thread.cmd(), skin_mats_slice.size, skin_mats_slice.offset);
+    }
 
     AttachmentInfo color_attachment{};
     color_attachment.image = target;
@@ -259,13 +298,6 @@ void ModelTestLayer::renderModel(ImageRef target) {
     thread.beginRendering();
     thread.setViewportAndScissor(Rectf{0.0F, 0.0F, as<f32>(target->getExtent().x), as<f32>(target->getExtent().y)});
 
-    const Pipeline* pipeline = getModelTestPipeline();
-    thread.setPipeline(pipeline);
-
-    vk::DescriptorBufferInfo skin_mats_di = skin_mats_slice.buffer->makeDescriptorInfo(thread.cmd(), skin_mats_slice.size, skin_mats_slice.offset);
-    auto push_writes = pipeline->makeWrites(0, nullptr, &skin_mats_di);
-    thread.pushDescriptor(0, push_writes);
-
     struct PushConstants {
         mat4f model;
         mat4f view_proj;
@@ -273,14 +305,50 @@ void ModelTestLayer::renderModel(ImageRef target) {
 
     pc.model = makeModelMatrix(meshes);
     pc.view_proj = makeViewProj(target->getExtent(), camera_yaw_, camera_pitch_, camera_distance_);
-    thread.pushConstants(&pc);
 
     for (const auto& node_mesh : meshes) {
         const Mesh& mesh = node_mesh.mesh;
-        if (!mesh.isSkinned() || mesh.getIndexCount() == 0) {
+        if (mesh.getIndexCount() == 0) {
+            continue;
+        }
+        if (mesh.isSkinned() && skin_mats_.empty()) {
             continue;
         }
 
+        const Pipeline* pipeline = getModelTestPipeline(mesh.getVertexKind());
+        thread.setPipeline(pipeline);
+
+        const auto material_uniform = makeMaterialUniform(mesh.getMaterial());
+        BufferSlice material_slice = frame_renderer.getHostVisibleBuffer(sizeof(MaterialUniform), vk::BufferUsageFlagBits::eUniformBuffer);
+        material_slice.buffer->write(&material_uniform, material_slice.size, material_slice.offset);
+        vk::DescriptorBufferInfo material_di = material_slice.buffer->makeDescriptorInfo(thread.cmd(), material_slice.size, material_slice.offset);
+
+        const auto& material = mesh.getMaterial();
+        if (mesh.isTextured()) {
+            vk::DescriptorImageInfo base_color_di = material.base_color_texture->getDescriptorInfo();
+            vk::DescriptorImageInfo metallic_roughness_di = material.metallic_roughness_texture->getDescriptorInfo();
+            vk::DescriptorImageInfo normal_di = material.normal_texture->getDescriptorInfo();
+            vk::DescriptorImageInfo occlusion_di = material.occlusion_texture->getDescriptorInfo();
+            vk::DescriptorImageInfo emissive_di = material.emissive_texture->getDescriptorInfo();
+
+            if (mesh.isSkinned()) {
+                auto push_writes = pipeline->makeWrites(0, nullptr, &material_di, &base_color_di, &metallic_roughness_di, &normal_di, &occlusion_di,
+                                                        &emissive_di, &skin_mats_di);
+                thread.pushDescriptor(0, push_writes);
+            } else {
+                auto push_writes =
+                    pipeline->makeWrites(0, nullptr, &material_di, &base_color_di, &metallic_roughness_di, &normal_di, &occlusion_di, &emissive_di);
+                thread.pushDescriptor(0, push_writes);
+            }
+        } else if (mesh.isSkinned()) {
+            auto push_writes = pipeline->makeWrites(0, nullptr, &material_di, &skin_mats_di);
+            thread.pushDescriptor(0, push_writes);
+        } else {
+            auto push_writes = pipeline->makeWrites(0, nullptr, &material_di);
+            thread.pushDescriptor(0, push_writes);
+        }
+
+        thread.pushConstants(&pc);
         thread.bindVertexBuffer(mesh.getVertexBuffer());
         thread.bindIndexBuffer(mesh.getIndexBuffer());
         thread.drawIndexed(as<u32>(mesh.getIndexCount()), 1);
@@ -381,12 +449,9 @@ bool ModelTestLayer::setModel(const std::string& name) {
     skin_binding_ = SkinBinding{};
     animation_time_ = 0.0F;
 
-    if (model_gltf.model().skins.empty()) {
-        MLE_W("ModelTestLayer model '{}' has no skin; skinned preview will be skipped", name);
-        return true;
+    if (!model_gltf.model().skins.empty()) {
+        skin_binding_.loadFromGLTF(model_gltf);
     }
-
-    skin_binding_.loadFromGLTF(model_gltf);
 
     if (current_animation_ != nullptr && !animationTargetsModel(current_animation_, model_)) {
         MLE_W("ModelTestLayer animation '{}' has no channels matching model '{}'; base pose will be used", current_animation_name_, current_model_name_);
