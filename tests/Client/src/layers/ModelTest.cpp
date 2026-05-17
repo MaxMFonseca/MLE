@@ -517,7 +517,7 @@ void ModelTestLayer::renderModel(ImageRef target) {
         } outline_pc{};
 
         outline_pc.inv_extent = 1.0F / vec2f{target->getExtent()};
-        outline_pc.depth_threshold = 0.0025F;
+        outline_pc.depth_threshold = 0.00075F;
         outline_pc.alpha = 0.95F;
         outline_pc.outline_width_px = outline_width_px_;
 
