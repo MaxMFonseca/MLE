@@ -1,4 +1,5 @@
 local range_slider = require("mle.ui.comp.range_slider")
+local dock = require("mle.ui.comp.dock")
 
 local function panel_button(text, callback)
 	return {
@@ -193,8 +194,62 @@ local function make_asset_selector(empty_label, options, callback)
 	}
 end
 
+local function make_shader_options_dock()
+	local shader_options = dock()
+	shader_options.name = "shader_options"
+	shader_options.size_x = "1f"
+	shader_options.size_y = "0px"
+	shader_options.on_create = function(ew)
+		ew:call("setPanel", "PBR")
+		ew:apply("size_y", "0px")
+	end
+	shader_options.c = {
+		PBR = {
+			name = "PBR",
+			size_x = "1f",
+			size_y = "0px",
+		},
+		Cartoon = {
+			name = "Cartoon",
+			size_x = "1f",
+			size_y = "36px",
+			disabled = true,
+			list = {
+				pack = true,
+			},
+			c = {
+				make_slider("Outline width", 0.267, function(value)
+					G.model_test_set_outline_width(value)
+				end),
+			},
+		},
+		Wireframe = {
+			name = "Wireframe",
+			size_x = "1f",
+			size_y = "36px",
+			disabled = true,
+			list = {
+				pack = true,
+			},
+			c = {
+				make_slider("Line width", 0.071, function(value)
+					G.model_test_set_wireframe_width(value)
+				end),
+			},
+		},
+		Normals = {
+			name = "Normals",
+			size_x = "1f",
+			size_y = "0px",
+			disabled = true,
+		},
+	}
+	return shader_options
+end
+
 local models = G.model_test_model_names or {}
 local animations = G.model_test_animation_names or {}
+local shader_modes = G.model_test_shader_mode_names or { "PBR", "Cartoon", "Wireframe", "Normals" }
 
 return {
 	free_container = {},
@@ -225,6 +280,37 @@ return {
 					make_slider("Distance", 0.01, function(value)
 						G.model_test_set_camera_distance(value)
 					end),
+				}),
+				make_section("Shader", {
+					(function()
+						local selector = make_asset_selector("No shader modes", shader_modes, function(selected)
+							G.model_test_set_shader_mode(selected)
+						end)
+						selector.name = "shader_selector"
+						selector.fn.setOptionsPanel = function(ew, selected)
+							local shader_options = ew:parent():getChild("shader_options")
+							shader_options:call("setPanel", selected)
+							if selected == "Cartoon" or selected == "Wireframe" then
+								shader_options:apply("size_y", "36px")
+							else
+								shader_options:apply("size_y", "0px")
+							end
+						end
+						local old_select_asset = selector.fn.selectAsset
+						selector.fn.selectAsset = function(ew, direction)
+							old_select_asset(ew, direction)
+							local selected = ew:get("table").options[ew:get("table").current_index + 1]
+							ew:call("setOptionsPanel", selected)
+						end
+						local old_set_options = selector.fn.setOptions
+						selector.fn.setOptions = function(ew, new_options)
+							old_set_options(ew, new_options)
+							local selected = ew:get("table").options[ew:get("table").current_index + 1]
+							ew:call("setOptionsPanel", selected or "PBR")
+						end
+						return selector
+					end)(),
+					make_shader_options_dock(),
 				}),
 				make_section("Sun", {
 					make_slider("Direction yaw", 0.403, function(value)

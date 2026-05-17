@@ -575,6 +575,7 @@ void VkCtx::initDevice() {
     required_features.pNext = &vulkan13_features;
 
 #ifdef MLE_IS_CLIENT
+    required_features.features.fillModeNonSolid = vk::True;
     required_features.features.wideLines = vk::True;
 #endif
 

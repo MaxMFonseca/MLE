@@ -1,10 +1,12 @@
-return function()
+return function(children)
 	return {
 		fn = {
 			setPanel = function(ew, child_name)
-				print(child_name)
 				ew:disableAllBut(child_name)
-				print("e")
+			end,
+
+			setEnabledChild = function(ew, child_name)
+				ew:disableAllBut(child_name)
 			end,
 
 			addPanel = function(ew, child)
@@ -13,5 +15,6 @@ return function()
 		},
 
 		free = {},
+		c = children,
 	}
 end

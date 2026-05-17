@@ -9,6 +9,14 @@
 #include "mle/ui/UI.h"
 
 namespace mle::user {
+enum class ModelTestShaderMode : u8 {
+    PBR = 0,
+    CARTOON,
+    WIREFRAME,
+    NORMALS,
+    COUNT,
+};
+
 class ModelTestLayer : public mle::client::Layer {
   public:
     MLE_NO_COPY_MOVE(ModelTestLayer)
@@ -31,7 +39,9 @@ class ModelTestLayer : public mle::client::Layer {
     [[nodiscard]] sol::table refreshAssetsForLua();
     [[nodiscard]] sol::table makeModelNamesTable() const;
     [[nodiscard]] sol::table makeAnimationNamesTable() const;
+    [[nodiscard]] sol::table makeShaderModeNamesTable() const;
     bool setModel(const std::string& name);
+    void setShaderMode(const std::string& name);
     void setCameraYaw01(f32 value);
     void setCameraPitch01(f32 value);
     void setCameraDistance01(f32 value);
@@ -39,6 +49,8 @@ class ModelTestLayer : public mle::client::Layer {
     void setSunPitch01(f32 value);
     void setSunIntensity01(f32 value);
     void setAmbient01(f32 value);
+    void setOutlineWidth01(f32 value);
+    void setWireframeWidth01(f32 value);
     void setAnimation(const std::string& name);
 
     ModelRef model_ = nullptr;
@@ -60,6 +72,9 @@ class ModelTestLayer : public mle::client::Layer {
     f32 sun_pitch_ = 0.785398F;
     f32 sun_intensity_ = 2.0F;
     f32 ambient_ = 0.08F;
+    f32 outline_width_px_ = 2.5F;
+    f32 wireframe_width_ = 1.5F;
+    ModelTestShaderMode shader_mode_ = ModelTestShaderMode::PBR;
 
     UI ui_;
 

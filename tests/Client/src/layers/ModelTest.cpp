@@ -1,9 +1,11 @@
 #include "ModelTest.h"
 
+#include <spdlog/fmt/fmt.h>
+
 #include <algorithm>
 #include <filesystem>
-#include <spdlog/fmt/fmt.h>
 #include <glm/gtc/matrix_transform.hpp>
+#include <string_view>
 
 #include "mle/client/Client.h"
 #include "mle/core/Assert.h"
@@ -29,29 +31,78 @@ struct LightingUniform {
     vec4f sun_color_ambient;
 };
 
-const Pipeline* getModelTestPipeline(Mesh::VertexKind kind) {
-    static std::array<const Pipeline*, 4> pipelines{};
-    const usize idx = as<usize>(kind);
+constexpr std::array<std::string_view, as<usize>(ModelTestShaderMode::COUNT)> SHADER_MODE_NAMES = {
+    "PBR",
+    "Cartoon",
+    "Wireframe",
+    "Normals",
+};
+
+const Pipeline* getModelTestPipeline(Mesh::VertexKind kind, ModelTestShaderMode mode) {
+    static std::array<const Pipeline*, 4 * as<usize>(ModelTestShaderMode::COUNT)> pipelines{};
+    const usize kind_idx = as<usize>(kind);
+    const usize mode_idx = as<usize>(mode);
+    const usize idx = mode_idx * 4 + kind_idx;
     if (pipelines[idx] == nullptr) {
         Pipeline::CI pipeline_ci{};
+        std::string_view mode_name = "pbr";
         switch (kind) {
             case Mesh::VertexKind::PBR_COLOR:
                 pipeline_ci.vertex_shader = &Renderer::i().shaderCache().get("mle/model_pbr/color.vert");
-                pipeline_ci.fragment_shader = &Renderer::i().shaderCache().get("mle/model_pbr/color.frag");
                 break;
             case Mesh::VertexKind::PBR_COLOR_SKINNED:
                 pipeline_ci.vertex_shader = &Renderer::i().shaderCache().get("mle/model_pbr/color_skinned.vert");
-                pipeline_ci.fragment_shader = &Renderer::i().shaderCache().get("mle/model_pbr/color.frag");
                 break;
             case Mesh::VertexKind::PBR_TEXTURE:
                 pipeline_ci.vertex_shader = &Renderer::i().shaderCache().get("mle/model_pbr/texture.vert");
-                pipeline_ci.fragment_shader = &Renderer::i().shaderCache().get("mle/model_pbr/texture.frag");
                 break;
             case Mesh::VertexKind::PBR_TEXTURE_SKINNED:
                 pipeline_ci.vertex_shader = &Renderer::i().shaderCache().get("mle/model_pbr/texture_skinned.vert");
-                pipeline_ci.fragment_shader = &Renderer::i().shaderCache().get("mle/model_pbr/texture.frag");
                 break;
         }
+
+        const bool textured = kind == Mesh::VertexKind::PBR_TEXTURE || kind == Mesh::VertexKind::PBR_TEXTURE_SKINNED;
+        switch (mode) {
+            case ModelTestShaderMode::PBR:
+                mode_name = "pbr";
+                pipeline_ci.fragment_shader = &Renderer::i().shaderCache().get(textured ? "mle/model_pbr/texture.frag" : "mle/model_pbr/color.frag");
+                break;
+            case ModelTestShaderMode::CARTOON:
+                mode_name = "cartoon";
+                pipeline_ci.fragment_shader =
+                    &Renderer::i().shaderCache().get(textured ? "mle/model_pbr/cartoon_texture.frag" : "mle/model_pbr/cartoon_color.frag");
+                break;
+            case ModelTestShaderMode::WIREFRAME:
+                mode_name = "wireframe";
+                pipeline_ci.fragment_shader = &Renderer::i().shaderCache().get(textured ? "mle/model_pbr/wire_texture.frag" : "mle/model_pbr/wire_color.frag");
+                pipeline_ci.polygon_mode = vk::PolygonMode::eLine;
+                {
+                    std::array dynamic_states = {vk::DynamicState::eLineWidth};
+                    pipeline_ci.dynamic_states = dynamic_states;
+                    std::array color_attachment_formats = {Renderer::i().vk().getVkImageFormat(ImageFormat::COLOR)};
+                    pipeline_ci.color_attachment_formats = color_attachment_formats;
+                    auto blend_attachments = Pipeline::makeDefaultBlendAttachments<1>();
+                    pipeline_ci.blend_attachments = blend_attachments;
+                    pipeline_ci.topology = vk::PrimitiveTopology::eTriangleList;
+                    pipeline_ci.cull_mode = vk::CullModeFlagBits::eNone;
+                    pipeline_ci.depth = true;
+                    pipeline_ci.depth_write = true;
+                    pipeline_ci.push_descriptor = 0;
+
+                    const std::string name = fmt::format("model_test_{}_{}", mode_name, kind_idx);
+                    pipelines[idx] = &Renderer::i().pipelineCache().setPipeline(name, pipeline_ci);
+                    return pipelines[idx];
+                }
+                break;
+            case ModelTestShaderMode::NORMALS:
+                mode_name = "normals";
+                pipeline_ci.fragment_shader =
+                    &Renderer::i().shaderCache().get(textured ? "mle/model_pbr/normals_texture.frag" : "mle/model_pbr/normals_color.frag");
+                break;
+            case ModelTestShaderMode::COUNT:
+                MLE_UNREACHABLE;
+        }
+
         std::array color_attachment_formats = {Renderer::i().vk().getVkImageFormat(ImageFormat::COLOR)};
         pipeline_ci.color_attachment_formats = color_attachment_formats;
         auto blend_attachments = Pipeline::makeDefaultBlendAttachments<1>();
@@ -62,10 +113,31 @@ const Pipeline* getModelTestPipeline(Mesh::VertexKind kind) {
         pipeline_ci.depth_write = true;
         pipeline_ci.push_descriptor = 0;
 
-        const std::string name = fmt::format("model_test_pbr_{}", idx);
+        const std::string name = fmt::format("model_test_{}_{}", mode_name, kind_idx);
         pipelines[idx] = &Renderer::i().pipelineCache().setPipeline(name, pipeline_ci);
     }
     return pipelines[idx];
+}
+
+const Pipeline* getModelTestOutlinePipeline() {
+    static const Pipeline* pipeline{};
+    if (pipeline == nullptr) {
+        Pipeline::CI pipeline_ci{};
+        pipeline_ci.vertex_shader = &Renderer::i().shaderCache().get("mle/fs_triangle.vert");
+        pipeline_ci.fragment_shader = &Renderer::i().shaderCache().get("mle/model_pbr/outline.frag");
+        std::array color_attachment_formats = {Renderer::i().vk().getVkImageFormat(ImageFormat::COLOR)};
+        pipeline_ci.color_attachment_formats = color_attachment_formats;
+        auto blend_attachments = Pipeline::makeDefaultBlendAttachments<1>();
+        pipeline_ci.blend_attachments = blend_attachments;
+        pipeline_ci.topology = vk::PrimitiveTopology::eTriangleList;
+        pipeline_ci.cull_mode = vk::CullModeFlagBits::eNone;
+        pipeline_ci.depth = false;
+        pipeline_ci.depth_write = false;
+        pipeline_ci.push_descriptor = 0;
+
+        pipeline = &Renderer::i().pipelineCache().setPipeline("model_test_cartoon_outline_screen", pipeline_ci);
+    }
+    return pipeline;
 }
 
 mat4f makeModelMatrix(const std::vector<Model::NodeMesh>& meshes) {
@@ -180,10 +252,14 @@ void ModelTestLayer::init() {
 
     refreshAssets();
 
-    getModelTestPipeline(Mesh::VertexKind::PBR_COLOR);
-    getModelTestPipeline(Mesh::VertexKind::PBR_COLOR_SKINNED);
-    getModelTestPipeline(Mesh::VertexKind::PBR_TEXTURE);
-    getModelTestPipeline(Mesh::VertexKind::PBR_TEXTURE_SKINNED);
+    for (usize mode_idx = 0; mode_idx < as<usize>(ModelTestShaderMode::COUNT); ++mode_idx) {
+        const auto mode = static_cast<ModelTestShaderMode>(mode_idx);
+        getModelTestPipeline(Mesh::VertexKind::PBR_COLOR, mode);
+        getModelTestPipeline(Mesh::VertexKind::PBR_COLOR_SKINNED, mode);
+        getModelTestPipeline(Mesh::VertexKind::PBR_TEXTURE, mode);
+        getModelTestPipeline(Mesh::VertexKind::PBR_TEXTURE_SKINNED, mode);
+    }
+    getModelTestOutlinePipeline();
     Client::i().getGameLayerTable()["model_test_set_camera_yaw"] = [this](f32 value) { setCameraYaw01(value); };
     Client::i().getGameLayerTable()["model_test_set_camera_pitch"] = [this](f32 value) { setCameraPitch01(value); };
     Client::i().getGameLayerTable()["model_test_set_camera_distance"] = [this](f32 value) { setCameraDistance01(value); };
@@ -191,11 +267,15 @@ void ModelTestLayer::init() {
     Client::i().getGameLayerTable()["model_test_set_sun_pitch"] = [this](f32 value) { setSunPitch01(value); };
     Client::i().getGameLayerTable()["model_test_set_sun_intensity"] = [this](f32 value) { setSunIntensity01(value); };
     Client::i().getGameLayerTable()["model_test_set_ambient"] = [this](f32 value) { setAmbient01(value); };
+    Client::i().getGameLayerTable()["model_test_set_outline_width"] = [this](f32 value) { setOutlineWidth01(value); };
+    Client::i().getGameLayerTable()["model_test_set_wireframe_width"] = [this](f32 value) { setWireframeWidth01(value); };
+    Client::i().getGameLayerTable()["model_test_set_shader_mode"] = [this](const std::string& name) { setShaderMode(name); };
     Client::i().getGameLayerTable()["model_test_set_model"] = [this](const std::string& name) { setModel(name); };
     Client::i().getGameLayerTable()["model_test_set_animation"] = [this](const std::string& name) { setAnimation(name); };
     Client::i().getGameLayerTable()["model_test_refresh_assets"] = [this]() { return refreshAssetsForLua(); };
     Client::i().getGameLayerTable()["model_test_model_names"] = makeModelNamesTable();
     Client::i().getGameLayerTable()["model_test_animation_names"] = makeAnimationNamesTable();
+    Client::i().getGameLayerTable()["model_test_shader_mode_names"] = makeShaderModeNamesTable();
     ui_.setRoot("i/ui/ModelTestLayer");
 
     MLE_I("ModelTestLayer assets loaded: {} models, {} animations", model_files_.size(), animation_names_.size());
@@ -243,7 +323,7 @@ ImageRef ModelTestLayer::getImage() {
         image = Image::createHnd(image_ci);
     }
 
-    image->clear(Renderer::i().frameRenderer().cmd());
+    image->clear(Renderer::i().frameRenderer().cmd(), Color::WHITE);
 
     return image.get();
 };
@@ -340,8 +420,11 @@ void ModelTestLayer::renderModel(ImageRef target) {
             continue;
         }
 
-        const Pipeline* pipeline = getModelTestPipeline(mesh.getVertexKind());
+        const Pipeline* pipeline = getModelTestPipeline(mesh.getVertexKind(), shader_mode_);
         thread.setPipeline(pipeline);
+        if (shader_mode_ == ModelTestShaderMode::WIREFRAME) {
+            thread.setLineWidth(wireframe_width_);
+        }
 
         const auto material_uniform = makeMaterialUniform(mesh.getMaterial());
         BufferSlice material_slice = frame_renderer.getHostVisibleBuffer(sizeof(MaterialUniform), vk::BufferUsageFlagBits::eUniformBuffer);
@@ -356,21 +439,48 @@ void ModelTestLayer::renderModel(ImageRef target) {
             vk::DescriptorImageInfo occlusion_di = material.occlusion_texture->getDescriptorInfo();
             vk::DescriptorImageInfo emissive_di = material.emissive_texture->getDescriptorInfo();
 
-            if (mesh.isSkinned()) {
-                auto push_writes = pipeline->makeWrites(0, nullptr, &material_di, &lighting_di, &base_color_di, &metallic_roughness_di, &normal_di, &occlusion_di,
-                                                        &emissive_di, &skin_mats_di);
-                thread.pushDescriptor(0, push_writes);
-            } else {
-                auto push_writes =
-                    pipeline->makeWrites(0, nullptr, &material_di, &lighting_di, &base_color_di, &metallic_roughness_di, &normal_di, &occlusion_di, &emissive_di);
-                thread.pushDescriptor(0, push_writes);
+            switch (shader_mode_) {
+                case ModelTestShaderMode::PBR:
+                case ModelTestShaderMode::CARTOON:
+                    if (mesh.isSkinned()) {
+                        auto push_writes = pipeline->makeWrites(0, nullptr, &material_di, &lighting_di, &base_color_di, &metallic_roughness_di, &normal_di,
+                                                                &occlusion_di, &emissive_di, &skin_mats_di);
+                        thread.pushDescriptor(0, push_writes);
+                    } else {
+                        auto push_writes = pipeline->makeWrites(0, nullptr, &material_di, &lighting_di, &base_color_di, &metallic_roughness_di, &normal_di,
+                                                                &occlusion_di, &emissive_di);
+                        thread.pushDescriptor(0, push_writes);
+                    }
+                    break;
+                case ModelTestShaderMode::WIREFRAME:
+                case ModelTestShaderMode::NORMALS:
+                    if (mesh.isSkinned()) {
+                        auto push_writes = pipeline->makeWrites(0, nullptr, &material_di, &base_color_di, &skin_mats_di);
+                        thread.pushDescriptor(0, push_writes);
+                    } else {
+                        auto push_writes = pipeline->makeWrites(0, nullptr, &material_di, &base_color_di);
+                        thread.pushDescriptor(0, push_writes);
+                    }
+                    break;
+                case ModelTestShaderMode::COUNT:
+                    MLE_UNREACHABLE;
             }
         } else if (mesh.isSkinned()) {
-            auto push_writes = pipeline->makeWrites(0, nullptr, &material_di, &lighting_di, &skin_mats_di);
-            thread.pushDescriptor(0, push_writes);
+            if (shader_mode_ == ModelTestShaderMode::PBR || shader_mode_ == ModelTestShaderMode::CARTOON) {
+                auto push_writes = pipeline->makeWrites(0, nullptr, &material_di, &lighting_di, &skin_mats_di);
+                thread.pushDescriptor(0, push_writes);
+            } else {
+                auto push_writes = pipeline->makeWrites(0, nullptr, &material_di, &skin_mats_di);
+                thread.pushDescriptor(0, push_writes);
+            }
         } else {
-            auto push_writes = pipeline->makeWrites(0, nullptr, &material_di, &lighting_di);
-            thread.pushDescriptor(0, push_writes);
+            if (shader_mode_ == ModelTestShaderMode::PBR || shader_mode_ == ModelTestShaderMode::CARTOON) {
+                auto push_writes = pipeline->makeWrites(0, nullptr, &material_di, &lighting_di);
+                thread.pushDescriptor(0, push_writes);
+            } else {
+                auto push_writes = pipeline->makeWrites(0, nullptr, &material_di);
+                thread.pushDescriptor(0, push_writes);
+            }
         }
 
         thread.pushConstants(&pc);
@@ -378,6 +488,44 @@ void ModelTestLayer::renderModel(ImageRef target) {
         thread.bindIndexBuffer(mesh.getIndexBuffer());
         thread.drawIndexed(as<u32>(mesh.getIndexCount()), 1);
     }
+
+    if (shader_mode_ == ModelTestShaderMode::CARTOON) {
+        thread.endRendering();
+
+        depth_attachment.image->transitionState(thread.cmd(), Image::State::FS_READ);
+
+        AttachmentInfo outline_color_attachment{};
+        outline_color_attachment.image = target;
+        outline_color_attachment.load_op = vk::AttachmentLoadOp::eLoad;
+        thread.setColorAttachment(outline_color_attachment, 0);
+        thread.setDepthAttachment({});
+        thread.beginRendering();
+        thread.setViewportAndScissor(Rectf{0.0F, 0.0F, as<f32>(target->getExtent().x), as<f32>(target->getExtent().y)});
+
+        const Pipeline* outline_pipeline = getModelTestOutlinePipeline();
+        thread.setPipeline(outline_pipeline);
+
+        auto depth_di = depth_attachment.image->getDescriptorInfo();
+        auto outline_writes = outline_pipeline->makeWrites(0, nullptr, &depth_di);
+        thread.pushDescriptor(0, outline_writes);
+
+        struct OutlinePushConstants {
+            vec2f inv_extent;
+            f32 depth_threshold;
+            f32 alpha;
+            f32 outline_width_px;
+        } outline_pc{};
+
+        outline_pc.inv_extent = 1.0F / vec2f{target->getExtent()};
+        outline_pc.depth_threshold = 0.0025F;
+        outline_pc.alpha = 0.95F;
+        outline_pc.outline_width_px = outline_width_px_;
+
+        thread.pushConstants(&outline_pc);
+        thread.draw(3, 1);
+    }
+
+    thread.endRendering();
 
     thread.executeCommands();
 }
@@ -445,6 +593,14 @@ sol::table ModelTestLayer::makeAnimationNamesTable() const {
     return table;
 }
 
+sol::table ModelTestLayer::makeShaderModeNamesTable() const {
+    auto table = Client::i().lua().createTable();
+    for (usize i = 0; i < SHADER_MODE_NAMES.size(); ++i) {
+        table[i + 1] = std::string{SHADER_MODE_NAMES[i]};
+    }
+    return table;
+}
+
 bool ModelTestLayer::setModel(const std::string& name) {
     if (std::ranges::find(model_files_, name) == model_files_.end()) {
         MLE_W("ModelTestLayer model '{}' was not found", name);
@@ -485,6 +641,17 @@ bool ModelTestLayer::setModel(const std::string& name) {
     return true;
 }
 
+void ModelTestLayer::setShaderMode(const std::string& name) {
+    for (usize i = 0; i < SHADER_MODE_NAMES.size(); ++i) {
+        if (SHADER_MODE_NAMES[i] == name) {
+            shader_mode_ = static_cast<ModelTestShaderMode>(i);
+            return;
+        }
+    }
+
+    MLE_W("ModelTestLayer shader mode '{}' was not found", name);
+}
+
 void ModelTestLayer::setCameraYaw01(f32 value) {
     constexpr f32 TWO_PI = glm::radians(360.0F);
     const f32 clamped = std::clamp(value, 0.0F, 1.0F);
@@ -498,8 +665,8 @@ void ModelTestLayer::setCameraPitch01(f32 value) {
 }
 
 void ModelTestLayer::setCameraDistance01(f32 value) {
-    constexpr f32 MIN_DISTANCE = 0.1F;
-    constexpr f32 MAX_DISTANCE = 1000.0F;
+    constexpr f32 MIN_DISTANCE = 0.01F;
+    constexpr f32 MAX_DISTANCE = 100.0F;
     const f32 clamped = std::clamp(value, 0.0F, 1.0F);
     camera_distance_ = MIN_DISTANCE + ((MAX_DISTANCE - MIN_DISTANCE) * clamped);
 }
@@ -529,6 +696,20 @@ void ModelTestLayer::setAmbient01(f32 value) {
     constexpr f32 MAX_AMBIENT = 0.45F;
     const f32 clamped = std::clamp(value, 0.0F, 1.0F);
     ambient_ = MIN_AMBIENT + ((MAX_AMBIENT - MIN_AMBIENT) * clamped);
+}
+
+void ModelTestLayer::setOutlineWidth01(f32 value) {
+    constexpr f32 MIN_WIDTH = 0.5F;
+    constexpr f32 MAX_WIDTH = 8.0F;
+    const f32 clamped = std::clamp(value, 0.0F, 1.0F);
+    outline_width_px_ = MIN_WIDTH + ((MAX_WIDTH - MIN_WIDTH) * clamped);
+}
+
+void ModelTestLayer::setWireframeWidth01(f32 value) {
+    constexpr f32 MIN_WIDTH = 1.0F;
+    constexpr f32 MAX_WIDTH = 8.0F;
+    const f32 clamped = std::clamp(value, 0.0F, 1.0F);
+    wireframe_width_ = MIN_WIDTH + ((MAX_WIDTH - MIN_WIDTH) * clamped);
 }
 
 void ModelTestLayer::setAnimation(const std::string& name) {
