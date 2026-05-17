@@ -7,7 +7,7 @@ layout(location = 3) in vec3 in_mre;
 layout(location = 4) in uvec4 in_joints0;
 layout(location = 5) in vec4 in_weights0;
 
-layout(set = 0, binding = 1) readonly buffer Skinning {
+layout(set = 0, binding = 2) readonly buffer Skinning {
   mat4 joint_mats[];
 } skinning;
 

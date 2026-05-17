@@ -10,12 +10,17 @@ layout(set = 0, binding = 0) uniform Material {
   vec4 pbr_factors;
 } material;
 
+layout(set = 0, binding = 1) uniform Lighting {
+  vec4 sun_direction_intensity;
+  vec4 sun_color_ambient;
+} lighting;
+
 layout(location = 0) out vec4 out_color;
 
 vec3 shadePbrPreview(vec3 albedo, float metallic, float roughness, vec3 normal, vec3 emissive) {
   vec3 n = normalize(normal);
   vec3 v = normalize(vec3(0.0, 0.15, 1.0));
-  vec3 l = normalize(vec3(-0.35, 0.75, -0.55));
+  vec3 l = normalize(-lighting.sun_direction_intensity.xyz);
   vec3 h = normalize(v + l);
 
   float ndotl = max(dot(n, l), 0.0);
@@ -34,7 +39,10 @@ vec3 shadePbrPreview(vec3 albedo, float metallic, float roughness, vec3 normal, 
   vec3 f = f0 + (1.0 - f0) * pow(1.0 - vdoth, 5.0);
   vec3 specular = (d * gv * gl * f) / max(4.0 * ndotv * ndotl, 0.001);
   vec3 diffuse = (1.0 - f) * albedo * (1.0 - metallic) / 3.14159265;
-  return (diffuse + specular) * ndotl + albedo * 0.08 + emissive;
+  float rim = pow(1.0 - ndotv, 3.0) * 0.08;
+  vec3 sun = lighting.sun_color_ambient.rgb * lighting.sun_direction_intensity.w;
+  vec3 ambient = albedo * lighting.sun_color_ambient.a;
+  return ((diffuse + specular) * ndotl * sun) + ambient + (rim * f) + emissive;
 }
 
 void main() {
@@ -43,5 +51,6 @@ void main() {
   float roughness = clamp(in_mre.y * material.pbr_factors.y, 0.04, 1.0);
   vec3 emissive = albedo * max(in_mre.z, 0.0) + material.emissive_factor.rgb;
   vec3 color = shadePbrPreview(albedo, metallic, roughness, in_normal, emissive);
+  color = color / (color + vec3(1.0));
   out_color = vec4(color, material.base_color_factor.a);
 }

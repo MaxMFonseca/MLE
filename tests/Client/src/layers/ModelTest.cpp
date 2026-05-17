@@ -24,6 +24,11 @@ struct MaterialUniform {
     vec4f pbr_factors;
 };
 
+struct LightingUniform {
+    vec4f sun_direction_intensity;
+    vec4f sun_color_ambient;
+};
+
 const Pipeline* getModelTestPipeline(Mesh::VertexKind kind) {
     static std::array<const Pipeline*, 4> pipelines{};
     const usize idx = as<usize>(kind);
@@ -159,6 +164,15 @@ MaterialUniform makeMaterialUniform(const Mesh::PbrMaterial& material) {
         .pbr_factors = vec4f{material.metallic_factor, material.roughness_factor, material.normal_scale, material.occlusion_strength},
     };
 }
+
+vec3f makeSunDirection(f32 yaw, f32 pitch) {
+    const f32 pitch_cos = std::cos(pitch);
+    return glm::normalize(vec3f{
+        std::sin(yaw) * pitch_cos,
+        -std::sin(pitch),
+        std::cos(yaw) * pitch_cos,
+    });
+}
 }  // namespace
 
 void ModelTestLayer::init() {
@@ -173,6 +187,10 @@ void ModelTestLayer::init() {
     Client::i().getGameLayerTable()["model_test_set_camera_yaw"] = [this](f32 value) { setCameraYaw01(value); };
     Client::i().getGameLayerTable()["model_test_set_camera_pitch"] = [this](f32 value) { setCameraPitch01(value); };
     Client::i().getGameLayerTable()["model_test_set_camera_distance"] = [this](f32 value) { setCameraDistance01(value); };
+    Client::i().getGameLayerTable()["model_test_set_sun_yaw"] = [this](f32 value) { setSunYaw01(value); };
+    Client::i().getGameLayerTable()["model_test_set_sun_pitch"] = [this](f32 value) { setSunPitch01(value); };
+    Client::i().getGameLayerTable()["model_test_set_sun_intensity"] = [this](f32 value) { setSunIntensity01(value); };
+    Client::i().getGameLayerTable()["model_test_set_ambient"] = [this](f32 value) { setAmbient01(value); };
     Client::i().getGameLayerTable()["model_test_set_model"] = [this](const std::string& name) { setModel(name); };
     Client::i().getGameLayerTable()["model_test_set_animation"] = [this](const std::string& name) { setAnimation(name); };
     Client::i().getGameLayerTable()["model_test_refresh_assets"] = [this]() { return refreshAssetsForLua(); };
@@ -306,6 +324,13 @@ void ModelTestLayer::renderModel(ImageRef target) {
     pc.model = makeModelMatrix(meshes);
     pc.view_proj = makeViewProj(target->getExtent(), camera_yaw_, camera_pitch_, camera_distance_);
 
+    LightingUniform lighting_uniform{};
+    lighting_uniform.sun_direction_intensity = vec4f{makeSunDirection(sun_yaw_, sun_pitch_), sun_intensity_};
+    lighting_uniform.sun_color_ambient = vec4f{1.0F, 0.955F, 0.88F, ambient_};
+    BufferSlice lighting_slice = frame_renderer.getHostVisibleBuffer(sizeof(LightingUniform), vk::BufferUsageFlagBits::eUniformBuffer);
+    lighting_slice.buffer->write(&lighting_uniform, lighting_slice.size, lighting_slice.offset);
+    vk::DescriptorBufferInfo lighting_di = lighting_slice.buffer->makeDescriptorInfo(thread.cmd(), lighting_slice.size, lighting_slice.offset);
+
     for (const auto& node_mesh : meshes) {
         const Mesh& mesh = node_mesh.mesh;
         if (mesh.getIndexCount() == 0) {
@@ -332,19 +357,19 @@ void ModelTestLayer::renderModel(ImageRef target) {
             vk::DescriptorImageInfo emissive_di = material.emissive_texture->getDescriptorInfo();
 
             if (mesh.isSkinned()) {
-                auto push_writes = pipeline->makeWrites(0, nullptr, &material_di, &base_color_di, &metallic_roughness_di, &normal_di, &occlusion_di,
+                auto push_writes = pipeline->makeWrites(0, nullptr, &material_di, &lighting_di, &base_color_di, &metallic_roughness_di, &normal_di, &occlusion_di,
                                                         &emissive_di, &skin_mats_di);
                 thread.pushDescriptor(0, push_writes);
             } else {
                 auto push_writes =
-                    pipeline->makeWrites(0, nullptr, &material_di, &base_color_di, &metallic_roughness_di, &normal_di, &occlusion_di, &emissive_di);
+                    pipeline->makeWrites(0, nullptr, &material_di, &lighting_di, &base_color_di, &metallic_roughness_di, &normal_di, &occlusion_di, &emissive_di);
                 thread.pushDescriptor(0, push_writes);
             }
         } else if (mesh.isSkinned()) {
-            auto push_writes = pipeline->makeWrites(0, nullptr, &material_di, &skin_mats_di);
+            auto push_writes = pipeline->makeWrites(0, nullptr, &material_di, &lighting_di, &skin_mats_di);
             thread.pushDescriptor(0, push_writes);
         } else {
-            auto push_writes = pipeline->makeWrites(0, nullptr, &material_di);
+            auto push_writes = pipeline->makeWrites(0, nullptr, &material_di, &lighting_di);
             thread.pushDescriptor(0, push_writes);
         }
 
@@ -477,6 +502,33 @@ void ModelTestLayer::setCameraDistance01(f32 value) {
     constexpr f32 MAX_DISTANCE = 1000.0F;
     const f32 clamped = std::clamp(value, 0.0F, 1.0F);
     camera_distance_ = MIN_DISTANCE + ((MAX_DISTANCE - MIN_DISTANCE) * clamped);
+}
+
+void ModelTestLayer::setSunYaw01(f32 value) {
+    constexpr f32 TWO_PI = glm::radians(360.0F);
+    const f32 clamped = std::clamp(value, 0.0F, 1.0F);
+    sun_yaw_ = (clamped - 0.5F) * TWO_PI;
+}
+
+void ModelTestLayer::setSunPitch01(f32 value) {
+    constexpr f32 MIN_PITCH = glm::radians(5.0F);
+    constexpr f32 MAX_PITCH = glm::radians(85.0F);
+    const f32 clamped = std::clamp(value, 0.0F, 1.0F);
+    sun_pitch_ = MIN_PITCH + ((MAX_PITCH - MIN_PITCH) * clamped);
+}
+
+void ModelTestLayer::setSunIntensity01(f32 value) {
+    constexpr f32 MIN_INTENSITY = 0.0F;
+    constexpr f32 MAX_INTENSITY = 8.0F;
+    const f32 clamped = std::clamp(value, 0.0F, 1.0F);
+    sun_intensity_ = MIN_INTENSITY + ((MAX_INTENSITY - MIN_INTENSITY) * clamped);
+}
+
+void ModelTestLayer::setAmbient01(f32 value) {
+    constexpr f32 MIN_AMBIENT = 0.0F;
+    constexpr f32 MAX_AMBIENT = 0.45F;
+    const f32 clamped = std::clamp(value, 0.0F, 1.0F);
+    ambient_ = MIN_AMBIENT + ((MAX_AMBIENT - MIN_AMBIENT) * clamped);
 }
 
 void ModelTestLayer::setAnimation(const std::string& name) {

@@ -35,6 +35,10 @@ class ModelTestLayer : public mle::client::Layer {
     void setCameraYaw01(f32 value);
     void setCameraPitch01(f32 value);
     void setCameraDistance01(f32 value);
+    void setSunYaw01(f32 value);
+    void setSunPitch01(f32 value);
+    void setSunIntensity01(f32 value);
+    void setAmbient01(f32 value);
     void setAnimation(const std::string& name);
 
     ModelRef model_ = nullptr;
@@ -52,6 +56,10 @@ class ModelTestLayer : public mle::client::Layer {
     f32 camera_yaw_ = 0.0F;
     f32 camera_pitch_ = 0.0F;
     f32 camera_distance_ = 10.0F;
+    f32 sun_yaw_ = -0.610865F;
+    f32 sun_pitch_ = 0.785398F;
+    f32 sun_intensity_ = 2.0F;
+    f32 ambient_ = 0.08F;
 
     UI ui_;
 
