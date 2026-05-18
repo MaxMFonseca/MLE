@@ -21,6 +21,11 @@ Result GLTF::load(const Path& path) {
     tinygltf::TinyGLTF loader;
     std::string err;
     std::string warn;
+    std::error_code ec;
+    source_path_ = std::filesystem::weakly_canonical(path, ec);
+    if (ec) {
+        source_path_ = path.lexically_normal();
+    }
 
     bool ok = false;
 

@@ -28,9 +28,11 @@ class GLTF {
     [[nodiscard]] std::vector<u32> readIndicesU32(const tinygltf::Accessor& accessor, u32 baseVertex) const;
 
     [[nodiscard]] const auto& model() const { return model_; }
+    [[nodiscard]] const Path& sourcePath() const { return source_path_; }
 
   private:
     tinygltf::Model model_;
+    Path source_path_;
 };
 
 }  // namespace mle

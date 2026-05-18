@@ -47,7 +47,9 @@ ImageRef loadTextureImage(const GLTF& gltf, int texture_index, bool srgb, std::s
 
     const auto image_index = as<usize>(texture.source);
     const auto& image = model.images.at(image_index);
-    const std::string cache_key = fmt::format("gltf:{}:{}:{}:{}", as<const void*>(&gltf), image_index, usage_name, srgb ? "srgb" : "linear");
+    const std::string texture_name = !texture.name.empty() ? texture.name : image.name;
+    const std::string cache_key =
+        fmt::format("gltf:{}:{}:{}:{}:{}", gltf.sourcePath().generic_string(), image_index, texture_name, usage_name, srgb ? "srgb" : "linear");
     const entt::id_type texture_id = entt::hashed_string::value(cache_key.c_str());
 
     auto& texture_cache = Renderer::i().textureCache();
