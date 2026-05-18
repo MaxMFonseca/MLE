@@ -203,14 +203,18 @@ void RenderingThread::pushDescriptor(u32 set, std::span<const vk::WriteDescripto
 
 void RenderingThread::beginRendering(Recti render_area) {
     MLE_ASSERT_LOG(!in_rendering_, "Already in rendering.");
-    MLE_ASSERT_LOG(color_attachments_.at(0).image || depth_attachment_.image, "No color or depth attachment set.");
 
     vec2i max_render_area{0};
-    if (color_attachments_.at(0).image) {
-        max_render_area = color_attachments_.at(0).image->getExtent();
-    } else {
+    for (const auto& attachment : color_attachments_) {
+        if (attachment.image) {
+            max_render_area = attachment.image->getExtent();
+            break;
+        }
+    }
+    if (max_render_area == vec2i{0} && depth_attachment_.image) {
         max_render_area = depth_attachment_.image->getExtent();
     }
+    MLE_ASSERT_LOG(max_render_area != vec2i{0}, "No color or depth attachment set.");
 
     if (render_area.width() == 0) {
         render_area.setWidth(max_render_area.x - render_area.left());

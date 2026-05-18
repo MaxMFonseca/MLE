@@ -34,7 +34,13 @@ void Pipeline::createPipelineLayout(const CI& ci) {
 
     std::vector<std::pair<u8, vk::DescriptorSetLayout>> set_layouts;
 
-    ds_infos_ = ci.compute_shader ? ci.compute_shader->getDescriptorSets() : ci.vertex_shader->mergeDescriptorSets(*ci.fragment_shader);
+    if (ci.compute_shader) {
+        ds_infos_ = ci.compute_shader->getDescriptorSets();
+    } else if (ci.fragment_shader) {
+        ds_infos_ = ci.vertex_shader->mergeDescriptorSets(*ci.fragment_shader);
+    } else {
+        ds_infos_ = ci.vertex_shader->getDescriptorSets();
+    }
     for (auto& i : ds_infos_) {
         if (i.bindings.empty()) {
             continue;
@@ -262,8 +268,7 @@ void Pipeline::createGraphicsPipeline(const CI& ci) {
     MLE_T("Rendering");
 
     vk::PipelineRenderingCreateInfo pipeline_rendering_ci;
-    if (ci.fragment_shader) {
-        MLE_ASSERT(!ci.color_attachment_formats.empty());
+    if (!ci.color_attachment_formats.empty()) {
         pipeline_rendering_ci.setColorAttachmentFormats(ci.color_attachment_formats);
         for (const auto& format : ci.color_attachment_formats) {
             MLE_T("Color attachment format: {}", vk::to_string(format));
