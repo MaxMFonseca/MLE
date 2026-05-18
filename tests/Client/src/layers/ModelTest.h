@@ -15,6 +15,7 @@ enum class ModelTestShaderMode : u8 {
     CARTOON,
     WIREFRAME,
     NORMALS,
+    ALBEDO,
     COUNT,
 };
 
@@ -58,6 +59,7 @@ class ModelTestLayer : public mle::client::Layer {
     void setOutlineWidth01(f32 value);
     void setWireframeWidth01(f32 value);
     void setAnimation(const std::string& name);
+    void clearAnimation();
 
     ModelRef model_ = nullptr;
     AnimationClipRef current_animation_ = nullptr;

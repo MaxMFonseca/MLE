@@ -70,10 +70,10 @@ namespace {
                 MLE_E("  {}", std::to_string(f));
             }
 
-            MLE_C("---------------------------------------");
-            MLE_C("Aborting...");
-
-            std::abort();
+            // MLE_C("---------------------------------------");
+            // MLE_C("Aborting...");
+            //
+            // std::abort();
         } break;
         case vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning:
             MLE_W("{}", formatted_msg.str());

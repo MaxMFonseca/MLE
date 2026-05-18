@@ -243,13 +243,19 @@ local function make_shader_options_dock()
 			size_y = "0px",
 			disabled = true,
 		},
+		Albedo = {
+			name = "Albedo",
+			size_x = "1f",
+			size_y = "0px",
+			disabled = true,
+		},
 	}
 	return shader_options
 end
 
 local models = G.model_test_model_names or {}
 local animations = G.model_test_animation_names or {}
-local shader_modes = G.model_test_shader_mode_names or { "PBR", "Cartoon", "Wireframe", "Normals" }
+local shader_modes = G.model_test_shader_mode_names or { "PBR", "Cartoon", "Wireframe", "Normals", "Albedo" }
 
 return {
 	free_container = {},
@@ -343,6 +349,10 @@ return {
 						selector.name = "animation_selector"
 						return selector
 					end)(),
+					panel_button("T pose", function(ew)
+						G.model_test_clear_animation()
+						ew:parent():getChild("animation_selector"):getChild("name"):apply("text", "T pose")
+					end),
 					panel_button("Refresh assets", function(ew)
 						local refreshed = G.model_test_refresh_assets()
 						local assets = ew:parent()

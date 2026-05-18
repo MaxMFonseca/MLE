@@ -37,6 +37,7 @@ constexpr std::array<std::string_view, as<usize>(ModelTestShaderMode::COUNT)> SH
     "Cartoon",
     "Wireframe",
     "Normals",
+    "Albedo",
 };
 
 const Pipeline* getModelTestPipeline(Mesh::VertexKind kind, ModelTestShaderMode mode) {
@@ -99,6 +100,11 @@ const Pipeline* getModelTestPipeline(Mesh::VertexKind kind, ModelTestShaderMode 
                 mode_name = "normals";
                 pipeline_ci.fragment_shader =
                     &Renderer::i().shaderCache().get(textured ? "mle/model_pbr/normals_texture.frag" : "mle/model_pbr/normals_color.frag");
+                break;
+            case ModelTestShaderMode::ALBEDO:
+                mode_name = "albedo";
+                pipeline_ci.fragment_shader =
+                    &Renderer::i().shaderCache().get(textured ? "mle/model_pbr/albedo_texture.frag" : "mle/model_pbr/albedo_color.frag");
                 break;
             case ModelTestShaderMode::COUNT:
                 MLE_UNREACHABLE;
@@ -275,6 +281,7 @@ void ModelTestLayer::init() {
     Client::i().getGameLayerTable()["model_test_set_shader_mode"] = [this](const std::string& name) { setShaderMode(name); };
     Client::i().getGameLayerTable()["model_test_set_model"] = [this](const std::string& name) { setModel(name); };
     Client::i().getGameLayerTable()["model_test_set_animation"] = [this](const std::string& name) { setAnimation(name); };
+    Client::i().getGameLayerTable()["model_test_clear_animation"] = [this]() { clearAnimation(); };
     Client::i().getGameLayerTable()["model_test_refresh_assets"] = [this]() { return refreshAssetsForLua(); };
     Client::i().getGameLayerTable()["model_test_model_names"] = makeModelNamesTable();
     Client::i().getGameLayerTable()["model_test_animation_names"] = makeAnimationNamesTable();
@@ -457,6 +464,7 @@ void ModelTestLayer::renderModel(ImageRef target) {
                     break;
                 case ModelTestShaderMode::WIREFRAME:
                 case ModelTestShaderMode::NORMALS:
+                case ModelTestShaderMode::ALBEDO:
                     if (mesh.isSkinned()) {
                         auto push_writes = pipeline->makeWrites(0, nullptr, &material_di, &base_color_di, &skin_mats_di);
                         thread.pushDescriptor(0, push_writes);
@@ -753,5 +761,11 @@ void ModelTestLayer::setAnimation(const std::string& name) {
     }
 
     MLE_W("ModelTestLayer animation '{}' was not found", name);
+}
+
+void ModelTestLayer::clearAnimation() {
+    current_animation_ = nullptr;
+    current_animation_name_.clear();
+    animation_time_ = 0.0F;
 }
 }  // namespace mle::user
