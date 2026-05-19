@@ -13,8 +13,9 @@ Result GLTF::load(const Path& path) {
         return Result::FAILED_TO_OPEN;
     }
 
-    if (path.extension() != ".glb") {
-        MLE_E("Only binary GLB model files are supported: {}", path);
+    const auto ext = path.extension();
+    if (ext != ".glb" && ext != ".gltf") {
+        MLE_E("Only GLB and glTF model files are supported: {}", path);
         return Result::FAILED_TO_OPEN;
     }
 
@@ -29,7 +30,11 @@ Result GLTF::load(const Path& path) {
 
     bool ok = false;
 
-    ok = loader.LoadBinaryFromFile(&model_, &err, &warn, path);
+    if (ext == ".glb") {
+        ok = loader.LoadBinaryFromFile(&model_, &err, &warn, path);
+    } else {
+        ok = loader.LoadASCIIFromFile(&model_, &err, &warn, path);
+    }
 
     if (!warn.empty()) {
         MLE_W("GLTF warning: {}", warn);

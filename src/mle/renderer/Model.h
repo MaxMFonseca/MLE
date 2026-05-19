@@ -18,10 +18,12 @@ class Model {
         vec3f base_translation{};
         quat base_rotation{};
         vec3f base_scale{};
+        bool included = true;
     };
 
     struct NodeMesh {
         usize node_index = 0;
+        int skin_index = -1;
         Mesh mesh;
     };
 
@@ -32,6 +34,7 @@ class Model {
     ~Model();
 
     void init(const GLTF& gltf);
+    void init(const GLTF& gltf, usize root_node);
 
     [[nodiscard]] const std::vector<Node>& getNodes() const { return nodes_; }
     [[nodiscard]] auto getNodeCount() const { return nodes_.size(); }

@@ -4,12 +4,20 @@
 
 namespace mle {
 ModelRef ModelCache::add(entt::id_type id, const GLTF& gltf) {
+    return add(id, gltf, max<usize>());
+}
+
+ModelRef ModelCache::add(entt::id_type id, const GLTF& gltf, usize root_node) {
     if (auto found = models_.find(id); found != models_.end()) {
         return found->second.get();
     }
 
     auto model = std::make_unique<Model>();
-    model->init(gltf);
+    if (root_node == max<usize>()) {
+        model->init(gltf);
+    } else {
+        model->init(gltf, root_node);
+    }
 
     auto [it, inserted] = models_.emplace(id, std::move(model));
     MLE_D("Added model id:{} to ModelCache", id);

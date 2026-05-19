@@ -101,11 +101,29 @@ void computeNodeGlobalRecursive(usize node_index, const std::vector<Model::Node>
 
     visited[node_index] = true;
 }
+
+void markNodeSubtree(const tinygltf::Model& model, usize node_index, std::vector<bool>& out_included) {
+    MLE_ASSERT_LOG(node_index < model.nodes.size(), "Root node index out of range");
+    if (out_included[node_index]) {
+        return;
+    }
+
+    out_included[node_index] = true;
+    const auto& node = model.nodes[node_index];
+    for (int child : node.children) {
+        MLE_ASSERT_LOG(child >= 0 && child < as<int>(model.nodes.size()), "Invalid child node index");
+        markNodeSubtree(model, as<usize>(child), out_included);
+    }
+}
 }  // namespace
 
 Model::~Model() = default;
 
 void Model::init(const GLTF& gltf) {
+    init(gltf, max<usize>());
+}
+
+void Model::init(const GLTF& gltf, usize root_node) {
     const auto& model = gltf.model();
 
     nodes_.clear();
@@ -117,24 +135,38 @@ void Model::init(const GLTF& gltf) {
     std::vector<int> node_parent;
     buildNodeParents(model, node_parent);
 
+    std::vector<bool> included(node_count, true);
+    if (root_node != max<usize>()) {
+        included.assign(node_count, false);
+        markNodeSubtree(model, root_node, included);
+    }
+
     for (usize nid = 0; nid < node_count; ++nid) {
         const tinygltf::Node& src_node = model.nodes[nid];
 
         Node& node = nodes_[nid];
         node.parent = (nid < node_parent.size()) ? node_parent[nid] : -1;
+        if (!included[nid] || (root_node != max<usize>() && nid == root_node)) {
+            node.parent = -1;
+        }
         node.name = src_node.name;
+        node.included = included[nid];
 
         auto [t, r, s] = getNodeLocalTRS(src_node);
         node.base_translation = t;
         node.base_rotation = r;
         node.base_scale = s;
 
-        if (src_node.mesh >= 0) {
+        if (included[nid] && src_node.mesh >= 0) {
             MLE_ASSERT_LOG(src_node.mesh < as<int>(model.meshes.size()), "Invalid mesh index in node");
-            NodeMesh nm{};
-            nm.node_index = nid;
-            nm.mesh.load(gltf, as<usize>(src_node.mesh));
-            meshes_.push_back(std::move(nm));
+            const auto& mesh = model.meshes[as<usize>(src_node.mesh)];
+            for (usize primitive_idx = 0; primitive_idx < mesh.primitives.size(); ++primitive_idx) {
+                NodeMesh nm{};
+                nm.node_index = nid;
+                nm.skin_index = src_node.skin;
+                nm.mesh.load(gltf, as<usize>(src_node.mesh), primitive_idx);
+                meshes_.push_back(std::move(nm));
+            }
         }
     }
 }
@@ -164,7 +196,7 @@ void Model::evaluateBase(std::vector<mat4f>& out_node_globals) const {
 
 usize Model::getNodeIdxByName(const std::string& name) const {
     for (usize i = 0; i < nodes_.size(); ++i) {
-        if (nodes_[i].name == name) {
+        if (nodes_[i].included && nodes_[i].name == name) {
             return i;
         }
     }

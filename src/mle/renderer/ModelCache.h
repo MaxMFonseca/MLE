@@ -15,6 +15,7 @@ class ModelCache {
     ~ModelCache() = default;
 
     ModelRef add(entt::id_type id, const GLTF& gltf);
+    ModelRef add(entt::id_type id, const GLTF& gltf, usize root_node);
     ModelRef addModel(const std::string& model_name);
     ModelRef get(entt::id_type id);
     [[nodiscard]] bool contains(entt::id_type id) const;

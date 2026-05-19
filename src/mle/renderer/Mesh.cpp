@@ -183,7 +183,7 @@ BufferHnd uploadVertices(const std::vector<VertexT>& vertices) {
 }  // namespace
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity) GLB primitive ingestion is necessarily broad.
-void Mesh::load(const GLTF& gltf, usize mesh_idx) {
+void Mesh::load(const GLTF& gltf, usize mesh_idx, usize primitive_idx) {
     const auto& model = gltf.model();
 
     std::vector<PbrColorVertex> color_vertices;
@@ -207,9 +207,9 @@ void Mesh::load(const GLTF& gltf, usize mesh_idx) {
         color_multiplier_name_ = value.Get<std::string>();
     }
 
-    MLE_ASSERT_LOG(mesh.primitives.size() == 1, "Only single primitive meshes supported");
+    MLE_ASSERT_LOG(primitive_idx < mesh.primitives.size(), "Primitive index out of range");
 
-    const auto& prim = mesh.primitives.front();
+    const auto& prim = mesh.primitives[primitive_idx];
     if (prim.mode != TINYGLTF_MODE_TRIANGLES) {
         MLE_E("Unsupported primitive mode {}, only TRIANGLES supported. Skipping primitive.", prim.mode);
         return;

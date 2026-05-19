@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <glm/gtc/matrix_transform.hpp>
 #include <string_view>
+#include <unordered_set>
 
 #include "mle/client/Client.h"
 #include "mle/core/Assert.h"
@@ -190,7 +191,7 @@ mat4f makeViewProj(vec2u extent, f32 yaw, f32 pitch, f32 distance) {
 
 bool isGLTFAsset(const Path& path) {
     const std::string ext = path.extension().generic_string();
-    return ext == ".glb";
+    return ext == ".glb" || ext == ".gltf";
 }
 
 std::vector<std::string> discoverAssets(const std::string& resource_dir) {
@@ -222,6 +223,64 @@ std::vector<std::string> discoverAssets(const std::string& resource_dir) {
 
 entt::id_type makeAssetId(const std::string& name) {
     return entt::hashed_string::value(name.c_str());
+}
+
+int getDefaultSceneIndex(const tinygltf::Model& model) {
+    if (model.scenes.empty()) {
+        return -1;
+    }
+    if (model.defaultScene >= 0 && model.defaultScene < as<int>(model.scenes.size())) {
+        return model.defaultScene;
+    }
+    return 0;
+}
+
+std::vector<ModelTestLayer::ModelOption> discoverModelOptions(const std::vector<std::string>& model_files) {
+    std::vector<ModelTestLayer::ModelOption> options;
+
+    for (const auto& model_file : model_files) {
+        GLTF gltf;
+        const Path model_path = Path{ResPath::RES} / ResPath::MODELS / model_file;
+        if (gltf.load(model_path) != Result::OK) {
+            MLE_W("ModelTestLayer failed to inspect model '{}'", model_path.generic_string());
+            continue;
+        }
+
+        const auto& model = gltf.model();
+        const int scene_index = getDefaultSceneIndex(model);
+        if (scene_index < 0) {
+            MLE_W("ModelTestLayer model '{}' has no scenes", model_file);
+            continue;
+        }
+
+        std::unordered_set<std::string> names;
+        const auto& scene = model.scenes[as<usize>(scene_index)];
+        for (int node_index : scene.nodes) {
+            if (node_index < 0 || node_index >= as<int>(model.nodes.size())) {
+                MLE_W("ModelTestLayer model '{}' has invalid scene root node {}", model_file, node_index);
+                continue;
+            }
+
+            const auto& node = model.nodes[as<usize>(node_index)];
+            if (node.name.empty()) {
+                MLE_W("ModelTestLayer skipping unnamed scene root in '{}'", model_file);
+                continue;
+            }
+            if (!names.insert(node.name).second) {
+                MLE_W("ModelTestLayer skipping duplicate scene root name '{}' in '{}'", node.name, model_file);
+                continue;
+            }
+
+            options.push_back(ModelTestLayer::ModelOption{
+                .key = fmt::format("{}#{}", model_file, node.name),
+                .file = model_file,
+                .root_node = as<usize>(node_index),
+            });
+        }
+    }
+
+    std::ranges::sort(options, [](const auto& lhs, const auto& rhs) { return lhs.key < rhs.key; });
+    return options;
 }
 
 std::string makeAnimationDisplayName(const std::string& animation_file, AnimationClipRef clip) {
@@ -288,7 +347,7 @@ void ModelTestLayer::init() {
     Client::i().getGameLayerTable()["model_test_shader_mode_names"] = makeShaderModeNamesTable();
     ui_.setRoot("i/ui/ModelTestLayer");
 
-    MLE_I("ModelTestLayer assets loaded: {} models, {} animations", model_files_.size(), animation_names_.size());
+    MLE_I("ModelTestLayer assets loaded: {} models, {} animations", model_options_.size(), animation_names_.size());
 };
 
 void ModelTestLayer::update() {
@@ -371,11 +430,12 @@ void ModelTestLayer::renderModel(ImageRef target) {
     } else {
         model_->evaluateBase(node_globals_);
     }
-    bool has_skinned_mesh = std::ranges::any_of(meshes, [](const auto& node_mesh) { return node_mesh.mesh.isSkinned(); });
-    if (has_skinned_mesh && skin_binding_.jointCount() != 0) {
-        skin_binding_.buildSkinMatrices(node_globals_, skin_mats_);
-    } else {
-        skin_mats_.clear();
+    skin_mats_.clear();
+    for (const auto& [skin_index, skin_binding] : skin_bindings_) {
+        if (skin_binding.jointCount() == 0) {
+            continue;
+        }
+        skin_binding.buildSkinMatrices(node_globals_, skin_mats_[skin_index]);
     }
 
     auto& renderer = Renderer::i();
@@ -384,12 +444,15 @@ void ModelTestLayer::renderModel(ImageRef target) {
     RenderingThread thread;
     thread.init();
 
-    BufferSlice skin_mats_slice{};
-    vk::DescriptorBufferInfo skin_mats_di{};
-    if (!skin_mats_.empty()) {
-        skin_mats_slice = frame_renderer.getHostVisibleBuffer(sizeof(mat4f) * skin_mats_.size(), vk::BufferUsageFlagBits::eStorageBuffer);
-        skin_mats_slice.buffer->write(skin_mats_.data(), skin_mats_slice.size, skin_mats_slice.offset);
-        skin_mats_di = skin_mats_slice.buffer->makeDescriptorInfo(thread.cmd(), skin_mats_slice.size, skin_mats_slice.offset);
+    std::unordered_map<int, vk::DescriptorBufferInfo> skin_mats_dis;
+    for (const auto& [skin_index, skin_mats] : skin_mats_) {
+        if (skin_mats.empty()) {
+            continue;
+        }
+
+        BufferSlice skin_mats_slice = frame_renderer.getHostVisibleBuffer(sizeof(mat4f) * skin_mats.size(), vk::BufferUsageFlagBits::eStorageBuffer);
+        skin_mats_slice.buffer->write(skin_mats.data(), skin_mats_slice.size, skin_mats_slice.offset);
+        skin_mats_dis.emplace(skin_index, skin_mats_slice.buffer->makeDescriptorInfo(thread.cmd(), skin_mats_slice.size, skin_mats_slice.offset));
     }
 
     AttachmentInfo color_attachment{};
@@ -426,9 +489,11 @@ void ModelTestLayer::renderModel(ImageRef target) {
         if (mesh.getIndexCount() == 0) {
             continue;
         }
-        if (mesh.isSkinned() && skin_mats_.empty()) {
+        const auto skin_mats_di_it = skin_mats_dis.find(node_mesh.skin_index);
+        if (mesh.isSkinned() && skin_mats_di_it == skin_mats_dis.end()) {
             continue;
         }
+        const vk::DescriptorBufferInfo* skin_mats_di = mesh.isSkinned() ? &skin_mats_di_it->second : nullptr;
 
         const Pipeline* pipeline = getModelTestPipeline(mesh.getVertexKind(), shader_mode_);
         thread.setPipeline(pipeline);
@@ -454,7 +519,7 @@ void ModelTestLayer::renderModel(ImageRef target) {
                 case ModelTestShaderMode::CARTOON:
                     if (mesh.isSkinned()) {
                         auto push_writes = pipeline->makeWrites(0, nullptr, &material_di, &lighting_di, &base_color_di, &metallic_roughness_di, &normal_di,
-                                                                &occlusion_di, &emissive_di, &skin_mats_di);
+                                                                &occlusion_di, &emissive_di, skin_mats_di);
                         thread.pushDescriptor(0, push_writes);
                     } else {
                         auto push_writes = pipeline->makeWrites(0, nullptr, &material_di, &lighting_di, &base_color_di, &metallic_roughness_di, &normal_di,
@@ -466,7 +531,7 @@ void ModelTestLayer::renderModel(ImageRef target) {
                 case ModelTestShaderMode::NORMALS:
                 case ModelTestShaderMode::ALBEDO:
                     if (mesh.isSkinned()) {
-                        auto push_writes = pipeline->makeWrites(0, nullptr, &material_di, &base_color_di, &skin_mats_di);
+                        auto push_writes = pipeline->makeWrites(0, nullptr, &material_di, &base_color_di, skin_mats_di);
                         thread.pushDescriptor(0, push_writes);
                     } else {
                         auto push_writes = pipeline->makeWrites(0, nullptr, &material_di, &base_color_di);
@@ -478,10 +543,10 @@ void ModelTestLayer::renderModel(ImageRef target) {
             }
         } else if (mesh.isSkinned()) {
             if (shader_mode_ == ModelTestShaderMode::PBR || shader_mode_ == ModelTestShaderMode::CARTOON) {
-                auto push_writes = pipeline->makeWrites(0, nullptr, &material_di, &lighting_di, &skin_mats_di);
+                auto push_writes = pipeline->makeWrites(0, nullptr, &material_di, &lighting_di, skin_mats_di);
                 thread.pushDescriptor(0, push_writes);
             } else {
-                auto push_writes = pipeline->makeWrites(0, nullptr, &material_di, &skin_mats_di);
+                auto push_writes = pipeline->makeWrites(0, nullptr, &material_di, skin_mats_di);
                 thread.pushDescriptor(0, push_writes);
             }
         } else {
@@ -544,11 +609,12 @@ void ModelTestLayer::renderModel(ImageRef target) {
 void ModelTestLayer::refreshAssets() {
     model_files_ = discoverAssets(ResPath::MODELS);
     animation_files_ = discoverAssets(ResPath::ANIMATIONS);
+    model_options_ = discoverModelOptions(model_files_);
 
     model_ids_.clear();
-    model_ids_.reserve(model_files_.size());
-    for (const auto& model_file : model_files_) {
-        model_ids_.push_back(makeAssetId(model_file));
+    model_ids_.reserve(model_options_.size());
+    for (const auto& model_option : model_options_) {
+        model_ids_.push_back(makeAssetId(model_option.key));
     }
 
     animation_options_.clear();
@@ -575,12 +641,13 @@ void ModelTestLayer::refreshAssets() {
         }
     }
 
-    if (current_model_name_.empty() || std::ranges::find(model_files_, current_model_name_) == model_files_.end()) {
+    if (current_model_name_.empty() || std::ranges::find(model_options_, current_model_name_, &ModelOption::key) == model_options_.end()) {
         model_ = nullptr;
-        skin_binding_ = SkinBinding{};
+        skin_bindings_.clear();
+        skin_mats_.clear();
         current_model_name_.clear();
-        if (!model_files_.empty()) {
-            setModel(model_files_.front());
+        if (!model_options_.empty()) {
+            setModel(model_options_.front().key);
         }
     } else {
         setModel(current_model_name_);
@@ -608,8 +675,8 @@ sol::table ModelTestLayer::refreshAssetsForLua() {
 
 sol::table ModelTestLayer::makeModelNamesTable() const {
     auto table = Client::i().lua().createTable();
-    for (usize i = 0; i < model_files_.size(); ++i) {
-        table[i + 1] = model_files_[i];
+    for (usize i = 0; i < model_options_.size(); ++i) {
+        table[i + 1] = model_options_[i].key;
     }
     return table;
 }
@@ -631,17 +698,17 @@ sol::table ModelTestLayer::makeShaderModeNamesTable() const {
 }
 
 bool ModelTestLayer::setModel(const std::string& name) {
-    auto model_it = std::ranges::find(model_files_, name);
-    if (model_it == model_files_.end()) {
+    auto model_it = std::ranges::find(model_options_, name, &ModelOption::key);
+    if (model_it == model_options_.end()) {
         MLE_W("ModelTestLayer model '{}' was not found", name);
         return false;
     }
 
-    const usize model_idx = static_cast<usize>(std::distance(model_files_.begin(), model_it));
+    const usize model_idx = static_cast<usize>(std::distance(model_options_.begin(), model_it));
     const entt::id_type model_id = model_ids_.at(model_idx);
 
     GLTF model_gltf;
-    const Path model_path = Path{ResPath::RES} / ResPath::MODELS / name;
+    const Path model_path = Path{ResPath::RES} / ResPath::MODELS / model_it->file;
     if (model_gltf.load(model_path) != Result::OK) {
         MLE_W("ModelTestLayer failed to load GLTF '{}'", model_path.generic_string());
         return false;
@@ -650,7 +717,7 @@ bool ModelTestLayer::setModel(const std::string& name) {
     auto& model_cache = Renderer::i().modelCache();
     ModelRef model = model_cache.get(model_id);
     if (model == nullptr) {
-        model = model_cache.add(model_id, model_gltf);
+        model = model_cache.add(model_id, model_gltf, model_it->root_node);
     }
     if (model == nullptr) {
         return false;
@@ -660,11 +727,18 @@ bool ModelTestLayer::setModel(const std::string& name) {
     current_model_name_ = name;
     node_globals_.clear();
     skin_mats_.clear();
-    skin_binding_ = SkinBinding{};
+    skin_bindings_.clear();
     animation_time_ = 0.0F;
 
-    if (!model_gltf.model().skins.empty()) {
-        skin_binding_.loadFromGLTF(model_gltf);
+    for (const auto& node_mesh : model_->getMeshes()) {
+        const int skin_index = node_mesh.skin_index;
+        if (skin_index < 0 || skin_index >= as<int>(model_gltf.model().skins.size()) || skin_bindings_.contains(skin_index)) {
+            continue;
+        }
+
+        SkinBinding skin_binding;
+        skin_binding.loadFromGLTF(model_gltf, as<usize>(skin_index));
+        skin_bindings_.emplace(skin_index, std::move(skin_binding));
     }
 
     if (current_animation_ != nullptr && !animationTargetsModel(current_animation_, model_)) {

@@ -2,6 +2,7 @@
 
 #include <array>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "mle/client/Layer.h"
@@ -34,6 +35,12 @@ class ModelTestLayer : public mle::client::Layer {
 
     ImageRef getImage();
 
+    struct ModelOption {
+        std::string key;
+        std::string file;
+        usize root_node = max<usize>();
+    };
+
   private:
     struct AnimationOption {
         std::string label;
@@ -64,15 +71,16 @@ class ModelTestLayer : public mle::client::Layer {
     ModelRef model_ = nullptr;
     AnimationClipRef current_animation_ = nullptr;
     std::vector<entt::id_type> model_ids_;
+    std::vector<ModelOption> model_options_;
     std::vector<AnimationOption> animation_options_;
     std::vector<std::string> animation_names_;
     std::vector<std::string> model_files_;
     std::vector<std::string> animation_files_;
     std::string current_model_name_;
     std::string current_animation_name_;
-    SkinBinding skin_binding_{};
+    std::unordered_map<int, SkinBinding> skin_bindings_;
     std::vector<mat4f> node_globals_;
-    std::vector<mat4f> skin_mats_;
+    std::unordered_map<int, std::vector<mat4f>> skin_mats_;
     f32 animation_time_ = 0.0F;
     f32 camera_yaw_ = 0.0F;
     f32 camera_pitch_ = 0.0F;
