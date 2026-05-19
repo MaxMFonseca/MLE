@@ -507,6 +507,9 @@ void ModelTestLayer::renderModel(ImageRef target) {
 
     auto& renderer = Renderer::i();
     const auto& meshes = model_->getMeshes();
+    const auto& model_skins = model_->getSkins();
+
+    node_globals_.resize(model_->getNodeCount());
 
     if (current_animation_ != nullptr) {
         const auto& binding = renderer.animationCache().getBinding(model_, current_animation_);
@@ -514,12 +517,16 @@ void ModelTestLayer::renderModel(ImageRef target) {
     } else {
         model_->evaluateBase(node_globals_);
     }
+
     skin_mats_.clear();
-    for (const auto& [skin_index, skin_binding] : skin_bindings_) {
+    for (usize skin_idx = 0; skin_idx < model_skins.size(); ++skin_idx) {
+        const auto& skin_binding = model_skins[skin_idx];
         if (skin_binding.jointCount() == 0) {
             continue;
         }
-        skin_binding.buildSkinMatrices(node_globals_, skin_mats_[skin_index]);
+        auto& mats = skin_mats_[as<int>(skin_idx)];
+        mats.resize(skin_binding.jointCount());
+        skin_binding.buildSkinMatrices(node_globals_, mats);
     }
 
     auto& frame_renderer = renderer.frameRenderer();
@@ -761,7 +768,6 @@ void ModelTestLayer::refreshAssets() {
 
     if (current_model_name_.empty() || std::ranges::find(model_options_, current_model_name_, &ModelOption::key) == model_options_.end()) {
         model_ = nullptr;
-        skin_bindings_.clear();
         skin_mats_.clear();
         current_model_name_.clear();
         if (!model_options_.empty()) {
@@ -871,19 +877,7 @@ bool ModelTestLayer::setModel(const std::string& name) {
     current_model_name_ = name;
     node_globals_.clear();
     skin_mats_.clear();
-    skin_bindings_.clear();
     animation_time_ = 0.0F;
-
-    for (const auto& node_mesh : model_->getMeshes()) {
-        const int skin_index = node_mesh.skin_index;
-        if (skin_index < 0 || skin_index >= as<int>(model_gltf.model().skins.size()) || skin_bindings_.contains(skin_index)) {
-            continue;
-        }
-
-        SkinBinding skin_binding;
-        skin_binding.loadFromGLTF(model_gltf, as<usize>(skin_index));
-        skin_bindings_.emplace(skin_index, std::move(skin_binding));
-    }
 
     if (current_animation_ != nullptr && !animationTargetsModel(current_animation_, model_)) {
         MLE_W("ModelTestLayer animation '{}' has no channels matching model '{}'; base pose will be used", current_animation_name_, current_model_name_);

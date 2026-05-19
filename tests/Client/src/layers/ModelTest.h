@@ -6,7 +6,6 @@
 #include <vector>
 
 #include "mle/client/Layer.h"
-#include "mle/renderer/SkinBinding.h"
 #include "mle/ui/UI.h"
 #include "mle/utils/ECS.h"
 
@@ -85,7 +84,6 @@ class ModelTestLayer : public mle::client::Layer {
     std::string current_held_item_name_;
     std::string current_animation_name_;
     std::string held_item_attachment_warning_key_;
-    std::unordered_map<int, SkinBinding> skin_bindings_;
     std::vector<mat4f> node_globals_;
     std::unordered_map<int, std::vector<mat4f>> skin_mats_;
     f32 animation_time_ = 0.0F;

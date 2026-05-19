@@ -36,9 +36,9 @@ void SkinBinding::loadFromGLTF(const GLTF& gltf, usize skin_index) {
     }
 }
 
-void SkinBinding::buildSkinMatrices(const std::vector<mat4f>& node_globals, std::vector<mat4f>& out_skin_mats) const {
+void SkinBinding::buildSkinMatrices(std::span<const mat4f> node_globals, std::span<mat4f> out_skin_mats) const {
     const usize joint_count = joints_.size();
-    out_skin_mats.resize(joint_count);
+    MLE_ASSERT_LOG(out_skin_mats.size() >= joint_count, "out_skin_mats span too small");
 
     for (usize j = 0; j < joint_count; ++j) {
         const JointBinding& joint = joints_[j];

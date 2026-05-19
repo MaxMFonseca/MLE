@@ -92,12 +92,12 @@ ValueT sampleNearestKeyframeNoInterp(const std::vector<KeyframeT>& keys, f32 t, 
     return keys.back().value;
 }
 
-void evaluateImpl(const AnimationClip& clip, const Model& model, const AnimationBinding& binding, f32 time, std::vector<mat4f>& out_node_globals,
+void evaluateImpl(const AnimationClip& clip, const Model& model, const AnimationBinding& binding, f32 time, std::span<mat4f> out_node_globals,
                   bool interpolate) {
     const auto& model_nodes = model.getNodes();
     const usize node_count = model_nodes.size();
 
-    out_node_globals.resize(node_count);
+    MLE_ASSERT_LOG(out_node_globals.size() >= node_count, "out_node_globals span too small");
 
     thread_local std::vector<mat4f> tls_local_mats;
     if (tls_local_mats.size() < node_count) {
@@ -231,11 +231,11 @@ void AnimationClip::loadFromGLTF(const GLTF& gltf, usize animation_index) {
     }
 }
 
-void AnimationClip::evaluate(const Model& model, const AnimationBinding& binding, f32 time, std::vector<mat4f>& out_node_globals) const {
+void AnimationClip::evaluate(const Model& model, const AnimationBinding& binding, f32 time, std::span<mat4f> out_node_globals) const {
     evaluateImpl(*this, model, binding, time, out_node_globals, true);
 }
 
-void AnimationClip::evaluateNoInterpolation(const Model& model, const AnimationBinding& binding, f32 time, std::vector<mat4f>& out_node_globals) const {
+void AnimationClip::evaluateNoInterpolation(const Model& model, const AnimationBinding& binding, f32 time, std::span<mat4f> out_node_globals) const {
     evaluateImpl(*this, model, binding, time, out_node_globals, false);
 }
 }  // namespace mle

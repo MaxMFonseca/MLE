@@ -1,5 +1,6 @@
 #pragma once
 
+#include <span>
 #include <string>
 #include <vector>
 
@@ -22,7 +23,7 @@ class SkinBinding {
     [[nodiscard]] const std::vector<JointBinding>& getJoints() const { return joints_; }
     [[nodiscard]] auto jointCount() const { return joints_.size(); }
 
-    void buildSkinMatrices(const std::vector<mat4f>& node_globals, std::vector<mat4f>& out_skin_mats) const;
+    void buildSkinMatrices(std::span<const mat4f> node_globals, std::span<mat4f> out_skin_mats) const;
 
   private:
     std::string name_;

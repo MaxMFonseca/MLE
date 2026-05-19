@@ -134,6 +134,7 @@ void Model::init(const GLTF& gltf, usize root_node) {
 
     nodes_.clear();
     meshes_.clear();
+    skins_.clear();
     evaluation_order_.clear();
 
     const usize node_count = model.nodes.size();
@@ -177,12 +178,17 @@ void Model::init(const GLTF& gltf, usize root_node) {
         }
     }
 
+    skins_.resize(model.skins.size());
+    for (usize i = 0; i < model.skins.size(); ++i) {
+        skins_[i].loadFromGLTF(gltf, i);
+    }
+
     buildEvaluationOrder(nodes_, evaluation_order_);
 }
 
-void Model::evaluateBase(std::vector<mat4f>& out_node_globals) const {
+void Model::evaluateBase(std::span<mat4f> out_node_globals) const {
     const usize node_count = nodes_.size();
-    out_node_globals.resize(node_count);
+    MLE_ASSERT_LOG(out_node_globals.size() >= node_count, "out_node_globals span too small");
 
     for (usize nid : evaluation_order_) {
         const Node& node = nodes_[nid];

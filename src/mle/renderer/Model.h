@@ -2,12 +2,14 @@
 
 #include <tiny_gltf.h>
 
+#include <span>
 #include <string>
 #include <vector>
 
 #include "mle/math/Types.h"
 #include "mle/renderer/GLTF.h"
 #include "mle/renderer/Mesh.h"
+#include "mle/renderer/SkinBinding.h"
 
 namespace mle {
 class Model {
@@ -42,14 +44,16 @@ class Model {
     [[nodiscard]] usize getNodeIdxByName(const std::string& name) const;
     [[nodiscard]] const auto& getMesh() const { return meshes_.at(0).mesh; }
     [[nodiscard]] const auto& getMeshes() const { return meshes_; }
+    [[nodiscard]] const std::vector<SkinBinding>& getSkins() const { return skins_; }
 
-    void evaluateBase(std::vector<mat4f>& out_node_globals) const;
+    void evaluateBase(std::span<mat4f> out_node_globals) const;
 
     [[nodiscard]] const std::vector<usize>& getEvaluationOrder() const { return evaluation_order_; }
 
   private:
     std::vector<Node> nodes_;
     std::vector<NodeMesh> meshes_;
+    std::vector<SkinBinding> skins_;
     std::vector<usize> evaluation_order_;
 };
 }  // namespace mle
