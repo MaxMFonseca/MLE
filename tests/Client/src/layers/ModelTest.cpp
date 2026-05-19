@@ -293,8 +293,8 @@ bool animationTargetsModel(AnimationClipRef animation, ModelRef model) {
         return false;
     }
 
-    return std::ranges::any_of(animation->getNodes(),
-                               [&model](const auto& node_anim) { return model->getNodeIdxByName(node_anim.target_name) != max<usize>(); });
+    const auto& binding = Renderer::i().animationCache().getBinding(model, animation);
+    return std::ranges::any_of(binding.channel_to_node_map, [](usize nid) { return nid != max<usize>(); });
 }
 
 bool nodeSubtreeHasSkinnedMeshes(const tinygltf::Model& model, usize node_index) {
@@ -505,10 +505,12 @@ void ModelTestLayer::renderModel(ImageRef target) {
         return;
     }
 
+    auto& renderer = Renderer::i();
     const auto& meshes = model_->getMeshes();
 
     if (current_animation_ != nullptr) {
-        current_animation_->evaluate(*model_, animation_time_, node_globals_);
+        const auto& binding = renderer.animationCache().getBinding(model_, current_animation_);
+        current_animation_->evaluate(*model_, binding, animation_time_, node_globals_);
     } else {
         model_->evaluateBase(node_globals_);
     }
@@ -520,7 +522,6 @@ void ModelTestLayer::renderModel(ImageRef target) {
         skin_binding.buildSkinMatrices(node_globals_, skin_mats_[skin_index]);
     }
 
-    auto& renderer = Renderer::i();
     auto& frame_renderer = renderer.frameRenderer();
 
     RenderingThread thread;

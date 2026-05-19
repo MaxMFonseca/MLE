@@ -12,6 +12,10 @@
 #include "mle/utils/ECS.h"
 
 namespace mle {
+struct AnimationBinding {
+    std::vector<usize> channel_to_node_map;
+};
+
 class AnimationCache {
   public:
     MLE_NO_COPY_MOVE(AnimationCache);
@@ -26,6 +30,8 @@ class AnimationCache {
     AnimationClipRef get(entt::id_type id);
     [[nodiscard]] bool contains(entt::id_type id) const;
 
+    const AnimationBinding& getBinding(ModelRef model, AnimationClipRef clip);
+
   private:
     friend class Renderer;
     AnimationCache() = default;
@@ -36,5 +42,20 @@ class AnimationCache {
 
   private:
     std::unordered_map<entt::id_type, AnimationClipHnd> animations_;
+
+    struct BindingKey {
+        ModelRef model;
+        AnimationClipRef clip;
+
+        bool operator==(const BindingKey& other) const { return model == other.model && clip == other.clip; }
+    };
+
+    struct BindingKeyHash {
+        std::size_t operator()(const BindingKey& k) const {
+            return std::hash<const void*>{}(k.model) ^ (std::hash<const void*>{}(k.clip) << 1);
+        }
+    };
+
+    std::unordered_map<BindingKey, AnimationBinding, BindingKeyHash> bindings_;
 };
 }  // namespace mle

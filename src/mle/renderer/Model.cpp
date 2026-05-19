@@ -22,6 +22,30 @@ void buildNodeParents(const tinygltf::Model& model, std::vector<int>& out_node_p
     }
 }
 
+void buildEvaluationOrder(const std::vector<Model::Node>& nodes, std::vector<usize>& out_evaluation_order) {
+    out_evaluation_order.clear();
+    const usize node_count = nodes.size();
+    out_evaluation_order.reserve(node_count);
+
+    std::vector<bool> added(node_count, false);
+
+    while (out_evaluation_order.size() < node_count) {
+        bool changed = false;
+        for (usize i = 0; i < node_count; ++i) {
+            if (added[i]) {
+                continue;
+            }
+
+            if (nodes[i].parent < 0 || added[as<usize>(nodes[i].parent)]) {
+                out_evaluation_order.push_back(i);
+                added[i] = true;
+                changed = true;
+            }
+        }
+        MLE_ASSERT_LOG(changed, "Circular dependency detected in node hierarchy or disconnected nodes");
+    }
+}
+
 std::tuple<vec3f, quat, vec3f> getNodeLocalTRS(const tinygltf::Node& node) {
     vec3f t{};
     quat r{};
@@ -84,24 +108,6 @@ mat4f makeTRS(const vec3f& t, const quat& r, const vec3f& s) {
     return f_t * f_r * f_s;
 }
 
-void computeNodeGlobalRecursive(usize node_index, const std::vector<Model::Node>& nodes, const std::vector<mat4f>& local_mats, std::vector<mat4f>& global_mats,
-                                std::vector<bool>& visited) {
-    if (visited[node_index]) {
-        return;
-    }
-
-    const auto& node = nodes[node_index];
-    if (node.parent >= 0) {
-        const auto parent_idx = as<usize>(node.parent);
-        computeNodeGlobalRecursive(parent_idx, nodes, local_mats, global_mats, visited);
-        global_mats[node_index] = global_mats[parent_idx] * local_mats[node_index];
-    } else {
-        global_mats[node_index] = local_mats[node_index];
-    }
-
-    visited[node_index] = true;
-}
-
 void markNodeSubtree(const tinygltf::Model& model, usize node_index, std::vector<bool>& out_included) {
     MLE_ASSERT_LOG(node_index < model.nodes.size(), "Root node index out of range");
     if (out_included[node_index]) {
@@ -128,6 +134,7 @@ void Model::init(const GLTF& gltf, usize root_node) {
 
     nodes_.clear();
     meshes_.clear();
+    evaluation_order_.clear();
 
     const usize node_count = model.nodes.size();
     nodes_.resize(node_count);
@@ -169,30 +176,26 @@ void Model::init(const GLTF& gltf, usize root_node) {
             }
         }
     }
+
+    buildEvaluationOrder(nodes_, evaluation_order_);
 }
 
 void Model::evaluateBase(std::vector<mat4f>& out_node_globals) const {
     const usize node_count = nodes_.size();
-
     out_node_globals.resize(node_count);
 
-    std::vector<mat4f> local_mats(node_count);
-    std::vector<mat4f> global_mats(node_count);
-    std::vector<bool> visited(node_count, false);
-
-    for (usize nid = 0; nid < node_count; ++nid) {
+    for (usize nid : evaluation_order_) {
         const Node& node = nodes_[nid];
-        local_mats[nid] = makeTRS(node.base_translation, node.base_rotation, node.base_scale);
-    }
+        const mat4f local = makeTRS(node.base_translation, node.base_rotation, node.base_scale);
 
-    for (usize nid = 0; nid < node_count; ++nid) {
-        if (!visited[nid]) {
-            computeNodeGlobalRecursive(nid, nodes_, local_mats, global_mats, visited);
+        if (node.parent >= 0) {
+            out_node_globals[nid] = out_node_globals[as<usize>(node.parent)] * local;
+        } else {
+            out_node_globals[nid] = local;
         }
     }
-
-    out_node_globals = global_mats;
 }
+
 
 usize Model::getNodeIdxByName(const std::string& name) const {
     for (usize i = 0; i < nodes_.size(); ++i) {

@@ -45,8 +45,11 @@ class Model {
 
     void evaluateBase(std::vector<mat4f>& out_node_globals) const;
 
+    [[nodiscard]] const std::vector<usize>& getEvaluationOrder() const { return evaluation_order_; }
+
   private:
     std::vector<Node> nodes_;
     std::vector<NodeMesh> meshes_;
+    std::vector<usize> evaluation_order_;
 };
 }  // namespace mle

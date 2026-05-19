@@ -7,6 +7,7 @@
 #include <type_traits>
 
 #include "mle/core/Assert.h"
+#include "mle/renderer/AnimationCache.h"
 #include "mle/renderer/Model.h"
 
 namespace mle {
@@ -36,25 +37,6 @@ mat4f makeTRS(const vec3f& t, const quat& r, const vec3f& s) {
     mat4f f_r = glm::mat4_cast(r);
     mat4f f_s = glm::scale(mat4f{1.0F}, s);
     return f_t * f_r * f_s;
-}
-
-// NOLINTNEXTLINE(misc-no-recursion) ok
-void computeNodeGlobalRecursive(usize node_index, const std::vector<Model::Node>& nodes, const std::vector<mat4f>& local_mats, std::vector<mat4f>& global_mats,
-                                std::vector<bool>& visited) {
-    if (visited[node_index]) {
-        return;
-    }
-
-    const auto& node = nodes[node_index];
-    if (node.parent >= 0) {
-        const auto parent_idx = as<usize>(node.parent);
-        computeNodeGlobalRecursive(parent_idx, nodes, local_mats, global_mats, visited);
-        global_mats[node_index] = global_mats[parent_idx] * local_mats[node_index];
-    } else {
-        global_mats[node_index] = local_mats[node_index];
-    }
-
-    visited[node_index] = true;
 }
 
 template <typename KeyframeT, typename ValueT>
@@ -110,29 +92,36 @@ ValueT sampleNearestKeyframeNoInterp(const std::vector<KeyframeT>& keys, f32 t, 
     return keys.back().value;
 }
 
-void evaluateImpl(const AnimationClip& clip, const Model& model, f32 time, std::vector<mat4f>& out_node_globals, bool interpolate) {
+void evaluateImpl(const AnimationClip& clip, const Model& model, const AnimationBinding& binding, f32 time, std::vector<mat4f>& out_node_globals,
+                  bool interpolate) {
     const auto& model_nodes = model.getNodes();
     const usize node_count = model_nodes.size();
 
     out_node_globals.resize(node_count);
 
-    std::vector<mat4f> local_mats(node_count);
-    std::vector<mat4f> global_mats(node_count);
-    std::vector<bool> visited(node_count, false);
+    thread_local std::vector<mat4f> tls_local_mats;
+    if (tls_local_mats.size() < node_count) {
+        tls_local_mats.resize(node_count);
+    }
 
     const float anim_time = (clip.getDuration() > 0.0F) ? std::fmod(time, clip.getDuration()) : time;
 
     for (usize nid = 0; nid < node_count; ++nid) {
         const auto& node = model_nodes[nid];
-        local_mats[nid] = makeTRS(node.base_translation, node.base_rotation, node.base_scale);
+        tls_local_mats[nid] = makeTRS(node.base_translation, node.base_rotation, node.base_scale);
     }
 
-    for (const auto& node_anim : clip.getNodes()) {
-        const usize nid = model.getNodeIdxByName(node_anim.target_name);
+    const auto& anim_nodes = clip.getNodes();
+    const auto& node_map = binding.channel_to_node_map;
+    MLE_ASSERT_LOG(anim_nodes.size() == node_map.size(), "Binding map size mismatch");
+
+    for (usize i = 0; i < anim_nodes.size(); ++i) {
+        const usize nid = node_map[i];
         if (nid == max<usize>()) {
             continue;
         }
 
+        const auto& node_anim = anim_nodes[i];
         const auto& node = model_nodes[nid];
         vec3f t = node.base_translation;
         quat r = node.base_rotation;
@@ -148,16 +137,17 @@ void evaluateImpl(const AnimationClip& clip, const Model& model, f32 time, std::
             s = sampleNearestKeyframeNoInterp<AnimationClip::KeyframeVec3, vec3f>(node_anim.scales, anim_time, s);
         }
 
-        local_mats[nid] = makeTRS(t, r, s);
+        tls_local_mats[nid] = makeTRS(t, r, s);
     }
 
-    for (usize nid = 0; nid < node_count; ++nid) {
-        if (!visited[nid]) {
-            computeNodeGlobalRecursive(nid, model_nodes, local_mats, global_mats, visited);
+    for (usize nid : model.getEvaluationOrder()) {
+        const auto& node = model_nodes[nid];
+        if (node.parent >= 0) {
+            out_node_globals[nid] = out_node_globals[as<usize>(node.parent)] * tls_local_mats[nid];
+        } else {
+            out_node_globals[nid] = tls_local_mats[nid];
         }
     }
-
-    out_node_globals = global_mats;
 }
 }  // namespace
 
@@ -241,11 +231,11 @@ void AnimationClip::loadFromGLTF(const GLTF& gltf, usize animation_index) {
     }
 }
 
-void AnimationClip::evaluate(const Model& model, f32 time, std::vector<mat4f>& out_node_globals) const {
-    evaluateImpl(*this, model, time, out_node_globals, true);
+void AnimationClip::evaluate(const Model& model, const AnimationBinding& binding, f32 time, std::vector<mat4f>& out_node_globals) const {
+    evaluateImpl(*this, model, binding, time, out_node_globals, true);
 }
 
-void AnimationClip::evaluateNoInterpolation(const Model& model, f32 time, std::vector<mat4f>& out_node_globals) const {
-    evaluateImpl(*this, model, time, out_node_globals, false);
+void AnimationClip::evaluateNoInterpolation(const Model& model, const AnimationBinding& binding, f32 time, std::vector<mat4f>& out_node_globals) const {
+    evaluateImpl(*this, model, binding, time, out_node_globals, false);
 }
 }  // namespace mle

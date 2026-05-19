@@ -3,6 +3,7 @@
 #include <unordered_set>
 
 #include "mle/core/Assert.h"
+#include "mle/renderer/Model.h"
 
 namespace mle {
 entt::id_type AnimationCache::makeAnimationId(std::string_view source_name, std::string_view animation_name) {
@@ -95,6 +96,25 @@ bool AnimationCache::contains(entt::id_type id) const {
 
 void AnimationCache::shutdown() {
     animations_.clear();
+    bindings_.clear();
+}
+
+const AnimationBinding& AnimationCache::getBinding(ModelRef model, AnimationClipRef clip) {
+    const BindingKey key{model, clip};
+    if (auto it = bindings_.find(key); it != bindings_.end()) {
+        return it->second;
+    }
+
+    AnimationBinding binding;
+    const auto& anim_nodes = clip->getNodes();
+    binding.channel_to_node_map.reserve(anim_nodes.size());
+
+    for (const auto& node_anim : anim_nodes) {
+        binding.channel_to_node_map.push_back(model->getNodeIdxByName(node_anim.target_name));
+    }
+
+    auto [it, inserted] = bindings_.emplace(key, std::move(binding));
+    return it->second;
 }
 
 void AnimationCache::validateAnimationNames(std::string_view source_name, const GLTF& gltf) {

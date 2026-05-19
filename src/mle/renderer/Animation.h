@@ -10,6 +10,7 @@
 namespace mle {
 class AnimationCache;
 class Model;
+struct AnimationBinding;
 
 class AnimationClip {
   public:
@@ -37,8 +38,8 @@ class AnimationClip {
     [[nodiscard]] f32 getDuration() const { return duration_; }
     [[nodiscard]] const std::vector<NodeAnim>& getNodes() const { return nodes_; }
 
-    void evaluate(const Model& model, f32 time, std::vector<mat4f>& out_node_globals) const;
-    void evaluateNoInterpolation(const Model& model, f32 time, std::vector<mat4f>& out_node_globals) const;
+    void evaluate(const Model& model, const AnimationBinding& binding, f32 time, std::vector<mat4f>& out_node_globals) const;
+    void evaluateNoInterpolation(const Model& model, const AnimationBinding& binding, f32 time, std::vector<mat4f>& out_node_globals) const;
 
   private:
     friend class AnimationCache;
