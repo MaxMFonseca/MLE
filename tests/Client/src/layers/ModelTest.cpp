@@ -747,13 +747,12 @@ void ModelTestLayer::refreshAssets() {
             continue;
         }
 
-        const entt::id_type source_id = makeAssetId(animation_file);
-        auto refs = renderer.animationCache().addAnimations(source_id, animation_gltf);
+        auto refs = renderer.animationCache().addAnimations(animation_file, animation_gltf);
         for (AnimationClipRef ref : refs) {
             const std::string label = makeAnimationDisplayName(animation_file, ref);
             animation_options_.push_back(AnimationOption{
                 .label = label,
-                .id = AnimationCache::makeAnimationId(source_id, ref->getName()),
+                .id = AnimationCache::makeAnimationId(animation_file, ref->getName()),
             });
             animation_names_.push_back(label);
         }
