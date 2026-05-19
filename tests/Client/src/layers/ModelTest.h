@@ -53,8 +53,10 @@ class ModelTestLayer : public mle::client::Layer {
     [[nodiscard]] sol::table refreshAssetsForLua();
     [[nodiscard]] sol::table makeModelNamesTable() const;
     [[nodiscard]] sol::table makeAnimationNamesTable() const;
+    [[nodiscard]] sol::table makeHeldItemNamesTable() const;
     [[nodiscard]] sol::table makeShaderModeNamesTable() const;
     bool setModel(const std::string& name);
+    bool setHeldItem(const std::string& name);
     void setShaderMode(const std::string& name);
     void setCameraYaw01(f32 value);
     void setCameraPitch01(f32 value);
@@ -65,19 +67,24 @@ class ModelTestLayer : public mle::client::Layer {
     void setAmbient01(f32 value);
     void setOutlineWidth01(f32 value);
     void setWireframeWidth01(f32 value);
+    void setHeldItemScale01(f32 value);
     void setAnimation(const std::string& name);
     void clearAnimation();
 
     ModelRef model_ = nullptr;
+    ModelRef held_item_model_ = nullptr;
     AnimationClipRef current_animation_ = nullptr;
     std::vector<entt::id_type> model_ids_;
     std::vector<ModelOption> model_options_;
+    std::vector<ModelOption> held_item_options_;
     std::vector<AnimationOption> animation_options_;
     std::vector<std::string> animation_names_;
     std::vector<std::string> model_files_;
     std::vector<std::string> animation_files_;
     std::string current_model_name_;
+    std::string current_held_item_name_;
     std::string current_animation_name_;
+    std::string held_item_attachment_warning_key_;
     std::unordered_map<int, SkinBinding> skin_bindings_;
     std::vector<mat4f> node_globals_;
     std::unordered_map<int, std::vector<mat4f>> skin_mats_;
@@ -91,6 +98,7 @@ class ModelTestLayer : public mle::client::Layer {
     f32 ambient_ = 0.08F;
     f32 outline_width_px_ = 2.5F;
     f32 wireframe_width_ = 1.5F;
+    f32 held_item_scale_ = 1.0F;
     ModelTestShaderMode shader_mode_ = ModelTestShaderMode::PBR;
 
     UI ui_;

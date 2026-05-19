@@ -297,6 +297,73 @@ bool animationTargetsModel(AnimationClipRef animation, ModelRef model) {
                                [&model](const auto& node_anim) { return model->getNodeIdxByName(node_anim.target_name) != max<usize>(); });
 }
 
+bool nodeSubtreeHasSkinnedMeshes(const tinygltf::Model& model, usize node_index) {
+    if (node_index >= model.nodes.size()) {
+        return false;
+    }
+
+    const auto& node = model.nodes[node_index];
+    if (node.skin >= 0) {
+        return true;
+    }
+
+    if (node.mesh >= 0) {
+        MLE_ASSERT_LOG(node.mesh < as<int>(model.meshes.size()), "Invalid mesh index in node");
+        const auto& mesh = model.meshes[as<usize>(node.mesh)];
+        for (const auto& primitive : mesh.primitives) {
+            if (primitive.attributes.contains("JOINTS_0") || primitive.attributes.contains("WEIGHTS_0")) {
+                return true;
+            }
+        }
+    }
+
+    for (int child : node.children) {
+        if (child >= 0 && child < as<int>(model.nodes.size()) && nodeSubtreeHasSkinnedMeshes(model, as<usize>(child))) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool nodeSubtreeHasMeshes(const tinygltf::Model& model, usize node_index) {
+    if (node_index >= model.nodes.size()) {
+        return false;
+    }
+
+    const auto& node = model.nodes[node_index];
+    if (node.mesh >= 0) {
+        return true;
+    }
+
+    for (int child : node.children) {
+        if (child >= 0 && child < as<int>(model.nodes.size()) && nodeSubtreeHasMeshes(model, as<usize>(child))) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+std::vector<ModelTestLayer::ModelOption> discoverHeldItemOptions(const std::vector<ModelTestLayer::ModelOption>& model_options) {
+    std::vector<ModelTestLayer::ModelOption> options;
+
+    for (const auto& model_option : model_options) {
+        GLTF gltf;
+        const Path model_path = Path{ResPath::RES} / ResPath::MODELS / model_option.file;
+        if (gltf.load(model_path) != Result::OK) {
+            MLE_W("ModelTestLayer failed to inspect held item '{}'", model_path.generic_string());
+            continue;
+        }
+
+        if (nodeSubtreeHasMeshes(gltf.model(), model_option.root_node) && !nodeSubtreeHasSkinnedMeshes(gltf.model(), model_option.root_node)) {
+            options.push_back(model_option);
+        }
+    }
+
+    return options;
+}
+
 MaterialUniform makeMaterialUniform(const Mesh::PbrMaterial& material) {
     return MaterialUniform{
         .base_color_factor = material.base_color_factor,
@@ -312,6 +379,18 @@ vec3f makeSunDirection(f32 yaw, f32 pitch) {
         -std::sin(pitch),
         std::cos(yaw) * pitch_cos,
     });
+}
+
+mat4f removeMatrixScale(const mat4f& transform) {
+    mat4f out = transform;
+    for (usize col = 0; col < 3; ++col) {
+        const vec3f axis{out[col]};
+        const f32 len = glm::length(axis);
+        if (len > 1.0e-6F) {
+            out[col] = vec4f{axis / len, 0.0F};
+        }
+    }
+    return out;
 }
 }  // namespace
 
@@ -337,11 +416,14 @@ void ModelTestLayer::init() {
     Client::i().getGameLayerTable()["model_test_set_ambient"] = [this](f32 value) { setAmbient01(value); };
     Client::i().getGameLayerTable()["model_test_set_outline_width"] = [this](f32 value) { setOutlineWidth01(value); };
     Client::i().getGameLayerTable()["model_test_set_wireframe_width"] = [this](f32 value) { setWireframeWidth01(value); };
+    Client::i().getGameLayerTable()["model_test_set_held_item_scale"] = [this](f32 value) { setHeldItemScale01(value); };
     Client::i().getGameLayerTable()["model_test_set_shader_mode"] = [this](const std::string& name) { setShaderMode(name); };
     Client::i().getGameLayerTable()["model_test_set_model"] = [this](const std::string& name) { setModel(name); };
+    Client::i().getGameLayerTable()["model_test_set_held_item"] = [this](const std::string& name) { setHeldItem(name); };
     Client::i().getGameLayerTable()["model_test_set_animation"] = [this](const std::string& name) { setAnimation(name); };
     Client::i().getGameLayerTable()["model_test_clear_animation"] = [this]() { clearAnimation(); };
     Client::i().getGameLayerTable()["model_test_refresh_assets"] = [this]() { return refreshAssetsForLua(); };
+    Client::i().getGameLayerTable()["model_test_held_item_names"] = [this]() { return makeHeldItemNamesTable(); };
     Client::i().getGameLayerTable()["model_test_model_names"] = makeModelNamesTable();
     Client::i().getGameLayerTable()["model_test_animation_names"] = makeAnimationNamesTable();
     Client::i().getGameLayerTable()["model_test_shader_mode_names"] = makeShaderModeNamesTable();
@@ -474,7 +556,7 @@ void ModelTestLayer::renderModel(ImageRef target) {
         mat4f view_proj;
     } pc{};
 
-    pc.model = makeModelMatrix(meshes);
+    const mat4f preview_model = makeModelMatrix(meshes);
     pc.view_proj = makeViewProj(target->getExtent(), camera_yaw_, camera_pitch_, camera_distance_);
 
     LightingUniform lighting_uniform{};
@@ -484,85 +566,120 @@ void ModelTestLayer::renderModel(ImageRef target) {
     lighting_slice.buffer->write(&lighting_uniform, lighting_slice.size, lighting_slice.offset);
     vk::DescriptorBufferInfo lighting_di = lighting_slice.buffer->makeDescriptorInfo(thread.cmd(), lighting_slice.size, lighting_slice.offset);
 
-    for (const auto& node_mesh : meshes) {
-        const Mesh& mesh = node_mesh.mesh;
-        if (mesh.getIndexCount() == 0) {
-            continue;
-        }
-        const auto skin_mats_di_it = skin_mats_dis.find(node_mesh.skin_index);
-        if (mesh.isSkinned() && skin_mats_di_it == skin_mats_dis.end()) {
-            continue;
-        }
-        const vk::DescriptorBufferInfo* skin_mats_di = mesh.isSkinned() ? &skin_mats_di_it->second : nullptr;
-
-        const Pipeline* pipeline = getModelTestPipeline(mesh.getVertexKind(), shader_mode_);
-        thread.setPipeline(pipeline);
-        if (shader_mode_ == ModelTestShaderMode::WIREFRAME) {
-            thread.setLineWidth(wireframe_width_);
-        }
-
-        const auto material_uniform = makeMaterialUniform(mesh.getMaterial());
-        BufferSlice material_slice = frame_renderer.getHostVisibleBuffer(sizeof(MaterialUniform), vk::BufferUsageFlagBits::eUniformBuffer);
-        material_slice.buffer->write(&material_uniform, material_slice.size, material_slice.offset);
-        vk::DescriptorBufferInfo material_di = material_slice.buffer->makeDescriptorInfo(thread.cmd(), material_slice.size, material_slice.offset);
-
-        const auto& material = mesh.getMaterial();
-        if (mesh.isTextured()) {
-            vk::DescriptorImageInfo base_color_di = material.base_color_texture->getDescriptorInfo();
-            vk::DescriptorImageInfo metallic_roughness_di = material.metallic_roughness_texture->getDescriptorInfo();
-            vk::DescriptorImageInfo normal_di = material.normal_texture->getDescriptorInfo();
-            vk::DescriptorImageInfo occlusion_di = material.occlusion_texture->getDescriptorInfo();
-            vk::DescriptorImageInfo emissive_di = material.emissive_texture->getDescriptorInfo();
-
-            switch (shader_mode_) {
-                case ModelTestShaderMode::PBR:
-                case ModelTestShaderMode::CARTOON:
-                    if (mesh.isSkinned()) {
-                        auto push_writes = pipeline->makeWrites(0, nullptr, &material_di, &lighting_di, &base_color_di, &metallic_roughness_di, &normal_di,
-                                                                &occlusion_di, &emissive_di, skin_mats_di);
-                        thread.pushDescriptor(0, push_writes);
-                    } else {
-                        auto push_writes = pipeline->makeWrites(0, nullptr, &material_di, &lighting_di, &base_color_di, &metallic_roughness_di, &normal_di,
-                                                                &occlusion_di, &emissive_di);
-                        thread.pushDescriptor(0, push_writes);
-                    }
-                    break;
-                case ModelTestShaderMode::WIREFRAME:
-                case ModelTestShaderMode::NORMALS:
-                case ModelTestShaderMode::ALBEDO:
-                    if (mesh.isSkinned()) {
-                        auto push_writes = pipeline->makeWrites(0, nullptr, &material_di, &base_color_di, skin_mats_di);
-                        thread.pushDescriptor(0, push_writes);
-                    } else {
-                        auto push_writes = pipeline->makeWrites(0, nullptr, &material_di, &base_color_di);
-                        thread.pushDescriptor(0, push_writes);
-                    }
-                    break;
-                case ModelTestShaderMode::COUNT:
-                    MLE_UNREACHABLE;
+    auto draw_model_meshes = [&](const std::vector<Model::NodeMesh>& draw_meshes, const mat4f& model_matrix, bool allow_skinned,
+                                 const std::vector<mat4f>* draw_node_globals) {
+        for (const auto& node_mesh : draw_meshes) {
+            const Mesh& mesh = node_mesh.mesh;
+            if (mesh.getIndexCount() == 0 || (mesh.isSkinned() && !allow_skinned)) {
+                continue;
             }
-        } else if (mesh.isSkinned()) {
-            if (shader_mode_ == ModelTestShaderMode::PBR || shader_mode_ == ModelTestShaderMode::CARTOON) {
-                auto push_writes = pipeline->makeWrites(0, nullptr, &material_di, &lighting_di, skin_mats_di);
-                thread.pushDescriptor(0, push_writes);
+
+            pc.model = model_matrix;
+            if (!mesh.isSkinned() && draw_node_globals != nullptr && node_mesh.node_index < draw_node_globals->size()) {
+                pc.model *= draw_node_globals->at(node_mesh.node_index);
+            }
+
+            const auto skin_mats_di_it = skin_mats_dis.find(node_mesh.skin_index);
+            if (mesh.isSkinned() && skin_mats_di_it == skin_mats_dis.end()) {
+                continue;
+            }
+            const vk::DescriptorBufferInfo* skin_mats_di = mesh.isSkinned() ? &skin_mats_di_it->second : nullptr;
+
+            const Pipeline* pipeline = getModelTestPipeline(mesh.getVertexKind(), shader_mode_);
+            thread.setPipeline(pipeline);
+            if (shader_mode_ == ModelTestShaderMode::WIREFRAME) {
+                thread.setLineWidth(wireframe_width_);
+            }
+
+            const auto material_uniform = makeMaterialUniform(mesh.getMaterial());
+            BufferSlice material_slice = frame_renderer.getHostVisibleBuffer(sizeof(MaterialUniform), vk::BufferUsageFlagBits::eUniformBuffer);
+            material_slice.buffer->write(&material_uniform, material_slice.size, material_slice.offset);
+            vk::DescriptorBufferInfo material_di = material_slice.buffer->makeDescriptorInfo(thread.cmd(), material_slice.size, material_slice.offset);
+
+            const auto& material = mesh.getMaterial();
+            if (mesh.isTextured()) {
+                vk::DescriptorImageInfo base_color_di = material.base_color_texture->getDescriptorInfo();
+                vk::DescriptorImageInfo metallic_roughness_di = material.metallic_roughness_texture->getDescriptorInfo();
+                vk::DescriptorImageInfo normal_di = material.normal_texture->getDescriptorInfo();
+                vk::DescriptorImageInfo occlusion_di = material.occlusion_texture->getDescriptorInfo();
+                vk::DescriptorImageInfo emissive_di = material.emissive_texture->getDescriptorInfo();
+
+                switch (shader_mode_) {
+                    case ModelTestShaderMode::PBR:
+                    case ModelTestShaderMode::CARTOON:
+                        if (mesh.isSkinned()) {
+                            auto push_writes = pipeline->makeWrites(0, nullptr, &material_di, &lighting_di, &base_color_di, &metallic_roughness_di,
+                                                                    &normal_di, &occlusion_di, &emissive_di, skin_mats_di);
+                            thread.pushDescriptor(0, push_writes);
+                        } else {
+                            auto push_writes = pipeline->makeWrites(0, nullptr, &material_di, &lighting_di, &base_color_di, &metallic_roughness_di,
+                                                                    &normal_di, &occlusion_di, &emissive_di);
+                            thread.pushDescriptor(0, push_writes);
+                        }
+                        break;
+                    case ModelTestShaderMode::WIREFRAME:
+                    case ModelTestShaderMode::NORMALS:
+                    case ModelTestShaderMode::ALBEDO:
+                        if (mesh.isSkinned()) {
+                            auto push_writes = pipeline->makeWrites(0, nullptr, &material_di, &base_color_di, skin_mats_di);
+                            thread.pushDescriptor(0, push_writes);
+                        } else {
+                            auto push_writes = pipeline->makeWrites(0, nullptr, &material_di, &base_color_di);
+                            thread.pushDescriptor(0, push_writes);
+                        }
+                        break;
+                    case ModelTestShaderMode::COUNT:
+                        MLE_UNREACHABLE;
+                }
+            } else if (mesh.isSkinned()) {
+                if (shader_mode_ == ModelTestShaderMode::PBR || shader_mode_ == ModelTestShaderMode::CARTOON) {
+                    auto push_writes = pipeline->makeWrites(0, nullptr, &material_di, &lighting_di, skin_mats_di);
+                    thread.pushDescriptor(0, push_writes);
+                } else {
+                    auto push_writes = pipeline->makeWrites(0, nullptr, &material_di, skin_mats_di);
+                    thread.pushDescriptor(0, push_writes);
+                }
             } else {
-                auto push_writes = pipeline->makeWrites(0, nullptr, &material_di, skin_mats_di);
-                thread.pushDescriptor(0, push_writes);
+                if (shader_mode_ == ModelTestShaderMode::PBR || shader_mode_ == ModelTestShaderMode::CARTOON) {
+                    auto push_writes = pipeline->makeWrites(0, nullptr, &material_di, &lighting_di);
+                    thread.pushDescriptor(0, push_writes);
+                } else {
+                    auto push_writes = pipeline->makeWrites(0, nullptr, &material_di);
+                    thread.pushDescriptor(0, push_writes);
+                }
             }
+
+            thread.pushConstants(&pc);
+            thread.bindVertexBuffer(mesh.getVertexBuffer());
+            thread.bindIndexBuffer(mesh.getIndexBuffer());
+            thread.drawIndexed(as<u32>(mesh.getIndexCount()), 1);
+        }
+    };
+
+    draw_model_meshes(meshes, preview_model, true, &node_globals_);
+
+    if (held_item_model_ != nullptr && !held_item_model_->getMeshes().empty()) {
+        usize attachment_node = model_->getNodeIdxByName("mixamorig:RightHand");
+        if (attachment_node == max<usize>()) {
+            attachment_node = model_->getNodeIdxByName("RightHand");
+        }
+
+        if (attachment_node != max<usize>() && attachment_node < node_globals_.size()) {
+            std::vector<mat4f> held_item_node_globals;
+            held_item_model_->evaluateBase(held_item_node_globals);
+
+            const mat4f attachment_model = removeMatrixScale(node_globals_[attachment_node]);
+            const mat4f held_item_scale = glm::scale(mat4f{1.0F}, vec3f{held_item_scale_});
+            const mat4f held_item_model = preview_model * attachment_model * held_item_scale;
+            draw_model_meshes(held_item_model_->getMeshes(), held_item_model, false, &held_item_node_globals);
         } else {
-            if (shader_mode_ == ModelTestShaderMode::PBR || shader_mode_ == ModelTestShaderMode::CARTOON) {
-                auto push_writes = pipeline->makeWrites(0, nullptr, &material_di, &lighting_di);
-                thread.pushDescriptor(0, push_writes);
-            } else {
-                auto push_writes = pipeline->makeWrites(0, nullptr, &material_di);
-                thread.pushDescriptor(0, push_writes);
+            const std::string warning_key = current_model_name_ + "|" + current_held_item_name_;
+            if (held_item_attachment_warning_key_ != warning_key) {
+                MLE_W("ModelTestLayer model '{}' has no mixamorig:RightHand or RightHand node for held item '{}'", current_model_name_,
+                      current_held_item_name_);
+                held_item_attachment_warning_key_ = warning_key;
             }
         }
-
-        thread.pushConstants(&pc);
-        thread.bindVertexBuffer(mesh.getVertexBuffer());
-        thread.bindIndexBuffer(mesh.getIndexBuffer());
-        thread.drawIndexed(as<u32>(mesh.getIndexCount()), 1);
     }
 
     if (shader_mode_ == ModelTestShaderMode::CARTOON) {
@@ -610,6 +727,7 @@ void ModelTestLayer::refreshAssets() {
     model_files_ = discoverAssets(ResPath::MODELS);
     animation_files_ = discoverAssets(ResPath::ANIMATIONS);
     model_options_ = discoverModelOptions(model_files_);
+    held_item_options_ = discoverHeldItemOptions(model_options_);
 
     model_ids_.clear();
     model_ids_.reserve(model_options_.size());
@@ -662,6 +780,15 @@ void ModelTestLayer::refreshAssets() {
     } else {
         setAnimation(current_animation_name_);
     }
+
+    if (current_held_item_name_.empty() || current_held_item_name_ == current_model_name_ ||
+        std::ranges::find(held_item_options_, current_held_item_name_, &ModelOption::key) == held_item_options_.end()) {
+        held_item_model_ = nullptr;
+        current_held_item_name_.clear();
+        held_item_attachment_warning_key_.clear();
+    } else {
+        setHeldItem(current_held_item_name_);
+    }
 }
 
 sol::table ModelTestLayer::refreshAssetsForLua() {
@@ -670,6 +797,7 @@ sol::table ModelTestLayer::refreshAssetsForLua() {
     auto ret = Client::i().lua().createTable();
     ret["models"] = makeModelNamesTable();
     ret["animations"] = makeAnimationNamesTable();
+    ret["held_items"] = makeHeldItemNamesTable();
     return ret;
 }
 
@@ -685,6 +813,22 @@ sol::table ModelTestLayer::makeAnimationNamesTable() const {
     auto table = Client::i().lua().createTable();
     for (usize i = 0; i < animation_names_.size(); ++i) {
         table[i + 1] = animation_names_[i];
+    }
+    return table;
+}
+
+sol::table ModelTestLayer::makeHeldItemNamesTable() const {
+    auto table = Client::i().lua().createTable();
+    table[1] = std::string{"None"};
+
+    usize out_idx = 2;
+    for (const auto& option : held_item_options_) {
+        if (option.key == current_model_name_) {
+            continue;
+        }
+
+        table[out_idx] = option.key;
+        ++out_idx;
     }
     return table;
 }
@@ -745,6 +889,60 @@ bool ModelTestLayer::setModel(const std::string& name) {
         MLE_W("ModelTestLayer animation '{}' has no channels matching model '{}'; base pose will be used", current_animation_name_, current_model_name_);
     }
 
+    if (current_held_item_name_ == current_model_name_) {
+        held_item_model_ = nullptr;
+        current_held_item_name_.clear();
+    }
+    held_item_attachment_warning_key_.clear();
+
+    return true;
+}
+
+bool ModelTestLayer::setHeldItem(const std::string& name) {
+    if (name.empty() || name == "None") {
+        held_item_model_ = nullptr;
+        current_held_item_name_.clear();
+        held_item_attachment_warning_key_.clear();
+        return true;
+    }
+
+    auto item_it = std::ranges::find(held_item_options_, name, &ModelOption::key);
+    if (item_it == held_item_options_.end()) {
+        MLE_W("ModelTestLayer held item '{}' was not found", name);
+        return false;
+    }
+    if (item_it->key == current_model_name_) {
+        MLE_W("ModelTestLayer cannot use current model '{}' as its own held item", name);
+        return false;
+    }
+
+    GLTF model_gltf;
+    const Path model_path = Path{ResPath::RES} / ResPath::MODELS / item_it->file;
+    if (model_gltf.load(model_path) != Result::OK) {
+        MLE_W("ModelTestLayer failed to load held item GLTF '{}'", model_path.generic_string());
+        return false;
+    }
+
+    const entt::id_type model_id = makeAssetId(item_it->key);
+    auto& model_cache = Renderer::i().modelCache();
+    ModelRef held_item_model = model_cache.get(model_id);
+    if (held_item_model == nullptr) {
+        held_item_model = model_cache.add(model_id, model_gltf, item_it->root_node);
+    }
+    if (held_item_model == nullptr) {
+        return false;
+    }
+
+    for (const auto& node_mesh : held_item_model->getMeshes()) {
+        if (node_mesh.mesh.isSkinned()) {
+            MLE_W("ModelTestLayer held item '{}' contains skinned meshes and will not be used", name);
+            return false;
+        }
+    }
+
+    held_item_model_ = held_item_model;
+    current_held_item_name_ = name;
+    held_item_attachment_warning_key_.clear();
     return true;
 }
 
@@ -817,6 +1015,13 @@ void ModelTestLayer::setWireframeWidth01(f32 value) {
     constexpr f32 MAX_WIDTH = 8.0F;
     const f32 clamped = std::clamp(value, 0.0F, 1.0F);
     wireframe_width_ = MIN_WIDTH + ((MAX_WIDTH - MIN_WIDTH) * clamped);
+}
+
+void ModelTestLayer::setHeldItemScale01(f32 value) {
+    constexpr f32 MIN_SCALE = 0.05F;
+    constexpr f32 MAX_SCALE = 3.0F;
+    const f32 clamped = std::clamp(value, 0.0F, 1.0F);
+    held_item_scale_ = MIN_SCALE + ((MAX_SCALE - MIN_SCALE) * clamped);
 }
 
 void ModelTestLayer::setAnimation(const std::string& name) {

@@ -112,7 +112,7 @@ local function make_asset_selector(empty_label, options, callback)
 				self_table.current_index = (self_table.current_index + direction) % #self_table.options
 				local selected = self_table.options[self_table.current_index + 1]
 				ew:getChild("name"):apply("text", selected)
-				callback(selected)
+				callback(selected, ew)
 			end,
 			setOptions = function(ew, new_options)
 				local self_table = ew:get("table")
@@ -126,7 +126,7 @@ local function make_asset_selector(empty_label, options, callback)
 				end
 
 				ew:getChild("name"):apply("text", selected)
-				callback(selected)
+				callback(selected, ew)
 			end,
 		},
 		table = {
@@ -198,10 +198,10 @@ local function make_shader_options_dock()
 	local shader_options = dock()
 	shader_options.name = "shader_options"
 	shader_options.size_x = "1f"
-	shader_options.size_y = "0px"
+	shader_options.size_y = "1px"
 	shader_options.on_create = function(ew)
 		ew:call("setPanel", "PBR")
-		ew:apply("size_y", "0px")
+		ew:apply("size_y", "1px")
 	end
 	shader_options.c = {
 		PBR = {
@@ -255,6 +255,7 @@ end
 
 local models = G.model_test_model_names or {}
 local animations = G.model_test_animation_names or {}
+local held_items = G.model_test_held_item_names and G.model_test_held_item_names() or { "None" }
 local shader_modes = G.model_test_shader_mode_names or { "PBR", "Cartoon", "Wireframe", "Normals", "Albedo" }
 
 return {
@@ -335,12 +336,28 @@ return {
 				make_section("Assets", {
 					make_label("Model", Colors.slate200, "15px"),
 					(function()
-						local selector = make_asset_selector("No GLB models", models, function(selected)
+						local selector = make_asset_selector("No GLB models", models, function(selected, ew)
 							G.model_test_set_model(selected)
+							local assets = ew:parent()
+							local held_item_selector = assets:getChild("held_item_selector")
+							if held_item_selector ~= nil then
+								held_item_selector:call("setOptions", G.model_test_held_item_names())
+							end
 						end)
 						selector.name = "model_selector"
 						return selector
 					end)(),
+					make_label("Held Item", Colors.slate200, "15px"),
+					(function()
+						local selector = make_asset_selector("No held items", held_items, function(selected)
+							G.model_test_set_held_item(selected)
+						end)
+						selector.name = "held_item_selector"
+						return selector
+					end)(),
+					make_slider("Held scale", 0.322, function(value)
+						G.model_test_set_held_item_scale(value)
+					end),
 					make_label("Animation", Colors.slate200, "15px"),
 					(function()
 						local selector = make_asset_selector("No GLB animations", animations, function(selected)
@@ -358,6 +375,7 @@ return {
 						local assets = ew:parent()
 						assets:getChild("model_selector"):call("setOptions", refreshed.models or {})
 						assets:getChild("animation_selector"):call("setOptions", refreshed.animations or {})
+						assets:getChild("held_item_selector"):call("setOptions", refreshed.held_items or { "None" })
 					end),
 				}),
 			},
