@@ -1,5 +1,5 @@
 local range_slider = require("mle.ui.comp.range_slider")
-local dock = require("mle.ui.comp.dock")
+local multipanel = require("mle.ui.comp.multipanel")
 
 local function panel_button(text, callback)
 	return {
@@ -195,7 +195,7 @@ local function make_asset_selector(empty_label, options, callback)
 end
 
 local function make_shader_options_dock()
-	local shader_options = dock()
+	local shader_options = multipanel()
 	shader_options.name = "shader_options"
 	shader_options.size_x = "1f"
 	shader_options.size_y = "1px"
