@@ -21,6 +21,8 @@ struct SpritePacket : public RenderablePacketI {
     bool source_changed = false;
     bool flip_x = false;
     bool flip_y = false;
+    vec2f uv = {0.0F, 0.0F};
+    vec2f uv_size = {1.0F, 1.0F};
 
     void render(CompRenderingCtx& ctx) override;
 };
@@ -32,6 +34,8 @@ struct Sprite : public RenderableI {
     Color color = Color::ONE;
     bool flip_x = false;
     bool flip_y = false;
+    vec2f uv = {0.0F, 0.0F};
+    vec2f uv_size = {1.0F, 1.0F};
 
     bool fit = false;
 
@@ -42,6 +46,8 @@ struct Sprite : public RenderableI {
     void setFit(const sol::object& obj);
     void setFlipX(const sol::object& obj);
     void setFlipY(const sol::object& obj);
+    void setUv(const Entt& ew, const sol::object& obj);
+    void setUvSize(const Entt& ew, const sol::object& obj);
 
     void set(const Entt& e, const sol::object& obj) override;
     [[nodiscard]] vec2u calculateBounds(const Entt& e, [[maybe_unused]] vec2u max_size) override;

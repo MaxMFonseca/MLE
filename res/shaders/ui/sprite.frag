@@ -1,7 +1,7 @@
 #version 450
 
 layout(push_constant) uniform PC {
-  layout(offset = 16)
+  layout(offset = 32)
   vec4 color; // rgba
   ivec4 rounding_corners_radius_px; // lt, rt, lb, rb
   ivec2 viewport_size; // w, h

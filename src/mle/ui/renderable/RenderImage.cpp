@@ -99,6 +99,8 @@ void RenderImagePacket::render(CompRenderingCtx& ctx) {
     struct {
         alignas(4) bool flip_x;
         alignas(4) bool flip_y;
+        vec2f uv;
+        vec2f uv_size;
         vec2f padding0;
         vec4f color;
         vec4i rounding_corners_radius_px;
@@ -107,6 +109,8 @@ void RenderImagePacket::render(CompRenderingCtx& ctx) {
 
     pc.flip_x = flip_x;
     pc.flip_y = flip_y;
+    pc.uv = vec2f{0.0F, 0.0F};
+    pc.uv_size = vec2f{1.0F, 1.0F};
     pc.color = color;
     pc.viewport_size = vec2i(ctx.thread.getViewport().size());
     pc.rounding_corners_radius_px = ctx.rounding_corners_radius_px;

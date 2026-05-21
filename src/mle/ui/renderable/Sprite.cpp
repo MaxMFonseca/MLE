@@ -85,6 +85,24 @@ void Sprite::setFit(const sol::object& obj) {
     }
 };
 
+void Sprite::setUv(const Entt& ew, const sol::object& obj) {
+    if (lua::tryAs<vec2f>(obj, uv)) {
+        versionUp();
+        ew.requestInternalBoundsUpdate();
+    } else {
+        MLE_W("Unsupported object type provided to Sprite::setUv");
+    }
+};
+
+void Sprite::setUvSize(const Entt& ew, const sol::object& obj) {
+    if (lua::tryAs<vec2f>(obj, uv_size)) {
+        versionUp();
+        ew.requestInternalBoundsUpdate();
+    } else {
+        MLE_W("Unsupported object type provided to Sprite::setUvSize");
+    }
+};
+
 void Sprite::set(const Entt& ew, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
 
@@ -114,6 +132,12 @@ void Sprite::set(const Entt& ew, const sol::object& obj) {
         }
         if (const auto flip_y_r = table["flip_y"]; flip_y_r.valid()) {
             setFlipY(flip_y_r);
+        }
+        if (const auto uv_r = table["uv"]; uv_r.valid()) {
+            setUv(ew, uv_r);
+        }
+        if (const auto uv_size_r = table["uv_size"]; uv_size_r.valid()) {
+            setUvSize(ew, uv_size_r);
         }
         return;
     }
@@ -184,6 +208,8 @@ void SpritePacket::render(CompRenderingCtx& ctx) {
     struct {
         alignas(4) bool flip_x;
         alignas(4) bool flip_y;
+        vec2f uv;
+        vec2f uv_size;
         vec2f padding0;
         vec4f color;
         vec4i rounding_corners_radius_px;
@@ -192,6 +218,8 @@ void SpritePacket::render(CompRenderingCtx& ctx) {
 
     pc.flip_x = flip_x;
     pc.flip_y = flip_y;
+    pc.uv = uv;
+    pc.uv_size = uv_size;
     pc.color = color;
     pc.viewport_size = vec2i(ctx.thread.getViewport().size());
     pc.rounding_corners_radius_px = ctx.rounding_corners_radius_px;
@@ -215,7 +243,7 @@ void SpritePacket::render(CompRenderingCtx& ctx) {
         auto image_extent_r = cache.getExtent(texture_id);
         image_extent = image_extent_r.has_value() ? image_extent_r.value() : cache.getExtent(0).value();
     }
-    vec2f image_extent_f = image_extent;
+    vec2f image_extent_f = vec2f(image_extent) * glm::abs(uv_size);
 
     f32 image_ar = image_extent_f.x / image_extent_f.y;
     f32 max_size_ar = as<f32>(max_size.x) / as<f32>(max_size.y);
@@ -240,6 +268,8 @@ void Sprite::doUpdatePacket(const Entt& /*ew*/, RenderablePacketI* packet) {
     packet_p->color = color;
     packet_p->flip_x = flip_x;
     packet_p->flip_y = flip_y;
+    packet_p->uv = uv;
+    packet_p->uv_size = uv_size;
 };
 
 }  // namespace mle::ui::renderable
