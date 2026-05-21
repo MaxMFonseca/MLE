@@ -8,6 +8,40 @@
 #include "sol/forward.hpp"
 
 namespace mle::ui::renderable {
+namespace {
+[[nodiscard]] Expected<vec2u> spriteSourceExtent(const Sprite& sprite) {
+    if (sprite.source == SpriteSource::IMAGE) {
+        if (sprite.image != nullptr) {
+            return sprite.image->getExtent();
+        }
+        return Renderer::i().textureCache().getDefaultTexture()->getExtent();
+    }
+
+    return Renderer::i().textureCache().getExtent(sprite.texture_id);
+}
+
+[[nodiscard]] std::optional<vec2f> normalizedFromPixels(const Sprite& sprite, const sol::object& obj) {
+    vec2f px{};
+    if (!lua::tryAs<vec2f>(obj, px)) {
+        return std::nullopt;
+    }
+
+    auto extent_r = spriteSourceExtent(sprite);
+    if (!extent_r.has_value()) {
+        MLE_W("Cannot convert Sprite pixel UVs without a loaded image extent");
+        return std::nullopt;
+    }
+
+    const vec2f extent = vec2f(extent_r.value());
+    if (extent.x == 0.0F || extent.y == 0.0F) {
+        MLE_W("Cannot convert Sprite pixel UVs with zero image extent");
+        return std::nullopt;
+    }
+
+    return px / extent;
+}
+}  // namespace
+
 void Sprite::apply(const Entt& e, const sol::object& obj) {
     if (!obj.valid()) {
         MLE_E("Invalid object provided to Sprite::apply for entt {}", e.e());
@@ -103,6 +137,26 @@ void Sprite::setUvSize(const Entt& ew, const sol::object& obj) {
     }
 };
 
+void Sprite::setUvPx(const Entt& ew, const sol::object& obj) {
+    if (auto normalized = normalizedFromPixels(*this, obj)) {
+        uv = *normalized;
+        versionUp();
+        ew.requestInternalBoundsUpdate();
+    } else {
+        MLE_W("Unsupported object type provided to Sprite::setUvPx");
+    }
+};
+
+void Sprite::setUvSizePx(const Entt& ew, const sol::object& obj) {
+    if (auto normalized = normalizedFromPixels(*this, obj)) {
+        uv_size = *normalized;
+        versionUp();
+        ew.requestInternalBoundsUpdate();
+    } else {
+        MLE_W("Unsupported object type provided to Sprite::setUvSizePx");
+    }
+};
+
 void Sprite::set(const Entt& ew, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
 
@@ -138,6 +192,12 @@ void Sprite::set(const Entt& ew, const sol::object& obj) {
         }
         if (const auto uv_size_r = table["uv_size"]; uv_size_r.valid()) {
             setUvSize(ew, uv_size_r);
+        }
+        if (const auto uv_px_r = table["uv_px"]; uv_px_r.valid()) {
+            setUvPx(ew, uv_px_r);
+        }
+        if (const auto uv_size_px_r = table["uv_size_px"]; uv_size_px_r.valid()) {
+            setUvSizePx(ew, uv_size_px_r);
         }
         return;
     }

@@ -48,6 +48,8 @@ struct Sprite : public RenderableI {
     void setFlipY(const sol::object& obj);
     void setUv(const Entt& ew, const sol::object& obj);
     void setUvSize(const Entt& ew, const sol::object& obj);
+    void setUvPx(const Entt& ew, const sol::object& obj);
+    void setUvSizePx(const Entt& ew, const sol::object& obj);
 
     void set(const Entt& e, const sol::object& obj) override;
     [[nodiscard]] vec2u calculateBounds(const Entt& e, [[maybe_unused]] vec2u max_size) override;
