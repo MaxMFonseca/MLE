@@ -19,8 +19,43 @@ return function(opts)
 	local center_texture = opts.center or opts.center_texture
 	local fill_texture = opts.fill or opts.fill_texture
 	local sparkle_texture = opts.sparkle or opts.sparkle_texture
-	local edge_width = opts.edge_width or "32px"
-	local sparkle_width = opts.sparkle_width or edge_width
+	local track_children = {
+		{
+			name = "center",
+			layer = -2,
+			size = 1,
+			sprite = {
+				texture = center_texture,
+				fit = true,
+			},
+		},
+
+		{
+			name = "fill",
+			layer = -1,
+			size_x = initial_render_value,
+			size_y = 1,
+			sprite = {
+				texture = fill_texture,
+				fit = true,
+				uv_size = { initial_render_value, 1 },
+			},
+		},
+	}
+
+	if sparkle_texture then
+		table.insert(track_children, {
+			name = "sparkle",
+			layer = 1,
+			size_x = "fit",
+			size_y = 1,
+			pos = { value, "c" },
+			origin = "c",
+			sprite = {
+				texture = sparkle_texture,
+			},
+		})
+	end
 
 	return {
 		fn = {
@@ -31,7 +66,6 @@ return function(opts)
 
 				local track = ew:getChild("track")
 				local fill = track:getChild("fill")
-				local sparkle = track:getChild("sparkle")
 				local fill_render_value = render_value(clamped_value)
 
 				fill:apply("size_x", fill_render_value)
@@ -40,7 +74,10 @@ return function(opts)
 					fit = true,
 					uv_size = { fill_render_value, 1 },
 				})
-				sparkle:apply("pos_x", clamped_value)
+
+				if sparkle_texture then
+					track:getChild("sparkle"):apply("pos_x", clamped_value)
+				end
 			end,
 		},
 
@@ -55,6 +92,7 @@ return function(opts)
 		c = {
 			{
 				name = "left_edge",
+				size_x = "fit",
 				size_y = 1,
 				sprite = {
 					texture = left_texture,
@@ -66,46 +104,12 @@ return function(opts)
 				size_x = "1f",
 				size_y = 1,
 				free = {},
-				c = {
-					{
-						name = "center",
-						layer = -2,
-						size = 1,
-						sprite = {
-							texture = center_texture,
-							fit = true,
-						},
-					},
-
-					{
-						name = "fill",
-						layer = -1,
-						size_x = initial_render_value,
-						size_y = 1,
-						sprite = {
-							texture = fill_texture,
-							fit = true,
-							uv_size = { initial_render_value, 1 },
-						},
-					},
-
-					{
-						name = "sparkle",
-						layer = 1,
-						size_x = sparkle_width,
-						size_y = 1,
-						pos = { value, "c" },
-						origin = "c",
-						sprite = {
-							texture = sparkle_texture,
-							fit = true,
-						},
-					},
-				},
+				c = track_children,
 			},
 
 			{
 				name = "right_edge",
+				size_x = "fit",
 				size_y = 1,
 				sprite = {
 					texture = left_texture,

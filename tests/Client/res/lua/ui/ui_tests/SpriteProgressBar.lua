@@ -14,8 +14,6 @@ local function make_progress_bar(name, initial_value)
 			center = progress_texture_dir .. "mid.png",
 			fill = progress_texture_dir .. "fill.png",
 			sparkle = progress_texture_dir .. "sparkle.png",
-			edge_width = "44px",
-			sparkle_width = "64px",
 		}),
 	}
 end
