@@ -652,6 +652,7 @@ struct ListCalculator {
                     int fit_max_size_main = child_max_size_main - lccd.margin.main_a - lccd.margin.main_b - lccd.border.main_a - lccd.border.main_b;
                     if (fit_max_size_main <= 0) {
                         MLE_E("Child {} cannot FIT in the given max main size", centt.fullName());
+                        MLE_VE(fit_max_size_main);
                         lccd.valid = false;
                         continue;
                     }

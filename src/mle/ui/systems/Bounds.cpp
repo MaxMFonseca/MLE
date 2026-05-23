@@ -56,6 +56,9 @@ void Bounds::updateEntity(const Entt& ew) {
     if (!ew.has<comp::RequestInternalBoundsUpdateFlag>()) {
         return;
     }
+    if (ew.isRecursivelyDisabled()) {
+        return;
+    }
 
     auto* size_provider = ew.tryGet<comp::SizeProvider>();
     if (!size_provider) {

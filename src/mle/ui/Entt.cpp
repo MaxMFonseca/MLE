@@ -98,6 +98,18 @@ bool Entt::isRoot() const {
     return e_ == ui_.getRoot();
 };
 
+// NOLINTNEXTLINE(misc-no-recursion) No problem
+[[nodiscard]] bool Entt::isRecursivelyDisabled() const {
+    if (has<comp::DisabledFlag>()) {
+        return true;
+    }
+    auto parent = getRelationship().getParent();
+    if (parent == entt::null) {
+        return false;
+    }
+    return derive(parent).isRecursivelyDisabled();
+}
+
 void Entt::dispatch(const std::string& event_name, const sol::object& obj) const {
     ui_.eventSystem().enqueueEvent(event_name, obj);
 };

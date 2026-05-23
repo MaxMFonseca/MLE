@@ -34,6 +34,8 @@ class Entt {
 
     [[nodiscard]] Entt parentEw() const { return derive(getRelationship().getParent()); }
 
+    [[nodiscard]] bool isRecursivelyDisabled() const;
+
     template <typename... Args>
     void call(const std::string& fn_name, Args&&... args) const {
         if (!has<comp::Functions>()) {

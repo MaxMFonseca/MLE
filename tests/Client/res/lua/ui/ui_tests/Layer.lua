@@ -2,6 +2,7 @@ local function create_multipanel()
 	local panel_names = {
 		"Scrollable",
 		"TextDropdown",
+		"SpriteProgressBar",
 	}
 
 	local ret = require("mle/ui/comp/multipanel")({
@@ -12,6 +13,10 @@ local function create_multipanel()
 		{
 			name = panel_names[2],
 			comp = require("i/ui/ui_tests/TextDropdownSelector"),
+		},
+		{
+			name = panel_names[3],
+			comp = require("i/ui/ui_tests/SpriteProgressBar"),
 		},
 	}, true)
 
