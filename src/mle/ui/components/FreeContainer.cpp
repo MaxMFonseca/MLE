@@ -14,6 +14,18 @@ void FreeContainer::apply(const Entt& e, const sol::object& obj) {
     e.patchOrEmplace<FreeContainer>([&](FreeContainer& c) { c.set(*table_r); });
 }
 
+void FreeContainer::applyAddScrollY(const Entt& e, const sol::object& obj) {
+    if (!lua::valid<int>(obj)) {
+        MLE_E("Invalid object to apply FreeContainer scroll_y at entity {}. Expected int.", e.name());
+        return;
+    }
+    e.patchOrEmplace<FreeContainer>([&](FreeContainer& c) {
+        const auto scroll_y = lua::as<int>(obj);
+        MLE_VC(scroll_y);
+        c.setCurrentScrollY(c.scroll_y_ - scroll_y);
+    });
+}
+
 void FreeContainer::on_construct(entt::registry& registry, const entt::entity entt) {
     if (registry.any_of<SizeProvider>(entt)) {
         MLE_W("An element shouldnt have multiple SizeProvider components.");
@@ -30,14 +42,11 @@ void FreeContainer::set(const sol::table& table) {
     if (const auto scrollable_r = table["scrollable"]; lua::valid<bool>(scrollable_r)) {
         setScrollable(lua::as<bool>(scrollable_r));
     }
-    if (const auto offset_r = table["offset"]; offset_r.valid()) {
-        setOffset(lua::as<vec2i>(offset_r));
+    if (const auto max_scroll_y_r = table["max_scroll_y"]; lua::valid<int>(max_scroll_y_r)) {
+        setMaxScrollY(lua::as<int>(max_scroll_y_r));
     }
-    if (const auto offset_x_r = table["offset_x"]; lua::valid<i32>(offset_x_r)) {
-        setOffsetX(lua::as<i32>(offset_x_r));
-    }
-    if (const auto offset_y_r = table["offset_y"]; lua::valid<i32>(offset_y_r)) {
-        setOffsetY(lua::as<i32>(offset_y_r));
+    if (const auto current_scroll_y_r = table["current_scroll_y"]; lua::valid<int>(current_scroll_y_r)) {
+        setCurrentScrollY(lua::as<int>(current_scroll_y_r));
     }
 }
 
@@ -493,6 +502,12 @@ struct FreeCalculator {
     FreeCalculator free_calculator{e, *this, padded_max_size, enabled_children, padding_result, cbcds};
 
     auto children_max_min = findChildrenMaxMin(cbcds, pack_children_);
+
+    if (scrollable_y_) {
+        for (const auto& [_, cbcd] : cbcds) {
+            cbcd.bounds.parent_px.setPosY(cbcd.bounds.parent_px.top() - scroll_y_);
+        }
+    }
 
     for (const auto& [_, cbcd] : cbcds) {
         if (pack_children_) {

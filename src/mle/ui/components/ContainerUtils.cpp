@@ -28,6 +28,7 @@ void finishChildBounds(const Entt& centt, ChildBoundsCalcData& cbcd, PaddingPx p
 
     if (size_changed && cbcd.size_provider) {
         cbcd.size_provider->call(centt, cbcd.bounds.parent_px.size());
+        centt.addFlag<comp::ResizedFlag>();
     }
 
     if (cbcd.has_target_border) {

@@ -7,19 +7,18 @@ namespace mle::ui::comp {
 class FreeContainer {
   public:
     static void apply(const Entt& e, const sol::object& obj);
+    static void applyAddScrollY(const Entt& e, const sol::object& obj);
 
     [[nodiscard]] vec2u calculateChildrenBounds(const Entt& e, vec2u max_size) const;
 
     void set(const sol::table& table);
 
-    void setScrollable(bool scrollable) { scrollable_ = scrollable; }
-    [[nodiscard]] bool isScrollable() const { return scrollable_; }
-    void setOffset(vec2i offset) { offset_ = offset; }
-    [[nodiscard]] vec2i getOffset() const { return offset_; }
-    void setOffsetX(i32 x) { offset_.x = x; }
-    [[nodiscard]] i32 getOffsetX() const { return offset_.x; }
-    void setOffsetY(i32 y) { offset_.y = y; }
-    [[nodiscard]] i32 getOffsetY() const { return offset_.y; }
+    void setScrollable(bool scrollable) { scrollable_y_ = scrollable; }
+    [[nodiscard]] bool isScrollable() const { return scrollable_y_; }
+    void setMaxScrollY(int max_scroll_y) { max_scroll_y_ = max_scroll_y; }
+    [[nodiscard]] int getMaxScrollY() const { return max_scroll_y_; }
+    void setCurrentScrollY(int val) { scroll_y_ = std::clamp(val, 0, max_scroll_y_); }
+    [[nodiscard]] int getCurrentScrollY() const { return scroll_y_; }
 
     // NOLINTBEGIN(readability-identifier-naming, readability-avoid-const-params-in-decls) Not my declaration
     static void on_construct(entt::registry& registry, const entt::entity entt);
@@ -27,8 +26,10 @@ class FreeContainer {
     // NOLINTEND(readability-identifier-naming, readability-avoid-const-params-in-decls)
 
   private:
-    bool scrollable_ = true;
     bool pack_children_ = false;
-    vec2i offset_ = {0, 0};
+
+    bool scrollable_y_ = true;
+    int max_scroll_y_ = 0;
+    int scroll_y_ = 0;
 };
 }  // namespace mle::ui::comp

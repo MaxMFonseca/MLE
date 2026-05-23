@@ -91,10 +91,24 @@ struct CursorDragFlag {};
 struct ForceFitFlag {
     static void apply(const Entt& e, const sol::object& obj);
 };
+struct ResizedFlag {};
+
+struct OnResized {
+    using FuncType = std::function<void(const Entt& e)>;
+
+    FuncType fn;
+
+    static void apply(const Entt& e, const sol::object& obj);
+};
 
 struct DisabledFlag {
     static void applyEnabled(const Entt& e, const sol::object& obj);
     static void applyDisabled(const Entt& e, const sol::object& obj);
+};
+
+struct ContentOverflow {
+    int overflow_x{0};
+    int overflow_y{0};
 };
 
 }  // namespace mle::ui::comp

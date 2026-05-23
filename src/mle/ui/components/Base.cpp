@@ -239,6 +239,11 @@ void Background::set(const sol::object& obj) {
     }
 };
 
+void OnResized::apply(const Entt& e, const sol::object& obj) {
+    lua::assertIs<FuncType>(obj);
+    e.patchOrEmplace<OnResized>([&](OnResized& orc) { orc.fn = obj.as<FuncType>(); });
+};
+
 void ForceFitFlag::apply(const Entt& e, const sol::object& obj) {
     if (!lua::valid<bool>(obj)) {
         MLE_E("Invalid value passed to ForceFitFlag apply. Expected bool, got {}.", obj.get_type());
@@ -253,4 +258,5 @@ void ForceFitFlag::apply(const Entt& e, const sol::object& obj) {
         e.eraseChecked<ForceFitFlag>();
     }
 };
+
 }  // namespace mle::ui::comp

@@ -92,6 +92,27 @@ void Hoverable::applyOnKeys(const Entt& ew, const sol::object& obj) {
     ew.patchOrEmplace<Hoverable>([&](Hoverable& c) { c.setKeys(ew, lua::as<sol::table>(obj)); });
 };
 
+void Hoverable::applyOnScroll(const Entt& ew, const sol::object& obj) {
+    MLE_ASSERT(obj.valid());
+    if (obj.is<bool>()) {
+        if (obj.as<bool>()) {
+            ew.patchOrEmplace<Hoverable>([](Hoverable& c) { c.on_scroll = nullptr; });
+        } else {
+            MLE_W("OnScroll function is a bool false, this does nothing.");
+        }
+        return;
+    }
+
+    if (!obj.is<sol::function>()) {
+        MLE_E("Hoverable::applyOnScroll expected a function, got {}.", obj.get_type());
+        return;
+    }
+    auto fn = obj.as<sol::function>();
+    ew.patchOrEmplace<Hoverable>([&](Hoverable& c) {
+        c.on_scroll = std::make_unique<ScrollListener>([ew, fn](f32 offset) { fn(ew, offset); });
+    });
+};
+
 void Hoverable::removeKey(const Keybinding& kb) {
     auto kl_it = std::ranges::find_if(on_key, [&](const KeyListenerHnd& hnd) { return hnd->getKb() == kb; });
     if (kl_it != on_key.end()) {
@@ -162,6 +183,9 @@ void Hoverable::onHoverOut(const Entt& ew) {
     for (auto& kl : on_key) {
         kl->unlisten();
     }
+    if (on_scroll) {
+        on_scroll->unlisten();
+    }
     if (on_hover_out) {
         on_hover_out(ew);
     }
@@ -176,6 +200,9 @@ void Hoverable::onHover(const Entt& ew) {
 void Hoverable::onHoverIn(const Entt& ew) {
     for (auto& kl : on_key) {
         kl->listen();
+    }
+    if (on_scroll) {
+        on_scroll->listen();
     }
     if (on_hover_in) {
         on_hover_in(ew);

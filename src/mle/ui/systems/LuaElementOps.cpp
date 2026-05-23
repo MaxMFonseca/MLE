@@ -220,6 +220,7 @@ void LuaElementOps::addBuiltingApply() {
     addApplyKeyHandler("on_hover_out", comp::Hoverable::applyOnHoverOut);
     addApplyKeyHandler("on_key", comp::Hoverable::applyOnKey);
     addApplyKeyHandler("on_keys", comp::Hoverable::applyOnKeys);
+    addApplyKeyHandler("on_scroll", comp::Hoverable::applyOnScroll);
     addApplyKeyHandler("table", comp::Table::apply);
     addApplyKeyHandler("render_scale", comp::RenderScale::apply);
     addApplyKeyHandler("on_update", comp::OnUpdate::apply);
@@ -232,6 +233,8 @@ void LuaElementOps::addBuiltingApply() {
     addApplyKeyHandler("enabled", comp::DisabledFlag::applyEnabled);
     addApplyKeyHandler("disabled", comp::DisabledFlag::applyDisabled);
     addApplyKeyHandler("force_fit", comp::ForceFitFlag::apply);
+    addApplyKeyHandler("add_scroll_y", comp::FreeContainer::applyAddScrollY);
+    addApplyKeyHandler("on_resized", comp::OnResized::apply);
 
     addApplyKeyHandler("sprite", ui::renderable::Sprite::apply);
     addApplyKeyHandler("render_image", ui::renderable::RenderImage::apply);
@@ -249,5 +252,15 @@ void LuaElementOps::addBuiltingGetters() {
     addGetKeyHandler("table", comp::Table::get);
     addGetKeyHandler("hovered", comp::Hovered::get);
     addGetKeyHandler("fn", comp::Functions::get);
+    addGetKeyHandler("overflow", [](const Entt& ew, const sol::object& /*params*/) -> sol::object {
+        if (!ew.has<comp::ContentOverflow>()) {
+            return {};
+        }
+        auto table = Client::i().lua().createTable();
+        const auto& comp = ew.get<comp::ContentOverflow>();
+        table["overflow_x"] = comp.overflow_x;
+        table["overflow_y"] = comp.overflow_y;
+        return table;
+    });
 }
 }  // namespace mle::ui::system

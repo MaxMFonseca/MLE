@@ -45,6 +45,9 @@ void Bounds::update() {
         updateTree(root);
     }
 
+    ui_.getRegistry().view<comp::OnResized, comp::ResizedFlag>().each([&](entt::entity entity, comp::OnResized& orc) { orc.fn({ui_, entity}); });
+    ui_.getRegistry().clear<comp::ResizedFlag>();
+
     ui_.getRegistry().view<comp::SizeProvider>().each([](entt::entity /*entity*/, comp::SizeProvider& sp) { sp.reset(); });
     ui_.getRegistry().clear<comp::RequestInternalBoundsUpdateFlag>();
 }

@@ -125,6 +125,7 @@ Expected<Rendering::Packet::Node> Rendering::createPacketNode(u8 atomic_buffer_i
 
         node.children.push_back(std::move(*packet_node_r));
     }
+
     std::ranges::sort(node.children, [](const Packet::Node& a, const Packet::Node& b) { return a.layer < b.layer; });
 
     return node;
@@ -329,22 +330,7 @@ void Rendering::renderNodeRenderable(const Rendering::Packet::Node& node, Render
 
 // NOLINTNEXTLINE(misc-no-recursion) Cool recursion
 void Rendering::renderNode(const Rendering::Packet::Node& node, RenderingContext& pctx) {
-    if (node.bounds.parent_px.left() > pctx.parent_scissor.right() || node.bounds.parent_px.top() > pctx.parent_scissor.bottom()) {
-        return;
-    }
-
     auto ppx = node.bounds.parent_px;
-    if (pctx.parent_scale != 1.0F) {
-        ppx.setSize(vec2f(ppx.size()) * pctx.parent_scale);
-    }
-
-    if (node.border.color.a > 0) {
-        renderNodeBorder(node, ppx, pctx);
-    }
-    if (node.bg.lb.a > 0) {
-        renderNodeBackground(node, ppx, pctx);
-    }
-
     std::unique_ptr<RenderingContext> new_ctx;
     if (node.shader_packet && node.shader_dedicate_render_target) {
         new_ctx = renderCreateNodeNewContext(node);
@@ -358,8 +344,19 @@ void Rendering::renderNode(const Rendering::Packet::Node& node, RenderingContext
     Rectf viewport = bounds.asF32();
     Recti scissor = bounds.clamp(ctx.parent_scissor);
 
-    if (viewport.size().x < 1 || viewport.size().y < 1) {
+    if (viewport.size().x < 1 || viewport.size().y < 1 || scissor.size().x < 1 || scissor.size().y < 1) {
         return;
+    }
+
+    if (pctx.parent_scale != 1.0F) {
+        ppx.setSize(vec2f(ppx.size()) * pctx.parent_scale);
+    }
+
+    if (node.border.color.a > 0) {
+        renderNodeBorder(node, ppx, pctx);
+    }
+    if (node.bg.lb.a > 0) {
+        renderNodeBackground(node, ppx, pctx);
     }
 
     if (node.shader_packet && node.shader_before_children) {

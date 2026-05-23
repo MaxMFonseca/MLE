@@ -923,6 +923,11 @@ struct ListCalculator {
                                               children_max_min.second.y - children_max_min.first.y + padding_result.t + padding_result.b}
                                       : vec2u{children_max_min.second.x + padding_result.r, children_max_min.second.y + padding_result.b};
 
+    if (final_size.y > max_size.y) {
+        auto& content_overflow = e.emplaceOrReplace<ContentOverflow>();
+        content_overflow.overflow_y = as<int>(final_size.y - max_size.y);
+    }
+
     return final_size;
 }
 }  // namespace mle::ui::comp

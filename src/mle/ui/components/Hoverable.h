@@ -9,6 +9,7 @@ struct Hoverable {
     HoverFn on_hover;
     HoverFn on_hover_in;
     HoverFn on_hover_out;
+    ScrollListenerHnd on_scroll;
     std::vector<KeyListenerHnd> on_key;
 
     void setKeys(const Entt& ew, const sol::table& table);
@@ -26,6 +27,7 @@ struct Hoverable {
     static void applyOnHoverOut(const Entt& ew, const sol::object& obj);
     static void applyOnKey(const Entt& ew, const sol::object& obj);
     static void applyOnKeys(const Entt& ew, const sol::object& obj);
+    static void applyOnScroll(const Entt& ew, const sol::object& obj);
 };
 
 struct Hovered {
