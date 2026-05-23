@@ -12,6 +12,9 @@
 #include "mle/ui/renderable/RenderableI.h"
 #include "mle/utils/containers/AtomicTripleBuffer.h"
 
+// FIXME: rework the border mechanic
+// use 9slice rendering. ?
+
 namespace mle::ui::system {
 class Rendering {
   public:

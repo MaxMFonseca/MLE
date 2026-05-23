@@ -111,6 +111,14 @@ return {
 					},
 				},
 				{
+					text = "UI Test",
+					on_keys = {
+						lmb = function(ew)
+							G.init_ui_test()
+						end,
+					},
+				},
+				{
 					text = "OneShot",
 					on_keys = {
 						lmb = function(ew)

@@ -1,26 +1,24 @@
-#include "Init.h"
+#include "UITest.h"
 
 #include "ModelTest.h"
-#include "UITest.h"
 #include "mle/client/Client.h"
 #include "mle/renderer/Renderer.h"
 #include "mle/window/Window.h"
 
 namespace mle::user {
-void InitLayer::init() {
-    MLE_I("InitLayer::init()");
+void UITestLayer::init() {
+    MLE_I("UITest::init()");
 
-    Client::i().getGameLayerTable()["init_model_test"] = []() { Client::i().pushGameLayer(std::make_unique<ModelTestLayer>()); };
-    Client::i().getGameLayerTable()["init_ui_test"] = []() { Client::i().pushGameLayer(std::make_unique<UITestLayer>()); };
+    Client::i().getGameLayerTable()["ui"] = &ui_;
 
-    ui_.setRoot("i/ui/InitLayer");
+    ui_.setRoot("i/ui/ui_tests/Layer");
 };
 
-void InitLayer::update() {
+void UITestLayer::update() {
     ui_.update();
 };
 
-ImageRef InitLayer::render() {
+ImageRef UITestLayer::render() {
     auto* image = getImage();
 
     auto* ui_image = ui_.render();
@@ -32,11 +30,11 @@ ImageRef InitLayer::render() {
     return image;
 };
 
-void InitLayer::shutdown() {
+void UITestLayer::shutdown() {
     ui_.shutdown();
 };
 
-ImageRef InitLayer::getImage() {
+ImageRef UITestLayer::getImage() {
     auto& frame_renderer = Renderer::i().frameRenderer();
     auto frame_idx = frame_renderer.getCurrentFrameId();
     auto& image = images_.at(frame_idx);

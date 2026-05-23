@@ -150,6 +150,9 @@ void LuaElementOps::init() {
     ut["getBoundsOnRoot"] = &Entt::getBoundsOnRoot;
     ut["getBoundsOnRootNormalized"] = &Entt::getBoundsOnRootNormalized;
 
+    ut["requestInternalBoundsUpdate"] = &Entt::requestInternalBoundsUpdate;
+    ut["requestExternalBoundsUpdate"] = &Entt::requestExternalBoundsUpdate;
+
     comp::Hovered::makeLuaUsertype(lua);
     auto image_ut = lua.newUsertype<Image>("mle_Image", sol::no_constructor);
     image_ut["getExtent"] = &Image::getExtent;

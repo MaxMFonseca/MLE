@@ -100,7 +100,7 @@ void AnimationCache::shutdown() {
 }
 
 const AnimationBinding& AnimationCache::getBinding(ModelRef model, AnimationClipRef clip) {
-    const BindingKey key{model, clip};
+    const BindingKey key{.model = model, .clip = clip};
     if (auto it = bindings_.find(key); it != bindings_.end()) {
         return it->second;
     }
@@ -117,17 +117,17 @@ const AnimationBinding& AnimationCache::getBinding(ModelRef model, AnimationClip
     return it->second;
 }
 
-void AnimationCache::validateAnimationNames(std::string_view source_name, const GLTF& gltf) {
+void AnimationCache::validateAnimationNames([[maybe_unused]] std::string_view source_name, const GLTF& gltf) {
     std::unordered_set<std::string> names;
     names.reserve(gltf.model().animations.size());
 
-    for (usize i = 0; i < gltf.model().animations.size(); ++i) {
-        const auto& name = gltf.model().animations[i].name;
-        MLE_ASSERT_LOG(!name.empty(), "GLTF animation at source:{} index:{} has an empty name. Animation clips must use non-empty unique names.",
-                       source_name, i);
+    for (u32 i = 0; i < gltf.model().animations.size(); ++i) { const auto& animation = gltf.model().animations[i];
+        const auto& name = animation.name;
+        MLE_ASSERT_LOG(!name.empty(), "GLTF animation at source:{} index:{} has an empty name. Animation clips must use non-empty unique names.", source_name,
+                       i);
         const auto [_, inserted] = names.emplace(name);
-        MLE_ASSERT_LOG(inserted, "GLTF animation source:{} contains duplicate animation name '{}'. Animation clip names must be unique per file.",
-                       source_name, name);
+        MLE_ASSERT_LOG(inserted, "GLTF animation source:{} contains duplicate animation name '{}'. Animation clip names must be unique per file.", source_name,
+                       name);
     }
 }
 }  // namespace mle

@@ -46,6 +46,7 @@ void Client::init() {
 
     lua::makeUTGUI(lua_);
 
+    // FIXME: color cache should handle this table
     MLE_D("Creaging colors table");
     auto colors_table = lua_.createTable("Colors");
     color_cache_.fillTable(colors_table);
