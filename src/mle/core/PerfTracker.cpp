@@ -72,7 +72,7 @@ void PerfTracker::update(std::stop_token st) {
 
         if (!acc.empty()) {
             Samples samples;
-            samples.resize(acc.size());
+            samples.reserve(acc.size());
 
             {
                 std::scoped_lock<std::mutex> lock(names_mtx_);
@@ -89,7 +89,11 @@ void PerfTracker::update(std::stop_token st) {
                     lifetime_acc_[id].ns += entry.ns;
                     lifetime_acc_[id].calls += entry.calls;
 
-                    samples[id] = Sample{.name = id_to_name_.at(id), .last_sec_ns = entry.ns, .per_call_us = us_per_call, .calls_last_sec = entry.calls};
+                    samples.push_back(Sample{.id_ = as<CounterId>(id),
+                                             .name = id_to_name_.at(id),
+                                             .last_sec_ns = entry.ns,
+                                             .per_call_us = us_per_call,
+                                             .calls_last_sec = entry.calls});
                 }
             }
 
@@ -109,6 +113,9 @@ void PerfTracker::update(std::stop_token st) {
                 MLE_D("Perf {} (avg µs/call over last second):", counter);
                 counter++;
                 for (const auto& s : samples) {
+                    if (s.calls_last_sec == 0 || s.name.empty()) {
+                        continue;
+                    }
                     MLE_D("  {}: {:.3f} µs ({} calls)", s.name, s.per_call_us, s.calls_last_sec);
                 }
             }

@@ -18,6 +18,8 @@ return {
 						"PerfTracker/s:",
 						height = "23px",
 						color = Colors.green400,
+						border_color = Colors.slate900,
+						border_thickness = 2,
 					},
 				},
 				text = {
@@ -25,6 +27,8 @@ return {
 					text = {
 						height = "23px",
 						color = Colors.green400,
+						border_color = Colors.slate900,
+						border_thickness = 2,
 					},
 				},
 			},
@@ -39,11 +43,23 @@ return {
 			c = {
 				{
 					idx = 0,
-					text = { "GpuPerf:", height = "23px", color = Colors.green400 },
+					text = {
+						"GpuPerf:",
+						height = "23px",
+						color = Colors.green400,
+						border_color = Colors.slate900,
+						border_thickness = 2,
+					},
 				},
 				text = {
 					idx = 1,
-					text = { height = "23px", justify = "e", color = Colors.green400 },
+					text = {
+						height = "23px",
+						justify = "e",
+						color = Colors.green400,
+						border_color = Colors.slate900,
+						border_thickness = 2,
+					},
 				},
 			},
 		},
