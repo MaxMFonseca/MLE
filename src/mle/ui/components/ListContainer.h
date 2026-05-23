@@ -21,12 +21,6 @@ class ListContainer {
 
     void setScrollable(bool scrollable) { scrollable_ = scrollable; }
     [[nodiscard]] bool isScrollable() const { return scrollable_; }
-    void setOffset(vec2i offset) { offset_ = offset; }
-    [[nodiscard]] vec2i getOffset() const { return offset_; }
-    void setOffsetX(i32 x) { offset_.x = x; }
-    [[nodiscard]] i32 getOffsetX() const { return offset_.x; }
-    void setOffsetY(i32 y) { offset_.y = y; }
-    [[nodiscard]] i32 getOffsetY() const { return offset_.y; }
     void setListDirection(Direction direction) { list_direction_ = direction; }
     [[nodiscard]] Direction getListDirection() const { return list_direction_; }
     void setListJustify(Justify justify) { list_justify_ = justify; }
@@ -71,7 +65,6 @@ class ListContainer {
   private:
     bool scrollable_ = true;
     bool pack_children_ = false;
-    vec2i offset_ = {0, 0};
 
     Direction list_direction_ = Direction::VERTICAL;
     Justify list_justify_ = Justify::START;

@@ -30,15 +30,6 @@ void ListContainer::set(const sol::table& table) {
     if (const auto scrollable_r = table["scrollable"]; lua::valid<bool>(scrollable_r)) {
         setScrollable(lua::as<bool>(scrollable_r));
     }
-    if (const auto offset_r = table["offset"]; offset_r.valid()) {
-        setOffset(lua::as<vec2i>(offset_r));
-    }
-    if (const auto offset_x_r = table["offset_x"]; lua::valid<i32>(offset_x_r)) {
-        setOffsetX(lua::as<i32>(offset_x_r));
-    }
-    if (const auto offset_y_r = table["offset_y"]; lua::valid<i32>(offset_y_r)) {
-        setOffsetY(lua::as<i32>(offset_y_r));
-    }
     if (const auto list_direction_r = lua::getFirstKey(table, "direction", "dir"); lua::valid<std::string>(list_direction_r)) {
         setListDirection(lua::as<std::string>(list_direction_r));
     }
