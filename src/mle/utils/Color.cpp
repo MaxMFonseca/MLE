@@ -130,10 +130,10 @@ Color Color::fromHex(u32 hex) noexcept {
     return ret;
 }
 
-Color Color::random(u32 alpha) {
+Color Color::random() {
     static thread_local std::mt19937 rng(std::random_device{}());
     static thread_local std::uniform_int_distribution<u32> dist(0, MAX_U8);
-    return Color{dist(rng), dist(rng), dist(rng), alpha};
+    return Color{dist(rng), dist(rng), dist(rng), 255};
 }
 
 u32 Color::asRGBA() const {

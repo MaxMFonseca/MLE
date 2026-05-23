@@ -116,7 +116,7 @@ struct Color : vec4f {
     static Color fromHSVA(vec4f hsv);
 
     /// Returns a random color.
-    static Color random(u32 alpha = MAX_U8);
+    static Color random();
 
     /// Mixes two colors linearly based on the given factor.
     static Color mix(const Color& a, const Color& b, f32 factor);
