@@ -95,6 +95,34 @@ class TextListener final {
     CallbackFn callback_{};
 };
 
+class ScrollListener final {
+  public:
+    using CallbackFn = std::move_only_function<void(f32)>;
+
+  public:
+    MLE_NO_COPY_MOVE(ScrollListener);
+
+    explicit ScrollListener(CallbackFn&& callback) :
+        callback_(std::move(callback)) {}
+
+    ScrollListener() = default;
+
+    ~ScrollListener() { unlisten(); }
+
+    ScrollListener& setCallback(CallbackFn&& callback);
+
+    void listen();
+    void unlisten();
+
+  private:
+    friend UserInputManager;
+    void call(f32 offset) { callback_(offset); }
+
+  private:
+    CallbackFn callback_{};
+    bool listening_ = false;
+};
+
 class UserInputManager {
     MLE_SINGLETON(UserInputManager)
 
@@ -123,6 +151,7 @@ class UserInputManager {
     friend Window;
     friend KeyListener;
     friend TextListener;
+    friend ScrollListener;
 
     void init();
 
@@ -140,12 +169,16 @@ class UserInputManager {
     void listenText(TextListenerRef listener);
     void unlistenText(TextListenerRef listener);
 
+    void listenScroll(ScrollListenerRef listener);
+    void unlistenScroll(ScrollListenerRef listener);
+
     void setMouseInsideWindow(bool inside);
 
   private:
     std::vector<std::tuple<Key, KeyState, Stopwatch>> active_keys_;
     std::unordered_map<u32, std::vector<KeyListenerRef>> listeners_;
     std::vector<TextListenerRef> text_listeners_;
+    std::vector<ScrollListenerRef> scroll_listeners_;
     std::vector<Key> text_input_;
 
     bool shift_ = false;

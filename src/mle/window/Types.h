@@ -18,6 +18,10 @@ class TextListener;
 using TextListenerHnd = std::unique_ptr<TextListener>;
 using TextListenerRef = TextListener*;
 
+class ScrollListener;
+using ScrollListenerHnd = std::unique_ptr<ScrollListener>;
+using ScrollListenerRef = ScrollListener*;
+
 class TextBox;
 using TextBoxRef = TextBox*;
 using TextBoxHnd = std::unique_ptr<TextBox>;

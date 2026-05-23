@@ -105,6 +105,27 @@ void TextListener::unlisten() {
     UserInputManager::i().unlistenText(this);
 }
 
+ScrollListener& ScrollListener::setCallback(CallbackFn&& callback) {
+    callback_ = std::move(callback);
+    return *this;
+}
+
+void ScrollListener::listen() {
+    if (listening_) {
+        return;
+    }
+    UserInputManager::i().listenScroll(this);
+    listening_ = true;
+}
+
+void ScrollListener::unlisten() {
+    if (!listening_) {
+        return;
+    }
+    UserInputManager::i().unlistenScroll(this);
+    listening_ = false;
+}
+
 void UserInputManager::update() {
     auto it = active_keys_.begin();
 
@@ -155,6 +176,11 @@ void UserInputManager::update() {
 
     scroll_offset_ = scroll_offset_next_;
     scroll_offset_next_ = 0.0;
+    if (scroll_offset_ != 0.0F) {
+        for (auto& listener : scroll_listeners_) {
+            listener->call(scroll_offset_);
+        }
+    }
 
     cursor_pos_prev_ = cursor_pos_;
 }
@@ -243,6 +269,17 @@ void UserInputManager::listenText(TextListenerRef listener) {
 
 void UserInputManager::unlistenText(TextListenerRef listener) {
     std::erase(text_listeners_, listener);
+}
+
+void UserInputManager::listenScroll(ScrollListenerRef listener) {
+    auto it = std::ranges::find(scroll_listeners_, listener);
+    if (it == scroll_listeners_.end()) {
+        scroll_listeners_.push_back(listener);
+    }
+}
+
+void UserInputManager::unlistenScroll(ScrollListenerRef listener) {
+    std::erase(scroll_listeners_, listener);
 }
 
 bool UserInputManager::isPressed(Key key) const {
