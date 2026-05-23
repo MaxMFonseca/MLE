@@ -316,7 +316,7 @@ void Text::makeCharsBuffer(vec2u viewport_size) {
     current_rendering_chars_instance_data.clear();
     per_image_data.clear();
     for (const auto& [image_ref, chars] : image_to_chars_map) {
-        per_image_data.push_back({image_ref, current_rendering_chars_instance_data.size(), chars.size()});
+        per_image_data.push_back({.image_ref = image_ref, .instance_offset = current_rendering_chars_instance_data.size(), .instance_count = chars.size()});
         current_rendering_chars_instance_data.insert(current_rendering_chars_instance_data.end(), chars.begin(), chars.end());
     }
     chars_buffer_needs_update = false;
@@ -380,6 +380,10 @@ void Text::enableInputBox() const {
 
 void Text::disableInputBox() const {
     input_tb->setFocused(false);
+};
+
+TextPacket::~TextPacket() {
+    Renderer::i().frameRenderer().addToGC(std::move(chars_buffer));
 };
 
 void TextPacket::render(CompRenderingCtx& ctx) {

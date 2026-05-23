@@ -55,12 +55,7 @@ std::string Entt::fullName() const {
 }
 
 void Entt::destroy() const {
-    auto& relationship = getRelationship();
-    if (relationship.getParent() != entt::null) {
-        relationship.destroyChild(Entt{ui_, relationship.getParent()}, e_);
-    } else {
-        ui_.clear();
-    }
+    addFlag<comp::DestroyFlag>();
 }
 
 Expected<Entt> Entt::getChild(std::span<const std::string_view> tree) const {

@@ -4,6 +4,7 @@
 #include "mle/client/Client.h"
 #include "mle/core/PerfTracker.h"
 #include "mle/lua/Utils.h"
+#include "mle/ui/components/Base.h"
 #include "mle/ui/components/Bounds.h"
 #include "mle/ui/components/ListContainer.h"
 #include "mle/ui/systems/LuaElementOps.h"
@@ -107,6 +108,11 @@ void UI::update() {
         MLE_PERF_SCOPE("GUIUpdate.Rendering");
         rendering_system_.update();
     }
+
+    {
+        MLE_PERF_SCOPE("GUIUpdate.Destroy");
+        destroyFlagged();
+    }
 }
 
 ImageRef UI::render() {
@@ -143,4 +149,42 @@ Expected<ui::Entt> UI::getE(const std::string& id) {
     }
     return std::unexpected(Result::NOT_FOUND);
 };
+
+void UI::destroyFlagged() {
+    std::vector<entt::entity> flagged;
+    for (auto e : registry_.view<ui::comp::DestroyFlag>()) {
+        flagged.push_back(e);
+    }
+
+    auto ancestorFlagged = [&](entt::entity e) {
+        ui::Entt ew{*this, e};
+        auto parent = ew.get<ui::comp::Relationship>().getParent();
+        while (parent != entt::null) {
+            if (!registry_.valid(parent)) {
+                return true;
+            }
+            if (registry_.all_of<ui::comp::DestroyFlag>(parent)) {
+                return true;
+            }
+            parent = registry_.get<ui::comp::Relationship>(parent).getParent();
+        }
+        return false;
+    };
+
+    for (auto e : flagged) {
+        if (!registry_.valid(e) || !registry_.all_of<ui::comp::DestroyFlag>(e) || ancestorFlagged(e)) {
+            continue;
+        }
+
+        ui::Entt ew{*this, e};
+        auto parent = ew.get<ui::comp::Relationship>().getParent();
+        if (parent == entt::null) {
+            clear();
+            return;
+        }
+
+        ui::Entt parent_ew{*this, parent};
+        parent_ew.get<ui::comp::Relationship>().destroyChild(parent_ew, e);
+    }
+}
 }  // namespace mle

@@ -4,8 +4,6 @@ return function(callback, value)
 			onCursorDrag = function(ew, cursor_pos_relative)
 				local new_value = 0
 
-				print("Cursor pos relative:", cursor_pos_relative.x)
-
 				if cursor_pos_relative.x < 0 then
 					new_value = 0
 				elseif cursor_pos_relative.x > 1 then

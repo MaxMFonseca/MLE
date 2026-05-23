@@ -43,6 +43,7 @@ class UI {
 
   private:
     void addRootStyles(const sol::object& obj);
+    void destroyFlagged();
 
   private:
     entt::registry registry_;

@@ -144,6 +144,8 @@ void LuaElementOps::init() {
 
     ut["dispatch"] = [](const Entt& ew, const std::string& event_name, const sol::object& obj = {}) { ew.dispatch(event_name, obj); };
 
+    ut["destroy"] = &Entt::destroy;
+
     ut["beginCursorDrag"] = [](const Entt& ew) { ew.addFlag<comp::CursorDragFlag>(); };
 
     ut["createPopup"] = &Entt::createPopup;

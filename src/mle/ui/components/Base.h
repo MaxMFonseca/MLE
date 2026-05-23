@@ -87,6 +87,7 @@ struct RenderScale {
 
 struct RequestInternalBoundsUpdateFlag {};
 struct RequestExternalBoundsUpdateFlag {};
+struct DestroyFlag {};
 struct CursorDragFlag {};
 struct ForceFitFlag {
     static void apply(const Entt& e, const sol::object& obj);

@@ -585,7 +585,7 @@ struct ListCalculator {
                 int fit_max_size_cross = child_max_size_cross - lccd.margin.cross_a - lccd.margin.cross_b - lccd.border.cross_a - lccd.border.cross_b;
 
                 if (fit_max_size_cross <= 0 || fit_max_size_main <= 0) {
-                    MLE_E("Child cannot FIT in the given max size");
+                    MLE_E("Child {} cannot FIT in the given max size", centt.fullName());
                     lccd.valid = false;
                     continue;
                 }
@@ -607,7 +607,7 @@ struct ListCalculator {
                 if (lccd.state.main == ListChildCalcData::CalcState::DONE) {
                     int fit_max_size_cross = child_max_size_cross - lccd.margin.cross_a - lccd.margin.cross_b - lccd.border.cross_a - lccd.border.cross_b;
                     if (fit_max_size_cross <= 0) {
-                        MLE_E("Child cannot FIT in the given max cross size");
+                        MLE_E("Child {} cannot FIT in the given max cross size", centt.fullName());
                         lccd.valid = false;
                         continue;
                     }
@@ -651,7 +651,7 @@ struct ListCalculator {
                 if (lccd.state.cross == ListChildCalcData::CalcState::DONE) {
                     int fit_max_size_main = child_max_size_main - lccd.margin.main_a - lccd.margin.main_b - lccd.border.main_a - lccd.border.main_b;
                     if (fit_max_size_main <= 0) {
-                        MLE_E("Child cannot FIT in the given max main size");
+                        MLE_E("Child {} cannot FIT in the given max main size", centt.fullName());
                         lccd.valid = false;
                         continue;
                     }
@@ -697,7 +697,7 @@ struct ListCalculator {
 
         for (usize i = 0; i < list_children.size(); ++i) {
             auto c = list_children[i];
-            // auto centt = list_ew.derive(c);
+            [[maybe_unused]] auto centt = list_ew.derive(c);
             auto& cbcd = cbcds.at(c);
             auto& lccd = list_children_data.at(i);
 
@@ -735,7 +735,7 @@ struct ListCalculator {
                 if (lccd.state.cross == ListChildCalcData::CalcState::FIT) {
                     int fit_max_size_cross = child_max_size_cross - lccd.margin.cross_a - lccd.margin.cross_b - lccd.border.cross_a - lccd.border.cross_b;
                     if (fit_max_size_cross <= 0) {
-                        MLE_E("Child cannot FIT in the given max cross size");
+                        MLE_E("Child {} cannot FIT in the given max cross size", centt.fullName());
                         lccd.valid = false;
                         continue;
                     }
@@ -883,6 +883,10 @@ struct ListCalculator {
 }  // namespace
 
 [[nodiscard]] vec2u ListContainer::calculateChildrenBounds(const Entt& e, vec2u max_size) const {
+    if (e.has<comp::DisabledFlag>()) {
+        return {};
+    }
+
     auto& self_rel = e.getRelationship();
     auto all_children = self_rel.getChildren(e);
 

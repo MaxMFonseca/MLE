@@ -21,7 +21,6 @@ void FreeContainer::applyAddScrollY(const Entt& e, const sol::object& obj) {
     }
     e.patchOrEmplace<FreeContainer>([&](FreeContainer& c) {
         const auto scroll_y = lua::as<int>(obj);
-        MLE_VC(scroll_y);
         c.setCurrentScrollY(c.scroll_y_ - scroll_y);
     });
 }
@@ -474,6 +473,10 @@ struct FreeCalculator {
 }  // namespace
 
 [[nodiscard]] vec2u FreeContainer::calculateChildrenBounds(const Entt& e, vec2u max_size) const {
+    if (e.has<comp::DisabledFlag>()) {
+        return {};
+    }
+
     auto& self_rel = e.getRelationship();
     auto all_children = self_rel.getChildren(e);
 

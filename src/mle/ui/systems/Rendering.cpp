@@ -68,7 +68,7 @@ void Rendering::clear() {
 Expected<Rendering::Packet::Node> Rendering::createPacketNode(u8 atomic_buffer_id, entt::entity entity, usize depth) {
     Entt ew(ui_, entity);
 
-    if (ew.has<comp::DisabledFlag>()) {
+    if (ew.has<comp::DisabledFlag>() || ew.has<comp::DestroyFlag>()) {
         return std::unexpected(Result::DISABLED);
     }
 

@@ -9,8 +9,6 @@ local function makeScrollable()
 			addChild = function(ew, child)
 				ew:addChild(child)
 				ew:requestInternalBoundsUpdate()
-				--ew:requestExternalBoundsUpdate()
-				print("Child added to scrollable")
 			end,
 		},
 
@@ -55,9 +53,7 @@ return {
 						size_x = 0.3 + math.random() * 0.7,
 						background = Color.random(),
 						on_keys = {
-							lmb = function(ew)
-								print("Clicked child " .. ew:fullName())
-							end,
+							lmb = function(ew) end,
 						},
 					})
 				end,

@@ -22,7 +22,7 @@ struct TextPacket : public RenderablePacketI {
         usize instance_count;
     };
 
-    std::unique_ptr<Buffer> chars_buffer;
+    BufferHnd chars_buffer;
     std::vector<PerImageData> per_image_data;
 
     Color color = Color::ONE;
@@ -31,7 +31,7 @@ struct TextPacket : public RenderablePacketI {
     bool bold = false;
 
     TextPacket() = default;
-    ~TextPacket() override = default;
+    ~TextPacket() override;
 
     MLE_NO_COPY_MOVE(TextPacket);
 
