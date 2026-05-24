@@ -254,6 +254,14 @@ void LuaElementOps::addBuiltingGetters() {
     addGetKeyHandler("table", comp::Table::get);
     addGetKeyHandler("hovered", comp::Hovered::get);
     addGetKeyHandler("fn", comp::Functions::get);
+    addGetKeyHandler("text", [](const Entt& ew, const sol::object& /*params*/) -> sol::object {
+        auto text_r = ui::renderable::Text::getFromEntt(ew);
+        if (!text_r) {
+            MLE_E("Text getter called on entt {} without Text renderable.", ew.fullName());
+            return {};
+        }
+        return Client::i().lua().createObject(text_r->get().getValue());
+    });
     addGetKeyHandler("overflow", [](const Entt& ew, const sol::object& /*params*/) -> sol::object {
         if (!ew.has<comp::ContentOverflow>()) {
             return {};

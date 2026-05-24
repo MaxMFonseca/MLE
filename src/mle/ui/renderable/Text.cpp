@@ -115,6 +115,13 @@ void Text::applyInputClear(const Entt& ew, const sol::object& /*obj*/) {
     ew.requestInternalBoundsUpdate();
 }
 
+std::string Text::getValue() const {
+    if (input_tb) {
+        return toUtf8(input_tb->getText());
+    }
+    return toUtf8(text);
+}
+
 void Text::setText(const Entt& ew, std::u32string src) {
     text = std::move(src);
     ew.requestInternalBoundsUpdate();

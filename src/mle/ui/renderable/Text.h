@@ -66,6 +66,7 @@ struct Text : public RenderableI {
     void makeInputBox(const Entt& ew, const sol::object& obj);
     void enableInputBox() const;
     void disableInputBox() const;
+    [[nodiscard]] std::string getValue() const;
 
     void setText(const Entt& ew, std::u32string src);
     void setText(const Entt& ew, std::string_view src);
