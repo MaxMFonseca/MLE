@@ -14,9 +14,11 @@ class Hover {
     ~Hover() = default;
 
     void update();
+    [[nodiscard]] entt::entity hitTest(vec2f root_pos);
 
   private:
     void hovered(const Entt& e, vec2f pos_parent, const comp::Bounds& self_bounds, std::vector<entt::entity>& inside);
+    [[nodiscard]] entt::entity hitTest(const Entt& e, vec2f pos_parent, const comp::Bounds& self_bounds);
 
   private:
     UI& ui_;

@@ -9,12 +9,14 @@
 #include "mle/ui/systems/Rendering.h"
 #include "mle/utils/ECS.h"
 #include "mle/window/Events.h"
+#include "mle/window/Types.h"
 #include "sol/forward.hpp"
 
 namespace mle {
 class UI {
   public:
     UI();
+    ~UI();
 
     void setRoot(const std::string& element_name);
     void setRoot(sol::table root_table);
@@ -36,6 +38,11 @@ class UI {
     Expected<ui::Entt> getE(std::span<const std::string_view> tree = {});
     Expected<ui::Entt> getE(const std::string& id);
 
+    [[nodiscard]] entt::entity findNearestPopupRoot(entt::entity entity);
+    [[nodiscard]] bool hasPopups() const;
+    [[nodiscard]] u32 getNextPopupStackIndex(entt::entity parent_popup) const;
+    void trimPopupStackTo(entt::entity popup_root);
+
     auto& eventSystem() { return events_; }
     auto& hoverSystem() { return hover_system_; }
     auto& boundsSystem() { return bounds_system_; }
@@ -44,6 +51,8 @@ class UI {
   private:
     void addRootStyles(const sol::object& obj);
     void destroyFlagged();
+    void handlePopupMousePress();
+    [[nodiscard]] bool isPopupAncestorOf(entt::entity maybe_ancestor, entt::entity popup) const;
 
   private:
     entt::registry registry_;
@@ -59,5 +68,6 @@ class UI {
     ui::system::Events events_{*this};
 
     window::ev::ResizeL window_resize_el_;  // FIXME: This should not be here, the user should do this explicitly
+    KeyListenerHnd popup_mouse_listener_;
 };
 }  // namespace mle

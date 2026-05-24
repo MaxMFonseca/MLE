@@ -125,10 +125,13 @@ void Entt::dispatch(const std::string& event_name, const sol::object& obj) const
 // FIXME: every time I create a popup, I trigger a full layout recalculation. Optimize this.
 
 void Entt::createPopup(const sol::table& comp) const {
+    const entt::entity parent_popup = ui_.findNearestPopupRoot(e_);
+    ui_.trimPopupStackTo(parent_popup);
+    const u32 stack_index = ui_.getNextPopupStackIndex(parent_popup);
+
     auto pop_up = Client::i().lua().createTable();
 
-    pop_up["size"] = 1;
-    pop_up["layer"] = 1000;
+    pop_up["layer"] = 1000 + as<int>(stack_index);
     pop_up["table"] = Client::i().lua().createTable();
     pop_up["table"]["owner"] = *this;
 
@@ -138,8 +141,11 @@ void Entt::createPopup(const sol::table& comp) const {
     auto pop_up_e = root_ew.getRelationship().createChild(root_ew, pop_up);
     Entt pop_up_ew{ui_, pop_up_e};
 
-    auto& hoverable = pop_up_ew.emplace<comp::Hoverable>();
-    hoverable.setKey(pop_up_ew, Keybinding{.key = Key::MOUSE_ONE, .state = KeyState::PRESSED}, [](const Entt& ew) { ew.destroy(); });
+    pop_up_ew.emplace<mle::ui::comp::PopupRoot>(mle::ui::comp::PopupRoot{
+        .owner = e_,
+        .parent_popup = parent_popup,
+        .stack_index = stack_index,
+    });
 };
 
 }  // namespace mle::ui

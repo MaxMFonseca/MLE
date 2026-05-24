@@ -73,6 +73,19 @@ void Hover::update() {
     to_remove.clear();
 };
 
+entt::entity Hover::hitTest(vec2f root_pos) {
+    if (ui_.getRoot() == entt::null) {
+        return entt::null;
+    }
+
+    Entt root_ew{ui_, ui_.getRoot()};
+    if (!root_ew.has<comp::Bounds>()) {
+        return entt::null;
+    }
+
+    return hitTest(root_ew, root_pos, root_ew.get<comp::Bounds>());
+}
+
 // NOLINTNEXTLINE(misc-no-recursion) cool recursive function
 void Hover::hovered(const Entt& ew, vec2f pos_parent, const comp::Bounds& self_bounds, std::vector<entt::entity>& inside) {
     vec2f pos_self = pos_parent - vec2f(self_bounds.parent_px.pos());
@@ -116,4 +129,32 @@ void Hover::hovered(const Entt& ew, vec2f pos_parent, const comp::Bounds& self_b
         }
     }
 };
+
+// NOLINTNEXTLINE(misc-no-recursion) Mirrors hovered traversal without mutating hover state.
+entt::entity Hover::hitTest(const Entt& ew, vec2f pos_parent, const comp::Bounds& self_bounds) {
+    vec2f pos_self = pos_parent - vec2f(self_bounds.parent_px.pos());
+
+    auto& relationship = ew.getRelationship();
+    if (relationship.hasChildren()) {
+        auto children = relationship.getChildrenSortedByLayer(ew);
+        for (auto c : children) {
+            Entt cew = ew.derive(c);
+            if (cew.has<comp::DisabledFlag>()) {
+                continue;
+            }
+            if (!(cew.getRelationship().getChildCount() || cew.has<comp::Hoverable>())) {
+                continue;
+            }
+            auto c_bounds = cew.get<comp::Bounds>();
+            if (c_bounds.parent_px.contains(pos_self)) {
+                auto hit = hitTest(cew, pos_self, c_bounds);
+                if (hit != entt::null) {
+                    return hit;
+                }
+            }
+        }
+    }
+
+    return ew.e();
+}
 }  // namespace mle::ui::system

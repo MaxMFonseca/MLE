@@ -8,6 +8,7 @@
 #include "mle/ui/components/Bounds.h"
 #include "mle/ui/components/ListContainer.h"
 #include "mle/ui/systems/LuaElementOps.h"
+#include "mle/window/UserInputManager.h"
 #include "mle/window/Window.h"
 
 namespace mle {
@@ -21,7 +22,17 @@ UI::UI() {
     });
     ui::system::LuaElementOps::init();
     root_max_size_ = Window::i().getSize();
+
+    popup_mouse_listener_ = std::make_unique<KeyListener>(
+        [this]() {
+            handlePopupMousePress();
+        },
+        Keybinding{.key = Key::MOUSE_ONE, .state = KeyState::PRESSED});
+    popup_mouse_listener_->setAlwaysCall(true);
+    popup_mouse_listener_->listen();
 }
+
+UI::~UI() = default;
 
 void UI::clear() {
     MLE_I("Clearing UI");
@@ -149,6 +160,91 @@ Expected<ui::Entt> UI::getE(const std::string& id) {
     }
     return std::unexpected(Result::NOT_FOUND);
 };
+
+entt::entity UI::findNearestPopupRoot(entt::entity entity) {
+    entt::entity cur = entity;
+    while (cur != entt::null) {
+        if (!registry_.valid(cur)) {
+            return entt::null;
+        }
+
+        ui::Entt ew{*this, cur};
+        if (ew.has<ui::comp::PopupRoot>()) {
+            return cur;
+        }
+
+        cur = ew.get<ui::comp::Relationship>().getParent();
+    }
+
+    return entt::null;
+}
+
+bool UI::hasPopups() const {
+    return !registry_.view<ui::comp::PopupRoot>().empty();
+}
+
+u32 UI::getNextPopupStackIndex(entt::entity parent_popup) const {
+    if (parent_popup == entt::null || !registry_.valid(parent_popup)) {
+        return 1;
+    }
+
+    const auto* parent_root = registry_.try_get<ui::comp::PopupRoot>(parent_popup);
+    if (!parent_root) {
+        return 1;
+    }
+
+    return parent_root->stack_index + 1;
+}
+
+bool UI::isPopupAncestorOf(entt::entity maybe_ancestor, entt::entity popup) const {
+    entt::entity cur = popup;
+    while (cur != entt::null) {
+        if (cur == maybe_ancestor) {
+            return true;
+        }
+
+        const auto* popup_root = registry_.try_get<ui::comp::PopupRoot>(cur);
+        if (!popup_root) {
+            return false;
+        }
+
+        cur = popup_root->parent_popup;
+    }
+
+    return false;
+}
+
+void UI::trimPopupStackTo(entt::entity popup_root) {
+    std::vector<entt::entity> to_destroy;
+
+    for (auto popup : registry_.view<ui::comp::PopupRoot>()) {
+        if (popup_root == entt::null || !isPopupAncestorOf(popup, popup_root)) {
+            to_destroy.push_back(popup);
+        }
+    }
+
+    for (auto popup : to_destroy) {
+        if (registry_.valid(popup)) {
+            ui::Entt{*this, popup}.destroy();
+        }
+    }
+}
+
+void UI::handlePopupMousePress() {
+    if (!hasPopups()) {
+        return;
+    }
+
+    const auto mouse_pos_r = UserInputManager::i().getCursorPos();
+    if (!mouse_pos_r) {
+        trimPopupStackTo(entt::null);
+        return;
+    }
+
+    entt::entity hit = hover_system_.hitTest(mouse_pos_r.value());
+    entt::entity popup_root = hit == entt::null ? entt::null : findNearestPopupRoot(hit);
+    trimPopupStackTo(popup_root);
+}
 
 void UI::destroyFlagged() {
     std::vector<entt::entity> flagged;

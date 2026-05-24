@@ -34,6 +34,12 @@ struct Layer {
     static void apply(const Entt& e, const sol::object& obj);
 };
 
+struct PopupRoot {
+    entt::entity owner = entt::null;
+    entt::entity parent_popup = entt::null;
+    u32 stack_index = 0;
+};
+
 struct Table {
     sol::table o;
 
