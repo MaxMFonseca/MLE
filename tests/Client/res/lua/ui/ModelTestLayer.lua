@@ -212,12 +212,30 @@ local function make_shader_options_dock()
 		Cartoon = {
 			name = "Cartoon",
 			size_x = "1f",
-			size_y = "36px",
+			size_y = "252px",
 			disabled = true,
 			list = {
 				pack = true,
 			},
 			c = {
+				make_slider("Band softness", 0.114, function(value)
+					G.model_test_set_toon_band_softness(value)
+				end),
+				make_slider("Shadow level", 0.12, function(value)
+					G.model_test_set_toon_shadow_level(value)
+				end),
+				make_slider("Mid level", 0.48, function(value)
+					G.model_test_set_toon_mid_level(value)
+				end),
+				make_slider("Highlight level", 0.667, function(value)
+					G.model_test_set_toon_highlight_level(value)
+				end),
+				make_slider("Spec strength", 0.5, function(value)
+					G.model_test_set_toon_spec_strength(value)
+				end),
+				make_slider("Rim strength", 0.2, function(value)
+					G.model_test_set_toon_rim_strength(value)
+				end),
 				make_slider("Outline width", 0.267, function(value)
 					G.model_test_set_outline_width(value)
 				end),
@@ -303,7 +321,9 @@ return {
 						selector.fn.setOptionsPanel = function(ew, selected)
 							local shader_options = ew:parent():getChild("shader_options")
 							shader_options:call("setPanel", selected)
-							if selected == "Cartoon" or selected == "Wireframe" then
+							if selected == "Cartoon" then
+								shader_options:apply("size_y", "252px")
+							elseif selected == "Wireframe" then
 								shader_options:apply("size_y", "36px")
 							else
 								shader_options:apply("size_y", "0px")

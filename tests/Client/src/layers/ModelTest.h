@@ -63,6 +63,12 @@ class ModelTestLayer : public mle::client::Layer {
     void setSunIntensity01(f32 value);
     void setAmbient01(f32 value);
     void setOutlineWidth01(f32 value);
+    void setToonBandSoftness01(f32 value);
+    void setToonShadowLevel01(f32 value);
+    void setToonMidLevel01(f32 value);
+    void setToonHighlightLevel01(f32 value);
+    void setToonSpecStrength01(f32 value);
+    void setToonRimStrength01(f32 value);
     void setWireframeWidth01(f32 value);
     void setHeldItemScale01(f32 value);
     void setAnimation(const std::string& name);
@@ -93,6 +99,12 @@ class ModelTestLayer : public mle::client::Layer {
     f32 sun_intensity_ = 2.0F;
     f32 ambient_ = 0.08F;
     f32 outline_width_px_ = 2.5F;
+    f32 toon_band_softness_ = 0.01F;
+    f32 toon_shadow_level_ = 0.18F;
+    f32 toon_mid_level_ = 0.72F;
+    f32 toon_highlight_level_ = 1.0F;
+    f32 toon_spec_strength_ = 1.0F;
+    f32 toon_rim_strength_ = 0.4F;
     f32 wireframe_width_ = 1.5F;
     f32 held_item_scale_ = 1.0F;
     ModelTestShaderMode shader_mode_ = ModelTestShaderMode::PBR;

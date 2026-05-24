@@ -445,6 +445,12 @@ void ModelTestLayer::init() {
     Client::i().getGameLayerTable()["model_test_set_sun_intensity"] = [this](f32 value) { setSunIntensity01(value); };
     Client::i().getGameLayerTable()["model_test_set_ambient"] = [this](f32 value) { setAmbient01(value); };
     Client::i().getGameLayerTable()["model_test_set_outline_width"] = [this](f32 value) { setOutlineWidth01(value); };
+    Client::i().getGameLayerTable()["model_test_set_toon_band_softness"] = [this](f32 value) { setToonBandSoftness01(value); };
+    Client::i().getGameLayerTable()["model_test_set_toon_shadow_level"] = [this](f32 value) { setToonShadowLevel01(value); };
+    Client::i().getGameLayerTable()["model_test_set_toon_mid_level"] = [this](f32 value) { setToonMidLevel01(value); };
+    Client::i().getGameLayerTable()["model_test_set_toon_highlight_level"] = [this](f32 value) { setToonHighlightLevel01(value); };
+    Client::i().getGameLayerTable()["model_test_set_toon_spec_strength"] = [this](f32 value) { setToonSpecStrength01(value); };
+    Client::i().getGameLayerTable()["model_test_set_toon_rim_strength"] = [this](f32 value) { setToonRimStrength01(value); };
     Client::i().getGameLayerTable()["model_test_set_wireframe_width"] = [this](f32 value) { setWireframeWidth01(value); };
     Client::i().getGameLayerTable()["model_test_set_held_item_scale"] = [this](f32 value) { setHeldItemScale01(value); };
     Client::i().getGameLayerTable()["model_test_set_shader_mode"] = [this](const std::string& name) { setShaderMode(name); };
@@ -767,7 +773,13 @@ void ModelTestLayer::renderModel(ImageRef target) {
 
     struct ResolvePushConstants {
         mat4f inv_view_proj;
-    } resolve_pc{.inv_view_proj = inv_view_proj};
+        vec4f toon_levels;
+        vec4f toon_params;
+    } resolve_pc{
+        .inv_view_proj = inv_view_proj,
+        .toon_levels = vec4f{toon_shadow_level_, toon_mid_level_, toon_highlight_level_, toon_band_softness_},
+        .toon_params = vec4f{toon_spec_strength_, toon_rim_strength_, 0.0F, 0.0F},
+    };
     thread.pushConstants(&resolve_pc);
     MLE_D("ModelTest: draw resolve triangle");
     thread.draw(3, 1);
@@ -1077,6 +1089,48 @@ void ModelTestLayer::setOutlineWidth01(f32 value) {
     constexpr f32 MAX_WIDTH = 8.0F;
     const f32 clamped = std::clamp(value, 0.0F, 1.0F);
     outline_width_px_ = MIN_WIDTH + ((MAX_WIDTH - MIN_WIDTH) * clamped);
+}
+
+void ModelTestLayer::setToonBandSoftness01(f32 value) {
+    constexpr f32 MIN_SOFTNESS = 0.001F;
+    constexpr f32 MAX_SOFTNESS = 0.08F;
+    const f32 clamped = std::clamp(value, 0.0F, 1.0F);
+    toon_band_softness_ = MIN_SOFTNESS + ((MAX_SOFTNESS - MIN_SOFTNESS) * clamped);
+}
+
+void ModelTestLayer::setToonShadowLevel01(f32 value) {
+    constexpr f32 MIN_LEVEL = 0.0F;
+    constexpr f32 MAX_LEVEL = 1.5F;
+    const f32 clamped = std::clamp(value, 0.0F, 1.0F);
+    toon_shadow_level_ = MIN_LEVEL + ((MAX_LEVEL - MIN_LEVEL) * clamped);
+}
+
+void ModelTestLayer::setToonMidLevel01(f32 value) {
+    constexpr f32 MIN_LEVEL = 0.0F;
+    constexpr f32 MAX_LEVEL = 1.5F;
+    const f32 clamped = std::clamp(value, 0.0F, 1.0F);
+    toon_mid_level_ = MIN_LEVEL + ((MAX_LEVEL - MIN_LEVEL) * clamped);
+}
+
+void ModelTestLayer::setToonHighlightLevel01(f32 value) {
+    constexpr f32 MIN_LEVEL = 0.0F;
+    constexpr f32 MAX_LEVEL = 1.5F;
+    const f32 clamped = std::clamp(value, 0.0F, 1.0F);
+    toon_highlight_level_ = MIN_LEVEL + ((MAX_LEVEL - MIN_LEVEL) * clamped);
+}
+
+void ModelTestLayer::setToonSpecStrength01(f32 value) {
+    constexpr f32 MIN_STRENGTH = 0.0F;
+    constexpr f32 MAX_STRENGTH = 2.0F;
+    const f32 clamped = std::clamp(value, 0.0F, 1.0F);
+    toon_spec_strength_ = MIN_STRENGTH + ((MAX_STRENGTH - MIN_STRENGTH) * clamped);
+}
+
+void ModelTestLayer::setToonRimStrength01(f32 value) {
+    constexpr f32 MIN_STRENGTH = 0.0F;
+    constexpr f32 MAX_STRENGTH = 2.0F;
+    const f32 clamped = std::clamp(value, 0.0F, 1.0F);
+    toon_rim_strength_ = MIN_STRENGTH + ((MAX_STRENGTH - MIN_STRENGTH) * clamped);
 }
 
 void ModelTestLayer::setWireframeWidth01(f32 value) {

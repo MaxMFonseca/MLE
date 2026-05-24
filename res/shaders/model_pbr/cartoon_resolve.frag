@@ -16,6 +16,8 @@ layout(set = 0, binding = 5) uniform Lighting {
 
 layout(push_constant) uniform PC {
   mat4 inv_view_proj;
+  vec4 toon_levels;
+  vec4 toon_params;
 } pc;
 
 layout(location = 0) out vec4 out_color;
@@ -35,15 +37,15 @@ vec3 reconstructWorldPos(float depth) {
 }
 
 float toonBand(float value) {
-  const float s = 0.01;
+  float s = max(pc.toon_levels.w, 0.001);
   float b1 = smoothstep(0.24 - s, 0.24 + s, value);
   float b2 = smoothstep(0.52 - s, 0.52 + s, value);
   float b3 = smoothstep(0.82 - s, 0.82 + s, value);
 
-  float res = 0.18;
+  float res = pc.toon_levels.x;
   res = mix(res, 0.42, b1);
-  res = mix(res, 0.72, b2);
-  res = mix(res, 1.0, b3);
+  res = mix(res, pc.toon_levels.y, b2);
+  res = mix(res, pc.toon_levels.z, b3);
   return res;
 }
 
@@ -66,8 +68,8 @@ void main() {
 
   float ndotl = max(dot(n, l), 0.0);
   float band = toonBand(ndotl);
-  float spec = smoothstep(0.82, 0.86, pow(max(dot(n, h), 0.0), mix(128.0, 16.0, params.g)));
-  float rim = smoothstep(0.6, 0.62, 1.0 - max(dot(n, v), 0.0)) * 0.4 * band;
+  float spec = smoothstep(0.82, 0.86, pow(max(dot(n, h), 0.0), mix(128.0, 16.0, params.g))) * pc.toon_params.x;
+  float rim = smoothstep(0.6, 0.62, 1.0 - max(dot(n, v), 0.0)) * pc.toon_params.y * band;
 
   vec3 sun = lighting_uniform.sun_color_ambient.rgb * lighting_uniform.sun_direction_intensity.w;
   vec3 color = ((albedo.rgb * (lighting_uniform.sun_color_ambient.a + band * sun)) + vec3(spec) * sun * (1.0 - params.r) + rim * sun) * params.b + emissive;
