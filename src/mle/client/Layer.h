@@ -1,6 +1,9 @@
 #pragma once
 
+#include <array>
+
 #include "mle/renderer/Types.h"
+#include "mle/utils/Color.h"
 #include "mle/utils/Utils.h"
 
 namespace mle::client {
@@ -19,5 +22,18 @@ class Layer {
     virtual void renderTo([[maybe_unused]] ImageRef target) {};
 
   private:
+};
+
+class WindowSizedRenderTarget {
+  public:
+    MLE_NO_COPY_MOVE(WindowSizedRenderTarget)
+
+    WindowSizedRenderTarget() = default;
+    ~WindowSizedRenderTarget();
+
+    ImageRef getImage(Color clear_color = Color::ZERO);
+
+  private:
+    std::array<ImageHnd, 2> images_;
 };
 }  // namespace mle::client

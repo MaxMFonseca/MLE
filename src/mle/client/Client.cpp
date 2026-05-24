@@ -68,18 +68,12 @@ void Client::init() {
 
 void Client::addPerfLayer() {
     MLE_I("Adding PerfLayer");
-    auto r = debug_layers_.emplace("perf", std::make_unique<client::PerfLayer>());
-    if (r.second) {
-        r.first->second->init();
-    }
+    addDebugLayer("perf", std::make_unique<client::PerfLayer>());
 }
 
 void Client::addTerminalLayer() {
     MLE_I("Adding TerminalLayer");
-    auto r = debug_layers_.emplace("terminal", std::make_unique<client::TerminalLayer>());
-    if (r.second) {
-        r.first->second->init();
-    }
+    addDebugLayer("terminal", std::make_unique<client::TerminalLayer>());
 }
 
 void Client::run() {
@@ -178,6 +172,7 @@ void Client::update() {
                 auto it = debug_layers_.find(name);
                 if (it != debug_layers_.end()) {
                     MLE_I("Removing debug layer '{}'", name);
+                    it->second->shutdown();
                     debug_layers_.erase(it);
                 }
             }
@@ -272,7 +267,10 @@ ImageRef Client::render() {
 
 void Client::addDebugLayer(const std::string& name, std::unique_ptr<client::Layer> layer) {
     std::scoped_lock lock(debug_layers_render_mutex_);
-    debug_layers_.emplace(name, std::move(layer));
+    auto [it, inserted] = debug_layers_.emplace(name, std::move(layer));
+    if (inserted) {
+        it->second->init();
+    }
 };
 
 void Client::removeDebugLayer(const std::string& name) {

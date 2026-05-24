@@ -17,11 +17,8 @@ class UITestLayer : public mle::client::Layer {
     void update() override;
     ImageRef render() override;
 
-    ImageRef getImage();
-
   private:
     UI ui_;
-
-    std::array<ImageHnd, 2> images_;
+    mle::client::WindowSizedRenderTarget render_target_;
 };
 }  // namespace mle::user

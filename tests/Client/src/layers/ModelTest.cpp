@@ -18,7 +18,6 @@
 #include "mle/renderer/RenderingThread.h"
 #include "mle/utils/File.h"
 #include "mle/utils/ECS.h"
-#include "mle/window/Window.h"
 
 namespace mle::user {
 namespace {
@@ -438,7 +437,7 @@ void ModelTestLayer::update() {
 };
 
 ImageRef ModelTestLayer::render() {
-    auto* image = getImage();
+    auto* image = render_target_.getImage(Color::WHITE);
 
     renderModel(image);
 
@@ -451,32 +450,6 @@ ImageRef ModelTestLayer::render() {
 
 void ModelTestLayer::shutdown() {
     ui_.shutdown();
-};
-
-ImageRef ModelTestLayer::getImage() {
-    auto& frame_renderer = Renderer::i().frameRenderer();
-    auto frame_idx = frame_renderer.getCurrentFrameId();
-    auto& image = images_.at(frame_idx);
-    vec2u size = Window::i().getSize();
-
-    if (!image) {
-        Image::CI image_ci{};
-        image_ci.extent = size;
-        image_ci.format = Image::Format::COLOR;
-        image_ci.extra_usage |= vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst;
-        image = Image::createHnd(image_ci);
-    } else if (image->getExtent() != size) {
-        frame_renderer.deleteAfterFrame(std::move(image));
-        Image::CI image_ci{};
-        image_ci.extent = size;
-        image_ci.format = Image::Format::COLOR;
-        image_ci.extra_usage |= vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst;
-        image = Image::createHnd(image_ci);
-    }
-
-    image->clear(Renderer::i().frameRenderer().cmd(), Color::WHITE);
-
-    return image.get();
 };
 
 ImageRef ModelTestLayer::getDepthImage(vec2u size) {
