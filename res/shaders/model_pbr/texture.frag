@@ -4,6 +4,7 @@ layout(location = 0) in vec2 in_uv;
 layout(location = 1) in vec3 in_normal;
 layout(location = 2) in vec3 in_tangent;
 layout(location = 3) in float in_tangent_w;
+layout(location = 4) in vec3 in_world_pos;
 
 layout(set = 0, binding = 0) uniform Material {
   vec4 base_color_factor;
@@ -14,7 +15,8 @@ layout(set = 0, binding = 0) uniform Material {
 layout(set = 0, binding = 1) uniform Lighting {
   vec4 sun_direction_intensity;
   vec4 sun_color_ambient;
-} lighting;
+  vec4 camera_pos;
+} lighting_uniform;
 
 layout(set = 0, binding = 2) uniform sampler2D base_color_tex;
 layout(set = 0, binding = 3) uniform sampler2D metallic_roughness_tex;
@@ -24,10 +26,10 @@ layout(set = 0, binding = 6) uniform sampler2D emissive_tex;
 
 layout(location = 0) out vec4 out_color;
 
-vec3 shadePbrPreview(vec3 albedo, float metallic, float roughness, vec3 normal, float occlusion, vec3 emissive) {
+vec3 shadePbrPreview(vec3 albedo, float metallic, float roughness, vec3 normal, float occlusion, vec3 emissive, vec3 world_pos) {
   vec3 n = normalize(normal);
-  vec3 v = normalize(vec3(0.0, 0.15, 1.0));
-  vec3 l = normalize(-lighting.sun_direction_intensity.xyz);
+  vec3 v = normalize(lighting_uniform.camera_pos.xyz - world_pos);
+  vec3 l = normalize(-lighting_uniform.sun_direction_intensity.xyz);
   vec3 h = normalize(v + l);
 
   float ndotl = max(dot(n, l), 0.0);
@@ -47,8 +49,8 @@ vec3 shadePbrPreview(vec3 albedo, float metallic, float roughness, vec3 normal, 
   vec3 specular = (d * gv * gl * f) / max(4.0 * ndotv * ndotl, 0.001);
   vec3 diffuse = (1.0 - f) * albedo * (1.0 - metallic) / 3.14159265;
   float rim = pow(1.0 - ndotv, 3.0) * 0.08;
-  vec3 sun = lighting.sun_color_ambient.rgb * lighting.sun_direction_intensity.w;
-  vec3 ambient = albedo * lighting.sun_color_ambient.a;
+  vec3 sun = lighting_uniform.sun_color_ambient.rgb * lighting_uniform.sun_direction_intensity.w;
+  vec3 ambient = albedo * lighting_uniform.sun_color_ambient.a;
   return (((diffuse + specular) * ndotl * sun) + ambient + (rim * f)) * occlusion + emissive;
 }
 
@@ -68,7 +70,7 @@ void main() {
   float roughness = clamp(metallic_roughness.g * material.pbr_factors.y, 0.04, 1.0);
   float occlusion = mix(1.0, texture(occlusion_tex, in_uv).r, material.pbr_factors.w);
   vec3 emissive = texture(emissive_tex, in_uv).rgb * material.emissive_factor.rgb;
-  vec3 color = shadePbrPreview(base.rgb, metallic, roughness, final_normal, occlusion, emissive);
+  vec3 color = shadePbrPreview(base.rgb, metallic, roughness, final_normal, occlusion, emissive, in_world_pos);
   color = color / (color + vec3(1.0));
   out_color = vec4(color, base.a);
 }

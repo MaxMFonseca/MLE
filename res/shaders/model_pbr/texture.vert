@@ -14,6 +14,7 @@ layout(location = 0) out vec2 out_uv;
 layout(location = 1) out vec3 out_normal;
 layout(location = 2) out vec3 out_tangent;
 layout(location = 3) out float out_tangent_w;
+layout(location = 4) out vec3 out_world_pos;
 
 void main() {
   vec4 world_pos = pc.model * vec4(in_pos, 1.0);
@@ -23,6 +24,7 @@ void main() {
   out_normal = normalize(normal_mat * in_normal);
   out_tangent = normalize(normal_mat * in_tangent.xyz);
   out_tangent_w = in_tangent.w;
+  out_world_pos = world_pos.xyz;
 
   gl_Position = pc.view_proj * world_pos;
 }

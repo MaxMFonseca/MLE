@@ -31,6 +31,7 @@ struct MaterialUniform {
 struct LightingUniform {
     vec4f sun_direction_intensity;
     vec4f sun_color_ambient;
+    vec4f camera_pos;
 };
 
 constexpr std::array<std::string_view, as<usize>(ModelTestShaderMode::COUNT)> SHADER_MODE_NAMES = {
@@ -542,9 +543,19 @@ void ModelTestLayer::renderModel(ImageRef target) {
     const mat4f preview_model = makeModelMatrix(meshes);
     pc.view_proj = makeViewProj(target->getExtent(), camera_yaw_, camera_pitch_, camera_distance_);
 
+    const vec3f sun_dir = makeSunDirection(sun_yaw_, sun_pitch_);
+    const f32 pitch_cos = std::cos(camera_pitch_);
+    const vec3f orbit_dir{
+        std::sin(camera_yaw_) * pitch_cos,
+        std::sin(camera_pitch_),
+        std::cos(camera_yaw_) * pitch_cos,
+    };
+    const vec3f camera_pos = vec3f{0.0F, 0.15F, 0.0F} + orbit_dir * camera_distance_;
+
     LightingUniform lighting_uniform{};
-    lighting_uniform.sun_direction_intensity = vec4f{makeSunDirection(sun_yaw_, sun_pitch_), sun_intensity_};
+    lighting_uniform.sun_direction_intensity = vec4f{sun_dir, sun_intensity_};
     lighting_uniform.sun_color_ambient = vec4f{1.0F, 0.955F, 0.88F, ambient_};
+    lighting_uniform.camera_pos = vec4f{camera_pos, 0.0F};
     BufferSlice lighting_slice = frame_renderer.getHostVisibleBuffer(sizeof(LightingUniform), vk::BufferUsageFlagBits::eUniformBuffer);
     lighting_slice.buffer->write(&lighting_uniform, lighting_slice.size, lighting_slice.offset);
     vk::DescriptorBufferInfo lighting_di = lighting_slice.buffer->makeDescriptorInfo(thread.cmd(), lighting_slice.size, lighting_slice.offset);
@@ -648,7 +659,7 @@ void ModelTestLayer::renderModel(ImageRef target) {
         }
 
         if (attachment_node != max<usize>() && attachment_node < node_globals_.size()) {
-            std::vector<mat4f> held_item_node_globals;
+            std::vector<mat4f> held_item_node_globals(held_item_model_->getNodeCount());
             held_item_model_->evaluateBase(held_item_node_globals);
 
             const mat4f attachment_model = removeMatrixScale(node_globals_[attachment_node]);
