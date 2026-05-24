@@ -38,6 +38,8 @@ inline vk::ClearColorValue toVkColor(const Color& color) {
     return vk::ClearColorValue(std::array<f32, 4>{color.r, color.g, color.b, color.a});
 }
 
+bool isSrgbFormat(vk::Format format);
+
 constexpr u64 alignUp(u64 value, u64 alignment) {
     return (value + alignment - 1) & ~(alignment - 1);
 }

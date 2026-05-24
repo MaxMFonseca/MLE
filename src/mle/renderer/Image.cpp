@@ -139,6 +139,7 @@ void Image::init(const CI& ci) {
         auto _ = createView();
     } else {
         o_ = ci.non_owned_image;
+        auto _ = createView();
     }
 }
 

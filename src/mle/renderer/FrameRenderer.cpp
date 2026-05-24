@@ -7,6 +7,7 @@
 #include <chrono>
 #include <functional>
 #include <ranges>
+#include <span>
 #include <thread>
 #include <utility>
 
@@ -16,6 +17,7 @@
 #include "mle/core/Assert.h"
 #include "mle/core/PerfTracker.h"
 #include "mle/core/RuntimeConfig.h"
+#include "mle/renderer/Pipeline.h"
 #include "mle/renderer/Types.h"
 #include "mle/renderer/Utils.h"
 #include "mle/utils/String.h"
@@ -85,6 +87,50 @@ inline std::chrono::steady_clock::duration fpsToPeriod(u32 fps) {
         return std::chrono::steady_clock::duration::zero();
     }
     return std::chrono::nanoseconds(1'000'000'000ULL / fps);
+}
+}  // namespace
+
+namespace detail {
+vk::SurfaceFormatKHR chooseSwapchainSurfaceFormat(std::span<const vk::SurfaceFormatKHR> available_formats) {
+    std::array target_formats = {vk::Format::eB8G8R8A8Srgb, vk::Format::eR8G8B8A8Srgb, vk::Format::eB8G8R8A8Unorm, vk::Format::eR8G8B8A8Unorm};
+
+    for (const auto& t : target_formats) {
+        for (const auto avail : available_formats) {
+            if (avail.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear && avail.format == t) {
+                return avail;
+            }
+        }
+    }
+    return available_formats[0];
+}
+}  // namespace detail
+
+namespace {
+vk::PipelineColorBlendAttachmentState makeOpaquePresentBlendAttachment() {
+    vk::PipelineColorBlendAttachmentState blend{};
+    blend.blendEnable = vk::False;
+    blend.colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
+    return blend;
+}
+
+const Pipeline& getDefaultPresentPipeline(vk::Format swapchain_format) {
+    const std::string pipeline_name = fmt::format("mle_present_default_{}", vk::to_string(swapchain_format));
+    if (const auto* pipeline = Renderer::i().pipelineCache().tryGetPipeline(pipeline_name)) {
+        return *pipeline;
+    }
+
+    Pipeline::CI pipeline_ci{};
+    pipeline_ci.vertex_shader = &Renderer::i().shaderCache().get("mle/fs_triangle.vert");
+    pipeline_ci.fragment_shader = &Renderer::i().shaderCache().get("mle/present/color_correct.frag");
+    std::array color_attachment_formats = {swapchain_format};
+    std::array blend_attachments = {makeOpaquePresentBlendAttachment()};
+    pipeline_ci.color_attachment_formats = color_attachment_formats;
+    pipeline_ci.blend_attachments = blend_attachments;
+    pipeline_ci.topology = vk::PrimitiveTopology::eTriangleList;
+    pipeline_ci.cull_mode = vk::CullModeFlagBits::eNone;
+    pipeline_ci.push_descriptor = 0;
+
+    return Renderer::i().pipelineCache().setPipeline(pipeline_name, pipeline_ci);
 }
 }  // namespace
 
@@ -219,6 +265,16 @@ void FrameRenderer::stopRun() {
     MLE_I("FrameRenderer run thread stopped.");
 }
 
+void FrameRenderer::setPresentPass(PresentPassFn pass) {
+    assertInRenderThread("setPresentPass.");
+    present_pass_ = std::move(pass);
+}
+
+void FrameRenderer::resetPresentPass() {
+    assertInRenderThread("resetPresentPass.");
+    present_pass_ = {};
+}
+
 void FrameRenderer::shutdown() {
     MLE_I("shutdown");
 
@@ -281,16 +337,7 @@ void FrameRenderer::initFramesData() {
 namespace {
 vk::SurfaceFormatKHR chooseSwapchainSurfaceFormat(const auto& p_device) {
     const auto available_formats = unwrap(p_device.getSurfaceFormatsKHR(Renderer::i().vk().getSurface()));
-    std::array target_formats = {vk::Format::eB8G8R8A8Srgb, vk::Format::eR8G8B8A8Srgb, vk::Format::eB8G8R8A8Unorm, vk::Format::eR8G8B8A8Unorm};
-
-    for (const auto& t : target_formats) {
-        for (const auto avail : available_formats) {
-            if (avail.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear && avail.format == t) {
-                return avail;
-            }
-        }
-    }
-    return available_formats[0];
+    return detail::chooseSwapchainSurfaceFormat(available_formats);
 }
 
 vk::PresentModeKHR chooseSwapchainPresentMode(const auto& p_device) {
@@ -513,7 +560,11 @@ void FrameRenderer::endFrame(ImageRef frame_image) {
     auto& cmd = current_primary_cmd_;
 
     if (frame_image) {
-        current_swapchain_image_->blitImage(cmd, *frame_image);
+        if (present_pass_) {
+            present_pass_(cmd, *frame_image, *current_swapchain_image_);
+        } else {
+            defaultPresentPass(cmd, *frame_image, *current_swapchain_image_);
+        }
     } else {
         current_swapchain_image_->transitionState(cmd, Image::State::TRANSFER_DST);
         vk::ImageSubresourceRange subresource_range{vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1};
@@ -567,6 +618,56 @@ void FrameRenderer::endFrame(ImageRef frame_image) {
     frames_finished_++;
     current_swapchain_image_ = nullptr;
     current_swapchain_image_idx_ = max<u32>();
+}
+
+void FrameRenderer::defaultPresentPass(CommandBuffer& cmd, Image& src, Image& swapchain) {
+    src.transitionState(cmd, Image::State::FS_READ);
+    swapchain.transitionState(cmd, Image::State::COLOR_ATT);
+
+    vk::RenderingAttachmentInfo color_attachment{};
+    color_attachment.imageView = swapchain.getDefaultView();
+    color_attachment.imageLayout = vk::ImageLayout::eColorAttachmentOptimal;
+    color_attachment.loadOp = vk::AttachmentLoadOp::eDontCare;
+    color_attachment.storeOp = vk::AttachmentStoreOp::eStore;
+
+    vk::RenderingInfo rendering_info{};
+    rendering_info.renderArea.offset = vk::Offset2D{0, 0};
+    rendering_info.renderArea.extent = swapchain.getVkExtent();
+    rendering_info.layerCount = 1;
+    rendering_info.setColorAttachments(color_attachment);
+
+    cmd().beginRendering(rendering_info);
+
+    vk::Viewport viewport{};
+    viewport.x = 0.0F;
+    viewport.y = 0.0F;
+    viewport.width = as<f32>(swapchain.getExtent().x);
+    viewport.height = as<f32>(swapchain.getExtent().y);
+    viewport.minDepth = 0.0F;
+    viewport.maxDepth = 1.0F;
+
+    vk::Rect2D scissor{};
+    scissor.offset = vk::Offset2D{0, 0};
+    scissor.extent = swapchain.getVkExtent();
+
+    cmd().setViewport(0, viewport);
+    cmd().setScissor(0, scissor);
+
+    const auto& pipeline = getDefaultPresentPipeline(swapchain.getVkFormat());
+    cmd().bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline.get());
+
+    struct PC {
+        i32 dst_srgb;
+    } pc{};
+    pc.dst_srgb = isSrgbFormat(swapchain.getVkFormat()) ? 1 : 0;
+    cmd().pushConstants(pipeline.getPipelineLayout(), vk::ShaderStageFlagBits::eFragment, 0, sizeof(pc), &pc);
+
+    auto src_info = src.getDescriptorInfo();
+    auto writes = pipeline.makeWrites(0, nullptr, &src_info);
+    cmd().pushDescriptorSet(vk::PipelineBindPoint::eGraphics, pipeline.getPipelineLayout(), 0, writes);
+
+    cmd().draw(3, 1, 0, 0);
+    cmd().endRendering();
 }
 
 void FrameRenderer::recreateNextFrameImageAvailableSemaphore() {

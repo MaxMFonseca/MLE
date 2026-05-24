@@ -17,6 +17,7 @@ namespace mle {
 class FrameRenderer final {
   public:
     static constexpr usize NO_FRAME = max<usize>();
+    using PresentPassFn = std::function<void(CommandBuffer& cmd, Image& src, Image& swapchain)>;
 
   private:
     struct FrameData {
@@ -73,6 +74,11 @@ class FrameRenderer final {
 
     void callOnNextFrameBegin(std::move_only_function<void(void)>&& func);
 
+    /// Overrides the final present operation. The callback records commands that write `src` into `swapchain`.
+    /// FrameRenderer transitions the swapchain image to PRESENT after the callback returns.
+    void setPresentPass(PresentPassFn pass);
+    void resetPresentPass();
+
     [[nodiscard]] bool isRunning() const { return running_.load(std::memory_order_relaxed); }
 
     void assertInRenderThread(const char* msg = "");
@@ -91,6 +97,7 @@ class FrameRenderer final {
 
     Result beginFrame();
     void endFrame(ImageRef frame_image);
+    void defaultPresentPass(CommandBuffer& cmd, Image& src, Image& swapchain);
 
     void recreateNextFrameImageAvailableSemaphore();
     Expected<u32> acquireNextImage();
@@ -109,7 +116,7 @@ class FrameRenderer final {
     vk::SwapchainKHR swapchain_{};
     vec2u swapchain_extent_{};
     vk::SurfaceFormatKHR surface_format_ = {};
-    vk::ImageUsageFlags swapchain_usage_ = vk::ImageUsageFlagBits::eTransferDst;
+    vk::ImageUsageFlags swapchain_usage_ = vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eColorAttachment;
     std::vector<ImageHnd> swapchain_images_{};
     std::vector<vk::Semaphore> swapchain_image_semaphores_{};
     vk::PresentModeKHR present_mode_ = vk::PresentModeKHR::eFifo;
@@ -132,6 +139,8 @@ class FrameRenderer final {
 
     std::mutex gc_mutex_;
     std::vector<std::move_only_function<void(void)>> gc_;
+
+    PresentPassFn present_pass_;
 
     std::jthread run_thread_{};
     std::atomic<u32> target_fps_ = max<u32>();
