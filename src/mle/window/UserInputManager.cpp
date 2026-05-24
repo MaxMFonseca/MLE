@@ -141,15 +141,17 @@ void UserInputManager::update() {
 
         auto listeners = listeners_.find(packKeyKeyState(key, state));
         if (listeners != listeners_.end()) {
-            auto reverse_it = listeners->second.rbegin();
-            bool handled = false;
-            for (; reverse_it != listeners->second.rend(); ++reverse_it) {
+            for (auto reverse_it = listeners->second.rbegin(); reverse_it != listeners->second.rend(); ++reverse_it) {
                 auto& l = **reverse_it;
                 if (l.always_call_) {
                     static_cast<void>(l.tryCall(shift_, ctrl_, alt_, text_active));
-                    continue;
                 }
-                if (!handled && l.tryCall(shift_, ctrl_, alt_, text_active)) {
+            }
+
+            bool handled = false;
+            for (auto reverse_it = listeners->second.rbegin(); reverse_it != listeners->second.rend(); ++reverse_it) {
+                auto& l = **reverse_it;
+                if (!l.always_call_ && !handled && l.tryCall(shift_, ctrl_, alt_, text_active)) {
                     handled = true;
                 }
             }
@@ -158,18 +160,18 @@ void UserInputManager::update() {
         if (state == KeyState::DOWN && sw.elapsedSecFloat() > key_repeat_delay_s_) {
             auto listeners = listeners_.find(packKeyKeyState(key, KeyState::PRESSED));
             if (listeners != listeners_.end()) {
-                auto reverse_it = listeners->second.rbegin();
-                bool handled = false;
-                for (; reverse_it != listeners->second.rend(); ++reverse_it) {
+                for (auto reverse_it = listeners->second.rbegin(); reverse_it != listeners->second.rend(); ++reverse_it) {
                     auto& l = **reverse_it;
-                    if (l.repeat_) {
-                        if (l.always_call_) {
-                            static_cast<void>(l.tryCall(shift_, ctrl_, alt_, text_active));
-                            continue;
-                        }
-                        if (!handled && l.tryCall(shift_, ctrl_, alt_, text_active)) {
-                            handled = true;
-                        }
+                    if (l.repeat_ && l.always_call_) {
+                        static_cast<void>(l.tryCall(shift_, ctrl_, alt_, text_active));
+                    }
+                }
+
+                bool handled = false;
+                for (auto reverse_it = listeners->second.rbegin(); reverse_it != listeners->second.rend(); ++reverse_it) {
+                    auto& l = **reverse_it;
+                    if (l.repeat_ && !l.always_call_ && !handled && l.tryCall(shift_, ctrl_, alt_, text_active)) {
+                        handled = true;
                     }
                 }
             }
