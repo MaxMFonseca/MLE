@@ -17,8 +17,8 @@
 #include "mle/renderer/Pipeline.h"
 #include "mle/renderer/Renderer.h"
 #include "mle/renderer/RenderingThread.h"
-#include "mle/utils/File.h"
 #include "mle/utils/ECS.h"
+#include "mle/utils/File.h"
 
 namespace mle::user {
 namespace {
@@ -35,11 +35,7 @@ struct LightingUniform {
 };
 
 constexpr std::array<std::string_view, as<usize>(ModelTestShaderMode::COUNT)> SHADER_MODE_NAMES = {
-    "PBR",
-    "Cartoon",
-    "Wireframe",
-    "Normals",
-    "Albedo",
+    "PBR", "Cartoon", "Wireframe", "Normals", "Albedo",
 };
 
 const Pipeline* getModelTestPipeline(Mesh::VertexKind kind, ModelTestShaderMode mode) {
@@ -112,10 +108,19 @@ const Pipeline* getModelTestPipeline(Mesh::VertexKind kind, ModelTestShaderMode 
                 MLE_UNREACHABLE;
         }
 
-        std::array color_attachment_formats = {Renderer::i().vk().getVkImageFormat(ImageFormat::COLOR)};
-        pipeline_ci.color_attachment_formats = color_attachment_formats;
-        auto blend_attachments = Pipeline::makeDefaultBlendAttachments<1>();
-        pipeline_ci.blend_attachments = blend_attachments;
+        const auto color_format = Renderer::i().vk().getVkImageFormat(ImageFormat::COLOR);
+        if (mode == ModelTestShaderMode::CARTOON) {
+            std::array color_attachment_formats = {color_format, color_format};
+            pipeline_ci.color_attachment_formats = color_attachment_formats;
+            auto blend_attachments = Pipeline::makeDefaultBlendAttachments<2>();
+            blend_attachments[1].blendEnable = vk::False;
+            pipeline_ci.blend_attachments = blend_attachments;
+        } else {
+            std::array color_attachment_formats = {color_format};
+            pipeline_ci.color_attachment_formats = color_attachment_formats;
+            auto blend_attachments = Pipeline::makeDefaultBlendAttachments<1>();
+            pipeline_ci.blend_attachments = blend_attachments;
+        }
         pipeline_ci.topology = vk::PrimitiveTopology::eTriangleList;
         pipeline_ci.cull_mode = vk::CullModeFlagBits::eNone;
         pipeline_ci.depth = true;
@@ -476,6 +481,27 @@ ImageRef ModelTestLayer::getDepthImage(vec2u size) {
     return image.get();
 }
 
+ImageRef ModelTestLayer::getNormalImage(vec2u size) {
+    auto& frame_renderer = Renderer::i().frameRenderer();
+    auto frame_idx = frame_renderer.getCurrentFrameId();
+    auto& image = normal_images_.at(frame_idx);
+
+    if (!image) {
+        Image::CI image_ci{};
+        image_ci.extent = size;
+        image_ci.format = Image::Format::COLOR;
+        image = Image::createHnd(image_ci);
+    } else if (image->getExtent() != size) {
+        frame_renderer.deleteAfterFrame(std::move(image));
+        Image::CI image_ci{};
+        image_ci.extent = size;
+        image_ci.format = Image::Format::COLOR;
+        image = Image::createHnd(image_ci);
+    }
+
+    return image.get();
+}
+
 void ModelTestLayer::renderModel(ImageRef target) {
     if (!target || !model_ || model_->getMeshes().empty()) {
         return;
@@ -525,6 +551,14 @@ void ModelTestLayer::renderModel(ImageRef target) {
     color_attachment.image = target;
     color_attachment.load_op = vk::AttachmentLoadOp::eLoad;
     thread.setColorAttachment(color_attachment, 0);
+
+    AttachmentInfo normal_attachment{};
+    if (shader_mode_ == ModelTestShaderMode::CARTOON) {
+        normal_attachment.image = getNormalImage(target->getExtent());
+        normal_attachment.load_op = vk::AttachmentLoadOp::eClear;
+        normal_attachment.clear_value.color = vk::ClearColorValue{std::array{0.5F, 0.5F, 1.0F, 0.0F}};
+        thread.setColorAttachment(normal_attachment, 1);
+    }
 
     AttachmentInfo depth_attachment{};
     depth_attachment.image = getDepthImage(target->getExtent());
@@ -602,12 +636,12 @@ void ModelTestLayer::renderModel(ImageRef target) {
                     case ModelTestShaderMode::PBR:
                     case ModelTestShaderMode::CARTOON:
                         if (mesh.isSkinned()) {
-                            auto push_writes = pipeline->makeWrites(0, nullptr, &material_di, &lighting_di, &base_color_di, &metallic_roughness_di,
-                                                                    &normal_di, &occlusion_di, &emissive_di, skin_mats_di);
+                            auto push_writes = pipeline->makeWrites(0, nullptr, &material_di, &lighting_di, &base_color_di, &metallic_roughness_di, &normal_di,
+                                                                    &occlusion_di, &emissive_di, skin_mats_di);
                             thread.pushDescriptor(0, push_writes);
                         } else {
-                            auto push_writes = pipeline->makeWrites(0, nullptr, &material_di, &lighting_di, &base_color_di, &metallic_roughness_di,
-                                                                    &normal_di, &occlusion_di, &emissive_di);
+                            auto push_writes = pipeline->makeWrites(0, nullptr, &material_di, &lighting_di, &base_color_di, &metallic_roughness_di, &normal_di,
+                                                                    &occlusion_di, &emissive_di);
                             thread.pushDescriptor(0, push_writes);
                         }
                         break;
@@ -680,11 +714,13 @@ void ModelTestLayer::renderModel(ImageRef target) {
         thread.endRendering();
 
         depth_attachment.image->transitionState(thread.cmd(), Image::State::FS_READ);
+        normal_attachment.image->transitionState(thread.cmd(), Image::State::FS_READ);
 
         AttachmentInfo outline_color_attachment{};
         outline_color_attachment.image = target;
         outline_color_attachment.load_op = vk::AttachmentLoadOp::eLoad;
         thread.setColorAttachment(outline_color_attachment, 0);
+        thread.setColorAttachment({}, 1);
         thread.setDepthAttachment({});
         thread.beginRendering();
         thread.setViewportAndScissor(Rectf{0.0F, 0.0F, as<f32>(target->getExtent().x), as<f32>(target->getExtent().y)});
@@ -693,18 +729,21 @@ void ModelTestLayer::renderModel(ImageRef target) {
         thread.setPipeline(outline_pipeline);
 
         auto depth_di = depth_attachment.image->getDescriptorInfo();
-        auto outline_writes = outline_pipeline->makeWrites(0, nullptr, &depth_di);
+        auto normal_di = normal_attachment.image->getDescriptorInfo();
+        auto outline_writes = outline_pipeline->makeWrites(0, nullptr, &depth_di, &normal_di);
         thread.pushDescriptor(0, outline_writes);
 
         struct OutlinePushConstants {
             vec2f inv_extent;
             f32 depth_threshold;
+            f32 normal_threshold;
             f32 alpha;
             f32 outline_width_px;
         } outline_pc{};
 
         outline_pc.inv_extent = 1.0F / vec2f{target->getExtent()};
         outline_pc.depth_threshold = 0.00075F;
+        outline_pc.normal_threshold = 0.08F;
         outline_pc.alpha = 0.95F;
         outline_pc.outline_width_px = outline_width_px_;
 

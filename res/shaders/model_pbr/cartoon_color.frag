@@ -18,6 +18,7 @@ layout(set = 0, binding = 1) uniform Lighting {
 } material_lighting;
 
 layout(location = 0) out vec4 out_color;
+layout(location = 1) out vec4 out_normal;
 
 float toonBand(float value) {
   const float s = 0.01;
@@ -49,4 +50,5 @@ void main() {
   vec3 color = lit + vec3(spec) * sun * (1.0 - clamp(in_mre.x * material.pbr_factors.x, 0.0, 1.0)) + rim * sun + material.emissive_factor.rgb;
 
   out_color = vec4(color, material.base_color_factor.a);
+  out_normal = vec4(n * 0.5 + 0.5, material.base_color_factor.a);
 }

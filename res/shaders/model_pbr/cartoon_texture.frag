@@ -25,6 +25,7 @@ layout(set = 0, binding = 5) uniform sampler2D occlusion_tex;
 layout(set = 0, binding = 6) uniform sampler2D emissive_tex;
 
 layout(location = 0) out vec4 out_color;
+layout(location = 1) out vec4 out_normal;
 
 float toonBand(float value) {
   const float s = 0.01;
@@ -67,4 +68,5 @@ void main() {
   vec3 color = ((base.rgb * (material_lighting.sun_color_ambient.a + band * sun)) + vec3(spec) * sun * (1.0 - metallic) + rim * sun) * occlusion + emissive;
   
   out_color = vec4(color, base.a);
+  out_normal = vec4(n * 0.5 + 0.5, base.a);
 }
