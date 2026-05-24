@@ -46,6 +46,7 @@ class KeyListener final {
     KeyListener& setMods(KeyModFlags mods);
     KeyListener& setKeybinding(Keybinding kb);
     KeyListener& setRepeat(bool enable);
+    KeyListener& setAlwaysCall(bool enable);
 
     [[nodiscard]] auto getKb() const { return kb_; }
     [[nodiscard]] auto getKey() const { return kb_.key; }
@@ -65,6 +66,7 @@ class KeyListener final {
     CallbackFn callback_{};
     Keybinding kb_{};
     bool repeat_ = false;
+    bool always_call_ = false;
     bool listening_ = false;
 };
 

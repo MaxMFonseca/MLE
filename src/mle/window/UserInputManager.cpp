@@ -76,6 +76,11 @@ KeyListener& KeyListener::setRepeat(bool enable) {
     return *this;
 }
 
+KeyListener& KeyListener::setAlwaysCall(bool enable) {
+    always_call_ = enable;
+    return *this;
+}
+
 void KeyListener::listen() {
     if (listening_) {
         return;
@@ -137,10 +142,15 @@ void UserInputManager::update() {
         auto listeners = listeners_.find(packKeyKeyState(key, state));
         if (listeners != listeners_.end()) {
             auto reverse_it = listeners->second.rbegin();
+            bool handled = false;
             for (; reverse_it != listeners->second.rend(); ++reverse_it) {
                 auto& l = **reverse_it;
-                if (l.tryCall(shift_, ctrl_, alt_, text_active)) {
-                    break;
+                if (l.always_call_) {
+                    static_cast<void>(l.tryCall(shift_, ctrl_, alt_, text_active));
+                    continue;
+                }
+                if (!handled && l.tryCall(shift_, ctrl_, alt_, text_active)) {
+                    handled = true;
                 }
             }
         }
@@ -149,11 +159,16 @@ void UserInputManager::update() {
             auto listeners = listeners_.find(packKeyKeyState(key, KeyState::PRESSED));
             if (listeners != listeners_.end()) {
                 auto reverse_it = listeners->second.rbegin();
+                bool handled = false;
                 for (; reverse_it != listeners->second.rend(); ++reverse_it) {
                     auto& l = **reverse_it;
                     if (l.repeat_) {
-                        if (l.tryCall(shift_, ctrl_, alt_, text_active)) {
-                            break;
+                        if (l.always_call_) {
+                            static_cast<void>(l.tryCall(shift_, ctrl_, alt_, text_active));
+                            continue;
+                        }
+                        if (!handled && l.tryCall(shift_, ctrl_, alt_, text_active)) {
+                            handled = true;
                         }
                     }
                 }
