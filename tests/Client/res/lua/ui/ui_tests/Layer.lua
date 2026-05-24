@@ -43,6 +43,9 @@ local function create_multipanel()
 		right = function(ew)
 			ew:call("setPanelByOffset", 1)
 		end,
+		escape = function()
+			G.return_to_init()
+		end,
 	}
 
 	return ret

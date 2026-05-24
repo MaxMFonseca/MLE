@@ -1,5 +1,6 @@
 #include "UITest.h"
 
+#include "Init.h"
 #include "ModelTest.h"
 #include "mle/client/Client.h"
 #include "mle/renderer/Renderer.h"
@@ -9,6 +10,7 @@ void UITestLayer::init() {
     MLE_I("UITest::init()");
 
     Client::i().getGameLayerTable()["ui"] = &ui_;
+    Client::i().getGameLayerTable()["return_to_init"] = []() { Client::i().pushGameLayer(std::make_unique<InitLayer>()); };
 
     ui_.setRoot("i/ui/ui_tests/Layer");
 };

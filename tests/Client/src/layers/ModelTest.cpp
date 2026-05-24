@@ -8,6 +8,7 @@
 #include <string_view>
 #include <unordered_set>
 
+#include "Init.h"
 #include "mle/client/Client.h"
 #include "mle/core/Assert.h"
 #include "mle/renderer/Animation.h"
@@ -426,6 +427,7 @@ void ModelTestLayer::init() {
     Client::i().getGameLayerTable()["model_test_model_names"] = makeModelNamesTable();
     Client::i().getGameLayerTable()["model_test_animation_names"] = makeAnimationNamesTable();
     Client::i().getGameLayerTable()["model_test_shader_mode_names"] = makeShaderModeNamesTable();
+    Client::i().getGameLayerTable()["return_to_init"] = []() { Client::i().pushGameLayer(std::make_unique<InitLayer>()); };
     ui_.setRoot("i/ui/ModelTestLayer");
 
     MLE_I("ModelTestLayer assets loaded: {} models, {} animations", model_options_.size(), animation_names_.size());

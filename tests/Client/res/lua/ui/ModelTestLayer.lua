@@ -259,7 +259,13 @@ local held_items = G.model_test_held_item_names and G.model_test_held_item_names
 local shader_modes = G.model_test_shader_mode_names or { "PBR", "Cartoon", "Wireframe", "Normals", "Albedo" }
 
 return {
+	size = 1,
 	free_container = {},
+	on_keys = {
+		escape = function()
+			G.return_to_init()
+		end,
+	},
 	c = {
 		panel = {
 			pos = { "18px", "18px" },
