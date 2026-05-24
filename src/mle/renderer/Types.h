@@ -110,8 +110,9 @@ struct AttachmentInfo {
 };
 
 struct GBuffer {
-    ImageHnd albedo_metal;
-    ImageHnd normal_roughness;
+    ImageHnd albedo;
+    ImageHnd normal;
+    ImageHnd params;
     ImageHnd emissive;
     ImageHnd depth;
 };

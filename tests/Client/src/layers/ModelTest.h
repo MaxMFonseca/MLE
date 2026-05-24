@@ -44,8 +44,7 @@ class ModelTestLayer : public mle::client::Layer {
         entt::id_type id{};
     };
 
-    ImageRef getDepthImage(vec2u size);
-    ImageRef getNormalImage(vec2u size);
+    GBuffer& getGBuffer(vec2u size);
     void renderModel(ImageRef target);
     void refreshAssets();
     [[nodiscard]] sol::table refreshAssetsForLua();
@@ -101,7 +100,6 @@ class ModelTestLayer : public mle::client::Layer {
     UI ui_;
 
     mle::client::WindowSizedRenderTarget render_target_;
-    std::array<ImageHnd, 2> depth_images_;
-    std::array<ImageHnd, 2> normal_images_;
+    std::array<GBuffer, 2> gbuffers_;
 };
 }  // namespace mle::user

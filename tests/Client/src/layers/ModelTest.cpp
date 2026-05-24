@@ -38,14 +38,22 @@ constexpr std::array<std::string_view, as<usize>(ModelTestShaderMode::COUNT)> SH
     "PBR", "Cartoon", "Wireframe", "Normals", "Albedo",
 };
 
-const Pipeline* getModelTestPipeline(Mesh::VertexKind kind, ModelTestShaderMode mode) {
-    static std::array<const Pipeline*, 4 * as<usize>(ModelTestShaderMode::COUNT)> pipelines{};
+template <usize Size>
+auto makeNoBlendAttachments() {
+    auto blend_attachments = Pipeline::makeDefaultBlendAttachments<Size>();
+    for (auto& attachment : blend_attachments) {
+        attachment.blendEnable = vk::False;
+    }
+    return blend_attachments;
+}
+
+const Pipeline* getModelTestGBufferPipeline(Mesh::VertexKind kind, bool wireframe) {
+    static std::array<const Pipeline*, 4 * 2> pipelines{};
     const usize kind_idx = as<usize>(kind);
-    const usize mode_idx = as<usize>(mode);
-    const usize idx = mode_idx * 4 + kind_idx;
+    const usize idx = (wireframe ? 4 : 0) + kind_idx;
     if (pipelines[idx] == nullptr) {
+        MLE_I("ModelTest: creating G-buffer pipeline kind={} wireframe={}", kind_idx, wireframe);
         Pipeline::CI pipeline_ci{};
-        std::string_view mode_name = "pbr";
         switch (kind) {
             case Mesh::VertexKind::PBR_COLOR:
                 pipeline_ci.vertex_shader = &Renderer::i().shaderCache().get("mle/model_pbr/color.vert");
@@ -62,64 +70,18 @@ const Pipeline* getModelTestPipeline(Mesh::VertexKind kind, ModelTestShaderMode 
         }
 
         const bool textured = kind == Mesh::VertexKind::PBR_TEXTURE || kind == Mesh::VertexKind::PBR_TEXTURE_SKINNED;
-        switch (mode) {
-            case ModelTestShaderMode::PBR:
-                mode_name = "pbr";
-                pipeline_ci.fragment_shader = &Renderer::i().shaderCache().get(textured ? "mle/model_pbr/texture.frag" : "mle/model_pbr/color.frag");
-                break;
-            case ModelTestShaderMode::CARTOON:
-                mode_name = "cartoon";
-                pipeline_ci.fragment_shader =
-                    &Renderer::i().shaderCache().get(textured ? "mle/model_pbr/cartoon_texture.frag" : "mle/model_pbr/cartoon_color.frag");
-                break;
-            case ModelTestShaderMode::WIREFRAME:
-                mode_name = "wireframe";
-                pipeline_ci.fragment_shader = &Renderer::i().shaderCache().get(textured ? "mle/model_pbr/wire_texture.frag" : "mle/model_pbr/wire_color.frag");
-                pipeline_ci.polygon_mode = vk::PolygonMode::eLine;
-                {
-                    std::array dynamic_states = {vk::DynamicState::eLineWidth};
-                    pipeline_ci.dynamic_states = dynamic_states;
-                    std::array color_attachment_formats = {Renderer::i().vk().getVkImageFormat(ImageFormat::COLOR)};
-                    pipeline_ci.color_attachment_formats = color_attachment_formats;
-                    auto blend_attachments = Pipeline::makeDefaultBlendAttachments<1>();
-                    pipeline_ci.blend_attachments = blend_attachments;
-                    pipeline_ci.topology = vk::PrimitiveTopology::eTriangleList;
-                    pipeline_ci.cull_mode = vk::CullModeFlagBits::eNone;
-                    pipeline_ci.depth = true;
-                    pipeline_ci.depth_write = true;
-                    pipeline_ci.push_descriptor = 0;
-
-                    const std::string name = fmt::format("model_test_{}_{}", mode_name, kind_idx);
-                    pipelines[idx] = &Renderer::i().pipelineCache().setPipeline(name, pipeline_ci);
-                    return pipelines[idx];
-                }
-                break;
-            case ModelTestShaderMode::NORMALS:
-                mode_name = "normals";
-                pipeline_ci.fragment_shader =
-                    &Renderer::i().shaderCache().get(textured ? "mle/model_pbr/normals_texture.frag" : "mle/model_pbr/normals_color.frag");
-                break;
-            case ModelTestShaderMode::ALBEDO:
-                mode_name = "albedo";
-                pipeline_ci.fragment_shader =
-                    &Renderer::i().shaderCache().get(textured ? "mle/model_pbr/albedo_texture.frag" : "mle/model_pbr/albedo_color.frag");
-                break;
-            case ModelTestShaderMode::COUNT:
-                MLE_UNREACHABLE;
-        }
-
+        pipeline_ci.fragment_shader = &Renderer::i().shaderCache().get(textured ? "mle/model_pbr/gbuffer_texture.frag" : "mle/model_pbr/gbuffer_color.frag");
         const auto color_format = Renderer::i().vk().getVkImageFormat(ImageFormat::COLOR);
-        if (mode == ModelTestShaderMode::CARTOON) {
-            std::array color_attachment_formats = {color_format, color_format};
-            pipeline_ci.color_attachment_formats = color_attachment_formats;
-            auto blend_attachments = Pipeline::makeDefaultBlendAttachments<2>();
-            blend_attachments[1].blendEnable = vk::False;
-            pipeline_ci.blend_attachments = blend_attachments;
-        } else {
-            std::array color_attachment_formats = {color_format};
-            pipeline_ci.color_attachment_formats = color_attachment_formats;
-            auto blend_attachments = Pipeline::makeDefaultBlendAttachments<1>();
-            pipeline_ci.blend_attachments = blend_attachments;
+        const auto normal_format = Renderer::i().vk().getVkImageFormat(ImageFormat::NORMALS);
+        const auto params_format = Renderer::i().vk().getVkImageFormat(ImageFormat::GBUF_PARAMS);
+        std::array color_attachment_formats = {color_format, normal_format, params_format, color_format};
+        pipeline_ci.color_attachment_formats = color_attachment_formats;
+        auto blend_attachments = makeNoBlendAttachments<4>();
+        pipeline_ci.blend_attachments = blend_attachments;
+        if (wireframe) {
+            static std::array dynamic_states = {vk::DynamicState::eLineWidth};
+            pipeline_ci.dynamic_states = dynamic_states;
+            pipeline_ci.polygon_mode = vk::PolygonMode::eLine;
         }
         pipeline_ci.topology = vk::PrimitiveTopology::eTriangleList;
         pipeline_ci.cull_mode = vk::CullModeFlagBits::eNone;
@@ -127,8 +89,61 @@ const Pipeline* getModelTestPipeline(Mesh::VertexKind kind, ModelTestShaderMode 
         pipeline_ci.depth_write = true;
         pipeline_ci.push_descriptor = 0;
 
-        const std::string name = fmt::format("model_test_{}_{}", mode_name, kind_idx);
+        const std::string name = fmt::format("model_test_gbuffer_{}_{}", wireframe ? "wire" : "fill", kind_idx);
         pipelines[idx] = &Renderer::i().pipelineCache().setPipeline(name, pipeline_ci);
+        MLE_I("ModelTest: created G-buffer pipeline '{}'", name);
+    }
+    return pipelines[idx];
+}
+
+const Pipeline* getModelTestResolvePipeline(ModelTestShaderMode mode) {
+    static std::array<const Pipeline*, as<usize>(ModelTestShaderMode::COUNT)> pipelines{};
+    const usize idx = as<usize>(mode);
+    if (pipelines[idx] == nullptr) {
+        MLE_I("ModelTest: creating resolve pipeline mode={}", SHADER_MODE_NAMES.at(idx));
+        Pipeline::CI pipeline_ci{};
+        pipeline_ci.vertex_shader = &Renderer::i().shaderCache().get("mle/fs_triangle.vert");
+
+        std::string_view mode_name = "pbr";
+        switch (mode) {
+            case ModelTestShaderMode::PBR:
+                mode_name = "pbr";
+                pipeline_ci.fragment_shader = &Renderer::i().shaderCache().get("mle/model_pbr/pbr_resolve.frag");
+                break;
+            case ModelTestShaderMode::CARTOON:
+                mode_name = "cartoon";
+                pipeline_ci.fragment_shader = &Renderer::i().shaderCache().get("mle/model_pbr/cartoon_resolve.frag");
+                break;
+            case ModelTestShaderMode::WIREFRAME:
+                mode_name = "wireframe";
+                pipeline_ci.fragment_shader = &Renderer::i().shaderCache().get("mle/model_pbr/wireframe_resolve.frag");
+                break;
+            case ModelTestShaderMode::NORMALS:
+                mode_name = "normals";
+                pipeline_ci.fragment_shader = &Renderer::i().shaderCache().get("mle/model_pbr/normals_resolve.frag");
+                break;
+            case ModelTestShaderMode::ALBEDO:
+                mode_name = "albedo";
+                pipeline_ci.fragment_shader = &Renderer::i().shaderCache().get("mle/model_pbr/albedo_resolve.frag");
+                break;
+            case ModelTestShaderMode::COUNT:
+                MLE_UNREACHABLE;
+        }
+
+        std::array color_attachment_formats = {Renderer::i().vk().getVkImageFormat(ImageFormat::COLOR)};
+        pipeline_ci.color_attachment_formats = color_attachment_formats;
+        auto blend_attachments = Pipeline::makeDefaultBlendAttachments<1>();
+        blend_attachments[0].blendEnable = vk::False;
+        pipeline_ci.blend_attachments = blend_attachments;
+        pipeline_ci.topology = vk::PrimitiveTopology::eTriangleList;
+        pipeline_ci.cull_mode = vk::CullModeFlagBits::eNone;
+        pipeline_ci.depth = false;
+        pipeline_ci.depth_write = false;
+        pipeline_ci.push_descriptor = 0;
+
+        const std::string name = fmt::format("model_test_{}_resolve", mode_name);
+        pipelines[idx] = &Renderer::i().pipelineCache().setPipeline(name, pipeline_ci);
+        MLE_I("ModelTest: created resolve pipeline '{}'", name);
     }
     return pipelines[idx];
 }
@@ -136,6 +151,7 @@ const Pipeline* getModelTestPipeline(Mesh::VertexKind kind, ModelTestShaderMode 
 const Pipeline* getModelTestOutlinePipeline() {
     static const Pipeline* pipeline{};
     if (pipeline == nullptr) {
+        MLE_I("ModelTest: creating cartoon outline pipeline");
         Pipeline::CI pipeline_ci{};
         pipeline_ci.vertex_shader = &Renderer::i().shaderCache().get("mle/fs_triangle.vert");
         pipeline_ci.fragment_shader = &Renderer::i().shaderCache().get("mle/model_pbr/outline.frag");
@@ -150,6 +166,7 @@ const Pipeline* getModelTestOutlinePipeline() {
         pipeline_ci.push_descriptor = 0;
 
         pipeline = &Renderer::i().pipelineCache().setPipeline("model_test_cartoon_outline_screen", pipeline_ci);
+        MLE_I("ModelTest: created cartoon outline pipeline");
     }
     return pipeline;
 }
@@ -404,15 +421,22 @@ void ModelTestLayer::init() {
     MLE_I("ModelTestLayer::init()");
 
     refreshAssets();
+    MLE_I("ModelTest: assets refreshed. models={}, held_items={}, animations={}", model_options_.size(), held_item_options_.size(), animation_options_.size());
 
-    for (usize mode_idx = 0; mode_idx < as<usize>(ModelTestShaderMode::COUNT); ++mode_idx) {
-        const auto mode = static_cast<ModelTestShaderMode>(mode_idx);
-        getModelTestPipeline(Mesh::VertexKind::PBR_COLOR, mode);
-        getModelTestPipeline(Mesh::VertexKind::PBR_COLOR_SKINNED, mode);
-        getModelTestPipeline(Mesh::VertexKind::PBR_TEXTURE, mode);
-        getModelTestPipeline(Mesh::VertexKind::PBR_TEXTURE_SKINNED, mode);
+    for (bool wireframe : {false, true}) {
+        MLE_I("ModelTest: warming G-buffer pipelines wireframe={}", wireframe);
+        getModelTestGBufferPipeline(Mesh::VertexKind::PBR_COLOR, wireframe);
+        getModelTestGBufferPipeline(Mesh::VertexKind::PBR_COLOR_SKINNED, wireframe);
+        getModelTestGBufferPipeline(Mesh::VertexKind::PBR_TEXTURE, wireframe);
+        getModelTestGBufferPipeline(Mesh::VertexKind::PBR_TEXTURE_SKINNED, wireframe);
     }
+    for (usize mode_idx = 0; mode_idx < as<usize>(ModelTestShaderMode::COUNT); ++mode_idx) {
+        MLE_I("ModelTest: warming resolve pipeline mode={}", SHADER_MODE_NAMES.at(mode_idx));
+        getModelTestResolvePipeline(static_cast<ModelTestShaderMode>(mode_idx));
+    }
+    MLE_I("ModelTest: warming outline pipeline");
     getModelTestOutlinePipeline();
+    MLE_I("ModelTest: pipeline warmup complete");
     Client::i().getGameLayerTable()["model_test_set_camera_yaw"] = [this](f32 value) { setCameraYaw01(value); };
     Client::i().getGameLayerTable()["model_test_set_camera_pitch"] = [this](f32 value) { setCameraPitch01(value); };
     Client::i().getGameLayerTable()["model_test_set_camera_distance"] = [this](f32 value) { setCameraDistance01(value); };
@@ -460,56 +484,45 @@ void ModelTestLayer::shutdown() {
     ui_.shutdown();
 };
 
-ImageRef ModelTestLayer::getDepthImage(vec2u size) {
+GBuffer& ModelTestLayer::getGBuffer(vec2u size) {
     auto& frame_renderer = Renderer::i().frameRenderer();
     auto frame_idx = frame_renderer.getCurrentFrameId();
-    auto& image = depth_images_.at(frame_idx);
+    auto& gbuffer = gbuffers_.at(frame_idx);
 
-    if (!image) {
-        Image::CI image_ci{};
-        image_ci.extent = size;
-        image_ci.format = Image::Format::DEPTH;
-        image = Image::createHnd(image_ci);
-    } else if (image->getExtent() != size) {
-        frame_renderer.deleteAfterFrame(std::move(image));
-        Image::CI image_ci{};
-        image_ci.extent = size;
-        image_ci.format = Image::Format::DEPTH;
-        image = Image::createHnd(image_ci);
-    }
+    auto ensure_image = [&](ImageHnd& image, Image::Format format, std::string_view label) {
+        if (!image || image->getExtent() != size) {
+            MLE_I("ModelTest: creating G-buffer image '{}' frame={} size={}x{} format={}", label, frame_idx, size.x, size.y, format);
+            if (image) {
+                frame_renderer.deleteAfterFrame(std::move(image));
+            }
+            Image::CI image_ci{};
+            image_ci.extent = size;
+            image_ci.format = format;
+            image = Image::createHnd(image_ci);
+            MLE_I("ModelTest: created G-buffer image '{}' image={}", label, fmt::ptr(image.get()));
+        }
+    };
 
-    return image.get();
-}
+    ensure_image(gbuffer.albedo, Image::Format::COLOR, "albedo");
+    ensure_image(gbuffer.normal, Image::Format::NORMALS, "normal");
+    ensure_image(gbuffer.params, Image::Format::GBUF_PARAMS, "params");
+    ensure_image(gbuffer.emissive, Image::Format::COLOR, "emissive");
+    ensure_image(gbuffer.depth, Image::Format::DEPTH, "depth");
 
-ImageRef ModelTestLayer::getNormalImage(vec2u size) {
-    auto& frame_renderer = Renderer::i().frameRenderer();
-    auto frame_idx = frame_renderer.getCurrentFrameId();
-    auto& image = normal_images_.at(frame_idx);
-
-    if (!image) {
-        Image::CI image_ci{};
-        image_ci.extent = size;
-        image_ci.format = Image::Format::COLOR;
-        image = Image::createHnd(image_ci);
-    } else if (image->getExtent() != size) {
-        frame_renderer.deleteAfterFrame(std::move(image));
-        Image::CI image_ci{};
-        image_ci.extent = size;
-        image_ci.format = Image::Format::COLOR;
-        image = Image::createHnd(image_ci);
-    }
-
-    return image.get();
+    return gbuffer;
 }
 
 void ModelTestLayer::renderModel(ImageRef target) {
     if (!target || !model_ || model_->getMeshes().empty()) {
+        MLE_I("ModelTest: renderModel skipped target={} model={} mesh_count={}", fmt::ptr(target), fmt::ptr(model_), model_ ? model_->getMeshes().size() : 0);
         return;
     }
 
     auto& renderer = Renderer::i();
     const auto& meshes = model_->getMeshes();
     const auto& model_skins = model_->getSkins();
+    MLE_D("ModelTest: renderModel begin target={} extent={}x{} mode={} meshes={} skins={}", fmt::ptr(target), target->getExtent().x, target->getExtent().y,
+          SHADER_MODE_NAMES.at(as<usize>(shader_mode_)), meshes.size(), model_skins.size());
 
     node_globals_.resize(model_->getNodeCount());
 
@@ -547,25 +560,41 @@ void ModelTestLayer::renderModel(ImageRef target) {
         skin_mats_dis.emplace(skin_index, skin_mats_slice.buffer->makeDescriptorInfo(thread.cmd(), skin_mats_slice.size, skin_mats_slice.offset));
     }
 
-    AttachmentInfo color_attachment{};
-    color_attachment.image = target;
-    color_attachment.load_op = vk::AttachmentLoadOp::eLoad;
-    thread.setColorAttachment(color_attachment, 0);
+    GBuffer& gbuffer = getGBuffer(target->getExtent());
+    MLE_D("ModelTest: using G-buffer albedo={} normal={} params={} emissive={} depth={}", fmt::ptr(gbuffer.albedo.get()), fmt::ptr(gbuffer.normal.get()),
+          fmt::ptr(gbuffer.params.get()), fmt::ptr(gbuffer.emissive.get()), fmt::ptr(gbuffer.depth.get()));
+
+    AttachmentInfo albedo_attachment{};
+    albedo_attachment.image = gbuffer.albedo.get();
+    albedo_attachment.load_op = vk::AttachmentLoadOp::eClear;
+    albedo_attachment.clear_value.color = vk::ClearColorValue{std::array{1.0F, 1.0F, 1.0F, 1.0F}};
 
     AttachmentInfo normal_attachment{};
-    if (shader_mode_ == ModelTestShaderMode::CARTOON) {
-        normal_attachment.image = getNormalImage(target->getExtent());
-        normal_attachment.load_op = vk::AttachmentLoadOp::eClear;
-        normal_attachment.clear_value.color = vk::ClearColorValue{std::array{0.5F, 0.5F, 1.0F, 0.0F}};
-        thread.setColorAttachment(normal_attachment, 1);
-    }
+    normal_attachment.image = gbuffer.normal.get();
+    normal_attachment.load_op = vk::AttachmentLoadOp::eClear;
+    normal_attachment.clear_value.color = vk::ClearColorValue{std::array{0.5F, 0.5F, 0.0F, 0.0F}};
+
+    AttachmentInfo params_attachment{};
+    params_attachment.image = gbuffer.params.get();
+    params_attachment.load_op = vk::AttachmentLoadOp::eClear;
+    params_attachment.clear_value.color = vk::ClearColorValue{std::array{0.0F, 1.0F, 1.0F, 1.0F}};
+
+    AttachmentInfo emissive_attachment{};
+    emissive_attachment.image = gbuffer.emissive.get();
+    emissive_attachment.load_op = vk::AttachmentLoadOp::eClear;
+    emissive_attachment.clear_value.color = vk::ClearColorValue{std::array{0.0F, 0.0F, 0.0F, 0.0F}};
+
+    std::array gbuffer_color_attachments = {albedo_attachment, normal_attachment, params_attachment, emissive_attachment};
+    MLE_D("ModelTest: setting G-buffer attachments");
+    thread.setColorAttachments(gbuffer_color_attachments);
 
     AttachmentInfo depth_attachment{};
-    depth_attachment.image = getDepthImage(target->getExtent());
+    depth_attachment.image = gbuffer.depth.get();
     depth_attachment.load_op = vk::AttachmentLoadOp::eClear;
     depth_attachment.clear_value.depthStencil = vk::ClearDepthStencilValue{1.0F, 0};
     thread.setDepthAttachment(depth_attachment);
 
+    MLE_D("ModelTest: begin G-buffer pass");
     thread.beginRendering();
     thread.setViewportAndScissor(Rectf{0.0F, 0.0F, as<f32>(target->getExtent().x), as<f32>(target->getExtent().y)});
 
@@ -576,6 +605,7 @@ void ModelTestLayer::renderModel(ImageRef target) {
 
     const mat4f preview_model = makeModelMatrix(meshes);
     pc.view_proj = makeViewProj(target->getExtent(), camera_yaw_, camera_pitch_, camera_distance_);
+    const mat4f inv_view_proj = glm::inverse(pc.view_proj);
 
     const vec3f sun_dir = makeSunDirection(sun_yaw_, sun_pitch_);
     const f32 pitch_cos = std::cos(camera_pitch_);
@@ -599,6 +629,7 @@ void ModelTestLayer::renderModel(ImageRef target) {
         for (const auto& node_mesh : draw_meshes) {
             const Mesh& mesh = node_mesh.mesh;
             if (mesh.getIndexCount() == 0 || (mesh.isSkinned() && !allow_skinned)) {
+                MLE_D("ModelTest: skipping mesh index_count={} skinned={} allow_skinned={}", mesh.getIndexCount(), mesh.isSkinned(), allow_skinned);
                 continue;
             }
 
@@ -609,11 +640,14 @@ void ModelTestLayer::renderModel(ImageRef target) {
 
             const auto skin_mats_di_it = skin_mats_dis.find(node_mesh.skin_index);
             if (mesh.isSkinned() && skin_mats_di_it == skin_mats_dis.end()) {
+                MLE_W("ModelTest: skipping skinned mesh; no skin descriptor for skin_index={}", node_mesh.skin_index);
                 continue;
             }
             const vk::DescriptorBufferInfo* skin_mats_di = mesh.isSkinned() ? &skin_mats_di_it->second : nullptr;
 
-            const Pipeline* pipeline = getModelTestPipeline(mesh.getVertexKind(), shader_mode_);
+            MLE_D("ModelTest: drawing mesh vertex_kind={} textured={} skinned={} indices={} wireframe={}", as<usize>(mesh.getVertexKind()), mesh.isTextured(),
+                  mesh.isSkinned(), mesh.getIndexCount(), shader_mode_ == ModelTestShaderMode::WIREFRAME);
+            const Pipeline* pipeline = getModelTestGBufferPipeline(mesh.getVertexKind(), shader_mode_ == ModelTestShaderMode::WIREFRAME);
             thread.setPipeline(pipeline);
             if (shader_mode_ == ModelTestShaderMode::WIREFRAME) {
                 thread.setLineWidth(wireframe_width_);
@@ -632,49 +666,21 @@ void ModelTestLayer::renderModel(ImageRef target) {
                 vk::DescriptorImageInfo occlusion_di = material.occlusion_texture->getDescriptorInfo();
                 vk::DescriptorImageInfo emissive_di = material.emissive_texture->getDescriptorInfo();
 
-                switch (shader_mode_) {
-                    case ModelTestShaderMode::PBR:
-                    case ModelTestShaderMode::CARTOON:
-                        if (mesh.isSkinned()) {
-                            auto push_writes = pipeline->makeWrites(0, nullptr, &material_di, &lighting_di, &base_color_di, &metallic_roughness_di, &normal_di,
-                                                                    &occlusion_di, &emissive_di, skin_mats_di);
-                            thread.pushDescriptor(0, push_writes);
-                        } else {
-                            auto push_writes = pipeline->makeWrites(0, nullptr, &material_di, &lighting_di, &base_color_di, &metallic_roughness_di, &normal_di,
-                                                                    &occlusion_di, &emissive_di);
-                            thread.pushDescriptor(0, push_writes);
-                        }
-                        break;
-                    case ModelTestShaderMode::WIREFRAME:
-                    case ModelTestShaderMode::NORMALS:
-                    case ModelTestShaderMode::ALBEDO:
-                        if (mesh.isSkinned()) {
-                            auto push_writes = pipeline->makeWrites(0, nullptr, &material_di, &base_color_di, skin_mats_di);
-                            thread.pushDescriptor(0, push_writes);
-                        } else {
-                            auto push_writes = pipeline->makeWrites(0, nullptr, &material_di, &base_color_di);
-                            thread.pushDescriptor(0, push_writes);
-                        }
-                        break;
-                    case ModelTestShaderMode::COUNT:
-                        MLE_UNREACHABLE;
+                if (mesh.isSkinned()) {
+                    auto push_writes = pipeline->makeWrites(0, nullptr, &material_di, &base_color_di, &metallic_roughness_di, &normal_di, &occlusion_di,
+                                                            &emissive_di, skin_mats_di);
+                    thread.pushDescriptor(0, push_writes);
+                } else {
+                    auto push_writes =
+                        pipeline->makeWrites(0, nullptr, &material_di, &base_color_di, &metallic_roughness_di, &normal_di, &occlusion_di, &emissive_di);
+                    thread.pushDescriptor(0, push_writes);
                 }
             } else if (mesh.isSkinned()) {
-                if (shader_mode_ == ModelTestShaderMode::PBR || shader_mode_ == ModelTestShaderMode::CARTOON) {
-                    auto push_writes = pipeline->makeWrites(0, nullptr, &material_di, &lighting_di, skin_mats_di);
-                    thread.pushDescriptor(0, push_writes);
-                } else {
-                    auto push_writes = pipeline->makeWrites(0, nullptr, &material_di, skin_mats_di);
-                    thread.pushDescriptor(0, push_writes);
-                }
+                auto push_writes = pipeline->makeWrites(0, nullptr, &material_di, skin_mats_di);
+                thread.pushDescriptor(0, push_writes);
             } else {
-                if (shader_mode_ == ModelTestShaderMode::PBR || shader_mode_ == ModelTestShaderMode::CARTOON) {
-                    auto push_writes = pipeline->makeWrites(0, nullptr, &material_di, &lighting_di);
-                    thread.pushDescriptor(0, push_writes);
-                } else {
-                    auto push_writes = pipeline->makeWrites(0, nullptr, &material_di);
-                    thread.pushDescriptor(0, push_writes);
-                }
+                auto push_writes = pipeline->makeWrites(0, nullptr, &material_di);
+                thread.pushDescriptor(0, push_writes);
             }
 
             thread.pushConstants(&pc);
@@ -710,26 +716,67 @@ void ModelTestLayer::renderModel(ImageRef target) {
         }
     }
 
+    MLE_D("ModelTest: end G-buffer pass");
+    thread.endRendering();
+
+    MLE_D("ModelTest: transitioning G-buffer to FS_READ");
+    gbuffer.albedo->transitionState(thread.cmd(), Image::State::FS_READ);
+    gbuffer.normal->transitionState(thread.cmd(), Image::State::FS_READ);
+    gbuffer.params->transitionState(thread.cmd(), Image::State::FS_READ);
+    gbuffer.emissive->transitionState(thread.cmd(), Image::State::FS_READ);
+    gbuffer.depth->transitionState(thread.cmd(), Image::State::FS_READ);
+
+    AttachmentInfo resolve_color_attachment{};
+    resolve_color_attachment.image = target;
+    resolve_color_attachment.load_op = vk::AttachmentLoadOp::eLoad;
+    std::array resolve_color_attachments = {resolve_color_attachment};
+    thread.setColorAttachments(resolve_color_attachments);
+    thread.setDepthAttachment({});
+    MLE_D("ModelTest: begin resolve pass mode={}", SHADER_MODE_NAMES.at(as<usize>(shader_mode_)));
+    thread.beginRendering();
+    thread.setViewportAndScissor(Rectf{0.0F, 0.0F, as<f32>(target->getExtent().x), as<f32>(target->getExtent().y)});
+
+    const Pipeline* resolve_pipeline = getModelTestResolvePipeline(shader_mode_);
+    thread.setPipeline(resolve_pipeline);
+
+    auto albedo_di = gbuffer.albedo->getDescriptorInfo();
+    auto normal_di = gbuffer.normal->getDescriptorInfo();
+    auto params_di = gbuffer.params->getDescriptorInfo();
+    auto emissive_di = gbuffer.emissive->getDescriptorInfo();
+    auto depth_di = gbuffer.depth->getDescriptorInfo();
+
+    switch (shader_mode_) {
+        case ModelTestShaderMode::PBR:
+        case ModelTestShaderMode::CARTOON: {
+            MLE_D("ModelTest: pushing lit resolve descriptors");
+            auto resolve_writes = resolve_pipeline->makeWrites(0, nullptr, &albedo_di, &normal_di, &params_di, &emissive_di, &depth_di, &lighting_di);
+            thread.pushDescriptor(0, resolve_writes);
+            break;
+        }
+        case ModelTestShaderMode::WIREFRAME:
+        case ModelTestShaderMode::NORMALS:
+        case ModelTestShaderMode::ALBEDO: {
+            MLE_D("ModelTest: pushing debug resolve descriptors");
+            auto resolve_writes = resolve_pipeline->makeWrites(0, nullptr, &albedo_di, &normal_di, &depth_di);
+            thread.pushDescriptor(0, resolve_writes);
+            break;
+        }
+        case ModelTestShaderMode::COUNT:
+            MLE_UNREACHABLE;
+    }
+
+    struct ResolvePushConstants {
+        mat4f inv_view_proj;
+    } resolve_pc{.inv_view_proj = inv_view_proj};
+    thread.pushConstants(&resolve_pc);
+    MLE_D("ModelTest: draw resolve triangle");
+    thread.draw(3, 1);
+
     if (shader_mode_ == ModelTestShaderMode::CARTOON) {
-        thread.endRendering();
-
-        depth_attachment.image->transitionState(thread.cmd(), Image::State::FS_READ);
-        normal_attachment.image->transitionState(thread.cmd(), Image::State::FS_READ);
-
-        AttachmentInfo outline_color_attachment{};
-        outline_color_attachment.image = target;
-        outline_color_attachment.load_op = vk::AttachmentLoadOp::eLoad;
-        thread.setColorAttachment(outline_color_attachment, 0);
-        thread.setColorAttachment({}, 1);
-        thread.setDepthAttachment({});
-        thread.beginRendering();
-        thread.setViewportAndScissor(Rectf{0.0F, 0.0F, as<f32>(target->getExtent().x), as<f32>(target->getExtent().y)});
-
+        MLE_D("ModelTest: begin cartoon outline overlay");
         const Pipeline* outline_pipeline = getModelTestOutlinePipeline();
         thread.setPipeline(outline_pipeline);
 
-        auto depth_di = depth_attachment.image->getDescriptorInfo();
-        auto normal_di = normal_attachment.image->getDescriptorInfo();
         auto outline_writes = outline_pipeline->makeWrites(0, nullptr, &depth_di, &normal_di);
         thread.pushDescriptor(0, outline_writes);
 
@@ -748,11 +795,14 @@ void ModelTestLayer::renderModel(ImageRef target) {
         outline_pc.outline_width_px = outline_width_px_;
 
         thread.pushConstants(&outline_pc);
+        MLE_D("ModelTest: draw outline triangle");
         thread.draw(3, 1);
     }
 
+    MLE_D("ModelTest: end resolve pass");
     thread.endRendering();
 
+    MLE_D("ModelTest: execute render commands");
     thread.executeCommands();
 }
 
