@@ -45,6 +45,7 @@ class ModelTestLayer : public mle::client::Layer {
     };
 
     GBuffer& getGBuffer(vec2u size);
+    ImageRef getHdrSceneImage(vec2u size);
     void renderModel(ImageRef target);
     void refreshAssets();
     [[nodiscard]] sol::table refreshAssetsForLua();
@@ -113,5 +114,6 @@ class ModelTestLayer : public mle::client::Layer {
 
     mle::client::WindowSizedRenderTarget render_target_;
     std::array<GBuffer, 2> gbuffers_;
+    std::array<ImageHnd, 2> hdr_scene_images_;
 };
 }  // namespace mle::user

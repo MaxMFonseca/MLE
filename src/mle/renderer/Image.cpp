@@ -528,6 +528,7 @@ Expected<Image::RawData> Image::readFile(const std::string& path, int desired_ch
         case ImageFormat::TEXTURE_4SRGB:
         case ImageFormat::STORAGE_4U8:
         case ImageFormat::COLOR:
+        case ImageFormat::HDR_COLOR:
         case ImageFormat::GBUF_PARAMS:
             return 4;
         case ImageFormat::NORMALS:

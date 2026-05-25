@@ -130,7 +130,7 @@ const Pipeline* getModelTestResolvePipeline(ModelTestShaderMode mode) {
                 MLE_UNREACHABLE;
         }
 
-        std::array color_attachment_formats = {Renderer::i().vk().getVkImageFormat(ImageFormat::COLOR)};
+        std::array color_attachment_formats = {Renderer::i().vk().getVkImageFormat(ImageFormat::HDR_COLOR)};
         pipeline_ci.color_attachment_formats = color_attachment_formats;
         auto blend_attachments = Pipeline::makeDefaultBlendAttachments<1>();
         blend_attachments[0].blendEnable = vk::False;
@@ -155,7 +155,7 @@ const Pipeline* getModelTestOutlinePipeline() {
         Pipeline::CI pipeline_ci{};
         pipeline_ci.vertex_shader = &Renderer::i().shaderCache().get("mle/fs_triangle.vert");
         pipeline_ci.fragment_shader = &Renderer::i().shaderCache().get("mle/model_pbr/outline.frag");
-        std::array color_attachment_formats = {Renderer::i().vk().getVkImageFormat(ImageFormat::COLOR)};
+        std::array color_attachment_formats = {Renderer::i().vk().getVkImageFormat(ImageFormat::HDR_COLOR)};
         pipeline_ci.color_attachment_formats = color_attachment_formats;
         auto blend_attachments = Pipeline::makeDefaultBlendAttachments<1>();
         pipeline_ci.blend_attachments = blend_attachments;
@@ -167,6 +167,30 @@ const Pipeline* getModelTestOutlinePipeline() {
 
         pipeline = &Renderer::i().pipelineCache().setPipeline("model_test_cartoon_outline_screen", pipeline_ci);
         MLE_I("ModelTest: created cartoon outline pipeline");
+    }
+    return pipeline;
+}
+
+const Pipeline* getModelTestTonemapPipeline() {
+    static const Pipeline* pipeline{};
+    if (pipeline == nullptr) {
+        MLE_I("ModelTest: creating HDR tonemap pipeline");
+        Pipeline::CI pipeline_ci{};
+        pipeline_ci.vertex_shader = &Renderer::i().shaderCache().get("mle/fs_triangle.vert");
+        pipeline_ci.fragment_shader = &Renderer::i().shaderCache().get("mle/model_pbr/tonemap.frag");
+        std::array color_attachment_formats = {Renderer::i().vk().getVkImageFormat(ImageFormat::COLOR)};
+        pipeline_ci.color_attachment_formats = color_attachment_formats;
+        auto blend_attachments = Pipeline::makeDefaultBlendAttachments<1>();
+        blend_attachments[0].blendEnable = vk::False;
+        pipeline_ci.blend_attachments = blend_attachments;
+        pipeline_ci.topology = vk::PrimitiveTopology::eTriangleList;
+        pipeline_ci.cull_mode = vk::CullModeFlagBits::eNone;
+        pipeline_ci.depth = false;
+        pipeline_ci.depth_write = false;
+        pipeline_ci.push_descriptor = 0;
+
+        pipeline = &Renderer::i().pipelineCache().setPipeline("model_test_hdr_tonemap", pipeline_ci);
+        MLE_I("ModelTest: created HDR tonemap pipeline");
     }
     return pipeline;
 }
@@ -436,6 +460,8 @@ void ModelTestLayer::init() {
     }
     MLE_I("ModelTest: warming outline pipeline");
     getModelTestOutlinePipeline();
+    MLE_I("ModelTest: warming HDR tonemap pipeline");
+    getModelTestTonemapPipeline();
     MLE_I("ModelTest: pipeline warmup complete");
     Client::i().getGameLayerTable()["model_test_set_camera_yaw"] = [this](f32 value) { setCameraYaw01(value); };
     Client::i().getGameLayerTable()["model_test_set_camera_pitch"] = [this](f32 value) { setCameraPitch01(value); };
@@ -518,6 +544,24 @@ GBuffer& ModelTestLayer::getGBuffer(vec2u size) {
     return gbuffer;
 }
 
+ImageRef ModelTestLayer::getHdrSceneImage(vec2u size) {
+    auto& frame_renderer = Renderer::i().frameRenderer();
+    auto frame_idx = frame_renderer.getCurrentFrameId();
+    auto& image = hdr_scene_images_.at(frame_idx);
+    if (!image || image->getExtent() != size) {
+        MLE_I("ModelTest: creating HDR scene image frame={} size={}x{} format={}", frame_idx, size.x, size.y, Image::Format::HDR_COLOR);
+        if (image) {
+            frame_renderer.deleteAfterFrame(std::move(image));
+        }
+        Image::CI image_ci{};
+        image_ci.extent = size;
+        image_ci.format = Image::Format::HDR_COLOR;
+        image = Image::createHnd(image_ci);
+        MLE_I("ModelTest: created HDR scene image image={}", fmt::ptr(image.get()));
+    }
+    return image.get();
+}
+
 void ModelTestLayer::renderModel(ImageRef target) {
     if (!target || !model_ || model_->getMeshes().empty()) {
         MLE_I("ModelTest: renderModel skipped target={} model={} mesh_count={}", fmt::ptr(target), fmt::ptr(model_), model_ ? model_->getMeshes().size() : 0);
@@ -567,8 +611,10 @@ void ModelTestLayer::renderModel(ImageRef target) {
     }
 
     GBuffer& gbuffer = getGBuffer(target->getExtent());
+    ImageRef hdr_scene = getHdrSceneImage(target->getExtent());
     MLE_D("ModelTest: using G-buffer albedo={} normal={} params={} emissive={} depth={}", fmt::ptr(gbuffer.albedo.get()), fmt::ptr(gbuffer.normal.get()),
           fmt::ptr(gbuffer.params.get()), fmt::ptr(gbuffer.emissive.get()), fmt::ptr(gbuffer.depth.get()));
+    MLE_D("ModelTest: using HDR scene image={}", fmt::ptr(hdr_scene));
 
     AttachmentInfo albedo_attachment{};
     albedo_attachment.image = gbuffer.albedo.get();
@@ -733,8 +779,9 @@ void ModelTestLayer::renderModel(ImageRef target) {
     gbuffer.depth->transitionState(thread.cmd(), Image::State::FS_READ);
 
     AttachmentInfo resolve_color_attachment{};
-    resolve_color_attachment.image = target;
-    resolve_color_attachment.load_op = vk::AttachmentLoadOp::eLoad;
+    resolve_color_attachment.image = hdr_scene;
+    resolve_color_attachment.load_op = vk::AttachmentLoadOp::eClear;
+    resolve_color_attachment.clear_value.color = vk::ClearColorValue{std::array{0.0F, 0.0F, 0.0F, 0.0F}};
     std::array resolve_color_attachments = {resolve_color_attachment};
     thread.setColorAttachments(resolve_color_attachments);
     thread.setDepthAttachment({});
@@ -812,6 +859,41 @@ void ModelTestLayer::renderModel(ImageRef target) {
     }
 
     MLE_D("ModelTest: end resolve pass");
+    thread.endRendering();
+
+    MLE_D("ModelTest: transitioning HDR scene to FS_READ");
+    hdr_scene->transitionState(thread.cmd(), Image::State::FS_READ);
+
+    AttachmentInfo tonemap_color_attachment{};
+    tonemap_color_attachment.image = target;
+    tonemap_color_attachment.load_op = vk::AttachmentLoadOp::eLoad;
+    std::array tonemap_color_attachments = {tonemap_color_attachment};
+    thread.setColorAttachments(tonemap_color_attachments);
+    thread.setDepthAttachment({});
+    MLE_D("ModelTest: begin HDR tonemap pass mode={}", SHADER_MODE_NAMES.at(as<usize>(shader_mode_)));
+    thread.beginRendering();
+    thread.setViewportAndScissor(Rectf{0.0F, 0.0F, as<f32>(target->getExtent().x), as<f32>(target->getExtent().y)});
+
+    const Pipeline* tonemap_pipeline = getModelTestTonemapPipeline();
+    thread.setPipeline(tonemap_pipeline);
+    auto hdr_scene_di = hdr_scene->getDescriptorInfo();
+    auto tonemap_writes = tonemap_pipeline->makeWrites(0, nullptr, &hdr_scene_di);
+    thread.pushDescriptor(0, tonemap_writes);
+
+    struct TonemapPushConstants {
+        vec4f params;
+    } tonemap_pc{
+        .params = vec4f{1.0F,
+                        shader_mode_ == ModelTestShaderMode::WIREFRAME || shader_mode_ == ModelTestShaderMode::NORMALS ||
+                                shader_mode_ == ModelTestShaderMode::ALBEDO
+                            ? 1.0F
+                            : 0.0F,
+                        0.0F, 0.0F},
+    };
+    thread.pushConstants(&tonemap_pc);
+    MLE_D("ModelTest: draw tonemap triangle");
+    thread.draw(3, 1);
+    MLE_D("ModelTest: end HDR tonemap pass");
     thread.endRendering();
 
     MLE_D("ModelTest: execute render commands");

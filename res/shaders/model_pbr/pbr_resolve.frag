@@ -65,7 +65,7 @@ vec3 shadePbrPreview(vec3 albedo, float metallic, float roughness, vec3 normal, 
 void main() {
   float depth = texture(depth_tex, in_uv).r;
   if (depth >= 0.999999) {
-    out_color = vec4(1.0);
+    out_color = vec4(0.0);
     return;
   }
 
@@ -75,6 +75,5 @@ void main() {
   vec3 emissive = texture(emissive_tex, in_uv).rgb;
   vec3 world_pos = reconstructWorldPos(depth);
   vec3 color = shadePbrPreview(albedo.rgb, params.r, params.g, normal, params.b, emissive, world_pos);
-  color = color / (color + vec3(1.0));
   out_color = vec4(color, albedo.a);
 }

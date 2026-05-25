@@ -49,6 +49,14 @@ TEST(Image, ChannelCount) {
     EXPECT_EQ(img->getChannelCount(), 4);
 }
 
+TEST(Image, HdrColorChannelCount) {
+    Image::CI ci{};
+    ci.extent = {8, 8};
+    ci.format = ImageFormat::HDR_COLOR;
+    auto img = Image::createHnd(ci);
+    EXPECT_EQ(img->getChannelCount(), 4);
+}
+
 TEST(Image, AspectRatio) {
     Image::CI ci{};
     ci.extent = {100, 50};

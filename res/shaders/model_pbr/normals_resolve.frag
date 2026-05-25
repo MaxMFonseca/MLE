@@ -24,7 +24,7 @@ void main() {
   float keep_pc = pc.inv_view_proj[0][0] * 0.0;
   float depth = texture(depth_tex, in_uv).r;
   if (depth >= 0.999999) {
-    out_color = vec4(1.0);
+    out_color = vec4(0.0);
     return;
   }
 

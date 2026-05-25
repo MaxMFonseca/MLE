@@ -86,6 +86,7 @@ enum class ImageFormat : u8 {
     GBUF_PARAMS,
     NORMALS,
     COLOR,
+    HDR_COLOR,
     STORAGE_4U8,
     STORAGE_F32,
     STORAGE_U32,
@@ -182,6 +183,8 @@ struct formatter<mle::ImageFormat> : formatter<std::string> {
                 return format_to(ctx.out(), "NORMALS");
             case mle::ImageFormat::COLOR:
                 return format_to(ctx.out(), "COLOR");
+            case mle::ImageFormat::HDR_COLOR:
+                return format_to(ctx.out(), "HDR_COLOR");
             case mle::ImageFormat::STORAGE_4U8:
                 return format_to(ctx.out(), "STORAGE_4U8");
             case mle::ImageFormat::STORAGE_F32:
