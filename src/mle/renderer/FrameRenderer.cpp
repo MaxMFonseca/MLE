@@ -656,12 +656,6 @@ void FrameRenderer::defaultPresentPass(CommandBuffer& cmd, Image& src, Image& sw
     const auto& pipeline = getDefaultPresentPipeline(swapchain.getVkFormat());
     cmd().bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline.get());
 
-    struct PC {
-        i32 dst_srgb;
-    } pc{};
-    pc.dst_srgb = isSrgbFormat(swapchain.getVkFormat()) ? 1 : 0;
-    cmd().pushConstants(pipeline.getPipelineLayout(), vk::ShaderStageFlagBits::eFragment, 0, sizeof(pc), &pc);
-
     auto src_info = src.getDescriptorInfo();
     auto writes = pipeline.makeWrites(0, nullptr, &src_info);
     cmd().pushDescriptorSet(vk::PipelineBindPoint::eGraphics, pipeline.getPipelineLayout(), 0, writes);

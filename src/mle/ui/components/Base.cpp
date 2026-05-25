@@ -217,22 +217,22 @@ void DisabledFlag::applyDisabled(const Entt& e, const sol::object& obj) {
 
 void Background::set(const sol::object& obj) {
     if (lua::valid<Color>(obj)) {
-        const auto c = lua::as<Color>(obj);
+        const auto c = lua::as<Color>(obj).toLinear();
         lt = rt = lb = rb = c;
     } else if (obj.is<sol::table>()) {
         auto table = obj.as<sol::table>();
 
         if (const auto lt_r = lua::getFirstKey(table, "lt", 1); lt_r.valid()) {
-            lt = lua::as<Color>(lt_r);
+            lt = lua::as<Color>(lt_r).toLinear();
         }
         if (const auto rt_r = lua::getFirstKey(table, "rt", 2); rt_r.valid()) {
-            rt = lua::as<Color>(rt_r);
+            rt = lua::as<Color>(rt_r).toLinear();
         }
         if (const auto lb_r = lua::getFirstKey(table, "lb", 3); lb_r.valid()) {
-            lb = lua::as<Color>(lb_r);
+            lb = lua::as<Color>(lb_r).toLinear();
         }
         if (const auto rb_r = lua::getFirstKey(table, "rb", 4); rb_r.valid()) {
-            rb = lua::as<Color>(rb_r);
+            rb = lua::as<Color>(rb_r).toLinear();
         }
     } else {
         MLE_E("Invalid obj type passed to Background set. {}", obj.get_type());

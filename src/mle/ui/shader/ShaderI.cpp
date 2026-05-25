@@ -11,7 +11,7 @@ void ShaderI::setBase(const sol::table& table) {
         dedicate_render_target = dedicate_render_target_r.as<bool>();
     }
     if (const sol::object clear_color_r = table["clear_color"]; lua::valid<sol::table>(clear_color_r)) {
-        clear_color = Color::fromLua(clear_color_r);
+        clear_color = Color::fromLua(clear_color_r).toLinear();
     }
 }
 }  // namespace mle::ui

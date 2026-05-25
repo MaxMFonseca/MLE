@@ -2,6 +2,71 @@ local color1 = Colors.RED
 local color2 = Colors.YELLOW
 local color = color1
 
+local tailwind_shades = {
+	"50",
+	"100",
+	"200",
+	"300",
+	"400",
+	"500",
+	"600",
+	"700",
+	"800",
+	"900",
+	"950",
+}
+
+local tailwind_colors = {
+	"red",
+	"amber",
+	"lime",
+	"emerald",
+	"cyan",
+	"blue",
+	"violet",
+	"fuchsia",
+	"rose",
+	"gray",
+	"neutral",
+}
+
+local function create_tailwind_color_row(color_name)
+	local children = {}
+
+	for _, shade in ipairs(tailwind_shades) do
+		table.insert(children, {
+			size_x = "1f",
+			size_y = 1,
+			background = Colors[color_name .. shade],
+		})
+	end
+
+	return {
+		list = { dir = "h" },
+		size_y = "1f",
+		size_x = 1,
+		c = children,
+	}
+end
+
+local function create_tailwind_color_test()
+	local children = {}
+
+	for _, color_name in ipairs(tailwind_colors) do
+		table.insert(children, create_tailwind_color_row(color_name))
+	end
+
+	return {
+		size_y = 0.3,
+		aspect_ratio = 1,
+		pos = "rt",
+		origin = "rt",
+
+		list = { dir = "v" },
+		c = children,
+	}
+end
+
 return {
 	styles = {
 		basic_round = {
@@ -87,7 +152,7 @@ return {
 				text = {
 					color = Colors.BLACK,
 					border_thickness = 2,
-					border_color = Colors.emerald900,
+					border_color = Colors.emerald500,
 				},
 				on_hover_in = function(ew)
 					ew:apply("render_scale", 1.02)
@@ -255,6 +320,8 @@ return {
 
 			comp = require("mle.ui.comp.color_picker")(0.5, 0.5, 0.5),
 		},
+
+		tailwind_test = create_tailwind_color_test(),
 
 		color_picker_test_2 = {
 			margin = "20px",

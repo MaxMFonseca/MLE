@@ -28,7 +28,7 @@ ImageRef WindowSizedRenderTarget::getImage(Color clear_color) {
         image = Image::createHnd(image_ci);
     }
 
-    image->clear(Renderer::i().frameRenderer().cmd(), clear_color);
+    image->clear(Renderer::i().frameRenderer().cmd(), clear_color.toLinear());
 
     return image.get();
 }
