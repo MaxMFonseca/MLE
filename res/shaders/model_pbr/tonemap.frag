@@ -13,8 +13,7 @@ layout(location = 0) out vec4 out_color;
 void main() {
   vec4 hdr = texture(hdr_scene_tex, in_uv);
   if (hdr.a <= 0.001) {
-    out_color = vec4(1.0);
-    return;
+    discard;
   }
 
   vec3 color = max(hdr.rgb, vec3(0.0));
