@@ -22,24 +22,21 @@ UI::UI() {
     });
     ui::system::LuaElementOps::init();
     root_max_size_ = Window::i().getSize();
-
-    popup_mouse_listener_ = std::make_unique<KeyListener>(
-        [this]() {
-            handlePopupMousePress();
-        },
-        Keybinding{.key = Key::MOUSE_ONE, .state = KeyState::PRESSED});
-    popup_mouse_listener_->setAlwaysCall(true);
-    popup_mouse_listener_->listen();
 }
 
 UI::~UI() = default;
 
 void UI::clear() {
     MLE_I("Clearing UI");
+    window_resize_el_.reset();
     registry_.clear();
     root_ = entt::null;
     root_max_size_ = vec2u{0};
+
     rendering_system_.clear();
+
+    popup_mouse_listener_.reset();
+    escape_key_listener_.reset();
 }
 
 void UI::setRoot(sol::table root_table) {
@@ -58,6 +55,14 @@ void UI::setRoot(sol::table root_table) {
         root_ew.emplace<ui::comp::ListContainer>();
     }
     root_ew.requestExternalBoundsUpdate();
+
+    escape_key_listener_ = std::make_unique<KeyListener>([this]() { trimPopupStackTo(entt::null); }, Key::ESCAPE, KeyState::PRESSED);
+    escape_key_listener_->setAlwaysCall(true);
+    escape_key_listener_->listen();
+
+    popup_mouse_listener_ = std::make_unique<KeyListener>([this]() { handlePopupMousePress(); }, Keybinding{.key = Key::MOUSE_ONE, .state = KeyState::PRESSED});
+    popup_mouse_listener_->setAlwaysCall(true);
+    popup_mouse_listener_->listen();
 };
 
 void UI::setRoot(const std::string& element_name) {
@@ -252,7 +257,7 @@ void UI::destroyFlagged() {
         flagged.push_back(e);
     }
 
-    auto ancestorFlagged = [&](entt::entity e) {
+    auto ancestor_flagged = [&](entt::entity e) {
         ui::Entt ew{*this, e};
         auto parent = ew.get<ui::comp::Relationship>().getParent();
         while (parent != entt::null) {
@@ -268,7 +273,7 @@ void UI::destroyFlagged() {
     };
 
     for (auto e : flagged) {
-        if (!registry_.valid(e) || !registry_.all_of<ui::comp::DestroyFlag>(e) || ancestorFlagged(e)) {
+        if (!registry_.valid(e) || !registry_.all_of<ui::comp::DestroyFlag>(e) || ancestor_flagged(e)) {
             continue;
         }
 

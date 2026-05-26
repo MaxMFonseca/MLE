@@ -159,9 +159,7 @@ void FrameRenderer::runLoop(std::stop_token st) {
             if (pause_requested_.load(std::memory_order_relaxed)) {
                 paused_.store(true, std::memory_order_relaxed);
                 pause_cv_.notify_all();
-                pause_cv_.wait(lock, [this, &st] {
-                    return !pause_requested_.load(std::memory_order_relaxed) || st.stop_requested();
-                });
+                pause_cv_.wait(lock, [this, &st] { return !pause_requested_.load(std::memory_order_relaxed) || st.stop_requested(); });
                 paused_.store(false, std::memory_order_relaxed);
                 pause_cv_.notify_all();
                 if (st.stop_requested()) {
@@ -777,9 +775,7 @@ void FrameRenderer::pause() {
 
     pause_requested_.store(true, std::memory_order_relaxed);
     std::unique_lock lock(pause_mutex_);
-    pause_cv_.wait(lock, [this] {
-        return paused_.load(std::memory_order_relaxed) || !isRunning();
-    });
+    pause_cv_.wait(lock, [this] { return paused_.load(std::memory_order_relaxed) || !isRunning(); });
 }
 
 void FrameRenderer::resume() {

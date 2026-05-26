@@ -69,5 +69,6 @@ class UI {
 
     window::ev::ResizeL window_resize_el_;  // FIXME: This should not be here, the user should do this explicitly
     KeyListenerHnd popup_mouse_listener_;
+    KeyListenerHnd escape_key_listener_;
 };
 }  // namespace mle
