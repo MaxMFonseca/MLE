@@ -37,7 +37,7 @@ void Window::init() {
 
     u32 flags = SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE;
 
-    window_ = SDL_CreateWindow("MLE APP", 800, 600, flags);
+    window_ = SDL_CreateWindow("MLE APP", 1366, 768, flags);
     if (!window_) {
         MLE_UNREACHABLE_LOG("SDL_CreateWindow failed: {}", SDL_GetError());
     }
