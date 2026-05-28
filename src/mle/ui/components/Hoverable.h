@@ -22,6 +22,7 @@ struct Hoverable {
     void onHover(const Entt& ew);
     void onHoverOut(const Entt& ew);
 
+    static void apply(const Entt& ew, const sol::object& obj);
     static void applyOnHover(const Entt& ew, const sol::object& obj);
     static void applyOnHoverIn(const Entt& ew, const sol::object& obj);
     static void applyOnHoverOut(const Entt& ew, const sol::object& obj);

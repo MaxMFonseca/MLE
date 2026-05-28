@@ -8,6 +8,11 @@
 #include "sol/forward.hpp"
 
 namespace mle::ui::comp {
+// TODO: make this have some behavior, for now it only captures hover so it doesnt pass through to elements below
+void Hoverable::apply(const Entt& ew, [[maybe_unused]] const sol::object& obj) {
+    ew.patchOrEmplace<Hoverable>([](Hoverable&) {});
+}
+
 void Hoverable::applyOnHover(const Entt& ew, const sol::object& obj) {
     MLE_ASSERT(obj.valid());
     if (obj.is<bool>()) {
@@ -108,9 +113,7 @@ void Hoverable::applyOnScroll(const Entt& ew, const sol::object& obj) {
         return;
     }
     auto fn = obj.as<sol::function>();
-    ew.patchOrEmplace<Hoverable>([&](Hoverable& c) {
-        c.on_scroll = std::make_unique<ScrollListener>([ew, fn](f32 offset) { fn(ew, offset); });
-    });
+    ew.patchOrEmplace<Hoverable>([&](Hoverable& c) { c.on_scroll = std::make_unique<ScrollListener>([ew, fn](f32 offset) { fn(ew, offset); }); });
 };
 
 void Hoverable::removeKey(const Keybinding& kb) {

@@ -217,6 +217,7 @@ void LuaElementOps::addBuiltingApply() {
     addApplyKeyHandler("origin", comp::TargetOrigin::apply);
     addApplyKeyHandler("aspect_ratio", comp::TargetAspectRatio::apply);
     addApplyKeyHandler("background", comp::Background::apply);
+    addApplyKeyHandler("hoverable", comp::Hoverable::apply);
     addApplyKeyHandler("on_hover", comp::Hoverable::applyOnHover);
     addApplyKeyHandler("on_hover_in", comp::Hoverable::applyOnHoverIn);
     addApplyKeyHandler("on_hover_out", comp::Hoverable::applyOnHoverOut);
