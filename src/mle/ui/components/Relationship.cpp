@@ -258,7 +258,7 @@ entt::entity Relationship::createChild(const Entt& e, const sol::table& table) {
 
     applyBaseOnChild(e, comp_table, child_e);
 
-    callOnCreate(e);
+    callOnCreate(e.derive(child_e));
 
     return child_e;
 }
