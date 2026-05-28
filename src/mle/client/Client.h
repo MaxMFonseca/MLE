@@ -35,6 +35,7 @@ class Client final {
     auto& lua() { return lua_; }
     auto& getCTable() { return client_table_; }
     auto& getGameLayerTable() { return game_layer_table_; }
+    auto& getColorCache() { return color_cache_; }
 
     void addShutdownCallback(std::move_only_function<void(void)> cb) { shutdown_callbacks_.emplace_back(std::move(cb)); }
 
