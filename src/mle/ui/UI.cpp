@@ -29,6 +29,14 @@ UI::~UI() = default;
 void UI::clear() {
     MLE_I("Clearing UI");
     window_resize_el_.reset();
+
+    {
+        auto view = registry_.view<ui::comp::OnDestroy>();
+        for (auto e : view) {
+            ui::comp::Relationship::callOnDestroy(ui::Entt{*this, e});
+        }
+    }
+
     registry_.clear();
     root_ = entt::null;
     root_max_size_ = vec2u{0};

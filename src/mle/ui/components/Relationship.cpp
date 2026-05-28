@@ -81,6 +81,8 @@ void Relationship::destroyChild(const Entt& e, entt::entity child_e) {
         destroyAllChildren(removing_child);
     }
 
+    callOnDestroy(removing_child);
+
     e.ui().getRegistry().destroy(child_e);
 }
 
@@ -94,12 +96,15 @@ void Relationship::destroyAllChildren(const Entt& e) {
     auto child_e = self_relationship.first_child_;
     for (usize i = 0; i < self_relationship.child_count_; ++i) {
         auto current_child_e = child_e;
-        auto& current_child_relationship = Entt{e.ui(), current_child_e}.getRelationship();
+        Entt current_child{e.ui(), current_child_e};
+        auto& current_child_relationship = current_child.getRelationship();
         child_e = current_child_relationship.right_;
 
         if (current_child_relationship.child_count_ > 0) {
-            destroyAllChildren(Entt{e.ui(), current_child_e});
+            destroyAllChildren(current_child);
         }
+
+        callOnDestroy(current_child);
 
         e.ui().getRegistry().destroy(current_child_e);
     }
@@ -262,6 +267,15 @@ void Relationship::callOnCreate(const Entt& child) {
     if (child.has<comp::OnCreate>()) {
         child.get<comp::OnCreate>().fn(child);
         child.eraseChecked<comp::OnCreate>();
+    }
+}
+
+void Relationship::callOnDestroy(const Entt& child) {
+    if (child.has<comp::OnDestroy>()) {
+        const auto& on_destroy = child.get<comp::OnDestroy>();
+        if (on_destroy.fn) {
+            on_destroy.fn(child);
+        }
     }
 }
 

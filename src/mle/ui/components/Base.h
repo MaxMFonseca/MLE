@@ -74,6 +74,14 @@ struct OnCreate {
     static void apply(const Entt& e, const sol::object& obj);
 };
 
+struct OnDestroy {
+    using FuncType = std::function<void(const Entt& e)>;
+
+    FuncType fn;
+
+    static void apply(const Entt& e, const sol::object& obj);
+};
+
 struct ListenEvents {
     // copy
     std::vector<std::shared_ptr<system::EventListener>> listeners;

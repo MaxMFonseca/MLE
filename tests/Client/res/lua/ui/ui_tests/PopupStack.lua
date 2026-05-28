@@ -33,6 +33,10 @@ local function make_popup_content(level)
 			(math.random() * 0.7 + 0.15) .. "r",
 		},
 
+		on_destroy = function()
+			print("Destroyed popup at level " .. level)
+		end,
+
 		list = {
 			dir = "v",
 			gap = "4px",

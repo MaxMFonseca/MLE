@@ -38,6 +38,8 @@ class Relationship {
     void disableAll(const Entt& e) const;
     void disableAllBut(const Entt& e, std::string_view child_name) const;
 
+    static void callOnDestroy(const Entt& child);
+
     static void applyAddChildren(const Entt& e, const sol::object& obj);
     static void applyAddChild(const Entt& e, const sol::object& obj);
 

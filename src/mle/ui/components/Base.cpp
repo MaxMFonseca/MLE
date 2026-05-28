@@ -52,6 +52,11 @@ void OnCreate::apply(const Entt& e, const sol::object& obj) {
     e.patchOrEmplace<OnCreate>([&](OnCreate& oc) { oc.fn = obj.as<FuncType>(); });
 };
 
+void OnDestroy::apply(const Entt& e, const sol::object& obj) {
+    lua::assertIs<sol::function>(obj);
+    e.patchOrEmplace<OnDestroy>([&](OnDestroy& od) { od.fn = obj.as<FuncType>(); });
+};
+
 void ListenEvents::clear() {
     for (auto& listener : listeners) {
         listener->unlisten();
