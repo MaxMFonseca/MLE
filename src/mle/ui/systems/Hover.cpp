@@ -73,7 +73,7 @@ void Hover::update() {
     to_remove.clear();
 };
 
-entt::entity Hover::hitTest(vec2f root_pos) {
+entt::entity Hover::hitTest(vec2f root_pos, entt::entity ignore) {
     if (ui_.getRoot() == entt::null) {
         return entt::null;
     }
@@ -83,7 +83,7 @@ entt::entity Hover::hitTest(vec2f root_pos) {
         return entt::null;
     }
 
-    return hitTest(root_ew, root_pos, root_ew.get<comp::Bounds>());
+    return hitTest(root_ew, root_pos, root_ew.get<comp::Bounds>(), ignore);
 }
 
 // NOLINTNEXTLINE(misc-no-recursion) cool recursive function
@@ -131,7 +131,11 @@ void Hover::hovered(const Entt& ew, vec2f pos_parent, const comp::Bounds& self_b
 };
 
 // NOLINTNEXTLINE(misc-no-recursion) Mirrors hovered traversal without mutating hover state.
-entt::entity Hover::hitTest(const Entt& ew, vec2f pos_parent, const comp::Bounds& self_bounds) {
+entt::entity Hover::hitTest(const Entt& ew, vec2f pos_parent, const comp::Bounds& self_bounds, entt::entity ignore) {
+    if (ew.e() == ignore) {
+        return entt::null;
+    }
+
     vec2f pos_self = pos_parent - vec2f(self_bounds.parent_px.pos());
 
     auto& relationship = ew.getRelationship();
@@ -147,7 +151,7 @@ entt::entity Hover::hitTest(const Entt& ew, vec2f pos_parent, const comp::Bounds
             }
             auto c_bounds = cew.get<comp::Bounds>();
             if (c_bounds.parent_px.contains(pos_self)) {
-                auto hit = hitTest(cew, pos_self, c_bounds);
+                auto hit = hitTest(cew, pos_self, c_bounds, ignore);
                 if (hit != entt::null) {
                     return hit;
                 }

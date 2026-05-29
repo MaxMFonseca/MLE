@@ -15,5 +15,13 @@ inline void makeUTGUI(Lua& lua) {
         }
         return e.value();
     };
+    ut["hitTest"] = [](UI& ui, f32 x, f32 y, sol::optional<ui::Entt> ignore_ew) {
+        entt::entity ignore = ignore_ew ? ignore_ew->e() : entt::null;
+        entt::entity hit = ui.hoverSystem().hitTest(vec2f{x, y}, ignore);
+        if (hit == entt::null) {
+            return ui::Entt{ui, entt::null};
+        }
+        return ui::Entt{ui, hit};
+    };
 }
 }  // namespace mle::lua
