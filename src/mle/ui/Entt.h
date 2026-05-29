@@ -58,6 +58,8 @@ class Entt {
     void destroy() const;
 
     [[nodiscard]] std::vector<Entt> getChildrenNamedRecursive(std::string_view name) const;
+    [[nodiscard]] bool hasTag(std::string_view tag) const;
+    [[nodiscard]] std::vector<Entt> getChildrenWithTagRecursive(std::string_view tag) const;
 
     void createPopup(const sol::table& comp) const;
 
@@ -172,6 +174,7 @@ class Entt {
 
   private:
     void getChildrenNamedRecursiveHelper(std::string_view name, std::vector<entt::entity>& out) const;
+    void getChildrenWithTagRecursiveHelper(std::string_view tag, std::vector<entt::entity>& out) const;
 
   private:
     UI& ui_;

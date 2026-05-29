@@ -163,6 +163,10 @@ void LuaElementOps::init() {
     };
 
     ut["getChildrenNamedRecursive"] = [](const Entt& ew, const std::string& name) { return Client::i().lua().createTable(ew.getChildrenNamedRecursive(name)); };
+    ut["hasTag"] = &Entt::hasTag;
+    ut["getChildrenWithTagRecursive"] = [](const Entt& ew, const std::string& tag) {
+        return Client::i().lua().createTable(ew.getChildrenWithTagRecursive(tag));
+    };
 
     ut["createPopup"] = &Entt::createPopup;
     ut["getBoundsOnRoot"] = &Entt::getBoundsOnRoot;
@@ -247,6 +251,8 @@ void LuaElementOps::addBuiltingApply() {
     addApplyKeyHandler("on_destroy", comp::OnDestroy::apply);
     addApplyKeyHandler("listen", comp::ListenEvents::apply);
     addApplyKeyHandler("id", comp::ID::apply);
+    addApplyKeyHandler("tags", comp::Tags::apply);
+    addApplyKeyHandler("remove_tags", comp::Tags::applyRemove);
     addApplyKeyHandler("layer", comp::Layer::apply);
     addApplyKeyHandler("fn", comp::Functions::apply);
     addApplyKeyHandler("active", comp::DisabledFlag::applyEnabled);
@@ -291,5 +297,6 @@ void LuaElementOps::addBuiltingGetters() {
         table["overflow_y"] = comp.overflow_y;
         return table;
     });
+    addGetKeyHandler("tags", comp::Tags::get);
 }
 }  // namespace mle::ui::system

@@ -58,6 +58,37 @@ void Entt::destroy() const {
     addFlag<comp::DestroyFlag>();
 }
 
+bool Entt::hasTag(std::string_view tag) const {
+    if (auto* tags_comp = tryGet<comp::Tags>()) {
+        return std::ranges::find(tags_comp->tags, tag) != tags_comp->tags.end();
+    }
+    return false;
+}
+
+// NOLINTNEXTLINE(misc-no-recursion) No problem
+void Entt::getChildrenWithTagRecursiveHelper(std::string_view tag, std::vector<entt::entity>& out) const {
+    auto& relationship = getRelationship();
+    for (usize i = 0; i < relationship.getChildCount(); ++i) {
+        auto child_e = relationship.getChildAt(*this, i);
+        Entt child_ew{ui_, child_e};
+        if (child_ew.hasTag(tag)) {
+            out.push_back(child_e);
+        }
+        child_ew.getChildrenWithTagRecursiveHelper(tag, out);
+    }
+}
+
+[[nodiscard]] std::vector<Entt> Entt::getChildrenWithTagRecursive(std::string_view tag) const {
+    std::vector<entt::entity> result;
+    getChildrenWithTagRecursiveHelper(tag, result);
+    std::vector<Entt> result2;
+    result2.reserve(result.size());
+    for (entt::entity e : result) {
+        result2.emplace_back(ui_, e);
+    }
+    return result2;
+}
+
 // NOLINTNEXTLINE(misc-no-recursion) No problem
 void Entt::getChildrenNamedRecursiveHelper(std::string_view name, std::vector<entt::entity>& out) const {
     auto& relationship = getRelationship();

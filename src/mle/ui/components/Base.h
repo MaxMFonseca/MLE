@@ -15,6 +15,16 @@ struct ID {
     static void apply(const Entt& e, const sol::object& obj);
 };
 
+struct Tags {
+    std::vector<std::string> tags;
+
+    static void apply(const Entt& ew, const sol::object& obj);
+    static void applyRemove(const Entt& ew, const sol::object& obj);
+    static sol::object get(const Entt& ew, const sol::object& params);
+
+    void removeTag(const std::string& tag) { tags.erase(std::remove(tags.begin(), tags.end(), tag), tags.end()); }
+};
+
 struct Background {
     Color lt = Color::ZERO;
     Color rt = Color::ZERO;

@@ -139,6 +139,57 @@ void ID::apply(const Entt& e, const sol::object& obj) {
     e.patchOrEmplace<ID>([&](ID& id) { id.o = lua::as<std::string>(obj); });
 };
 
+void Tags::apply(const Entt& ew, const sol::object& obj) {
+    auto* tags_c = ew.tryGet<Tags>();
+    if (!tags_c) {
+        tags_c = &ew.emplace<Tags>();
+    }
+
+    if (lua::valid<sol::table>(obj)) {
+        auto table = lua::as<sol::table>(obj);
+        for (const auto& [k, v] : table) {
+            if (v.is<std::string>()) {
+                tags_c->tags.push_back(v.as<std::string>());
+            }
+        }
+    } else if (lua::valid<std::string>(obj)) {
+        tags_c->tags.push_back(lua::as<std::string>(obj));
+    } else {
+        MLE_E("Invalid obj type passed to Tags apply. {}", obj.get_type());
+    }
+}
+
+void Tags::applyRemove(const Entt& ew, const sol::object& obj) {
+    auto* tags_c = ew.tryGet<Tags>();
+    if (!tags_c) {
+        return;
+    }
+
+    if (lua::valid<sol::table>(obj)) {
+        auto table = lua::as<sol::table>(obj);
+        for (const auto& [k, v] : table) {
+            if (v.is<std::string>()) {
+                tags_c->removeTag(v.as<std::string>());
+            }
+        }
+    } else if (lua::valid<std::string>(obj)) {
+        tags_c->removeTag(lua::as<std::string>(obj));
+    } else {
+        MLE_E("Invalid obj type passed to Tags applyRemove. {}", obj.get_type());
+    }
+}
+
+sol::object Tags::get(const Entt& ew, const sol::object& /*params*/) {
+    if (auto* tags = ew.tryGet<Tags>()) {
+        sol::table table = Client::i().lua().createTable();
+        for (usize i = 0; i < tags->tags.size(); ++i) {
+            table[i + 1] = tags->tags[i];
+        }
+        return table;
+    }
+    return sol::lua_nil;
+}
+
 void Layer::apply(const Entt& e, const sol::object& obj) {
     MLE_ASSERT(lua::valid<int>(obj));
     e.patchOrEmplace<Layer>([&](Layer& layer) { layer.layer = obj.as<int>(); });
