@@ -94,6 +94,15 @@ class Lua {
         sol_.set_function(std::forward<Args>(args)...);
     }
 
+    template <class T>
+    sol::table createTable(const std::vector<T>& elements) {
+        sol::table table = createTable();
+        for (size_t i = 0; i < elements.size(); i++) {
+            table[i + 1] = createObject(elements[i]);
+        }
+        return table;
+    }
+
   private:
     sol::state sol_;
 };
