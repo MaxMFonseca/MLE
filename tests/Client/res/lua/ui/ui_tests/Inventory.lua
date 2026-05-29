@@ -64,7 +64,6 @@ local onCursorDragEnd = function(ew)
 			end
 		end
 
-		print("Reparenting to hit:", hit:name())
 		hit:addExistingChild(ew)
 	else
 		tbl.original_parent:addExistingChild(ew)
@@ -174,19 +173,15 @@ local function makeInventory()
 		fn = {
 			makeAllItemsIgnoreHover = function(ew)
 				local items = ew:getChildrenNamedRecursive("item")
-				print(#items)
 				for _, item in ipairs(items) do
 					item:ignoreHover(true)
 				end
-				print("done1")
 			end,
 			makeAllItemsHoverableAgain = function(ew)
 				local items = ew:getChildrenNamedRecursive("item")
-				print(#items)
 				for _, item in ipairs(items) do
 					item:ignoreHover(false)
 				end
-				print("done2")
 			end,
 		},
 	}

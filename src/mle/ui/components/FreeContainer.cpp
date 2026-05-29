@@ -21,8 +21,16 @@ void FreeContainer::applyAddScrollY(const Entt& e, const sol::object& obj) {
     }
     e.patchOrEmplace<FreeContainer>([&](FreeContainer& c) {
         const auto scroll_y = lua::as<int>(obj);
-        c.setCurrentScrollY(c.scroll_y_ - scroll_y);
+        c.setCurrentScrollY(c.scroll_y_ - (scroll_y * c.scroll_sensitivity_));
     });
+}
+
+void FreeContainer::applyScrollSensitivity(const Entt& e, const sol::object& obj) {
+    if (!lua::valid<int>(obj)) {
+        MLE_E("Invalid object to apply FreeContainer scroll_sensitivity at entity {}. Expected int.", e.name());
+        return;
+    }
+    e.patchOrEmplace<FreeContainer>([&](FreeContainer& c) { c.setScrollSensitivity(lua::as<int>(obj)); });
 }
 
 void FreeContainer::on_construct(entt::registry& registry, const entt::entity entt) {
@@ -46,6 +54,9 @@ void FreeContainer::set(const sol::table& table) {
     }
     if (const auto current_scroll_y_r = table["current_scroll_y"]; lua::valid<int>(current_scroll_y_r)) {
         setCurrentScrollY(lua::as<int>(current_scroll_y_r));
+    }
+    if (const auto scroll_sensitivity_r = table["scroll_sensitivity"]; lua::valid<int>(scroll_sensitivity_r)) {
+        setScrollSensitivity(lua::as<int>(scroll_sensitivity_r));
     }
 }
 

@@ -254,6 +254,7 @@ void LuaElementOps::addBuiltingApply() {
     addApplyKeyHandler("disabled", comp::DisabledFlag::applyDisabled);
     addApplyKeyHandler("force_fit", comp::ForceFitFlag::apply);
     addApplyKeyHandler("add_scroll_y", comp::FreeContainer::applyAddScrollY);
+    addApplyKeyHandler("scroll_sensitivity", comp::FreeContainer::applyScrollSensitivity);
     addApplyKeyHandler("on_resized", comp::OnResized::apply);
 
     addApplyKeyHandler("sprite", ui::renderable::Sprite::apply);
