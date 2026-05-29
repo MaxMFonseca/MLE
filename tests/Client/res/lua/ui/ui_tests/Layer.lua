@@ -5,6 +5,7 @@ local function create_multipanel()
 		"SpriteProgressBar",
 		"Form",
 		"PopupStack",
+		"Inventory",
 	}
 
 	local ret = require("mle/ui/comp/multipanel")({
@@ -27,6 +28,10 @@ local function create_multipanel()
 		{
 			name = panel_names[5],
 			comp = require("i/ui/ui_tests/PopupStack"),
+		},
+		{
+			name = panel_names[6],
+			comp = require("i/ui/ui_tests/Inventory"),
 		},
 	}, true)
 

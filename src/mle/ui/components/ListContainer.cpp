@@ -846,6 +846,7 @@ struct ListCalculator {
                     }
                 }
             } break;
+                // TODO: is it possible to also have corss justify on main wrap?
             case ListContainer::WrapMode::WRAP_REVERSED:
             case ListContainer::WrapMode::WRAP: {
                 auto lines = JustifyInt::wrap(children_main_sizes, min_gap_main, list.getListJustify(), list.getListJustifyLast(), child_max_size_main);

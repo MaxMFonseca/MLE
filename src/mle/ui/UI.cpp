@@ -296,4 +296,15 @@ void UI::destroyFlagged() {
         parent_ew.get<ui::comp::Relationship>().destroyChild(parent_ew, e);
     }
 }
+
+void UI::logAllBounds() {
+    for (auto e : registry_.view<ui::comp::Bounds>()) {
+        ui::Entt ew{*this, e};
+        if (ew.isRecursivelyDisabled()) {
+            continue;
+        }
+        const auto& bounds = ew.get<ui::comp::Bounds>();
+        MLE_I("Entity {}: {}", ew.fullName(), bounds.parent_px);
+    }
+}
 }  // namespace mle

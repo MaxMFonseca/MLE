@@ -108,20 +108,23 @@ void LuaElementOps::init() {
     ut["apply"] = &Entt::apply;
     ut["get"] = &Entt::getKey;
     ut["entt"] = &Entt::e;
+    ut["ui"] = &Entt::ui;
     ut["parent"] = &Entt::parentEw;
+    ut["name"] = &Entt::name;
     ut["fullName"] = &Entt::fullName;
     ut["getChild"] = [](const Entt& ew, const std::string& name) {
         auto& relationship = ew.getRelationship();
         auto g_r = relationship.getChildByName(ew, name);
-        if (g_r == entt::null) {
-            MLE_E("Child '{}' not found in entity '{}'", name, ew.fullName());
-            return ew.derive(entt::null);
-        }
         return ew.derive(g_r);
     };
+    ut["valid"] = [](const Entt& ew) { return ew.e() != entt::null; };
     ut["addChild"] = [](const Entt& ew, const sol::table& table) {
         auto& relationship = ew.getRelationship();
         relationship.createChild(ew, table);
+    };
+    ut["addExistingChild"] = [](const Entt& ew, const Entt& child_ew) {
+        auto& relationship = ew.getRelationship();
+        relationship.addChild(ew, child_ew.e());
     };
     ut["applyOnChildren"] = [](const Entt& ew, const sol::table& table) {
         auto& relationship = ew.getRelationship();
@@ -146,7 +149,10 @@ void LuaElementOps::init() {
 
     ut["destroy"] = &Entt::destroy;
 
-    ut["beginCursorDrag"] = [](const Entt& ew) { ew.addFlag<comp::CursorDragFlag>(); };
+    ut["beginCursorDrag"] = [](const Entt& ew) {
+        ew.addFlag<comp::CursorDragFlag>();
+        ew.call("onCursorDragBegin");
+    };
 
     ut["createPopup"] = &Entt::createPopup;
     ut["getBoundsOnRoot"] = &Entt::getBoundsOnRoot;

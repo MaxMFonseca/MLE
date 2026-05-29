@@ -32,6 +32,8 @@ class Relationship {
 
     entt::entity createChild(const Entt& e, const sol::table& table);
     void createChildren(const Entt& e, const sol::table& table);
+    void addChild(const Entt& e, entt::entity child_e, usize idx = max<usize>());
+    void unlinkChild(const Entt& e, entt::entity child_e);
 
     void applyOnChildren(const Entt& ew, const sol::table& table) const;
     void enableAll(const Entt& e) const;

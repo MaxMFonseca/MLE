@@ -233,6 +233,11 @@ void Client::checkNextGameLayer() {
             MLE_I("Switching to new game layer");
             game_layer_ = std::move(next_game_layer_);
             game_layer_table_ = lua_.createTable("G");
+
+            auto window_table = lua_.createTable();
+            window_table["getCursorPos"] = []() { return UserInputManager::i().getCursorPos().value_or(vec2f{0, 0}); };
+            game_layer_table_["window"] = window_table;
+
             game_layer_->init();
         }
 

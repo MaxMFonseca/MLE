@@ -6,6 +6,9 @@
 
 namespace mle::lua {
 inline void makeUTGUI(Lua& lua) {
+    auto entt_table = lua.createTable("entt");
+    entt_table["null"] = static_cast<entt::entity>(entt::null);
+
     auto ut = lua.newUsertype<UI>("mle_UI", sol::no_constructor);
     ut["getElementById"] = [](UI& ui, const std::string& id) {
         auto e = ui.getE(id);
@@ -23,5 +26,6 @@ inline void makeUTGUI(Lua& lua) {
         }
         return ui::Entt{ui, hit};
     };
+    ut["logAllBounds"] = [](UI& ui) { ui.logAllBounds(); };
 }
 }  // namespace mle::lua

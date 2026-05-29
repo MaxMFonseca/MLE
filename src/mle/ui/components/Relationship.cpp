@@ -34,14 +34,12 @@ Expected<usize> Relationship::getChildIdx(const Entt& e, std::string_view name) 
         }
         ichild = child.getRelationship().right_;
     }
-    MLE_E("Tried to get index of child named '{}' in Container at entity {} but no such child exists.", name, e.fullName());
     return std::unexpected(Result::NOT_FOUND);
 }
 
 entt::entity Relationship::getChildByName(const Entt& e, std::string_view name) const {
     auto idx_r = getChildIdx(e, name);
     if (!idx_r) {
-        MLE_E("Tried to get child named '{}' in Container at entity {} but no such child exists.", name, e.fullName());
         return entt::null;
     }
     return getChildAt(e, *idx_r);
@@ -200,58 +198,13 @@ std::pair<Entt, Relationship&> Relationship::createChildHnd(const Entt& e) {
 };
 
 entt::entity Relationship::createChildHndAt(const Entt& e, usize idx) {
-    if (first_child_ == entt::null) {
-        auto [new_child, new_child_relationship] = createChildHnd(e);
+    auto [child, child_relationship] = createChildHnd(e);
+    child_count_ -= 1;                        // createChildHnd increments it, but addChild will increment it again.
+    child_relationship.parent_ = entt::null;  // addChild expects it to be null or another parent.
 
-        first_child_ = new_child.e();
-        new_child_relationship.left_ = new_child.e();
-        new_child_relationship.right_ = new_child.e();
-
-        return new_child.e();
-    }
-
-    if (idx == 0) {
-        auto [new_child, new_child_relationship] = createChildHnd(e);
-
-        auto right_sibling = first_child_;
-        auto& right_sibling_relationship = Entt{e.ui(), right_sibling}.getRelationship();
-        auto left_sibling = right_sibling_relationship.left_;
-        auto& left_sibling_relationship = Entt{e.ui(), left_sibling}.getRelationship();
-
-        new_child_relationship.right_ = right_sibling;
-        new_child_relationship.left_ = left_sibling;
-
-        left_sibling_relationship.right_ = new_child.e();
-        right_sibling_relationship.left_ = new_child.e();
-
-        first_child_ = new_child.e();
-        return new_child.e();
-    }
-
-    if (idx == max<usize>()) {
-        idx = child_count_;
-    }
-
-    entt::entity left_sibling = getChildAt(e, idx - 1);
-    if (left_sibling == entt::null) {
-        MLE_E("Failed to get left sibling at idx {} when creating child for Container at entity {}.", idx - 1, e.fullName());
-        return entt::null;
-    }
-
-    auto [new_child, new_child_relationship] = createChildHnd(e);
-
-    auto& left_sibling_relationship = Entt{e.ui(), left_sibling}.getRelationship();
-    entt::entity right_sibling = left_sibling_relationship.right_;
-    auto& right_sibling_relationship = Entt{e.ui(), right_sibling}.getRelationship();
-
-    new_child_relationship.left_ = left_sibling;
-    new_child_relationship.right_ = right_sibling;
-
-    left_sibling_relationship.right_ = new_child.e();
-    right_sibling_relationship.left_ = new_child.e();
-
-    return new_child.e();
-};
+    addChild(e, child.e(), idx);
+    return child.e();
+}
 
 entt::entity Relationship::createChild(const Entt& e, const sol::table& table) {
     auto [child_e, comp_table] = createChildBase(e, table);
@@ -261,6 +214,99 @@ entt::entity Relationship::createChild(const Entt& e, const sol::table& table) {
     callOnCreate(e.derive(child_e));
 
     return child_e;
+}
+
+void Relationship::addChild(const Entt& e, entt::entity child_e, usize idx) {
+    auto& self_rel = e.getRelationship();
+
+    Entt child_ew{e.ui(), child_e};
+    auto& child_rel = child_ew.getRelationship();
+
+    if (child_rel.parent_ == e.e()) {
+        return;
+    }
+
+    if (child_rel.parent_ != entt::null) {
+        Entt current_parent{e.ui(), child_rel.parent_};
+        current_parent.getRelationship().unlinkChild(current_parent, child_e);
+    }
+
+    child_rel.parent_ = e.e();
+    if (self_rel.first_child_ == entt::null) {
+        self_rel.first_child_ = child_e;
+        child_rel.left_ = child_e;
+        child_rel.right_ = child_e;
+    } else {
+        if (idx == 0) {
+            auto right_sibling = self_rel.first_child_;
+            auto& right_rel = Entt{e.ui(), right_sibling}.getRelationship();
+            auto left_sibling = right_rel.left_;
+            auto& left_rel = Entt{e.ui(), left_sibling}.getRelationship();
+
+            child_rel.right_ = right_sibling;
+            child_rel.left_ = left_sibling;
+
+            left_rel.right_ = child_e;
+            right_rel.left_ = child_e;
+
+            self_rel.first_child_ = child_e;
+        } else {
+            if (idx == max<usize>()) {
+                idx = self_rel.child_count_;
+            }
+
+            entt::entity left_sibling = self_rel.getChildAt(e, idx - 1);
+            auto& left_rel = Entt{e.ui(), left_sibling}.getRelationship();
+            entt::entity right_sibling = left_rel.right_;
+            auto& right_rel = Entt{e.ui(), right_sibling}.getRelationship();
+
+            child_rel.left_ = left_sibling;
+            child_rel.right_ = right_sibling;
+
+            left_rel.right_ = child_e;
+            right_rel.left_ = child_e;
+        }
+    }
+
+    self_rel.child_count_ += 1;
+    e.requestInternalBoundsUpdate();
+    child_ew.requestExternalBoundsUpdate();
+}
+
+void Relationship::unlinkChild(const Entt& e, entt::entity child_e) {
+    auto& self_rel = e.getRelationship();
+
+    Entt child{e.ui(), child_e};
+    auto& child_rel = child.getRelationship();
+
+    if (child_rel.parent_ != e.e()) {
+        MLE_E("Tried to unlink entity {} from parent {} but it is not a child.", child.fullName(), e.fullName());
+        return;
+    }
+
+    if (child_rel.right_ == child_e) {
+        self_rel.first_child_ = entt::null;
+    } else {
+        Entt left_sibling{e.ui(), child_rel.left_};
+        auto& left_rel = left_sibling.getRelationship();
+        Entt right_sibling{e.ui(), child_rel.right_};
+        auto& right_rel = right_sibling.getRelationship();
+
+        left_rel.right_ = child_rel.right_;
+        right_rel.left_ = child_rel.left_;
+
+        if (self_rel.first_child_ == child_e) {
+            self_rel.first_child_ = child_rel.right_;
+        }
+    }
+
+    child_rel.parent_ = entt::null;
+    child_rel.left_ = entt::null;
+    child_rel.right_ = entt::null;
+
+    self_rel.child_count_ -= 1;
+    e.requestInternalBoundsUpdate();
+    child.requestExternalBoundsUpdate();
 }
 
 void Relationship::callOnCreate(const Entt& child) {

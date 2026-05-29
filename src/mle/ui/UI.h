@@ -48,6 +48,8 @@ class UI {
     auto& boundsSystem() { return bounds_system_; }
     auto& renderingSystem() { return rendering_system_; }
 
+    void logAllBounds();
+
   private:
     void addRootStyles(const sol::object& obj);
     void destroyFlagged();
