@@ -79,6 +79,9 @@ FontRef FontCache::get(entt::id_type font_id) {
 };
 
 FontRef FontCache::get(const std::string& font_name) {
+    if (font_name.empty() || font_name == "default") {
+        return default_font_.get();
+    }
     return get(entt::hashed_string(font_name.c_str()));
 };
 

@@ -31,7 +31,7 @@ class FontCache {
 
     void add(entt::id_type font_id, const Font::CI& font_ci);
     void add(const std::string& font_name);
-    FontRef get(const std::string& font_name);
+    FontRef get(const std::string& font_name = "");
     FontRef get(entt::id_type font_id);
 
   private:
