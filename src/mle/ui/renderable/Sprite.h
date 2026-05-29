@@ -60,5 +60,7 @@ struct Sprite : public RenderableI {
     void doUpdatePacket(const Entt& ew, RenderablePacketI* packet) override;
 
     static void apply(const Entt& e, const sol::object& obj);
+
+    static void removeComponent(const Entt& ew);
 };
 }  // namespace mle::ui::renderable

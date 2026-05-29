@@ -42,11 +42,22 @@ namespace {
 }
 }  // namespace
 
-void Sprite::apply(const Entt& e, const sol::object& obj) {
-    if (!obj.valid()) {
-        MLE_E("Invalid object provided to Sprite::apply for entt {}", e.e());
+void Sprite::removeComponent(const Entt& ew) {
+    auto* renderable = ew.tryGet<comp::Renderable>();
+    if (!renderable) {
         return;
     }
+    if (renderable->impl && renderable->impl->getType() == Sprite::type()) {
+        ew.erase<comp::Renderable>();
+    }
+}
+
+void Sprite::apply(const Entt& e, const sol::object& obj) {
+    if (!obj.valid()) {
+        removeComponent(e);
+        return;
+    }
+
     auto* renderable = e.tryGet<comp::Renderable>();
     Sprite* self_p = nullptr;
     if (!renderable) {
