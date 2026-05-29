@@ -27,5 +27,6 @@ inline void makeUTGUI(Lua& lua) {
         return ui::Entt{ui, hit};
     };
     ut["logAllBounds"] = [](UI& ui) { ui.logAllBounds(); };
+    ut["getRoot"] = [](UI& ui) { return ui::Entt{ui, ui.getRoot()}; };
 }
 }  // namespace mle::lua

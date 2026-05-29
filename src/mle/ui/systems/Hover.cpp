@@ -91,6 +91,10 @@ void Hover::hovered(const Entt& ew, vec2f pos_parent, const comp::Bounds& self_b
     vec2f pos_self = pos_parent - vec2f(self_bounds.parent_px.pos());
     inside.push_back(ew.e());
 
+    if (ew.has<comp::IgnoreHoverFlag>()) {
+        return;
+    }
+
     auto* hov = ew.tryGet<comp::Hoverable>();
     if (hov) {
         vec2f pos_self_norm = pos_self / vec2f(self_bounds.parent_px.size());
@@ -133,6 +137,9 @@ void Hover::hovered(const Entt& ew, vec2f pos_parent, const comp::Bounds& self_b
 // NOLINTNEXTLINE(misc-no-recursion) Mirrors hovered traversal without mutating hover state.
 entt::entity Hover::hitTest(const Entt& ew, vec2f pos_parent, const comp::Bounds& self_bounds, entt::entity ignore) {
     if (ew.e() == ignore) {
+        return entt::null;
+    }
+    if (ew.has<comp::IgnoreHoverFlag>()) {
         return entt::null;
     }
 

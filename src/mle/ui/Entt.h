@@ -57,6 +57,8 @@ class Entt {
     void setName(const std::string& name) const;
     void destroy() const;
 
+    [[nodiscard]] std::vector<Entt> getChildrenNamedRecursive(std::string_view name) const;
+
     void createPopup(const sol::table& comp) const;
 
     [[nodiscard]] Recti getBoundsOnRoot() const;
@@ -167,6 +169,9 @@ class Entt {
             std::forward<Fn>(fn)(emplace<T>());
         }
     }
+
+  private:
+    void getChildrenNamedRecursiveHelper(std::string_view name, std::vector<entt::entity>& out) const;
 
   private:
     UI& ui_;

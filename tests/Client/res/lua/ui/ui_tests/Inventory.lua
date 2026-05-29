@@ -1,3 +1,82 @@
+local onCursorDragBegin = function(ew)
+	local tbl = ew:get("table")
+	local root = G.ui:getRoot()
+	tbl.original_parent = ew:parent()
+	root:addExistingChild(ew)
+	ew:apply("layer", 1000)
+	ew:apply("size", "48px")
+
+	local root = G.ui:getElementById("inventory_root")
+	root:call("makeAllItemsIgnoreHover")
+end
+
+local onCursorDrag = function(ew, cursor_pos_relative)
+	local mouse_pos = G.window:getCursorPos()
+	local hit = G.ui:hitTest(mouse_pos.x, mouse_pos.y, ew)
+
+	local tbl = ew:get("table")
+	local last_hit = tbl.last_hit
+
+	-- Handle Hover state on slots
+	if hit and hit:entt() ~= entt.null then
+		local name = hit:name()
+		if name and string.sub(name, 1, 5) == "slot_" then
+			if last_hit and last_hit:entt() ~= hit:entt() then
+				last_hit:call("onDropHoverOut")
+			end
+			hit:call("onDropHover")
+			tbl.last_hit = hit
+		else
+			if last_hit then
+				last_hit:call("onDropHoverOut")
+				tbl.last_hit = nil
+			end
+		end
+	else
+		if last_hit then
+			last_hit:call("onDropHoverOut")
+			tbl.last_hit = nil
+		end
+	end
+
+	ew:apply("pos_x", mouse_pos.x .. "px")
+	ew:apply("pos_y", mouse_pos.y .. "px")
+	ew:requestExternalBoundsUpdate()
+end
+
+local onCursorDragEnd = function(ew)
+	local tbl = ew:get("table")
+	local hit = tbl.last_hit
+
+	ew:apply("size", "32px")
+	ew:apply("pos", "c")
+
+	if hit then
+		hit:call("onDropHoverOut")
+
+		local existing_item = hit:getChild("item")
+		local orig_parent = tbl.original_parent
+
+		if existing_item and existing_item:valid() then
+			if orig_parent and orig_parent:valid() then
+				orig_parent:addExistingChild(existing_item)
+				existing_item:apply("pos", "c")
+			end
+		end
+
+		print("Reparenting to hit:", hit:name())
+		hit:addExistingChild(ew)
+	else
+		tbl.original_parent:addExistingChild(ew)
+	end
+
+	tbl.last_hit = nil
+	tbl.original_parent = nil
+
+	local root = G.ui:getElementById("inventory_root")
+	root:call("makeAllItemsHoverableAgain")
+end
+
 local ItemColor = {
 	Colors.red500,
 	Colors.blue500,
@@ -41,77 +120,9 @@ local function makeInventory()
 				last_hit = nil,
 			},
 			fn = {
-				onCursorDragBegin = function(ew)
-					local tbl = ew:get("table")
-					local root = G.ui:getElementById("inventory_root")
-					tbl.original_parent = ew:parent()
-					root:addExistingChild(ew)
-					ew:apply("layer", 1000)
-					ew:apply("size", "48px")
-				end,
-
-				onCursorDrag = function(ew, cursor_pos_relative)
-					local mouse_pos = G.window:getCursorPos()
-					local hit = G.ui:hitTest(mouse_pos.x, mouse_pos.y, ew)
-
-					local tbl = ew:get("table")
-					local last_hit = tbl.last_hit
-
-					-- Handle Hover state on slots
-					if hit and hit:entt() ~= entt.null then
-						local name = hit:name()
-						if name and string.sub(name, 1, 5) == "slot_" then
-							if last_hit and last_hit:entt() ~= hit:entt() then
-								last_hit:call("onDropHoverOut")
-							end
-							hit:call("onDropHover")
-							tbl.last_hit = hit
-						else
-							if last_hit then
-								last_hit:call("onDropHoverOut")
-								tbl.last_hit = nil
-							end
-						end
-					else
-						if last_hit then
-							last_hit:call("onDropHoverOut")
-							tbl.last_hit = nil
-						end
-					end
-
-					ew:apply("pos_x", mouse_pos.x .. "px")
-					ew:apply("pos_y", mouse_pos.y .. "px")
-					ew:requestExternalBoundsUpdate()
-				end,
-				onCursorDragEnd = function(ew)
-					local tbl = ew:get("table")
-					local hit = tbl.last_hit
-
-					ew:apply("size", "32px")
-					ew:apply("pos", "c")
-
-					if hit then
-						hit:call("onDropHoverOut")
-
-						local existing_item = hit:getChild("item")
-						local orig_parent = tbl.original_parent
-
-						if existing_item and existing_item:valid() then
-							if orig_parent and orig_parent:valid() then
-								orig_parent:addExistingChild(existing_item)
-								existing_item:apply("pos", "c")
-							end
-						end
-
-						print("Reparenting to hit:", hit:name())
-						hit:addExistingChild(ew)
-					else
-						tbl.original_parent:addExistingChild(ew)
-					end
-
-					tbl.last_hit = nil
-					tbl.original_parent = nil
-				end,
+				onCursorDragBegin = onCursorDragBegin,
+				onCursorDrag = onCursorDrag,
+				onCursorDragEnd = onCursorDragEnd,
 			},
 			on_keys = {
 				lmb = function(ew)
@@ -158,6 +169,25 @@ local function makeInventory()
 					end,
 				},
 			},
+		},
+
+		fn = {
+			makeAllItemsIgnoreHover = function(ew)
+				local items = ew:getChildrenNamedRecursive("item")
+				print(#items)
+				for _, item in ipairs(items) do
+					item:ignoreHover(true)
+				end
+				print("done1")
+			end,
+			makeAllItemsHoverableAgain = function(ew)
+				local items = ew:getChildrenNamedRecursive("item")
+				print(#items)
+				for _, item in ipairs(items) do
+					item:ignoreHover(false)
+				end
+				print("done2")
+			end,
 		},
 	}
 end

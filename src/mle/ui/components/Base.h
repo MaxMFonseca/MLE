@@ -116,6 +116,8 @@ struct OnResized {
     static void apply(const Entt& e, const sol::object& obj);
 };
 
+struct IgnoreHoverFlag {};
+
 struct DisabledFlag {
     static void applyEnabled(const Entt& e, const sol::object& obj);
     static void applyDisabled(const Entt& e, const sol::object& obj);

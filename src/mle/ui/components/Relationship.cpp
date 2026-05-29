@@ -113,7 +113,7 @@ void Relationship::destroyAllChildren(const Entt& e) {
 
 std::vector<entt::entity> Relationship::getChildren(const Entt& e) const {
     std::vector<entt::entity> children;
-    children.reserve(e.getRelationship().getChildCount());
+    children.reserve(getChildCount());
     entt::entity ichild = first_child_;
     for (usize i = 0; i < child_count_; ++i) {
         children.push_back(ichild);

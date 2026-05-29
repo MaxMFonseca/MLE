@@ -154,6 +154,16 @@ void LuaElementOps::init() {
         ew.call("onCursorDragBegin");
     };
 
+    ut["ignoreHover"] = [](const Entt& ew, bool ignore) {
+        if (ignore) {
+            ew.addFlag<comp::IgnoreHoverFlag>();
+        } else {
+            ew.eraseChecked<comp::IgnoreHoverFlag>();
+        }
+    };
+
+    ut["getChildrenNamedRecursive"] = [](const Entt& ew, const std::string& name) { return Client::i().lua().createTable(ew.getChildrenNamedRecursive(name)); };
+
     ut["createPopup"] = &Entt::createPopup;
     ut["getBoundsOnRoot"] = &Entt::getBoundsOnRoot;
     ut["getBoundsOnRootNormalized"] = &Entt::getBoundsOnRootNormalized;

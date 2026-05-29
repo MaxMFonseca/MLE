@@ -58,6 +58,30 @@ void Entt::destroy() const {
     addFlag<comp::DestroyFlag>();
 }
 
+// NOLINTNEXTLINE(misc-no-recursion) No problem
+void Entt::getChildrenNamedRecursiveHelper(std::string_view name, std::vector<entt::entity>& out) const {
+    auto& relationship = getRelationship();
+    for (usize i = 0; i < relationship.getChildCount(); ++i) {
+        auto child_e = relationship.getChildAt(*this, i);
+        Entt child_ew{ui_, child_e};
+        if (child_ew.name() == name) {
+            out.push_back(child_e);
+        }
+        child_ew.getChildrenNamedRecursiveHelper(name, out);
+    }
+}
+
+[[nodiscard]] std::vector<Entt> Entt::getChildrenNamedRecursive(std::string_view name) const {
+    std::vector<entt::entity> result;
+    getChildrenNamedRecursiveHelper(name, result);
+    std::vector<Entt> result2;
+    result2.reserve(result.size());
+    for (entt::entity e : result) {
+        result2.emplace_back(ui_, e);
+    }
+    return result2;
+};
+
 Expected<Entt> Entt::getChild(std::span<const std::string_view> tree) const {
     MLE_ASSERT(!tree.empty());
 
