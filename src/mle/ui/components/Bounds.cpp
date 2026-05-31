@@ -543,6 +543,16 @@ void TargetOrigin::apply(const Entt& e, const sol::object& obj) {
     e.emplaceOrReplace<TargetOrigin>(obj);
 }
 
+void TargetOrigin::applyX(const Entt& e, const sol::object& obj) {
+    lua::assertIs<f32>(obj);
+    e.patchOrEmplace<TargetOrigin>([&](TargetOrigin& to) { to.o.x = lua::as<f32>(obj); });
+}
+
+void TargetOrigin::applyY(const Entt& e, const sol::object& obj) {
+    lua::assertIs<f32>(obj);
+    e.patchOrEmplace<TargetOrigin>([&](TargetOrigin& to) { to.o.y = lua::as<f32>(obj); });
+}
+
 TargetAspectRatio::TargetAspectRatio(const sol::object& obj) :
     o(lua::as<f32>(obj)) {
 }

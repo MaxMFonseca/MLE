@@ -205,6 +205,8 @@ struct TargetOrigin {
     explicit TargetOrigin(const sol::object& obj);
 
     static void apply(const Entt& e, const sol::object& obj);
+    static void applyX(const Entt& e, const sol::object& obj);
+    static void applyY(const Entt& e, const sol::object& obj);
 
     // NOLINTBEGIN(readability-identifier-naming, readability-avoid-const-params-in-decls) Not my declaration
     static void on_construct(entt::registry& registry, const entt::entity entt) { registry.emplace_or_replace<comp::RequestExternalBoundsUpdateFlag>(entt); }
