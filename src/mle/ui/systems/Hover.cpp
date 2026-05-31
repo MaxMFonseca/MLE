@@ -166,6 +166,10 @@ entt::entity Hover::hitTest(const Entt& ew, vec2f pos_parent, const comp::Bounds
         }
     }
 
-    return ew.e();
+    if (ew.has<comp::Hoverable>()) {
+        return ew.e();
+    }
+
+    return entt::null;
 }
 }  // namespace mle::ui::system

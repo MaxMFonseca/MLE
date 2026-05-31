@@ -106,6 +106,7 @@ void LuaElementOps::init() {
 
     auto ut = lua.newUsertype<Entt>("mle_ui_Entt", sol::no_constructor);
     ut["apply"] = &Entt::apply;
+    ut["applyTable"] = &Entt::applyTable;
     ut["get"] = &Entt::getKey;
     ut["entt"] = &Entt::e;
     ut["ui"] = &Entt::ui;

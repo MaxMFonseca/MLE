@@ -13,7 +13,6 @@ inline void makeUTGUI(Lua& lua) {
     ut["getElementById"] = [](UI& ui, const std::string& id) {
         auto e = ui.getE(id);
         if (!e) {
-            MLE_E("Element with ID '{}' not found", id);
             return ui::Entt{ui, entt::null};
         }
         return e.value();
