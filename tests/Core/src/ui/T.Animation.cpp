@@ -81,6 +81,27 @@ TEST(AnimationTest, TickingRenderScaleTweenAppliesInterpolatedValue) {
     EXPECT_FLOAT_EQ(ew.get<mle::ui::comp::RenderScale>().scale, 1.5F);
 }
 
+TEST(AnimationTest, TickingSizeTweenAppliesInterpolatedValue) {
+    mle::UI ui;
+    auto ew = makeTestEntt(ui);
+
+    mle::ui::TargetBound from_tb; from_tb.set(100.0F);
+    mle::ui::TargetBound to_tb; to_tb.set(200.0F);
+
+    mle::ui::comp::Animation animation;
+    animation.tracks.push_back({
+        .target = mle::ui::comp::AnimationTarget::SIZE_X,
+        .from = mle::ui::comp::AnimationValue{.kind = mle::ui::comp::AnimationValueKind::TARGET_BOUND, .target_bound = from_tb},
+        .to = mle::ui::comp::AnimationValue{.kind = mle::ui::comp::AnimationValueKind::TARGET_BOUND, .target_bound = to_tb},
+        .duration = 1.0F,
+    });
+
+    animation.tick(ew, 0.5F);
+
+    ASSERT_TRUE(ew.has<mle::ui::comp::TargetSize>());
+    EXPECT_FLOAT_EQ(ew.get<mle::ui::comp::TargetSize>().x.val, 150.0F);
+}
+
 TEST(AnimationTest, LoopingYoyoTweenReversesOnAlternateCycle) {
     mle::UI ui;
     auto ew = makeTestEntt(ui);

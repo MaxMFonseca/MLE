@@ -120,6 +120,45 @@ return {
 				},
 			},
 		},
+		make_label("Size tween"),
+		{
+			size_x = "620px",
+			size_y = "100px",
+			free = {},
+			c = {
+				sizer = {
+					size_x = "100px",
+					size_y = "40px",
+					pos = "c",
+					origin = "c",
+					background = Colors.indigo700,
+					border = {
+						thickness = "1px",
+						color = Colors.indigo200,
+						roundness = "8px",
+					},
+					text = {
+						text = "Resizing",
+						height = "18px",
+						color = Colors.WHITE,
+						justify = "center",
+					},
+					animation = {
+						tracks = {
+							{
+								target = "size_x",
+								from = "100px",
+								to = "300px",
+								duration = 0.8,
+								ease = "in_out_quad",
+								loop = true,
+								yoyo = true,
+							},
+						},
+					},
+				},
+			},
+		},
 		make_label("Sprite sheet"),
 		{
 			size = "64px",

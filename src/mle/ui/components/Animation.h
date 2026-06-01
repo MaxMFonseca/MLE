@@ -22,6 +22,8 @@ enum class AnimationEase : u8 {
 enum class AnimationTarget : u8 {
     POS_X,
     POS_Y,
+    SIZE_X,
+    SIZE_Y,
     RENDER_SCALE,
     BACKGROUND,
     BORDER_COLOR,

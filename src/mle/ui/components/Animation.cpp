@@ -35,6 +35,12 @@ namespace {
     if (str == "pos_y") {
         return AnimationTarget::POS_Y;
     }
+    if (str == "size_x") {
+        return AnimationTarget::SIZE_X;
+    }
+    if (str == "size_y") {
+        return AnimationTarget::SIZE_Y;
+    }
     if (str == "render_scale") {
         return AnimationTarget::RENDER_SCALE;
     }
@@ -56,7 +62,8 @@ namespace {
         }
         return value;
     }
-    if (target == AnimationTarget::POS_X || target == AnimationTarget::POS_Y) {
+    if (target == AnimationTarget::POS_X || target == AnimationTarget::POS_Y || target == AnimationTarget::SIZE_X ||
+        target == AnimationTarget::SIZE_Y) {
         value.kind = AnimationValueKind::TARGET_BOUND;
         value.target_bound.set(obj);
         return value;
@@ -124,6 +131,14 @@ void applyTrackValue(const Entt& ew, AnimationTarget target, const AnimationValu
             break;
         case AnimationTarget::POS_Y:
             ew.patchOrEmplace<TargetPosition>([&](TargetPosition& pos) { pos.y = value.target_bound; });
+            ew.requestExternalBoundsUpdate();
+            break;
+        case AnimationTarget::SIZE_X:
+            ew.patchOrEmplace<TargetSize>([&](TargetSize& size) { size.x = value.target_bound; });
+            ew.requestExternalBoundsUpdate();
+            break;
+        case AnimationTarget::SIZE_Y:
+            ew.patchOrEmplace<TargetSize>([&](TargetSize& size) { size.y = value.target_bound; });
             ew.requestExternalBoundsUpdate();
             break;
         case AnimationTarget::RENDER_SCALE:
