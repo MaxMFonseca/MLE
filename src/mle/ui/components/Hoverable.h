@@ -6,16 +6,21 @@
 
 namespace mle::ui::comp {
 struct Hoverable {
+    struct KeyEntry {
+        KeyListenerHnd hnd;
+        bool always{false};
+    };
+
     HoverFn on_hover;
     HoverFn on_hover_in;
     HoverFn on_hover_out;
     ScrollListenerHnd on_scroll;
-    std::vector<KeyListenerHnd> on_key;
+    std::vector<KeyEntry> on_key;
 
     void setKeys(const Entt& ew, const sol::table& table);
     void setKey(const Entt& ew, const std::string& key, const sol::object& obj);
-    void setKey(const Entt& ew, const Keybinding& kb, const sol::function& fn);
-    void setKey(const Entt& ew, const Keybinding& kb, std::move_only_function<void(const Entt&)> fn);
+    void setKey(const Entt& ew, const Keybinding& kb, const sol::function& fn, bool always = false);
+    void setKey(const Entt& ew, const Keybinding& kb, std::move_only_function<void(const Entt&)> fn, bool always = false);
     void removeKey(const Keybinding& kb);
 
     void onHoverIn(const Entt& ew);

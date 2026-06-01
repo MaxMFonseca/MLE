@@ -117,33 +117,47 @@ void Hoverable::applyOnScroll(const Entt& ew, const sol::object& obj) {
 };
 
 void Hoverable::removeKey(const Keybinding& kb) {
-    auto kl_it = std::ranges::find_if(on_key, [&](const KeyListenerHnd& hnd) { return hnd->getKb() == kb; });
+    auto kl_it = std::ranges::find_if(on_key, [&](const KeyEntry& entry) { return entry.hnd->getKb() == kb; });
     if (kl_it != on_key.end()) {
         on_key.erase(kl_it);
     }
 }
 
-void Hoverable::setKey(const Entt& e, const Keybinding& kb, const sol::function& fn) {
-    auto kl_it = std::ranges::find_if(on_key, [&](const KeyListenerHnd& hnd) { return hnd->getKb() == kb; });
+void Hoverable::setKey(const Entt& e, const Keybinding& kb, const sol::function& fn, bool always) {
+    auto kl_it = std::ranges::find_if(on_key, [&](const KeyEntry& entry) { return entry.hnd->getKb() == kb; });
     if (kl_it != on_key.end()) {
-        (*kl_it)->setCallback([e, fn]() { fn(e); });
+        kl_it->hnd->setCallback([e, fn]() { fn(e); });
+        kl_it->always = always;
+        if (always) {
+            kl_it->hnd->listen();
+        }
     } else {
         auto kl = std::make_unique<KeyListener>();
         kl->setKeybinding(kb);
         kl->setCallback([e, fn]() { fn(e); });
-        on_key.emplace_back(std::move(kl));
+        if (always) {
+            kl->listen();
+        }
+        on_key.push_back(KeyEntry{.hnd = std::move(kl), .always = always});
     }
 }
 
-void Hoverable::setKey(const Entt& e, const Keybinding& kb, std::move_only_function<void(const Entt&)> fn) {
-    auto kl_it = std::ranges::find_if(on_key, [&](const KeyListenerHnd& hnd) { return hnd->getKb() == kb; });
+void Hoverable::setKey(const Entt& e, const Keybinding& kb, std::move_only_function<void(const Entt&)> fn, bool always) {
+    auto kl_it = std::ranges::find_if(on_key, [&](const KeyEntry& entry) { return entry.hnd->getKb() == kb; });
     if (kl_it != on_key.end()) {
-        (*kl_it)->setCallback([e, fn = std::move(fn)]() mutable { fn(e); });
+        kl_it->hnd->setCallback([e, fn = std::move(fn)]() mutable { fn(e); });
+        kl_it->always = always;
+        if (always) {
+            kl_it->hnd->listen();
+        }
     } else {
         auto kl = std::make_unique<KeyListener>();
         kl->setKeybinding(kb);
         kl->setCallback([e, fn = std::move(fn)]() mutable { fn(e); });
-        on_key.emplace_back(std::move(kl));
+        if (always) {
+            kl->listen();
+        }
+        on_key.push_back(KeyEntry{.hnd = std::move(kl), .always = always});
     }
 }
 
@@ -158,6 +172,25 @@ void Hoverable::setKey(const Entt& ew, const std::string& key, const sol::object
 
     if (obj.is<sol::function>()) {
         setKey(ew, kb, obj.as<sol::function>());
+        return;
+    }
+    if (obj.is<sol::table>()) {
+        auto table = obj.as<sol::table>();
+        sol::function fn;
+        bool always = false;
+
+        if (table["fn"].valid() && table["fn"].is<sol::function>()) {
+            fn = table["fn"].get<sol::function>();
+        } else {
+            MLE_E("Hoverable::setKey table missing 'fn' function.");
+            return;
+        }
+
+        if (table["always"].valid() && table["always"].is<bool>()) {
+            always = table["always"].get<bool>();
+        }
+
+        setKey(ew, kb, fn, always);
         return;
     }
     if (obj.is<bool>()) {
@@ -182,27 +215,11 @@ void Hoverable::setKeys(const Entt& ew, const sol::table& table) {
     }
 };
 
-void Hoverable::onHoverOut(const Entt& ew) {
-    for (auto& kl : on_key) {
-        kl->unlisten();
-    }
-    if (on_scroll) {
-        on_scroll->unlisten();
-    }
-    if (on_hover_out) {
-        on_hover_out(ew);
-    }
-}
-
-void Hoverable::onHover(const Entt& ew) {
-    if (on_hover) {
-        on_hover(ew);
-    }
-};
-
 void Hoverable::onHoverIn(const Entt& ew) {
-    for (auto& kl : on_key) {
-        kl->listen();
+    for (auto& entry : on_key) {
+        if (!entry.always) {
+            entry.hnd->listen();
+        }
     }
     if (on_scroll) {
         on_scroll->listen();
@@ -211,6 +228,26 @@ void Hoverable::onHoverIn(const Entt& ew) {
         on_hover_in(ew);
     }
 };
+
+void Hoverable::onHover(const Entt& ew) {
+    if (on_hover) {
+        on_hover(ew);
+    }
+};
+
+void Hoverable::onHoverOut(const Entt& ew) {
+    for (auto& entry : on_key) {
+        if (!entry.always) {
+            entry.hnd->unlisten();
+        }
+    }
+    if (on_scroll) {
+        on_scroll->unlisten();
+    }
+    if (on_hover_out) {
+        on_hover_out(ew);
+    }
+}
 
 sol::object Hovered::get(const Entt& ew, const sol::object& /*params*/) {
     MLE_ASSERT(ew.has<Hovered>());
