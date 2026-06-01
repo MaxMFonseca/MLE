@@ -149,6 +149,7 @@ void LuaElementOps::init() {
     ut["dispatch"] = [](const Entt& ew, const std::string& event_name, const sol::object& obj = {}) { ew.dispatch(event_name, obj); };
 
     ut["destroy"] = &Entt::destroy;
+    ut["destroyAllChildren"] = [](const Entt& ew) { ew.getRelationship().destroyAllChildren(ew); };
 
     ut["beginCursorDrag"] = [](const Entt& ew) {
         ew.addFlag<comp::CursorDragFlag>();

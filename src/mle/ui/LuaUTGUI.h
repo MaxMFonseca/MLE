@@ -27,5 +27,12 @@ inline void makeUTGUI(Lua& lua) {
     };
     ut["logAllBounds"] = [](UI& ui) { ui.logAllBounds(); };
     ut["getRoot"] = [](UI& ui) { return ui::Entt{ui, ui.getRoot()}; };
+    ut["destroyElementById"] = [](UI& ui, const std::string& id) {
+        auto e = ui.getE(id);
+        if (!e) {
+            return;
+        }
+        e->destroy();
+    };
 }
 }  // namespace mle::lua
