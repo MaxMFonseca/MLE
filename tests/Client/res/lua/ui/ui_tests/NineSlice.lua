@@ -102,5 +102,6 @@ return {
 				},
 			},
 		},
+		make_demo("default_slice", "Default 1/3 slice (no slice param)", "360px", "96px", nil, Colors.indigo100),
 	},
 }

@@ -359,6 +359,11 @@ void NineSlice::doUpdatePacket(const Entt& /*ew*/, RenderablePacketI* packet) {
     packet_p->uv_size = uv_size;
     packet_p->source_size_px = sourceRegionPx(*this);
     packet_p->slice_px = slice_px;
+
+    if (packet_p->slice_px.t == 0 && packet_p->slice_px.b == 0 && packet_p->slice_px.l == 0 && packet_p->slice_px.r == 0) {
+        const vec2i slice = vec2i(packet_p->source_size_px / 3.0F);
+        packet_p->slice_px = {.t = slice.y, .b = slice.y, .l = slice.x, .r = slice.x};
+    }
 };
 
 }  // namespace mle::ui::renderable
