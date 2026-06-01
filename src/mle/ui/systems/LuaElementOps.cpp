@@ -15,6 +15,7 @@
 #include "mle/ui/components/Hoverable.h"
 #include "mle/ui/components/ListContainer.h"
 #include "mle/ui/renderable/RenderImage.h"
+#include "mle/ui/renderable/NineSlice.h"
 #include "mle/ui/renderable/Sprite.h"
 #include "mle/ui/renderable/Text.h"
 #include "mle/ui/shader/Blur.h"
@@ -268,6 +269,7 @@ void LuaElementOps::addBuiltingApply() {
     addApplyKeyHandler("on_resized", comp::OnResized::apply);
 
     addApplyKeyHandler("sprite", ui::renderable::Sprite::apply);
+    addApplyKeyHandler("nine_slice", ui::renderable::NineSlice::apply);
     addApplyKeyHandler("render_image", ui::renderable::RenderImage::apply);
     addApplyKeyHandler("text", ui::renderable::Text::apply);
     addApplyKeyHandler("text_input_enable", ui::renderable::Text::applyInputEnable);
