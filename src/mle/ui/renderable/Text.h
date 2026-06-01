@@ -1,5 +1,7 @@
 #pragma once
 
+#include <optional>
+
 #include "mle/renderer/Font.h"
 #include "mle/ui/components/Bounds.h"
 #include "mle/ui/renderable/RenderableI.h"
@@ -51,6 +53,7 @@ struct Text : public RenderableI {
     bool wrap = false;
     bool multiline_input = false;
     bool chars_buffer_needs_update = true;
+    std::optional<usize> visible_chars;
 
     Font::RenderText render_text;
 
@@ -81,6 +84,7 @@ struct Text : public RenderableI {
     void setJustifyMode(const Entt& ew, std::string_view mode_str);
     void setLineMaxAspect(const Entt& ew, f32 v);
     void setWrap(const Entt& ew, bool w = true);
+    void setVisibleChars(const Entt& ew, std::optional<usize> count);
 
     void set(const Entt& ew, const sol::object& obj) override;
     [[nodiscard]] vec2u calculateBounds(const Entt& ew, vec2u max_size) override;

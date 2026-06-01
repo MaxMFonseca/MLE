@@ -5,6 +5,7 @@
 #include "mle/core/PerfTracker.h"
 #include "mle/lua/Utils.h"
 #include "mle/ui/components/Base.h"
+#include "mle/ui/components/Animation.h"
 #include "mle/ui/components/Bounds.h"
 #include "mle/ui/components/ListContainer.h"
 #include "mle/ui/systems/LuaElementOps.h"
@@ -102,6 +103,11 @@ void UI::update() {
     MLE_PERF_SCOPE("GUIUpdate");
 
     {
+        MLE_PERF_SCOPE("GUIUpdate.Animation");
+        updateAnimations(1.0F / 60.0F);
+    }
+
+    {
         MLE_PERF_SCOPE("GUIUpdate.Hover");
         hover_system_.update();
     }
@@ -136,6 +142,14 @@ void UI::update() {
     {
         MLE_PERF_SCOPE("GUIUpdate.Destroy");
         destroyFlagged();
+    }
+}
+
+void UI::updateAnimations(f32 dt) {
+    auto view = registry_.view<ui::comp::Animation>();
+    for (auto e : view) {
+        ui::Entt ew{*this, e};
+        view.get<ui::comp::Animation>(e).tick(ew, dt);
     }
 }
 

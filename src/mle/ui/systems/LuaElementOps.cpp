@@ -10,6 +10,7 @@
 #include "mle/ui/Entt.h"
 #include "mle/ui/UI.h"
 #include "mle/ui/components/Base.h"
+#include "mle/ui/components/Animation.h"
 #include "mle/ui/components/Bounds.h"
 #include "mle/ui/components/FreeContainer.h"
 #include "mle/ui/components/Hoverable.h"
@@ -252,6 +253,7 @@ void LuaElementOps::addBuiltingApply() {
     addApplyKeyHandler("table", comp::Table::apply);
     addApplyKeyHandler("render_scale", comp::RenderScale::apply);
     addApplyKeyHandler("on_update", comp::OnUpdate::apply);
+    addApplyKeyHandler("animation", comp::Animation::apply);
     addApplyKeyHandler("on_create", comp::OnCreate::apply);
     addApplyKeyHandler("on_destroy", comp::OnDestroy::apply);
     addApplyKeyHandler("listen", comp::ListenEvents::apply);

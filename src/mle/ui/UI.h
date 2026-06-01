@@ -32,6 +32,7 @@ class UI {
     void addStyle(const std::string& style_name, const sol::table& style_table);
 
     void update();
+    void updateAnimations(f32 dt);
     ImageRef render();
     [[nodiscard]] Expected<ImageRef> getRenderImage(entt::entity entity);
 
