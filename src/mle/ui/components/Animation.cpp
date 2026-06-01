@@ -62,8 +62,7 @@ namespace {
         }
         return value;
     }
-    if (target == AnimationTarget::POS_X || target == AnimationTarget::POS_Y || target == AnimationTarget::SIZE_X ||
-        target == AnimationTarget::SIZE_Y) {
+    if (target == AnimationTarget::POS_X || target == AnimationTarget::POS_Y || target == AnimationTarget::SIZE_X || target == AnimationTarget::SIZE_Y) {
         value.kind = AnimationValueKind::TARGET_BOUND;
         value.target_bound.set(obj);
         return value;
@@ -242,7 +241,10 @@ void Animation::set(const Entt& ew, const sol::object& obj) {
     tracks.clear();
     sprite.reset();
     typewriter.reset();
+    on_finished = sol::nil;
+    finished_triggered = false;
     lua::tryGetKeyAs(table, "loop", loop);
+    lua::tryGetKeyAs(table, "on_finished", on_finished);
 
     if (const auto tracks_r = table["tracks"]; lua::valid<sol::table>(tracks_r)) {
         auto tracks_table = lua::as<sol::table>(tracks_r);
@@ -326,6 +328,35 @@ void Animation::tick(const Entt& ew, f32 dt) {
 
     if (typewriter.has_value()) {
         tickTypewriterAnimation(ew, *typewriter, elapsed);
+    }
+
+    if (!loop && !finished_triggered && on_finished.valid()) {
+        bool all_finished = true;
+        for (const auto& track : tracks) {
+            if (track.loop || elapsed < track.delay + track.duration) {
+                all_finished = false;
+                break;
+            }
+        }
+
+        if (all_finished && sprite.has_value()) {
+            if (sprite->loop || (sprite->fps > 0.0F && elapsed < static_cast<f32>(sprite->frames) / sprite->fps)) {
+                all_finished = false;
+            }
+        }
+
+        if (all_finished && typewriter.has_value()) {
+            auto text_r = renderable::Text::getFromEntt(ew);
+            if (text_r.has_value() && typewriter->cps > 0.0F &&
+                elapsed < typewriter->start_delay + static_cast<f32>(text_r->get().text.size()) / typewriter->cps) {
+                all_finished = false;
+            }
+        }
+
+        if (all_finished) {
+            finished_triggered = true;
+            on_finished(ew);
+        }
     }
 }
 

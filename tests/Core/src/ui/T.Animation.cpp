@@ -214,3 +214,28 @@ TEST(AnimationTest, TypewriterUpdatesVisibleCharsWithoutChangingText) {
     EXPECT_EQ(text->get().visible_chars, 2);
     EXPECT_EQ(text->get().getValue(), "Hello");
 }
+
+TEST(AnimationTest, FinishedCallbackTriggersWhenAllTracksDone) {
+    mle::UI ui;
+    auto ew = makeTestEntt(ui);
+
+    bool triggered = false;
+    sol::state lua;
+    lua.set_function("test_cb", [&](mle::ui::Entt) { triggered = true; });
+    sol::function on_finished = lua["test_cb"];
+
+    mle::ui::comp::Animation animation;
+    animation.on_finished = on_finished;
+    animation.tracks.push_back({
+        .target = mle::ui::comp::AnimationTarget::RENDER_SCALE,
+        .from = mle::ui::comp::AnimationValue{.number = 1.0F},
+        .to = mle::ui::comp::AnimationValue{.number = 2.0F},
+        .duration = 1.0F,
+    });
+
+    animation.tick(ew, 0.5F);
+    EXPECT_FALSE(triggered);
+
+    animation.tick(ew, 0.6F);
+    EXPECT_TRUE(triggered);
+}

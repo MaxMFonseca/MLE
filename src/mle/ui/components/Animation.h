@@ -68,6 +68,8 @@ struct TypewriterAnimation {
 struct Animation {
     f32 elapsed = 0.0F;
     bool loop = false;
+    bool finished_triggered = false;
+    sol::function on_finished;
     std::vector<AnimationTrack> tracks;
     std::optional<SpriteAnimation> sprite;
     std::optional<TypewriterAnimation> typewriter;
