@@ -9,14 +9,14 @@
 #include "mle/renderer/Shader.h"
 #include "mle/ui/Entt.h"
 #include "mle/ui/UI.h"
-#include "mle/ui/components/Base.h"
 #include "mle/ui/components/Animation.h"
+#include "mle/ui/components/Base.h"
 #include "mle/ui/components/Bounds.h"
 #include "mle/ui/components/FreeContainer.h"
 #include "mle/ui/components/Hoverable.h"
 #include "mle/ui/components/ListContainer.h"
-#include "mle/ui/renderable/RenderImage.h"
 #include "mle/ui/renderable/NineSlice.h"
+#include "mle/ui/renderable/RenderImage.h"
 #include "mle/ui/renderable/Sprite.h"
 #include "mle/ui/renderable/Text.h"
 #include "mle/ui/shader/Blur.h"
@@ -178,6 +178,8 @@ void LuaElementOps::init() {
 
     ut["requestInternalBoundsUpdate"] = &Entt::requestInternalBoundsUpdate;
     ut["requestExternalBoundsUpdate"] = &Entt::requestExternalBoundsUpdate;
+
+    ut["destroyAnimation"] = [](const Entt& ew) { ew.eraseChecked<comp::Animation>(); };
 
     comp::Hovered::makeLuaUsertype(lua);
     auto image_ut = lua.newUsertype<Image>("mle_Image", sol::no_constructor);
