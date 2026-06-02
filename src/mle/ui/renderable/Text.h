@@ -53,7 +53,7 @@ struct Text : public RenderableI {
     bool wrap = false;
     bool multiline_input = false;
     bool chars_buffer_needs_update = true;
-    std::optional<usize> visible_chars;
+    usize visible_chars = max<usize>();
 
     Font::RenderText render_text;
 
@@ -84,7 +84,7 @@ struct Text : public RenderableI {
     void setJustifyMode(const Entt& ew, std::string_view mode_str);
     void setLineMaxAspect(const Entt& ew, f32 v);
     void setWrap(const Entt& ew, bool w = true);
-    void setVisibleChars(const Entt& ew, std::optional<usize> count);
+    void setVisibleChars(const Entt& ew, usize count);
 
     void set(const Entt& ew, const sol::object& obj) override;
     [[nodiscard]] vec2u calculateBounds(const Entt& ew, vec2u max_size) override;

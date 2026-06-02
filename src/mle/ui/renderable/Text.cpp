@@ -186,7 +186,7 @@ void Text::setWrap(const Entt& ew, bool w) {
     ew.requestInternalBoundsUpdate();
 };
 
-void Text::setVisibleChars(const Entt& /*ew*/, std::optional<usize> count) {
+void Text::setVisibleChars(const Entt& /*ew*/, usize count) {
     if (visible_chars == count) {
         return;
     }
@@ -237,7 +237,12 @@ void Text::set(const Entt& ew, const sol::object& obj) {
             setLineMaxAspect(ew, lua::as<f32>(line_max_aspect_r));
         }
         if (const auto visible_chars_r = table["visible_chars"]; lua::valid<int>(visible_chars_r)) {
-            setVisibleChars(ew, as<usize>(glm::max(lua::as<int>(visible_chars_r), 0)));
+            int value = lua::as<int>(visible_chars_r);
+            if (value < 0) {
+                setVisibleChars(ew, max<usize>());
+            } else {
+                setVisibleChars(ew, as<usize>(value));
+            }
         }
         if (const sol::object input_box_r = table["input"]; input_box_r.valid()) {
             makeInputBox(ew, input_box_r);
@@ -322,7 +327,7 @@ void Text::makeCharsBuffer(vec2u viewport_size) {
 
     usize seen_chars = 0;
     for (auto c : render_text.chars) {
-        if (visible_chars.has_value() && seen_chars >= *visible_chars) {
+        if (seen_chars >= visible_chars) {
             break;
         }
         ++seen_chars;
