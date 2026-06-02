@@ -315,4 +315,19 @@ void ForceFitFlag::apply(const Entt& e, const sol::object& obj) {
     }
 };
 
+void EscapeParentScissorFlag::apply(const Entt& e, const sol::object& obj) {
+    if (!lua::valid<bool>(obj)) {
+        MLE_E("Invalid value passed to EscapeParentScissorFlag apply. Expected bool, got {}.", obj.get_type());
+        return;
+    }
+
+    const auto enabled = lua::as<bool>(obj);
+
+    if (enabled) {
+        e.addFlag<EscapeParentScissorFlag>();
+    } else {
+        e.eraseChecked<EscapeParentScissorFlag>();
+    }
+};
+
 }  // namespace mle::ui::comp

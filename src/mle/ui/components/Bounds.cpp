@@ -146,7 +146,7 @@ void Dependency::set(const Entt& e, const sol::object& obj) {
         auto& parent_rel = parent.getRelationship();
         this->e = parent_rel.getChildByName(parent, dep_name);
         if (this->e == entt::null) {
-            MLE_E("Dependency target '{}' not found in parent container of entity {}", dep_name, e.e());
+            MLE_E("Dependency target '{}' not found in parent container of entity {}", dep_name, e.fullName());
             return;
         }
         if (splited.size() < 2) {

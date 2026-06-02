@@ -98,6 +98,7 @@ Expected<Rendering::Packet::Node> Rendering::createPacketNode(u8 atomic_buffer_i
     if (auto* layer_r = ew.tryGet<comp::Layer>(); layer_r) {
         node.layer = layer_r->layer;
     }
+    node.escape_parent_scissor = ew.has<comp::EscapeParentScissorFlag>();
     if (const auto* shader_r = ew.tryGet<comp::Shader>(); shader_r) {
         node.shader_packet = shader_r->updatePacket(atomic_buffer_id);
         node.shader_before_children = shader_r->beforeChildren();
@@ -146,12 +147,20 @@ void Rendering::update() {
     atomic_data_.producerPublish();
 };
 
+Recti Rendering::computeNodeScissor(const Packet::Node& node, Recti bounds, const RenderingContext& ctx) {
+    return bounds.clamp(node.escape_parent_scissor ? ctx.render_target_scissor : ctx.parent_scissor);
+}
+
+Recti Rendering::computeNodeScissorForTest(const Packet::Node& node, Recti bounds, const RenderingContext& ctx) {
+    return computeNodeScissor(node, bounds, ctx);
+}
+
 void Rendering::renderNodeBorder(const Rendering::Packet::Node& node, Recti ppx, RenderingContext& ctx) {
     Recti bounds = node.scale_factor != 1.0F ? ppx.scale(node.scale_factor).asI32() : ppx;
     bounds.expandTBLR(-node.border.t, node.border.b, -node.border.l, node.border.r);
     bounds.move(ctx.parent_viewport.pos());
     Rectf viewport = bounds.asF32();
-    Recti scissor = bounds.clamp(ctx.parent_scissor);
+    Recti scissor = computeNodeScissor(node, bounds, ctx);
 
     if (viewport.size().x < 1 || viewport.size().y < 1) {
         return;
@@ -183,7 +192,7 @@ void Rendering::renderNodeBackground(const Rendering::Packet::Node& node, Recti 
     Recti bounds = node.scale_factor != 1.0F ? ppx.scale(node.scale_factor).asI32() : ppx;
     bounds.move(ctx.parent_viewport.pos());
     Rectf viewport = bounds.asF32();
-    Recti scissor = bounds.clamp(ctx.parent_scissor);
+    Recti scissor = computeNodeScissor(node, bounds, ctx);
 
     if (viewport.size().x < 1 || viewport.size().y < 1) {
         return;
@@ -303,6 +312,7 @@ std::unique_ptr<Rendering::RenderingContext> Rendering::renderCreateNodeNewConte
     new_ctx->thread.setColorAttachment(color_attachment, 0);
     new_ctx->parent_scissor.setPos(0, 0);
     new_ctx->parent_scissor.setSize(color_attachment.image->getExtent());
+    new_ctx->render_target_scissor = new_ctx->parent_scissor;
     new_ctx->parent_viewport = new_ctx->parent_scissor.asF32();
     new_ctx->thread.beginRendering();
 
@@ -342,7 +352,7 @@ void Rendering::renderNode(const Rendering::Packet::Node& node, RenderingContext
     Recti bounds = node.scale_factor != 1.0F ? ppx.scale(node.scale_factor).asI32() : ppx;
     bounds.move(ctx.parent_viewport.pos());
     Rectf viewport = bounds.asF32();
-    Recti scissor = bounds.clamp(ctx.parent_scissor);
+    Recti scissor = computeNodeScissor(node, bounds, ctx);
 
     if (viewport.size().x < 1 || viewport.size().y < 1 || scissor.size().x < 1 || scissor.size().y < 1) {
         return;

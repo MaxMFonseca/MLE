@@ -42,6 +42,7 @@ class Rendering {
             std::shared_ptr<ShaderPacketI> shader_packet;
             std::shared_ptr<RenderablePacketI> renderable_packet;
             bool renderable_dedicate_render_target = false;
+            bool escape_parent_scissor = false;
             bool shader_before_children = false;
             bool shader_dedicate_render_target = false;
             Color shader_clear_color = Color::ZERO;
@@ -54,6 +55,7 @@ class Rendering {
         RenderingThread thread;
         Rectf parent_viewport{};
         Recti parent_scissor{};
+        Recti render_target_scissor{};
         f32 parent_scale = 1.0F;
 
         // TODO: should I instead of rendering immediate add everything to this context and bind all pipelines once ?
@@ -70,9 +72,11 @@ class Rendering {
     [[nodiscard]] ImageRef render();
     [[nodiscard]] Expected<ImageRef> getRenderImage(entt::entity entity);
     void clear();
+    [[nodiscard]] static Recti computeNodeScissorForTest(const Packet::Node& node, Recti bounds, const RenderingContext& ctx);
 
   private:
     Expected<Packet::Node> createPacketNode(u8 atomic_buffer_id, entt::entity entity, usize depth = 0);
+    [[nodiscard]] static Recti computeNodeScissor(const Packet::Node& node, Recti bounds, const RenderingContext& ctx);
 
     [[nodiscard]] ImageRef getDedicatedImageForEntity(entt::entity entity, vec2u extent);
     [[nodiscard]] ImageRef getExistingDedicatedImageForEntity(entt::entity entity, vec2u extent);

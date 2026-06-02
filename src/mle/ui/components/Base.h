@@ -116,6 +116,9 @@ struct CursorDragFlag {};
 struct ForceFitFlag {
     static void apply(const Entt& e, const sol::object& obj);
 };
+struct EscapeParentScissorFlag {
+    static void apply(const Entt& e, const sol::object& obj);
+};
 struct ResizedFlag {};
 
 struct OnResized {

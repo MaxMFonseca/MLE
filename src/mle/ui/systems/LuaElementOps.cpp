@@ -268,6 +268,9 @@ void LuaElementOps::addBuiltingApply() {
     addApplyKeyHandler("enabled", comp::DisabledFlag::applyEnabled);
     addApplyKeyHandler("disabled", comp::DisabledFlag::applyDisabled);
     addApplyKeyHandler("force_fit", comp::ForceFitFlag::apply);
+    addApplyKeyHandler("escape_parent_scissor", comp::EscapeParentScissorFlag::apply);
+    addApplyKeyHandler("ignore_parent_scissor", comp::EscapeParentScissorFlag::apply);
+    addApplyKeyHandler("render_outside_parent", comp::EscapeParentScissorFlag::apply);
     addApplyKeyHandler("add_scroll_y", comp::FreeContainer::applyAddScrollY);
     addApplyKeyHandler("scroll_sensitivity", comp::FreeContainer::applyScrollSensitivity);
     addApplyKeyHandler("on_resized", comp::OnResized::apply);
