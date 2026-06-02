@@ -312,10 +312,10 @@ void Animation::set(const Entt& ew, const sol::object& obj) {
 }
 
 void Animation::tick(const Entt& ew, f32 dt) {
-    elapsed += glm::max(dt, 0.0F);
     if (ew.has<DisabledFlag>()) {
         return;
     }
+    elapsed += glm::max(dt, 0.0F);
 
     for (const auto& track : tracks) {
         const f32 t = ease(track.ease, trackProgress(track, elapsed));
