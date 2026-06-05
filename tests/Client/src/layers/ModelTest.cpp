@@ -443,6 +443,7 @@ void ModelTestLayer::init() {
     Client::i().getGameLayerTable()["model_test_set_sun_intensity"] = [this](f32 value) { setSunIntensity01(value); };
     Client::i().getGameLayerTable()["model_test_set_ambient"] = [this](f32 value) { setAmbient01(value); };
     Client::i().getGameLayerTable()["model_test_set_outline_width"] = [this](f32 value) { setOutlineWidth01(value); };
+    Client::i().getGameLayerTable()["model_test_set_outline_normal_threshold"] = [this](f32 value) { setOutlineNormalThreshold01(value); };
     Client::i().getGameLayerTable()["model_test_set_toon_band_softness"] = [this](f32 value) { setToonBandSoftness01(value); };
     Client::i().getGameLayerTable()["model_test_set_toon_shadow_level"] = [this](f32 value) { setToonShadowLevel01(value); };
     Client::i().getGameLayerTable()["model_test_set_toon_mid_level"] = [this](f32 value) { setToonMidLevel01(value); };
@@ -821,7 +822,7 @@ void ModelTestLayer::renderModel(ImageRef target) {
 
         outline_pc.inv_extent = 1.0F / vec2f{target->getExtent()};
         outline_pc.depth_threshold = 0.00075F;
-        outline_pc.normal_threshold = 0.08F;
+        outline_pc.normal_threshold = outline_normal_threshold_;
         outline_pc.alpha = 0.95F;
         outline_pc.outline_width_px = outline_width_px_;
 
@@ -1148,6 +1149,13 @@ void ModelTestLayer::setOutlineWidth01(f32 value) {
     constexpr f32 MAX_WIDTH = 8.0F;
     const f32 clamped = std::clamp(value, 0.0F, 1.0F);
     outline_width_px_ = MIN_WIDTH + ((MAX_WIDTH - MIN_WIDTH) * clamped);
+}
+
+void ModelTestLayer::setOutlineNormalThreshold01(f32 value) {
+    constexpr f32 MIN_THRESHOLD = 0.02F;
+    constexpr f32 MAX_THRESHOLD = 0.50F;
+    const f32 clamped = std::clamp(value, 0.0F, 1.0F);
+    outline_normal_threshold_ = MIN_THRESHOLD + ((MAX_THRESHOLD - MIN_THRESHOLD) * clamped);
 }
 
 void ModelTestLayer::setToonBandSoftness01(f32 value) {

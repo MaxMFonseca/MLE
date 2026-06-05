@@ -64,6 +64,7 @@ class ModelTestLayer : public mle::client::Layer {
     void setSunIntensity01(f32 value);
     void setAmbient01(f32 value);
     void setOutlineWidth01(f32 value);
+    void setOutlineNormalThreshold01(f32 value);
     void setToonBandSoftness01(f32 value);
     void setToonShadowLevel01(f32 value);
     void setToonMidLevel01(f32 value);
@@ -100,6 +101,7 @@ class ModelTestLayer : public mle::client::Layer {
     f32 sun_intensity_ = 2.0F;
     f32 ambient_ = 0.08F;
     f32 outline_width_px_ = 2.5F;
+    f32 outline_normal_threshold_ = 0.08F;
     f32 toon_band_softness_ = 0.01F;
     f32 toon_shadow_level_ = 0.18F;
     f32 toon_mid_level_ = 0.72F;

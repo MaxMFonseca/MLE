@@ -1,10 +1,38 @@
 #include <gtest/gtest.h>
 
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+
 #include "mle/renderer/Renderer.h"
 #include "mle/renderer/Shader.h"
 #include "mle/renderer/ShaderCache.h"
 
 using namespace mle;  // NOLINT
+
+namespace {
+std::filesystem::path findRepoRoot() {
+    auto dir = std::filesystem::current_path();
+    while (!dir.empty()) {
+        if (std::filesystem::exists(dir / "res/shaders/model_pbr/outline.frag")) {
+            return dir;
+        }
+        const auto parent = dir.parent_path();
+        if (parent == dir) {
+            break;
+        }
+        dir = parent;
+    }
+    return {};
+}
+
+std::string readTextFile(const std::filesystem::path& path) {
+    std::ifstream in(path);
+    std::ostringstream ss;
+    ss << in.rdbuf();
+    return ss.str();
+}
+}  // namespace
 
 TEST(Shader, LoadVertexShader) {
     auto& cache = Renderer::i().shaderCache();
@@ -101,4 +129,22 @@ TEST(Shader, VkFormatToDataType) {
     EXPECT_EQ(Shader::vkFormatToDataType(vk::Format::eR32G32B32A32Sfloat), Shader::DataType::VEC4);
     EXPECT_EQ(Shader::vkFormatToDataType(vk::Format::eR32Uint), Shader::DataType::UINT);
     EXPECT_EQ(Shader::vkFormatToDataType(vk::Format::eR32Sint), Shader::DataType::INT);
+}
+
+TEST(Shader, CartoonOutlineNormalThresholdIsExposedToUi) {
+    const auto root = findRepoRoot();
+    ASSERT_FALSE(root.empty());
+
+    const std::string outline_shader = readTextFile(root / "res/shaders/model_pbr/outline.frag");
+    const std::string model_test_cpp = readTextFile(root / "tests/Client/src/layers/ModelTest.cpp");
+    const std::string model_test_lua = readTextFile(root / "tests/Client/res/lua/ui/ModelTestLayer.lua");
+    ASSERT_FALSE(outline_shader.empty());
+    ASSERT_FALSE(model_test_cpp.empty());
+    ASSERT_FALSE(model_test_lua.empty());
+
+    EXPECT_NE(outline_shader.find("normal_threshold"), std::string::npos);
+    EXPECT_NE(model_test_cpp.find("outline_normal_threshold_"), std::string::npos);
+    EXPECT_NE(model_test_cpp.find("model_test_set_outline_normal_threshold"), std::string::npos);
+    EXPECT_NE(model_test_lua.find("Normal threshold"), std::string::npos);
+    EXPECT_NE(model_test_lua.find("model_test_set_outline_normal_threshold"), std::string::npos);
 }

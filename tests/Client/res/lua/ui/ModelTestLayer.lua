@@ -212,7 +212,7 @@ local function make_shader_options_dock()
 		Cartoon = {
 			name = "Cartoon",
 			size_x = "1f",
-			size_y = "252px",
+			size_y = "350px",
 			disabled = true,
 			list = {
 				pack = true,
@@ -238,6 +238,9 @@ local function make_shader_options_dock()
 				end),
 				make_slider("Outline width", 0.267, function(value)
 					G.model_test_set_outline_width(value)
+				end),
+				make_slider("Normal threshold", 0.125, function(value)
+					G.model_test_set_outline_normal_threshold(value)
 				end),
 			},
 		},
@@ -322,7 +325,7 @@ return {
 							local shader_options = ew:parent():getChild("shader_options")
 							shader_options:call("setPanel", selected)
 							if selected == "Cartoon" then
-								shader_options:apply("size_y", "252px")
+								shader_options:apply("size_y", "350px")
 							elseif selected == "Wireframe" then
 								shader_options:apply("size_y", "36px")
 							else
