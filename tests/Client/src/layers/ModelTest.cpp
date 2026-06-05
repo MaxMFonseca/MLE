@@ -902,7 +902,7 @@ void ModelTestLayer::renderModel(ImageRef target) {
 
 void ModelTestLayer::refreshAssets() {
     model_files_ = discoverAssets(ResPath::MODELS);
-    animation_files_ = discoverAssets(ResPath::ANIMATIONS);
+    animation_files_ = discoverAssets(ResPath::MODELS);
     model_options_ = discoverModelOptions(model_files_);
     held_item_options_ = discoverHeldItemOptions(model_options_);
 
@@ -918,7 +918,7 @@ void ModelTestLayer::refreshAssets() {
     auto& renderer = Renderer::i();
     for (const auto& animation_file : animation_files_) {
         GLTF animation_gltf;
-        const Path animation_path = Path{ResPath::RES} / ResPath::ANIMATIONS / animation_file;
+        const Path animation_path = Path{ResPath::RES} / ResPath::MODELS / animation_file;
         if (animation_gltf.load(animation_path) != Result::OK) {
             MLE_W("ModelTestLayer failed to load animations '{}'", animation_path.generic_string());
             continue;
