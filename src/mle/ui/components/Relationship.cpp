@@ -107,8 +107,11 @@ void Relationship::destroyAllChildren(const Entt& e) {
         e.ui().getRegistry().destroy(current_child_e);
     }
 
-    self_relationship.first_child_ = entt::null;
-    self_relationship.child_count_ = 0;
+    {
+        auto& self_relationship = e.getRelationship();
+        self_relationship.first_child_ = entt::null;
+        self_relationship.child_count_ = 0;
+    }
 }
 
 std::vector<entt::entity> Relationship::getChildren(const Entt& e) const {
