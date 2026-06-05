@@ -226,8 +226,9 @@ f32 Animation::ease(AnimationEase ease_, f32 t) {
             if (t < 0.5F) {
                 return 2.0F * t * t;
             }
-            return 1.0F - (std::pow(-2.0F * t + 2.0F, 2.0F) / 2.0F);
+            return 1.0F - (std::pow((-2.0F * t) + 2.0F, 2.0F) / 2.0F);
     }
+    return t;
 }
 
 void Animation::set(const Entt& ew, const sol::object& obj) {

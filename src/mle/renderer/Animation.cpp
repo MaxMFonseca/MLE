@@ -23,8 +23,7 @@ usize findAnimationIndexByName(const GLTF& gltf, std::string_view animation_name
             continue;
         }
 
-        MLE_ASSERT_LOG(found == max<usize>(), "GLTF contains duplicate animation name '{}'. Animation clip names must be unique per file.",
-                       animation_name);
+        MLE_ASSERT_LOG(found == max<usize>(), "GLTF contains duplicate animation name '{}'. Animation clip names must be unique per file.", animation_name);
         found = i;
     }
 
