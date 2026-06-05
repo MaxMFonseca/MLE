@@ -6,7 +6,7 @@
 #include <filesystem>
 #include <glm/gtc/matrix_transform.hpp>
 #include <string_view>
-#include <unordered_set>
+#include <unordered_map>
 
 #include "Init.h"
 #include "mle/client/Client.h"
@@ -47,7 +47,7 @@ auto makeNoBlendAttachments() {
     return blend_attachments;
 }
 
-const Pipeline* getModelTestGBufferPipeline(Mesh::VertexKind kind, bool wireframe) {
+const Pipeline* getModelTestGBufferPipeline(Primitive::VertexKind kind, bool wireframe) {
     static std::array<const Pipeline*, 4 * 2> pipelines{};
     const usize kind_idx = as<usize>(kind);
     const usize idx = (wireframe ? 4 : 0) + kind_idx;
@@ -55,21 +55,21 @@ const Pipeline* getModelTestGBufferPipeline(Mesh::VertexKind kind, bool wirefram
         MLE_I("ModelTest: creating G-buffer pipeline kind={} wireframe={}", kind_idx, wireframe);
         Pipeline::CI pipeline_ci{};
         switch (kind) {
-            case Mesh::VertexKind::PBR_COLOR:
+            case Primitive::VertexKind::PBR_COLOR:
                 pipeline_ci.vertex_shader = &Renderer::i().shaderCache().get("mle/model_pbr/color.vert");
                 break;
-            case Mesh::VertexKind::PBR_COLOR_SKINNED:
+            case Primitive::VertexKind::PBR_COLOR_SKINNED:
                 pipeline_ci.vertex_shader = &Renderer::i().shaderCache().get("mle/model_pbr/color_skinned.vert");
                 break;
-            case Mesh::VertexKind::PBR_TEXTURE:
+            case Primitive::VertexKind::PBR_TEXTURE:
                 pipeline_ci.vertex_shader = &Renderer::i().shaderCache().get("mle/model_pbr/texture.vert");
                 break;
-            case Mesh::VertexKind::PBR_TEXTURE_SKINNED:
+            case Primitive::VertexKind::PBR_TEXTURE_SKINNED:
                 pipeline_ci.vertex_shader = &Renderer::i().shaderCache().get("mle/model_pbr/texture_skinned.vert");
                 break;
         }
 
-        const bool textured = kind == Mesh::VertexKind::PBR_TEXTURE || kind == Mesh::VertexKind::PBR_TEXTURE_SKINNED;
+        const bool textured = kind == Primitive::VertexKind::PBR_TEXTURE || kind == Primitive::VertexKind::PBR_TEXTURE_SKINNED;
         pipeline_ci.fragment_shader = &Renderer::i().shaderCache().get(textured ? "mle/model_pbr/gbuffer_texture.frag" : "mle/model_pbr/gbuffer_color.frag");
         const auto color_format = Renderer::i().vk().getVkImageFormat(ImageFormat::COLOR);
         const auto normal_format = Renderer::i().vk().getVkImageFormat(ImageFormat::NORMALS);
@@ -195,18 +195,18 @@ const Pipeline* getModelTestTonemapPipeline() {
     return pipeline;
 }
 
-mat4f makeModelMatrix(const std::vector<Model::NodeMesh>& meshes) {
+mat4f makeModelMatrix(const std::vector<Mesh::NodePrimitive>& meshes) {
     vec3f min_v{+FLT_MAX, +FLT_MAX, +FLT_MAX};
     vec3f max_v{-FLT_MAX, -FLT_MAX, -FLT_MAX};
 
-    for (const auto& node_mesh : meshes) {
-        const Mesh& mesh = node_mesh.mesh;
-        if (mesh.getIndexCount() == 0) {
+    for (const auto& node_primitive : meshes) {
+        const Primitive& primitive = node_primitive.primitive;
+        if (primitive.getIndexCount() == 0) {
             continue;
         }
 
-        min_v = glm::min(min_v, mesh.min());
-        max_v = glm::max(max_v, mesh.max());
+        min_v = glm::min(min_v, primitive.min());
+        max_v = glm::max(max_v, primitive.max());
     }
 
     if (min_v.x == +FLT_MAX || max_v.x == -FLT_MAX) {
@@ -272,16 +272,6 @@ entt::id_type makeAssetId(const std::string& name) {
     return entt::hashed_string::value(name.c_str());
 }
 
-int getDefaultSceneIndex(const tinygltf::Model& model) {
-    if (model.scenes.empty()) {
-        return -1;
-    }
-    if (model.defaultScene >= 0 && model.defaultScene < as<int>(model.scenes.size())) {
-        return model.defaultScene;
-    }
-    return 0;
-}
-
 std::vector<ModelTestLayer::ModelOption> discoverModelOptions(const std::vector<std::string>& model_files) {
     std::vector<ModelTestLayer::ModelOption> options;
 
@@ -293,35 +283,17 @@ std::vector<ModelTestLayer::ModelOption> discoverModelOptions(const std::vector<
             continue;
         }
 
-        const auto& model = gltf.model();
-        const int scene_index = getDefaultSceneIndex(model);
-        if (scene_index < 0) {
+        const auto mesh_nodes = gltf.getDefaultSceneMeshNodes();
+        if (mesh_nodes.empty() && gltf.defaultSceneIndex() < 0) {
             MLE_W("ModelTestLayer model '{}' has no scenes", model_file);
             continue;
         }
 
-        std::unordered_set<std::string> names;
-        const auto& scene = model.scenes[as<usize>(scene_index)];
-        for (int node_index : scene.nodes) {
-            if (node_index < 0 || node_index >= as<int>(model.nodes.size())) {
-                MLE_W("ModelTestLayer model '{}' has invalid scene root node {}", model_file, node_index);
-                continue;
-            }
-
-            const auto& node = model.nodes[as<usize>(node_index)];
-            if (node.name.empty()) {
-                MLE_W("ModelTestLayer skipping unnamed scene root in '{}'", model_file);
-                continue;
-            }
-            if (!names.insert(node.name).second) {
-                MLE_W("ModelTestLayer skipping duplicate scene root name '{}' in '{}'", node.name, model_file);
-                continue;
-            }
-
+        for (const auto& mesh_node : mesh_nodes) {
             options.push_back(ModelTestLayer::ModelOption{
-                .key = fmt::format("{}#{}", model_file, node.name),
+                .key = fmt::format("{}#{}", model_file, mesh_node.name),
                 .file = model_file,
-                .root_node = as<usize>(node_index),
+                .root_node = mesh_node.node_index,
             });
         }
     }
@@ -335,7 +307,7 @@ std::string makeAnimationDisplayName(const std::string& animation_file, Animatio
     return animation_file + "#" + clip->getName();
 }
 
-bool animationTargetsModel(AnimationClipRef animation, ModelRef model) {
+bool animationTargetsModel(AnimationClipRef animation, MeshRef model) {
     if (animation == nullptr || model == nullptr) {
         return false;
     }
@@ -411,7 +383,7 @@ std::vector<ModelTestLayer::ModelOption> discoverHeldItemOptions(const std::vect
     return options;
 }
 
-MaterialUniform makeMaterialUniform(const Mesh::PbrMaterial& material) {
+MaterialUniform makeMaterialUniform(const Primitive::PbrMaterial& material) {
     return MaterialUniform{
         .base_color_factor = material.base_color_factor,
         .emissive_factor = vec4f{material.emissive_factor, 0.0F},
@@ -449,10 +421,10 @@ void ModelTestLayer::init() {
 
     for (bool wireframe : {false, true}) {
         MLE_I("ModelTest: warming G-buffer pipelines wireframe={}", wireframe);
-        getModelTestGBufferPipeline(Mesh::VertexKind::PBR_COLOR, wireframe);
-        getModelTestGBufferPipeline(Mesh::VertexKind::PBR_COLOR_SKINNED, wireframe);
-        getModelTestGBufferPipeline(Mesh::VertexKind::PBR_TEXTURE, wireframe);
-        getModelTestGBufferPipeline(Mesh::VertexKind::PBR_TEXTURE_SKINNED, wireframe);
+        getModelTestGBufferPipeline(Primitive::VertexKind::PBR_COLOR, wireframe);
+        getModelTestGBufferPipeline(Primitive::VertexKind::PBR_COLOR_SKINNED, wireframe);
+        getModelTestGBufferPipeline(Primitive::VertexKind::PBR_TEXTURE, wireframe);
+        getModelTestGBufferPipeline(Primitive::VertexKind::PBR_TEXTURE_SKINNED, wireframe);
     }
     for (usize mode_idx = 0; mode_idx < as<usize>(ModelTestShaderMode::COUNT); ++mode_idx) {
         MLE_I("ModelTest: warming resolve pipeline mode={}", SHADER_MODE_NAMES.at(mode_idx));
@@ -563,13 +535,13 @@ ImageRef ModelTestLayer::getHdrSceneImage(vec2u size) {
 }
 
 void ModelTestLayer::renderModel(ImageRef target) {
-    if (!target || !model_ || model_->getMeshes().empty()) {
-        MLE_I("ModelTest: renderModel skipped target={} model={} mesh_count={}", fmt::ptr(target), fmt::ptr(model_), model_ ? model_->getMeshes().size() : 0);
+    if (!target || !model_ || model_->getPrimitives().empty()) {
+        MLE_I("ModelTest: renderModel skipped target={} model={} mesh_count={}", fmt::ptr(target), fmt::ptr(model_), model_ ? model_->getPrimitives().size() : 0);
         return;
     }
 
     auto& renderer = Renderer::i();
-    const auto& meshes = model_->getMeshes();
+    const auto& meshes = model_->getPrimitives();
     const auto& model_skins = model_->getSkins();
     MLE_D("ModelTest: renderModel begin target={} extent={}x{} mode={} meshes={} skins={}", fmt::ptr(target), target->getExtent().x, target->getExtent().y,
           SHADER_MODE_NAMES.at(as<usize>(shader_mode_)), meshes.size(), model_skins.size());
@@ -676,49 +648,49 @@ void ModelTestLayer::renderModel(ImageRef target) {
     lighting_slice.buffer->write(&lighting_uniform, lighting_slice.size, lighting_slice.offset);
     vk::DescriptorBufferInfo lighting_di = lighting_slice.buffer->makeDescriptorInfo(thread.cmd(), lighting_slice.size, lighting_slice.offset);
 
-    auto draw_model_meshes = [&](const std::vector<Model::NodeMesh>& draw_meshes, const mat4f& model_matrix, bool allow_skinned,
+    auto draw_model_meshes = [&](const std::vector<Mesh::NodePrimitive>& draw_meshes, const mat4f& model_matrix, bool allow_skinned,
                                  const std::vector<mat4f>* draw_node_globals) {
-        for (const auto& node_mesh : draw_meshes) {
-            const Mesh& mesh = node_mesh.mesh;
-            if (mesh.getIndexCount() == 0 || (mesh.isSkinned() && !allow_skinned)) {
-                MLE_D("ModelTest: skipping mesh index_count={} skinned={} allow_skinned={}", mesh.getIndexCount(), mesh.isSkinned(), allow_skinned);
+        for (const auto& node_primitive : draw_meshes) {
+            const Primitive& primitive = node_primitive.primitive;
+            if (primitive.getIndexCount() == 0 || (primitive.isSkinned() && !allow_skinned)) {
+                MLE_D("ModelTest: skipping mesh index_count={} skinned={} allow_skinned={}", primitive.getIndexCount(), primitive.isSkinned(), allow_skinned);
                 continue;
             }
 
             pc.model = model_matrix;
-            if (!mesh.isSkinned() && draw_node_globals != nullptr && node_mesh.node_index < draw_node_globals->size()) {
-                pc.model *= draw_node_globals->at(node_mesh.node_index);
+            if (!primitive.isSkinned() && draw_node_globals != nullptr && node_primitive.node_index < draw_node_globals->size()) {
+                pc.model *= draw_node_globals->at(node_primitive.node_index);
             }
 
-            const auto skin_mats_di_it = skin_mats_dis.find(node_mesh.skin_index);
-            if (mesh.isSkinned() && skin_mats_di_it == skin_mats_dis.end()) {
-                MLE_W("ModelTest: skipping skinned mesh; no skin descriptor for skin_index={}", node_mesh.skin_index);
+            const auto skin_mats_di_it = skin_mats_dis.find(node_primitive.skin_index);
+            if (primitive.isSkinned() && skin_mats_di_it == skin_mats_dis.end()) {
+                MLE_W("ModelTest: skipping skinned mesh; no skin descriptor for skin_index={}", node_primitive.skin_index);
                 continue;
             }
-            const vk::DescriptorBufferInfo* skin_mats_di = mesh.isSkinned() ? &skin_mats_di_it->second : nullptr;
+            const vk::DescriptorBufferInfo* skin_mats_di = primitive.isSkinned() ? &skin_mats_di_it->second : nullptr;
 
-            MLE_D("ModelTest: drawing mesh vertex_kind={} textured={} skinned={} indices={} wireframe={}", as<usize>(mesh.getVertexKind()), mesh.isTextured(),
-                  mesh.isSkinned(), mesh.getIndexCount(), shader_mode_ == ModelTestShaderMode::WIREFRAME);
-            const Pipeline* pipeline = getModelTestGBufferPipeline(mesh.getVertexKind(), shader_mode_ == ModelTestShaderMode::WIREFRAME);
+            MLE_D("ModelTest: drawing mesh vertex_kind={} textured={} skinned={} indices={} wireframe={}", as<usize>(primitive.getVertexKind()),
+                  primitive.isTextured(), primitive.isSkinned(), primitive.getIndexCount(), shader_mode_ == ModelTestShaderMode::WIREFRAME);
+            const Pipeline* pipeline = getModelTestGBufferPipeline(primitive.getVertexKind(), shader_mode_ == ModelTestShaderMode::WIREFRAME);
             thread.setPipeline(pipeline);
             if (shader_mode_ == ModelTestShaderMode::WIREFRAME) {
                 thread.setLineWidth(wireframe_width_);
             }
 
-            const auto material_uniform = makeMaterialUniform(mesh.getMaterial());
+            const auto material_uniform = makeMaterialUniform(primitive.getMaterial());
             BufferSlice material_slice = frame_renderer.getHostVisibleBuffer(sizeof(MaterialUniform), vk::BufferUsageFlagBits::eUniformBuffer);
             material_slice.buffer->write(&material_uniform, material_slice.size, material_slice.offset);
             vk::DescriptorBufferInfo material_di = material_slice.buffer->makeDescriptorInfo(thread.cmd(), material_slice.size, material_slice.offset);
 
-            const auto& material = mesh.getMaterial();
-            if (mesh.isTextured()) {
+            const auto& material = primitive.getMaterial();
+            if (primitive.isTextured()) {
                 vk::DescriptorImageInfo base_color_di = material.base_color_texture->getDescriptorInfo();
                 vk::DescriptorImageInfo metallic_roughness_di = material.metallic_roughness_texture->getDescriptorInfo();
                 vk::DescriptorImageInfo normal_di = material.normal_texture->getDescriptorInfo();
                 vk::DescriptorImageInfo occlusion_di = material.occlusion_texture->getDescriptorInfo();
                 vk::DescriptorImageInfo emissive_di = material.emissive_texture->getDescriptorInfo();
 
-                if (mesh.isSkinned()) {
+                if (primitive.isSkinned()) {
                     auto push_writes = pipeline->makeWrites(0, nullptr, &material_di, &base_color_di, &metallic_roughness_di, &normal_di, &occlusion_di,
                                                             &emissive_di, skin_mats_di);
                     thread.pushDescriptor(0, push_writes);
@@ -727,7 +699,7 @@ void ModelTestLayer::renderModel(ImageRef target) {
                         pipeline->makeWrites(0, nullptr, &material_di, &base_color_di, &metallic_roughness_di, &normal_di, &occlusion_di, &emissive_di);
                     thread.pushDescriptor(0, push_writes);
                 }
-            } else if (mesh.isSkinned()) {
+            } else if (primitive.isSkinned()) {
                 auto push_writes = pipeline->makeWrites(0, nullptr, &material_di, skin_mats_di);
                 thread.pushDescriptor(0, push_writes);
             } else {
@@ -736,15 +708,15 @@ void ModelTestLayer::renderModel(ImageRef target) {
             }
 
             thread.pushConstants(&pc);
-            thread.bindVertexBuffer(mesh.getVertexBuffer());
-            thread.bindIndexBuffer(mesh.getIndexBuffer());
-            thread.drawIndexed(as<u32>(mesh.getIndexCount()), 1);
+            thread.bindVertexBuffer(primitive.getVertexBuffer());
+            thread.bindIndexBuffer(primitive.getIndexBuffer());
+            thread.drawIndexed(as<u32>(primitive.getIndexCount()), 1);
         }
     };
 
     draw_model_meshes(meshes, preview_model, true, &node_globals_);
 
-    if (held_item_model_ != nullptr && !held_item_model_->getMeshes().empty()) {
+    if (held_item_model_ != nullptr && !held_item_model_->getPrimitives().empty()) {
         usize attachment_node = model_->getNodeIdxByName("mixamorig:RightHand");
         if (attachment_node == max<usize>()) {
             attachment_node = model_->getNodeIdxByName("RightHand");
@@ -757,7 +729,7 @@ void ModelTestLayer::renderModel(ImageRef target) {
             const mat4f attachment_model = removeMatrixScale(node_globals_[attachment_node]);
             const mat4f held_item_scale = glm::scale(mat4f{1.0F}, vec3f{held_item_scale_});
             const mat4f held_item_model = preview_model * attachment_model * held_item_scale;
-            draw_model_meshes(held_item_model_->getMeshes(), held_item_model, false, &held_item_node_globals);
+            draw_model_meshes(held_item_model_->getPrimitives(), held_item_model, false, &held_item_node_globals);
         } else {
             const std::string warning_key = current_model_name_ + "|" + current_held_item_name_;
             if (held_item_attachment_warning_key_ != warning_key) {
@@ -906,7 +878,7 @@ void ModelTestLayer::refreshAssets() {
 
     auto& renderer = Renderer::i();
     for (const auto& file : model_files_) {
-        renderer.addModelPack(file);
+        renderer.addMeshPack(file);
     }
 
     model_options_ = discoverModelOptions(model_files_);
@@ -1038,8 +1010,8 @@ bool ModelTestLayer::setModel(const std::string& name) {
         return false;
     }
 
-    auto& model_cache = Renderer::i().modelCache();
-    ModelRef model = model_cache.get(model_id);
+    auto& model_cache = Renderer::i().meshCache();
+    MeshRef model = model_cache.get(model_id);
     if (model == nullptr) {
         model = model_cache.add(model_id, model_gltf, model_it->root_node);
     }
@@ -1092,8 +1064,8 @@ bool ModelTestLayer::setHeldItem(const std::string& name) {
     }
 
     const entt::id_type model_id = makeAssetId(item_it->key);
-    auto& model_cache = Renderer::i().modelCache();
-    ModelRef held_item_model = model_cache.get(model_id);
+    auto& model_cache = Renderer::i().meshCache();
+    MeshRef held_item_model = model_cache.get(model_id);
     if (held_item_model == nullptr) {
         held_item_model = model_cache.add(model_id, model_gltf, item_it->root_node);
     }
@@ -1101,8 +1073,8 @@ bool ModelTestLayer::setHeldItem(const std::string& name) {
         return false;
     }
 
-    for (const auto& node_mesh : held_item_model->getMeshes()) {
-        if (node_mesh.mesh.isSkinned()) {
+    for (const auto& node_primitive : held_item_model->getPrimitives()) {
+        if (node_primitive.primitive.isSkinned()) {
             MLE_W("ModelTestLayer held item '{}' contains skinned meshes and will not be used", name);
             return false;
         }

@@ -49,13 +49,13 @@ class Font;
 using FontHnd = std::unique_ptr<Font>;
 using FontRef = Font*;
 
-class Model;
-using ModelHnd = std::unique_ptr<Model>;
-using ModelRef = Model*;
-
 class Mesh;
 using MeshHnd = std::unique_ptr<Mesh>;
 using MeshRef = Mesh*;
+
+class Primitive;
+using PrimitiveHnd = std::unique_ptr<Primitive>;
+using PrimitiveRef = Primitive*;
 
 class Skeleton;
 using SkeletonHnd = std::unique_ptr<Skeleton>;

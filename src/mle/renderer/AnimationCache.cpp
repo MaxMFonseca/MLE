@@ -3,7 +3,7 @@
 #include <unordered_set>
 
 #include "mle/core/Assert.h"
-#include "mle/renderer/Model.h"
+#include "mle/renderer/Mesh.h"
 
 namespace mle {
 entt::id_type AnimationCache::makeAnimationId(std::string_view source_name, std::string_view animation_name) {
@@ -109,7 +109,7 @@ void AnimationCache::shutdown() {
     bindings_.clear();
 }
 
-const AnimationBinding& AnimationCache::getBinding(ModelRef model, AnimationClipRef clip) {
+const AnimationBinding& AnimationCache::getBinding(MeshRef model, AnimationClipRef clip) {
     const BindingKey key{.model = model, .clip = clip};
     if (auto it = bindings_.find(key); it != bindings_.end()) {
         return it->second;

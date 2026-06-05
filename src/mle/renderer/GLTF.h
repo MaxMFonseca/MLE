@@ -2,12 +2,20 @@
 
 #include <tiny_gltf.h>
 
+#include <string>
+#include <vector>
+
 #include "mle/renderer/Image.h"
 #include "mle/utils/File.h"
 
 namespace mle {
 class GLTF {
   public:
+    struct MeshNode {
+        usize node_index;
+        std::string name;
+    };
+
     Result load(const Path& path);
 
     [[nodiscard]] const tinygltf::Accessor& getAccessor(int idx) const;
@@ -26,6 +34,10 @@ class GLTF {
     [[nodiscard]] std::vector<vec4u> readAccessorJoints4u(const tinygltf::Accessor& accessor) const;
     [[nodiscard]] std::vector<vec4f> readAccessorWeights4f(const tinygltf::Accessor& accessor) const;
     [[nodiscard]] std::vector<u32> readIndicesU32(const tinygltf::Accessor& accessor, u32 baseVertex) const;
+
+    [[nodiscard]] int defaultSceneIndex() const;
+    [[nodiscard]] std::vector<MeshNode> getSceneMeshNodes(int scene_index) const;
+    [[nodiscard]] std::vector<MeshNode> getDefaultSceneMeshNodes() const;
 
     [[nodiscard]] const auto& model() const { return model_; }
     [[nodiscard]] const Path& sourcePath() const { return source_path_; }

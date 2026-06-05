@@ -31,7 +31,7 @@ class AnimationCache {
     [[nodiscard]] bool contains(entt::id_type id) const;
     void addAlias(entt::id_type alias_id, entt::id_type target_id);
 
-    const AnimationBinding& getBinding(ModelRef model, AnimationClipRef clip);
+    const AnimationBinding& getBinding(MeshRef model, AnimationClipRef clip);
 
   private:
     friend class Renderer;
@@ -46,7 +46,7 @@ class AnimationCache {
     std::unordered_map<entt::id_type, entt::id_type> aliases_;
 
     struct BindingKey {
-        ModelRef model;
+        MeshRef model;
         AnimationClipRef clip;
 
         bool operator==(const BindingKey& other) const { return model == other.model && clip == other.clip; }

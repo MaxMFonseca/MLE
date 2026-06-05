@@ -8,7 +8,7 @@
 #include "VkCtx.h"
 #include "mle/renderer/AnimationCache.h"
 #include "mle/renderer/FontCache.h"
-#include "mle/renderer/ModelCache.h"
+#include "mle/renderer/MeshCache.h"
 #include "mle/renderer/SkeletonCache.h"
 #include "mle/renderer/TextureCache.h"
 #include "mle/utils/Utils.h"
@@ -22,7 +22,7 @@ class Renderer {
     void stop();
     void shutdown();
 
-    void addModelPack(const std::string& name);
+    void addMeshPack(const std::string& name);
 
     auto& vkCtx() { return vk_ctx_; }
     auto& vk() { return vk_ctx_; }
@@ -36,7 +36,7 @@ class Renderer {
     auto& frameRenderer() { return frame_renderer_; }
     auto& textureCache() { return texture_cache_; }
     auto& fontCache() { return font_cache_; }
-    auto& modelCache() { return model_cache_; }
+    auto& meshCache() { return mesh_cache_; }
     auto& skeletonCache() { return skeleton_cache_; }
     auto& animationCache() { return animation_cache_; }
 
@@ -54,7 +54,7 @@ class Renderer {
     FrameRenderer frame_renderer_;
     TextureCache texture_cache_;
     FontCache font_cache_;
-    ModelCache model_cache_;
+    MeshCache mesh_cache_;
     SkeletonCache skeleton_cache_;
     AnimationCache animation_cache_;
 };

@@ -16,7 +16,7 @@ void Renderer::init() {
     pipeline_cache_.init();
     texture_cache_.init();
     font_cache_.init();
-    model_cache_.init();
+    mesh_cache_.init();
     skeleton_cache_.init();
     animation_cache_.init();
 
@@ -41,7 +41,7 @@ void Renderer::shutdown() {
 
     animation_cache_.shutdown();
     skeleton_cache_.shutdown();
-    model_cache_.shutdown();
+    mesh_cache_.shutdown();
     font_cache_.shutdown();
     texture_cache_.shutdown();
     pipeline_cache_.shutdown();
@@ -52,7 +52,7 @@ void Renderer::shutdown() {
     vk_ctx_.shutdown();
 }
 
-void Renderer::addModelPack(const std::string& name) {
+void Renderer::addMeshPack(const std::string& name) {
     Path path = ResPath::RES;
     path /= ResPath::MODELS;
     path /= name;
@@ -75,24 +75,18 @@ void Renderer::addModelPack(const std::string& name) {
         animation_cache_.addAlias(pack_id, target_id);
     }
 
-    const auto& model = gltf.model();
-    const int scene_idx = model.defaultScene > -1 ? model.defaultScene : 0;
-    const auto& scene = model.scenes[scene_idx];
+    // 2. Add each mesh-bearing node as a mesh. Mesh::init preserves ancestors and skin joints for targeted nodes.
+    const auto mesh_nodes = gltf.getDefaultSceneMeshNodes();
+    bool first_mesh = true;
+    for (const auto& mesh_node : mesh_nodes) {
+        const std::string id_str = name + "#" + mesh_node.name;
+        const auto id = entt::hashed_string::value(id_str.c_str());
+        mesh_cache_.add(id, gltf, mesh_node.node_index);
 
-    // 2. Add all top-level nodes as models
-    bool first_model = true;
-    for (int node_idx : scene.nodes) {
-        const auto& node = model.nodes[node_idx];
-        if (!node.name.empty()) {
-            std::string id_str = name + "#" + node.name;
-            const auto id = entt::hashed_string::value(id_str.c_str());
-            model_cache_.add(id, gltf, static_cast<usize>(node_idx));
-
-            if (first_model) {
-                const auto pack_id = entt::hashed_string::value(name.c_str());
-                model_cache_.addAlias(pack_id, id);
-                first_model = false;
-            }
+        if (first_mesh) {
+            const auto pack_id = entt::hashed_string::value(name.c_str());
+            mesh_cache_.addAlias(pack_id, id);
+            first_mesh = false;
         }
     }
 }

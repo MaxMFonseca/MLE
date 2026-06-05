@@ -3,9 +3,33 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/matrix_decompose.hpp>
 
+#include <unordered_map>
+
 #include "mle/core/Assert.h"
 
 namespace mle {
+namespace {
+void collectMeshNodes(const tinygltf::Model& model, int node_index, std::vector<int>& out_mesh_nodes) {
+    MLE_ASSERT_LOG(node_index >= 0 && node_index < as<int>(model.nodes.size()), "Invalid GLTF node index");
+
+    const auto& node = model.nodes[as<usize>(node_index)];
+    if (node.mesh >= 0) {
+        out_mesh_nodes.push_back(node_index);
+    }
+
+    for (int child : node.children) {
+        collectMeshNodes(model, child, out_mesh_nodes);
+    }
+}
+
+std::string meshNodeBaseName(const tinygltf::Model& model, int node_index) {
+    const auto& node = model.nodes[as<usize>(node_index)];
+    if (!node.name.empty()) {
+        return node.name;
+    }
+    return "node_" + std::to_string(node_index);
+}
+}  // namespace
 
 Result GLTF::load(const Path& path) {
     if (!std::filesystem::exists(path)) {
@@ -45,6 +69,51 @@ Result GLTF::load(const Path& path) {
     }
 
     return Result::OK;
+}
+
+int GLTF::defaultSceneIndex() const {
+    if (model_.scenes.empty()) {
+        return -1;
+    }
+    if (model_.defaultScene >= 0 && model_.defaultScene < as<int>(model_.scenes.size())) {
+        return model_.defaultScene;
+    }
+    return 0;
+}
+
+std::vector<GLTF::MeshNode> GLTF::getSceneMeshNodes(int scene_index) const {
+    if (scene_index < 0) {
+        return {};
+    }
+
+    MLE_ASSERT_LOG(scene_index < as<int>(model_.scenes.size()), "GLTF scene index out of range");
+
+    std::vector<int> node_indices;
+    const auto& scene = model_.scenes[as<usize>(scene_index)];
+    for (int node_index : scene.nodes) {
+        collectMeshNodes(model_, node_index, node_indices);
+    }
+
+    std::unordered_map<std::string, usize> name_counts;
+    for (int node_index : node_indices) {
+        ++name_counts[meshNodeBaseName(model_, node_index)];
+    }
+
+    std::vector<MeshNode> mesh_nodes;
+    mesh_nodes.reserve(node_indices.size());
+    for (int node_index : node_indices) {
+        std::string node_name = meshNodeBaseName(model_, node_index);
+        if (const auto it = name_counts.find(node_name); it != name_counts.end() && it->second > 1) {
+            node_name += "@" + std::to_string(node_index);
+        }
+        mesh_nodes.push_back(MeshNode{.node_index = as<usize>(node_index), .name = std::move(node_name)});
+    }
+
+    return mesh_nodes;
+}
+
+std::vector<GLTF::MeshNode> GLTF::getDefaultSceneMeshNodes() const {
+    return getSceneMeshNodes(defaultSceneIndex());
 }
 
 const tinygltf::Accessor& GLTF::getAccessor(int idx) const {

@@ -8,7 +8,7 @@
 
 #include "mle/core/Assert.h"
 #include "mle/renderer/AnimationCache.h"
-#include "mle/renderer/Model.h"
+#include "mle/renderer/Mesh.h"
 
 namespace mle {
 namespace {
@@ -91,9 +91,9 @@ ValueT sampleNearestKeyframeNoInterp(const std::vector<KeyframeT>& keys, f32 t, 
     return keys.back().value;
 }
 
-void evaluateImpl(const AnimationClip& clip, const Model& model, const AnimationBinding& binding, f32 time, std::span<mat4f> out_node_globals,
+void evaluateImpl(const AnimationClip& clip, const Mesh& mesh, const AnimationBinding& binding, f32 time, std::span<mat4f> out_node_globals,
                   bool interpolate) {
-    const auto& model_nodes = model.getNodes();
+    const auto& model_nodes = mesh.getNodes();
     const usize node_count = model_nodes.size();
 
     MLE_ASSERT_LOG(out_node_globals.size() >= node_count, "out_node_globals span too small");
@@ -139,7 +139,7 @@ void evaluateImpl(const AnimationClip& clip, const Model& model, const Animation
         tls_local_mats[nid] = makeTRS(t, r, s);
     }
 
-    for (usize nid : model.getEvaluationOrder()) {
+    for (usize nid : mesh.getEvaluationOrder()) {
         const auto& node = model_nodes[nid];
         if (node.parent >= 0) {
             out_node_globals[nid] = out_node_globals[as<usize>(node.parent)] * tls_local_mats[nid];
@@ -230,11 +230,11 @@ void AnimationClip::loadFromGLTF(const GLTF& gltf, usize animation_index) {
     }
 }
 
-void AnimationClip::evaluate(const Model& model, const AnimationBinding& binding, f32 time, std::span<mat4f> out_node_globals) const {
-    evaluateImpl(*this, model, binding, time, out_node_globals, true);
+void AnimationClip::evaluate(const Mesh& mesh, const AnimationBinding& binding, f32 time, std::span<mat4f> out_node_globals) const {
+    evaluateImpl(*this, mesh, binding, time, out_node_globals, true);
 }
 
-void AnimationClip::evaluateNoInterpolation(const Model& model, const AnimationBinding& binding, f32 time, std::span<mat4f> out_node_globals) const {
-    evaluateImpl(*this, model, binding, time, out_node_globals, false);
+void AnimationClip::evaluateNoInterpolation(const Mesh& mesh, const AnimationBinding& binding, f32 time, std::span<mat4f> out_node_globals) const {
+    evaluateImpl(*this, mesh, binding, time, out_node_globals, false);
 }
 }  // namespace mle

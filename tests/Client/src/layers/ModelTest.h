@@ -75,8 +75,8 @@ class ModelTestLayer : public mle::client::Layer {
     void setAnimation(const std::string& name);
     void clearAnimation();
 
-    ModelRef model_ = nullptr;
-    ModelRef held_item_model_ = nullptr;
+    MeshRef model_ = nullptr;
+    MeshRef held_item_model_ = nullptr;
     AnimationClipRef current_animation_ = nullptr;
     std::vector<entt::id_type> model_ids_;
     std::vector<ModelOption> model_options_;
