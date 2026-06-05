@@ -36,6 +36,8 @@ struct Sprite : public RenderableI {
     bool flip_y = false;
     vec2f uv = {0.0F, 0.0F};
     vec2f uv_size = {1.0F, 1.0F};
+    bool size_match_x = false;
+    bool size_match_y = false;
 
     bool fit = false;
 
@@ -50,6 +52,8 @@ struct Sprite : public RenderableI {
     void setUvSize(const Entt& ew, const sol::object& obj);
     void setUvPx(const Entt& ew, const sol::object& obj);
     void setUvSizePx(const Entt& ew, const sol::object& obj);
+    void setSizeMatchX(const sol::object& obj);
+    void setSizeMatchY(const sol::object& obj);
 
     void set(const Entt& e, const sol::object& obj) override;
     [[nodiscard]] vec2u calculateBounds(const Entt& e, [[maybe_unused]] vec2u max_size) override;

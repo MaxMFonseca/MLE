@@ -166,6 +166,23 @@ void Sprite::setUvSizePx(const Entt& ew, const sol::object& obj) {
     } else {
         MLE_W("Unsupported object type provided to Sprite::setUvSizePx");
     }
+}
+void Sprite::setSizeMatchX(const sol::object& obj) {
+    if (obj.is<bool>()) {
+        size_match_x = obj.as<bool>();
+        versionUp();
+    } else {
+        MLE_W("Unsupported object type provided to Sprite::setSizeMatchX");
+    }
+}
+
+void Sprite::setSizeMatchY(const sol::object& obj) {
+    if (obj.is<bool>()) {
+        size_match_y = obj.as<bool>();
+        versionUp();
+    } else {
+        MLE_W("Unsupported object type provided to Sprite::setSizeMatchY");
+    }
 };
 
 void Sprite::set(const Entt& ew, const sol::object& obj) {
@@ -209,6 +226,12 @@ void Sprite::set(const Entt& ew, const sol::object& obj) {
         }
         if (const auto uv_size_px_r = table["uv_size_px"]; uv_size_px_r.valid()) {
             setUvSizePx(ew, uv_size_px_r);
+        }
+        if (const auto size_match_x_r = table["size_match_x"]; size_match_x_r.valid()) {
+            setSizeMatchX(size_match_x_r);
+        }
+        if (const auto size_match_y_r = table["size_match_y"]; size_match_y_r.valid()) {
+            setSizeMatchY(size_match_y_r);
         }
         return;
     }
@@ -319,7 +342,11 @@ void SpritePacket::render(CompRenderingCtx& ctx) {
     f32 image_ar = image_extent_f.x / image_extent_f.y;
     f32 max_size_ar = as<f32>(max_size.x) / as<f32>(max_size.y);
 
-    if (max_size_ar > image_ar) {
+    if (size_match_x) {
+        max_size.y = as<u32>(as<f32>(max_size.x) / image_ar);
+    } else if (size_match_y) {
+        max_size.x = as<u32>(as<f32>(max_size.y) * image_ar);
+    } else if (max_size_ar > image_ar) {
         max_size.x = as<u32>(as<f32>(max_size.y) * image_ar);
     } else {
         max_size.y = as<u32>(as<f32>(max_size.x) / image_ar);
