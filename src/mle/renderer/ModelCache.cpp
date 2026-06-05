@@ -47,6 +47,9 @@ ModelRef ModelCache::addModel(const std::string& model_name) {
 };
 
 ModelRef ModelCache::get(entt::id_type id) {
+    if (auto alias_it = aliases_.find(id); alias_it != aliases_.end()) {
+        id = alias_it->second;
+    }
     auto it = models_.find(id);
     if (it != models_.end()) {
         return it->second.get();
@@ -55,7 +58,14 @@ ModelRef ModelCache::get(entt::id_type id) {
 }
 
 bool ModelCache::contains(entt::id_type id) const {
+    if (auto alias_it = aliases_.find(id); alias_it != aliases_.end()) {
+        id = alias_it->second;
+    }
     return models_.contains(id);
+}
+
+void ModelCache::addAlias(entt::id_type alias_id, entt::id_type target_id) {
+    aliases_[alias_id] = target_id;
 }
 
 void ModelCache::shutdown() {

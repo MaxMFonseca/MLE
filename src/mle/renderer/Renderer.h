@@ -22,6 +22,8 @@ class Renderer {
     void stop();
     void shutdown();
 
+    void addModelPack(const std::string& name);
+
     auto& vkCtx() { return vk_ctx_; }
     auto& vk() { return vk_ctx_; }
     vk::Device vkDevice() { return vk_ctx_.getDevice(); }

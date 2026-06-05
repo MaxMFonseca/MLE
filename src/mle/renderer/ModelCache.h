@@ -19,6 +19,7 @@ class ModelCache {
     ModelRef addModel(const std::string& model_name);
     ModelRef get(entt::id_type id);
     [[nodiscard]] bool contains(entt::id_type id) const;
+    void addAlias(entt::id_type alias_id, entt::id_type target_id);
 
   private:
     friend class Renderer;
@@ -28,5 +29,6 @@ class ModelCache {
 
   private:
     std::unordered_map<entt::id_type, ModelHnd> models_;
+    std::unordered_map<entt::id_type, entt::id_type> aliases_;
 };
 }  // namespace mle

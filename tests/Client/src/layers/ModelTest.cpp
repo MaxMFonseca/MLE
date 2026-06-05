@@ -332,7 +332,7 @@ std::vector<ModelTestLayer::ModelOption> discoverModelOptions(const std::vector<
 
 std::string makeAnimationDisplayName(const std::string& animation_file, AnimationClipRef clip) {
     MLE_ASSERT_LOG(clip != nullptr && !clip->getName().empty(), "Animation display names require a valid named animation clip.");
-    return animation_file + "." + clip->getName();
+    return animation_file + "#" + clip->getName();
 }
 
 bool animationTargetsModel(AnimationClipRef animation, ModelRef model) {
@@ -903,6 +903,12 @@ void ModelTestLayer::renderModel(ImageRef target) {
 void ModelTestLayer::refreshAssets() {
     model_files_ = discoverAssets(ResPath::MODELS);
     animation_files_ = discoverAssets(ResPath::MODELS);
+
+    auto& renderer = Renderer::i();
+    for (const auto& file : model_files_) {
+        renderer.addModelPack(file);
+    }
+
     model_options_ = discoverModelOptions(model_files_);
     held_item_options_ = discoverHeldItemOptions(model_options_);
 
@@ -915,7 +921,6 @@ void ModelTestLayer::refreshAssets() {
     animation_options_.clear();
     animation_names_.clear();
 
-    auto& renderer = Renderer::i();
     for (const auto& animation_file : animation_files_) {
         GLTF animation_gltf;
         const Path animation_path = Path{ResPath::RES} / ResPath::MODELS / animation_file;

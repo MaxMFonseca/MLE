@@ -7,7 +7,7 @@
 
 namespace mle {
 entt::id_type AnimationCache::makeAnimationId(std::string_view source_name, std::string_view animation_name) {
-    const std::string key = std::string{source_name} + "." + std::string{animation_name};
+    const std::string key = std::string{source_name} + "#" + std::string{animation_name};
     return entt::hashed_string::value(key.c_str());
 }
 
@@ -83,6 +83,9 @@ AnimationClipRef AnimationCache::addAnimation(std::string_view source_name, cons
 }
 
 AnimationClipRef AnimationCache::get(entt::id_type id) {
+    if (auto alias_it = aliases_.find(id); alias_it != aliases_.end()) {
+        id = alias_it->second;
+    }
     auto it = animations_.find(id);
     if (it != animations_.end()) {
         return it->second.get();
@@ -91,7 +94,14 @@ AnimationClipRef AnimationCache::get(entt::id_type id) {
 }
 
 bool AnimationCache::contains(entt::id_type id) const {
+    if (auto alias_it = aliases_.find(id); alias_it != aliases_.end()) {
+        id = alias_it->second;
+    }
     return animations_.contains(id);
+}
+
+void AnimationCache::addAlias(entt::id_type alias_id, entt::id_type target_id) {
+    aliases_[alias_id] = target_id;
 }
 
 void AnimationCache::shutdown() {

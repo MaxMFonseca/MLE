@@ -29,6 +29,7 @@ class AnimationCache {
     AnimationClipRef addAnimation(std::string_view source_name, const GLTF& gltf, std::string_view animation_name);
     AnimationClipRef get(entt::id_type id);
     [[nodiscard]] bool contains(entt::id_type id) const;
+    void addAlias(entt::id_type alias_id, entt::id_type target_id);
 
     const AnimationBinding& getBinding(ModelRef model, AnimationClipRef clip);
 
@@ -42,6 +43,7 @@ class AnimationCache {
 
   private:
     std::unordered_map<entt::id_type, AnimationClipHnd> animations_;
+    std::unordered_map<entt::id_type, entt::id_type> aliases_;
 
     struct BindingKey {
         ModelRef model;
