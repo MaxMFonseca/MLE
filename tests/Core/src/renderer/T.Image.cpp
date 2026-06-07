@@ -2,6 +2,7 @@
 #include <gtest/gtest.h>
 
 #include <cstddef>
+#include <filesystem>
 
 #include "mle/renderer/Buffer.h"
 #include "mle/renderer/CommandManager.h"
@@ -203,4 +204,29 @@ TEST(Image, LoadAndCompare120c3c) {
         return;
     }
     loadAndCompareTest120Aux(loaded.value());
+}
+
+TEST(Image, SaveToPng) {
+    Image::CI ci{};
+    ci.extent = {100, 100};
+    ci.format = ImageFormat::COLOR;
+    ci.extra_usage = vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst;
+    auto image = Image::createHnd(ci);
+
+    auto& cmd_mgr = Renderer::i().cmdMgr();
+    auto cmd = cmd_mgr.getOTS(GCmdType::GRAPHICS);
+    image->clear(cmd, Color::RED);
+    cmd_mgr.submitOTSWait(std::move(cmd));
+
+    const std::string path = "test_image_save.png";
+    if (std::filesystem::exists(path)) {
+        std::filesystem::remove(path);
+    }
+
+    image->saveToPng(path);
+
+    EXPECT_TRUE(std::filesystem::exists(path));
+    if (std::filesystem::exists(path)) {
+        std::filesystem::remove(path);
+    }
 }

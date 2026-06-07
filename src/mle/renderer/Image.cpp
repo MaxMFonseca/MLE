@@ -1,6 +1,7 @@
 #include "Image.h"
 
 #include <stb_image.h>
+#include <stb_image_write.h>
 
 #include <cstring>
 #include <mutex>
@@ -493,6 +494,20 @@ BufferHnd Image::copyRaw(CommandBuffer& cmd, const RawData& data, vec2i offset) 
     copyBuffer(cmd, *staging, data.extent, offset);
 
     return staging;
+}
+
+void Image::saveToPng(const std::string& path) {
+    auto buffer = copyToBufferOTS();
+
+    void* data = buffer->map();
+
+    int res = stbi_write_png(path.c_str(), extent_.x, extent_.y, getChannelCount(), data, extent_.x * getChannelCount());
+
+    buffer->unmap();
+
+    if (res == 0) {
+        MLE_E("Failed to save image to {}", path);
+    }
 }
 
 Expected<Image::RawData> Image::readFile(const std::string& path, int desired_channels) {

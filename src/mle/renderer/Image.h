@@ -121,6 +121,8 @@ class Image final {
 
     static Expected<RawData> readFile(const std::string& path, int desired_channels = 0);
 
+    void saveToPng(const std::string& path);
+
     static ImageHnd createHnd(const CI& ci);
 
     static void logAliveObjects();
