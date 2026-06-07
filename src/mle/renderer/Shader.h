@@ -3,6 +3,8 @@
 #include "Types.h"
 #include "mle/utils/File.h"
 #include "vulkan/vulkan.hpp"
+#include <string>
+#include <unordered_map>
 
 namespace mle {
 class Shader final {
@@ -21,6 +23,19 @@ class Shader final {
         DataType type;
     };
 
+    struct ShaderMember {
+        u32 offset;
+        u32 size;
+        DataType type;
+    };
+
+    struct ShaderDescriptor {
+        u32 set;
+        u32 binding;
+        vk::DescriptorType type;
+        std::unordered_map<std::string, ShaderMember> members;
+    };
+
   public:
     MLE_NO_COPY_MOVE(Shader);
     ~Shader();
@@ -33,6 +48,7 @@ class Shader final {
     [[nodiscard]] auto getPushConstantRange() const { return pc_range_; }
     [[nodiscard]] const auto& getPushConstantFields() const { return pc_fields_; }
     [[nodiscard]] const auto& getDescriptorSets() const { return descriptor_sets_; }
+    [[nodiscard]] const auto& getDescriptors() const { return descriptors_; }
 
     [[nodiscard]] vk::PipelineShaderStageCreateInfo makePipelineShaderStageCreateInfo() const;
     [[nodiscard]] vk::PipelineVertexInputStateCreateInfo makePipelineVertexInputStateCreateInfo() const;
@@ -62,6 +78,7 @@ class Shader final {
     vk::PushConstantRange pc_range_;
     std::vector<PushConstantField> pc_fields_;
     std::vector<DescriptorSet> descriptor_sets_;
+    std::unordered_map<std::string, ShaderDescriptor> descriptors_;
 };
 }  // namespace mle
 

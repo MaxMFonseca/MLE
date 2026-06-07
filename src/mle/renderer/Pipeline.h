@@ -46,6 +46,10 @@ class Pipeline final {
     [[nodiscard]] const Shader::PushConstantField& getPushConstantField(std::string_view name) const;
     [[nodiscard]] const auto& getPushConstantFields() const { return pc_fields_; }
 
+    [[nodiscard]] const Shader::ShaderDescriptor& getDescriptor(std::string_view name) const;
+    [[nodiscard]] const Shader::ShaderMember& getDescriptorMember(std::string_view desc_name, std::string_view member_name) const;
+    [[nodiscard]] const auto& getDescriptors() const { return descriptors_; }
+
     template <usize Size>
     static constexpr std::array<vk::PipelineColorBlendAttachmentState, Size> makeDefaultBlendAttachments() {
         std::array<vk::PipelineColorBlendAttachmentState, Size> blend_attachments{};
@@ -159,6 +163,7 @@ class Pipeline final {
     bool compute_ = false;                              ///< Whether this is a compute pipeline.
 
     std::vector<Shader::DescriptorSet> ds_infos_;      ///< Descriptor set infos for this pipeline.
+    std::unordered_map<std::string, Shader::ShaderDescriptor> descriptors_;  ///< Descriptors for this pipeline.
     std::vector<vk::DescriptorSetLayout> owned_dsls_;  ///< Descriptor set layouts owned by this pipeline.
 };
 }  // namespace mle

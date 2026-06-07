@@ -112,6 +112,48 @@ TEST(Shader, StageFromExtension) {
     EXPECT_EQ(Shader::stageFromExtension("shader.comp.spv"), vk::ShaderStageFlagBits::eCompute);
 }
 
+TEST(Shader, ReflectionWithUBO) {
+    auto& cache = Renderer::i().shaderCache();
+    const auto& shader = cache.get("mle/scene/light.frag");
+
+    const auto& descriptors = shader.getDescriptors();
+
+    // Verify "GlobalUniforms"
+    auto it = descriptors.find("GlobalUniforms");
+    ASSERT_NE(it, descriptors.end());
+    EXPECT_EQ(it->second.set, 0);
+    EXPECT_EQ(it->second.binding, 4);
+
+    const auto& members = it->second.members;
+
+    auto m_it = members.find("view");
+    ASSERT_NE(m_it, members.end());
+    EXPECT_EQ(m_it->second.offset, 0);
+    EXPECT_EQ(m_it->second.type, Shader::DataType::MAT4);
+
+    m_it = members.find("proj");
+    ASSERT_NE(m_it, members.end());
+    EXPECT_EQ(m_it->second.offset, 64);
+    EXPECT_EQ(m_it->second.type, Shader::DataType::MAT4);
+
+    m_it = members.find("sun_direction");
+    ASSERT_NE(m_it, members.end());
+    EXPECT_EQ(m_it->second.offset, 320);
+    EXPECT_EQ(m_it->second.type, Shader::DataType::VEC3);
+
+    m_it = members.find("sun_intensity");
+    ASSERT_NE(m_it, members.end());
+    EXPECT_EQ(m_it->second.offset, 368);
+    EXPECT_EQ(m_it->second.type, Shader::DataType::FLOAT);
+
+    // Verify top-level descriptors
+    it = descriptors.find("in_albedo");
+    ASSERT_NE(it, descriptors.end());
+    EXPECT_EQ(it->second.set, 0);
+    EXPECT_EQ(it->second.binding, 0);
+    EXPECT_EQ(it->second.type, vk::DescriptorType::eCombinedImageSampler);
+}
+
 TEST(Shader, TypeSize) {
     using mle::Shader;
     EXPECT_EQ(Shader::typeSize(Shader::DataType::FLOAT), 4);

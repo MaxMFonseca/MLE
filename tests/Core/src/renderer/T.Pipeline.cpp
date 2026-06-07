@@ -77,3 +77,38 @@ TEST(Pipeline, CreateComputePipeline) {
     EXPECT_TRUE(pipeline.hasPushConstants());
     EXPECT_EQ(pipeline.getPushConstantSize(), 8);
 }
+
+TEST(Pipeline, MergedDescriptors) {
+    auto& shader_cache = Renderer::i().shaderCache();
+    const auto& vert = shader_cache.get("mle/scene/plane.vert");
+    const auto& frag = shader_cache.get("mle/scene/light.frag");
+
+    Pipeline::CreateInfo ci;
+    ci.vertex_shader = &vert;
+    ci.fragment_shader = &frag;
+    std::array color_attachment_formats{vk::Format::eR8G8B8A8Unorm};
+    ci.color_attachment_formats = color_attachment_formats;
+    auto blend_attachments = Pipeline::makeDefaultBlendAttachments<1>();
+    ci.blend_attachments = blend_attachments;
+
+    auto& pipeline_cache = Renderer::i().pipelineCache();
+    const Pipeline& pipeline = pipeline_cache.setPipeline("test_merged_descriptors", ci);
+    const auto& descriptors = pipeline.getDescriptors();
+
+    // Verify "GlobalUniforms" from fragment shader is present
+    ASSERT_TRUE(descriptors.contains("GlobalUniforms"));
+    const auto& global_desc = descriptors.at("GlobalUniforms");
+    EXPECT_EQ(global_desc.set, 0);
+    EXPECT_EQ(global_desc.binding, 4);
+
+    // Verify some members of GlobalUniforms
+    EXPECT_TRUE(global_desc.members.contains("view"));
+    EXPECT_TRUE(global_desc.members.contains("proj"));
+    EXPECT_TRUE(global_desc.members.contains("inv_view_proj"));
+    EXPECT_TRUE(global_desc.members.contains("sun_direction"));
+    EXPECT_EQ(global_desc.members.at("sun_intensity").offset, 368);
+
+    // Verify top-level descriptors from frag
+    EXPECT_TRUE(descriptors.contains("in_albedo"));
+    EXPECT_EQ(descriptors.at("in_albedo").binding, 0);
+}

@@ -47,11 +47,22 @@ namespace {
 Shader::DataType spvTypeToShaderDataType(SpvReflectTypeDescription& td) {
     using DataType = Shader::DataType;
 
-    bool is_vector = static_cast<bool>(td.type_flags & SPV_REFLECT_TYPE_FLAG_VECTOR);
-    bool is_matrix = static_cast<bool>(td.type_flags & SPV_REFLECT_TYPE_FLAG_MATRIX);
+    auto type_flags = td.type_flags & ~(SPV_REFLECT_TYPE_FLAG_ARRAY | SPV_REFLECT_TYPE_FLAG_STRUCT);
 
-    bool is_float = static_cast<bool>(td.type_flags & SPV_REFLECT_TYPE_FLAG_FLOAT);
+    bool is_vector = static_cast<bool>(type_flags & SPV_REFLECT_TYPE_FLAG_VECTOR);
+    bool is_matrix = static_cast<bool>(type_flags & SPV_REFLECT_TYPE_FLAG_MATRIX);
+
+    bool is_float = static_cast<bool>(type_flags & SPV_REFLECT_TYPE_FLAG_FLOAT);
     if (is_float) {
+        if (is_matrix) {
+            auto mat_size = td.traits.numeric.matrix.column_count;
+            if (mat_size == 2) {
+                return DataType::MAT2;
+            }
+            if (mat_size == 4) {
+                return DataType::MAT4;
+            }
+        }
         if (is_vector) {
             auto vec_size = td.traits.numeric.vector.component_count;
             if (vec_size == 2) {
@@ -64,26 +75,22 @@ Shader::DataType spvTypeToShaderDataType(SpvReflectTypeDescription& td) {
                 return DataType::VEC4;
             }
         }
-        if (is_matrix) {
-            auto mat_size = td.traits.numeric.matrix.column_count;
-            if (mat_size == 2) {
-                return DataType::MAT2;
-            }
-            if (mat_size == 4) {
-                return DataType::MAT4;
-            }
-        }
-        MLE_ASSERT_LOG(td.type_flags == SPV_REFLECT_TYPE_FLAG_FLOAT, "Unsupported float type: {}", td.type_flags);
         return DataType::FLOAT;
     }
 
-    bool is_int = as<bool>(td.type_flags & SPV_REFLECT_TYPE_FLAG_INT);
+    bool is_int = as<bool>(type_flags & SPV_REFLECT_TYPE_FLAG_INT);
     if (is_int) {
         if (td.traits.numeric.scalar.signedness) {
             return DataType::INT;
         }
 
         return DataType::UINT;
+    }
+
+    if (type_flags & SPV_REFLECT_TYPE_FLAG_EXTERNAL_MASK) {
+        if (type_flags & SPV_REFLECT_TYPE_FLAG_EXTERNAL_SAMPLED_IMAGE) {
+            return DataType::SAMPLER2D;
+        }
     }
 
     MLE_UNREACHABLE_LOG("Unsupported type. Fixme! {}", td.type_flags);
@@ -241,6 +248,52 @@ void Shader::reflect(const Bytes& spv_data) {
             field.type = spvTypeToShaderDataType(*m.type_description);
 
             MLE_T("Push constant field {}: name: {}, offset: {}, size: {}, type: {}", i, field.name, field.offset, field.size, field.type);
+        }
+    }
+
+    std::vector<SpvReflectDescriptorBinding*> bindings;
+    count = 0;
+    if (reflection.EnumerateDescriptorBindings(&count, nullptr) != SPV_REFLECT_RESULT_SUCCESS) {
+        Core::i().unrecoverable("Failed to enumerate descriptor bindings");
+    }
+    bindings.resize(count);
+    if (reflection.EnumerateDescriptorBindings(&count, bindings.data()) != SPV_REFLECT_RESULT_SUCCESS) {
+        Core::i().unrecoverable("Failed to enumerate descriptor bindings");
+    }
+
+    for (auto& binding : bindings) {
+        std::string name = binding->name;
+        std::string type_name = (binding->type_description && binding->type_description->type_name) ? binding->type_description->type_name : "";
+
+        if (name.empty()) {
+            name = type_name;
+        }
+
+        MLE_I("Descriptor found: name='{}', type_name='{}'", name, type_name);
+
+        auto populate = [&](const std::string& key) {
+            if (key.empty()) {
+                return;
+            }
+            auto& d = descriptors_[key];
+            d.set = binding->set;
+            d.binding = binding->binding;
+            d.type = as<vk::DescriptorType>(binding->descriptor_type);
+
+            if (d.type == vk::DescriptorType::eUniformBuffer || d.type == vk::DescriptorType::eStorageBuffer) {
+                for (u32 i = 0; i < binding->block.member_count; ++i) {
+                    auto& m = binding->block.members[i];
+                    auto& sm = d.members[m.name];
+                    sm.offset = m.offset;
+                    sm.size = m.size;
+                    sm.type = spvTypeToShaderDataType(*m.type_description);
+                }
+            }
+        };
+
+        populate(name);
+        if (!type_name.empty() && type_name != name) {
+            populate(type_name);
         }
     }
 }

@@ -34,6 +34,24 @@ void Pipeline::createPipelineLayout(const CI& ci) {
 
     std::vector<std::pair<u8, vk::DescriptorSetLayout>> set_layouts;
 
+    descriptors_.clear();
+    auto merge_descriptors = [&](const Shader* s) {
+        if (!s) {
+            return;
+        }
+        for (const auto& [name, desc] : s->getDescriptors()) {
+            auto [it, inserted] = descriptors_.try_emplace(name, desc);
+            if (!inserted) {
+                MLE_ASSERT(it->second.set == desc.set);
+                MLE_ASSERT(it->second.binding == desc.binding);
+                it->second.members.insert(desc.members.begin(), desc.members.end());
+            }
+        }
+    };
+    merge_descriptors(ci.vertex_shader);
+    merge_descriptors(ci.fragment_shader);
+    merge_descriptors(ci.compute_shader);
+
     if (ci.compute_shader) {
         ds_infos_ = ci.compute_shader->getDescriptorSets();
     } else if (ci.fragment_shader) {
@@ -293,6 +311,25 @@ const Shader::PushConstantField& Pipeline::getPushConstantField(std::string_view
     }
 
     MLE_UNREACHABLE_LOG("Push constant field not found: {}", name);
+}
+
+const Shader::ShaderDescriptor& Pipeline::getDescriptor(std::string_view name) const {
+    const auto it = descriptors_.find(std::string(name));
+    if (it != descriptors_.end()) {
+        return it->second;
+    }
+
+    MLE_UNREACHABLE_LOG("Descriptor not found: {}", name);
+}
+
+const Shader::ShaderMember& Pipeline::getDescriptorMember(std::string_view desc_name, std::string_view member_name) const {
+    const auto& desc = getDescriptor(desc_name);
+    const auto it = desc.members.find(std::string(member_name));
+    if (it != desc.members.end()) {
+        return it->second;
+    }
+
+    MLE_UNREACHABLE_LOG("Descriptor member not found: {}::{}", desc_name, member_name);
 }
 
 PipelineHnd Pipeline::createHnd(const CI& ci) {
