@@ -239,6 +239,7 @@ void Primitive::load(const GLTF& gltf, usize mesh_idx, usize primitive_idx) {
 
     std::vector<vec2f> uvs;
     if (auto it = prim.attributes.find("TEXCOORD_0"); it != prim.attributes.end()) {
+        textured_ = true;
         const auto& acc = gltf.getAccessor(it->second);
         uvs = gltf.readAccessorVec2f(acc);
         MLE_ASSERT_LOG(uvs.size() == vert_count, "TEXCOORD_0 count does not match POSITION count");

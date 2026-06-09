@@ -280,7 +280,7 @@ void Shader::reflect(const Bytes& spv_data) {
             d.binding = binding->binding;
             d.type = as<vk::DescriptorType>(binding->descriptor_type);
 
-            if (d.type == vk::DescriptorType::eUniformBuffer || d.type == vk::DescriptorType::eStorageBuffer) {
+            if (d.type == vk::DescriptorType::eUniformBuffer) {
                 for (u32 i = 0; i < binding->block.member_count; ++i) {
                     auto& m = binding->block.members[i];
                     auto& sm = d.members[m.name];
