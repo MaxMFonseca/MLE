@@ -16,14 +16,14 @@ ImageRef WindowSizedRenderTarget::getImage(Color clear_color) {
     if (!image) {
         Image::CI image_ci{};
         image_ci.extent = size;
-        image_ci.format = Image::Format::COLOR;
+        image_ci.format = Image::Format::HDR_COLOR;
         image_ci.extra_usage |= vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst;
         image = Image::createHnd(image_ci);
     } else if (image->getExtent() != size) {
         frame_renderer.deleteAfterFrame(std::move(image));
         Image::CI image_ci{};
         image_ci.extent = size;
-        image_ci.format = Image::Format::COLOR;
+        image_ci.format = Image::Format::HDR_COLOR;
         image_ci.extra_usage |= vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst;
         image = Image::createHnd(image_ci);
     }

@@ -25,7 +25,7 @@ Rendering::Rendering(UI& ui) :
         Pipeline::CI pipeline_ci{};
         pipeline_ci.fragment_shader = &Renderer::i().shaderCache().get("mle/ui/bg.frag");
         pipeline_ci.vertex_shader = &Renderer::i().shaderCache().get("mle/ui/bg.vert");
-        std::array color_attachment_formats = {Renderer::i().vk().getVkImageFormat(ImageFormat::COLOR)};
+        std::array color_attachment_formats = {Renderer::i().vk().getVkImageFormat(ImageFormat::HDR_COLOR)};
         pipeline_ci.color_attachment_formats = color_attachment_formats;
         auto blend_attachments = Pipeline::makeDefaultBlendAttachments<1>();
         pipeline_ci.blend_attachments = blend_attachments;
@@ -42,7 +42,7 @@ Rendering::Rendering(UI& ui) :
         Pipeline::CI pipeline_ci{};
         pipeline_ci.vertex_shader = &Renderer::i().shaderCache().get("mle/ui/rect.vert");
         pipeline_ci.fragment_shader = &Renderer::i().shaderCache().get("mle/ui/border.frag");
-        std::array color_attachment_formats = {Renderer::i().vk().getVkImageFormat(ImageFormat::COLOR)};
+        std::array color_attachment_formats = {Renderer::i().vk().getVkImageFormat(ImageFormat::HDR_COLOR)};
         pipeline_ci.color_attachment_formats = color_attachment_formats;
         auto blend_attachments = Pipeline::makeDefaultBlendAttachments<1>();
         pipeline_ci.blend_attachments = blend_attachments;
@@ -239,7 +239,7 @@ ImageRef Rendering::getDedicatedImageForEntity(entt::entity entity, vec2u extent
     if (!image) {
         Image::CI image_ci{};
         image_ci.extent = extent;
-        image_ci.format = Image::Format::COLOR;
+        image_ci.format = Image::Format::HDR_COLOR;
         image_ci.extra_usage |= vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst;
         image = Image::createHnd(image_ci);
     } else if (image->getExtent() != extent) {
@@ -247,7 +247,7 @@ ImageRef Rendering::getDedicatedImageForEntity(entt::entity entity, vec2u extent
 
         Image::CI image_ci{};
         image_ci.extent = extent;
-        image_ci.format = Image::Format::COLOR;
+        image_ci.format = Image::Format::HDR_COLOR;
         image_ci.extra_usage |= vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst;
         image = Image::createHnd(image_ci);
     }
