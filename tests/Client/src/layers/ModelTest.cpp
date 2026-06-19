@@ -11,6 +11,7 @@
 #include "Init.h"
 #include "mle/client/Client.h"
 #include "mle/core/Assert.h"
+#include "mle/math/Types2D.h"
 #include "mle/renderer/Animation.h"
 #include "mle/renderer/Buffer.h"
 #include "mle/renderer/GLTF.h"
@@ -463,6 +464,8 @@ void ModelTestLayer::init() {
     Client::i().getGameLayerTable()["model_test_animation_names"] = makeAnimationNamesTable();
     Client::i().getGameLayerTable()["model_test_shader_mode_names"] = makeShaderModeNamesTable();
     Client::i().getGameLayerTable()["return_to_init"] = []() { Client::i().pushGameLayer(std::make_unique<InitLayer>()); };
+    Client::i().getGameLayerTable()["model_test_set_show_projection"] = [this](bool value) { show_projection_ = value; };
+    Client::i().getGameLayerTable()["model_test_set_projection_epsilon"] = [this](f32 value) { projection_epsilon_ = value; };
     ui_.setRoot("i/ui/ModelTestLayer");
 
     MLE_I("ModelTestLayer assets loaded: {} models, {} animations", model_options_.size(), animation_names_.size());
@@ -716,6 +719,85 @@ void ModelTestLayer::renderModel(ImageRef target) {
     };
 
     draw_model_meshes(meshes, preview_model, true, &node_globals_);
+
+    if (show_projection_ && model_ != nullptr) {
+        Polygon2f proj_poly = model_->projectPolygon(Axis::Y);
+        if (proj_poly.vertexCount() >= 3) {
+            if (projection_epsilon_ > 0.0f) {
+                proj_poly.simplify(projection_epsilon_);
+            }
+
+            const usize vertex_count = proj_poly.vertexCount();
+            if (vertex_count >= 3) {
+                std::vector<mat4f> base_node_globals(model_->getNodeCount());
+                model_->evaluateBase(base_node_globals);
+                f32 min_y = +FLT_MAX;
+                for (const auto& np : meshes) {
+                    mat4f xform = base_node_globals[np.node_index];
+                    if (np.skin_index >= 0 && np.skin_index < as<int>(model_->getSkins().size())) {
+                        const auto& skin = model_->getSkins()[np.skin_index];
+                        if (skin.jointCount() > 0) {
+                            const auto& joint = skin.getJoints()[0];
+                            xform = base_node_globals[joint.node_index] * joint.inverse_bind;
+                        }
+                    }
+                    for (const vec3f& local_pos : np.primitive.getCpuPositions()) {
+                        const vec3f pos = vec3f(xform * vec4f(local_pos, 1.0f));
+                        if (pos.y < min_y) {
+                            min_y = pos.y;
+                        }
+                    }
+                }
+                if (min_y == +FLT_MAX) {
+                    min_y = 0.0f;
+                }
+
+                const usize index_count = (vertex_count - 2) * 3;
+
+                std::vector<Primitive::PbrColorVertex> vertices(vertex_count);
+                for (usize i = 0; i < vertex_count; ++i) {
+                    const vec2f& v = proj_poly.vertex(i);
+                    vertices[i].pos = vec3f{v.x, min_y - 0.01f, v.y};
+                    vertices[i].normal = vec3f{0.0f, 1.0f, 0.0f};
+                    vertices[i].color = vec3f{0.0f, 0.8f, 1.0f};
+                    vertices[i].mre = vec3f{0.0f, 1.0f, 0.0f};
+                }
+
+                std::vector<u32> indices(index_count);
+                usize idx_ptr = 0;
+                for (usize i = 1; i < vertex_count - 1; ++i) {
+                    indices[idx_ptr++] = 0;
+                    indices[idx_ptr++] = as<u32>(i);
+                    indices[idx_ptr++] = as<u32>(i + 1);
+                }
+
+                BufferSlice vertex_slice = frame_renderer.getHostVisibleBuffer(sizeof(Primitive::PbrColorVertex) * vertex_count, vk::BufferUsageFlagBits::eVertexBuffer);
+                vertex_slice.buffer->write(vertices.data(), vertex_slice.size, vertex_slice.offset);
+
+                BufferSlice index_slice = frame_renderer.getHostVisibleBuffer(sizeof(u32) * index_count, vk::BufferUsageFlagBits::eIndexBuffer);
+                index_slice.buffer->write(indices.data(), index_slice.size, index_slice.offset);
+
+                Primitive::PbrMaterial proj_mat{};
+                proj_mat.base_color_factor = vec4f{0.0F, 0.8F, 1.0F, 1.0F};
+                const auto material_uniform = makeMaterialUniform(proj_mat);
+                BufferSlice material_slice = frame_renderer.getHostVisibleBuffer(sizeof(MaterialUniform), vk::BufferUsageFlagBits::eUniformBuffer);
+                material_slice.buffer->write(&material_uniform, material_slice.size, material_slice.offset);
+                vk::DescriptorBufferInfo material_di = material_slice.buffer->makeDescriptorInfo(thread.cmd(), material_slice.size, material_slice.offset);
+
+                pc.model = preview_model;
+                const Pipeline* pipeline = getModelTestGBufferPipeline(Primitive::VertexKind::PBR_COLOR, false);
+                thread.setPipeline(pipeline);
+
+                auto push_writes = pipeline->makeWrites(0, nullptr, &material_di);
+                thread.pushDescriptor(0, push_writes);
+
+                thread.pushConstants(&pc);
+                thread.bindVertexBuffer(vertex_slice.buffer, vertex_slice.offset);
+                thread.bindIndexBuffer(index_slice.buffer, index_slice.offset);
+                thread.drawIndexed(as<u32>(index_count), 1);
+            }
+        }
+    }
 
     if (held_item_model_ != nullptr && !held_item_model_->getPrimitives().empty()) {
         usize attachment_node = model_->getNodeIdxByName("mixamorig:RightHand");

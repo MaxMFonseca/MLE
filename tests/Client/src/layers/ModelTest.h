@@ -111,6 +111,8 @@ class ModelTestLayer : public mle::client::Layer {
     f32 wireframe_width_ = 1.5F;
     f32 held_item_scale_ = 1.0F;
     ModelTestShaderMode shader_mode_ = ModelTestShaderMode::PBR;
+    bool show_projection_ = false;
+    f32 projection_epsilon_ = 0.0f;
 
     UI ui_;
 

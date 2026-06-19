@@ -407,6 +407,19 @@ return {
 						assets:getChild("held_item_selector"):call("setOptions", refreshed.held_items or { "None" })
 					end),
 				}),
+				make_section("Projection", {
+					make_label("Display", Colors.slate200, "15px"),
+					(function()
+						local selector = make_asset_selector("Off", { "Off", "On" }, function(selected)
+							G.model_test_set_show_projection(selected == "On")
+						end)
+						selector.name = "projection_selector"
+						return selector
+					end)(),
+					make_slider("Simplification", 0.0, function(value)
+						G.model_test_set_projection_epsilon(value * 2.0)
+					end),
+				}),
 			},
 		},
 	},
