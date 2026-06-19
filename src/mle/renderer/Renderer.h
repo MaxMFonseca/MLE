@@ -22,6 +22,7 @@ class Renderer {
     void stop();
     void shutdown();
 
+    void addMeshPack(const GLTF& gltf, std::string_view name);
     void addMeshPack(const std::string& name);
 
     auto& vkCtx() { return vk_ctx_; }
