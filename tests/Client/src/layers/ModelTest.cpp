@@ -179,7 +179,7 @@ const Pipeline* getModelTestTonemapPipeline() {
         Pipeline::CI pipeline_ci{};
         pipeline_ci.vertex_shader = &Renderer::i().shaderCache().get("mle/fs_triangle.vert");
         pipeline_ci.fragment_shader = &Renderer::i().shaderCache().get("mle/model_pbr/tonemap.frag");
-        std::array color_attachment_formats = {Renderer::i().vk().getVkImageFormat(ImageFormat::COLOR)};
+        std::array color_attachment_formats = {Renderer::i().vk().getVkImageFormat(ImageFormat::HDR_COLOR)};
         pipeline_ci.color_attachment_formats = color_attachment_formats;
         auto blend_attachments = Pipeline::makeDefaultBlendAttachments<1>();
         blend_attachments[0].blendEnable = vk::False;

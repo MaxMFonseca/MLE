@@ -111,7 +111,7 @@ return {
 					name = "bg",
 					vert = "mle/ui/rect.vert",
 					frag = "i/ui/bg.frag",
-					colors = { "color" },
+					colors = { "hdr_color" },
 					topology = "triangle_strip",
 					cull = "none",
 				},
