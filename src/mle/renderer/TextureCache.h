@@ -1,6 +1,10 @@
 #pragma once
 
+#include <memory>
+#include <mutex>
+#include <span>
 #include <unordered_map>
+#include <vector>
 
 #include "Types.h"
 #include "mle/renderer/Image.h"
@@ -35,16 +39,23 @@ class TextureCache {
     vk::Sampler getSampler(entt::id_type id = 0) const;
 
   private:
-    [[nodiscard]] BufferHnd createTexture(CommandBuffer& cmd, entt::id_type id, const Image::RawData& raw_data);
-
-  private:
     struct TextureData {
-        ImageHnd image{};
+        std::shared_ptr<Image> image{};
         bool ready = false;
     };
 
-    std::mutex mutex_;
+    struct PendingTextureUpload {
+        BufferHnd staging_buffer{};
+        std::shared_ptr<Image> image{};
+    };
+
+    [[nodiscard]] PendingTextureUpload createTexture(CommandBuffer& cmd, entt::id_type id, const Image::RawData& raw_data);
+    void markReady(entt::id_type id, const std::shared_ptr<Image>& image);
+    void setTextureLocked(entt::id_type id, TextureData&& data);
+
+    mutable std::mutex mutex_;
     std::unordered_map<entt::id_type, TextureData> textures_;
+    std::vector<std::shared_ptr<Image>> retired_textures_;
     ImageRef default_texture_{nullptr};
     ImageRef white_texture_{nullptr};
     ImageRef black_texture_{nullptr};

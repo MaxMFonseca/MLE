@@ -63,7 +63,11 @@ void TextureCache::init() {
 
 void TextureCache::shutdown() {
     MLE_I("Shutting down texture cache");
-    textures_.clear();
+    {
+        std::scoped_lock lock(mutex_);
+        textures_.clear();
+        retired_textures_.clear();
+    }
     for (auto& [name, sampler] : samplers_) {
         Renderer::i().destroy(sampler);
     }
@@ -98,6 +102,8 @@ Expected<ImageRef> TextureCache::get(entt::id_type id) {
     if (id == 0 || id == entt::hashed_string{"default"}) {
         return default_texture_;
     }
+
+    std::scoped_lock lock(mutex_);
     auto found = textures_.find(id);
     if (found != textures_.end()) {
         if (found->second.ready) {
@@ -114,6 +120,7 @@ bool TextureCache::contains(entt::id_type id) const {
     if (id == 0 || id == entt::hashed_string{"default"}) {
         return default_texture_ != nullptr;
     }
+    std::scoped_lock lock(mutex_);
     return textures_.contains(id);
 }
 
@@ -122,6 +129,7 @@ Expected<vec2u> TextureCache::getExtent(entt::id_type id) {
         return default_texture_->getExtent();
     }
 
+    std::scoped_lock lock(mutex_);
     auto found = textures_.find(id);
     if (found != textures_.end()) {
         return found->second.image->getExtent();
@@ -132,12 +140,38 @@ Expected<vec2u> TextureCache::getExtent(entt::id_type id) {
 
 void TextureCache::addTexture(entt::id_type id, ImageHnd&& img) {
     TextureData data;
-    data.image = std::move(img);
+    data.image = std::shared_ptr<Image>(std::move(img));
     data.ready = true;
+    std::scoped_lock lock(mutex_);
+    setTextureLocked(id, std::move(data));
+}
+
+void TextureCache::setTextureLocked(entt::id_type id, TextureData&& data) {
+    auto found = textures_.find(id);
+    if (found != textures_.end()) {
+        if (found->second.image != nullptr) {
+            retired_textures_.push_back(found->second.image);
+        }
+        found->second = std::move(data);
+        return;
+    }
     textures_.emplace(id, std::move(data));
 }
 
-BufferHnd TextureCache::createTexture(CommandBuffer& cmd, entt::id_type id, const Image::RawData& raw_data) {
+void TextureCache::markReady(entt::id_type id, const std::shared_ptr<Image>& image) {
+    std::scoped_lock lock(mutex_);
+    auto found = textures_.find(id);
+    if (found == textures_.end()) {
+        MLE_E("Texture id:{} not found while marking ready", id);
+        return;
+    }
+    if (found->second.image != image) {
+        return;
+    }
+    found->second.ready = true;
+}
+
+TextureCache::PendingTextureUpload TextureCache::createTexture(CommandBuffer& cmd, entt::id_type id, const Image::RawData& raw_data) {
     Image::CI ci{};
     ci.extent = raw_data.extent;
 
@@ -156,35 +190,36 @@ BufferHnd TextureCache::createTexture(CommandBuffer& cmd, entt::id_type id, cons
             return {};
     }
 
-    ImageHnd img = Image::createHnd(ci);
+    auto image = std::shared_ptr<Image>(Image::createHnd(ci));
 
-    auto sb = img->copyRaw(cmd, raw_data);
-    img->ownershipRelease(cmd, Renderer::i().commandManager().queueDataIdx(GCmdType::GRAPHICS));
+    auto sb = image->copyRaw(cmd, raw_data);
+    image->ownershipRelease(cmd, Renderer::i().commandManager().queueDataIdx(GCmdType::GRAPHICS));
 
     {
         std::scoped_lock lock(mutex_);
-        textures_[id] = TextureData{.image = std::move(img), .ready = false};
+        setTextureLocked(id, TextureData{.image = image, .ready = false});
     }
 
-    return sb;
+    return {.staging_buffer = std::move(sb), .image = std::move(image)};
 }
 
 void TextureCache::addTexture(entt::id_type id, const Image::RawData& raw_data) {
     auto& cmd_mgr = Renderer::i().commandManager();
     auto cmd = cmd_mgr.getOTS(GCmdType::TRANSFER);
 
-    auto staging_buffer = createTexture(cmd, id, raw_data);
+    auto upload = createTexture(cmd, id, raw_data);
 
-    cmd_mgr.submitOTSAsync(std::move(cmd), {}, [this, id, staging_buffer = std::move(staging_buffer)]() {
+    cmd_mgr.submitOTSAsync(std::move(cmd), {}, [this, id, staging_buffer = std::move(upload.staging_buffer), image = std::move(upload.image)]() {
+        if (image == nullptr) {
+            return;
+        }
+
         auto& cmd_mgr = Renderer::i().commandManager();
         auto gcmd = cmd_mgr.getOTS(GCmdType::GRAPHICS);
-        textures_[id].image->ownershipAcquire(gcmd);
-        textures_[id].image->transitionState(gcmd, Image::State::FS_READ);
+        image->ownershipAcquire(gcmd);
+        image->transitionState(gcmd, Image::State::FS_READ);
         cmd_mgr.submitOTSWait(std::move(gcmd));
-        {
-            std::scoped_lock lock(mutex_);
-            textures_[id].ready = true;
-        }
+        markReady(id, image);
     });
 }
 
@@ -192,30 +227,34 @@ ImageRef TextureCache::addTextureWait(entt::id_type id, const Image::RawData& ra
     auto& cmd_mgr = Renderer::i().commandManager();
     auto cmd = cmd_mgr.getOTS(GCmdType::TRANSFER);
 
-    auto staging_buffer = createTexture(cmd, id, raw_data);
+    auto upload = createTexture(cmd, id, raw_data);
 
     cmd_mgr.submitOTSWait(std::move(cmd));
 
-    auto gcmd = cmd_mgr.getOTS(GCmdType::GRAPHICS);
-    textures_[id].image->ownershipAcquire(gcmd);
-    textures_[id].image->transitionState(gcmd, Image::State::FS_READ);
-    cmd_mgr.submitOTSWait(std::move(gcmd));
-
-    {
-        std::scoped_lock lock(mutex_);
-        textures_[id].ready = true;
+    if (upload.image == nullptr) {
+        return nullptr;
     }
 
-    return textures_[id].image.get();
+    auto gcmd = cmd_mgr.getOTS(GCmdType::GRAPHICS);
+    upload.image->ownershipAcquire(gcmd);
+    upload.image->transitionState(gcmd, Image::State::FS_READ);
+    cmd_mgr.submitOTSWait(std::move(gcmd));
+
+    markReady(id, upload.image);
+
+    return upload.image.get();
 }
 
 Expected<ImageRef> TextureCache::loadTexture(const std::string& src, bool srgb) {
     auto id = entt::hashed_string{src.c_str()};
-    if (const auto found = textures_.find(id); found != textures_.end()) {
-        if (found->second.ready) {
-            return found->second.image.get();
+    {
+        std::scoped_lock lock(mutex_);
+        if (const auto found = textures_.find(id); found != textures_.end()) {
+            if (found->second.ready) {
+                return found->second.image.get();
+            }
+            return std::unexpected(Result::NOT_READY);
         }
-        return std::unexpected(Result::NOT_READY);
     }
 
     auto raw_data_r = Image::readFile("res/textures/" + src, 4);
@@ -235,12 +274,16 @@ void TextureCache::loadTextures(std::span<const std::string> names) {
     auto cmd = cmd_mgr.getOTS(GCmdType::TRANSFER);
 
     std::vector<BufferHnd> staging_buffers;
+    std::vector<std::shared_ptr<Image>> images;
     std::vector<entt::id_type> ids;
     for (const auto& name : names) {
         auto id = entt::hashed_string{name.c_str()};
-        if (textures_.contains(id)) {
-            MLE_W("Texture src:{} is already loaded", name);
-            continue;
+        {
+            std::scoped_lock lock(mutex_);
+            if (textures_.contains(id)) {
+                MLE_W("Texture src:{} is already loaded", name);
+                continue;
+            }
         }
 
         auto raw_data_r = Image::readFile("res/textures/" + name);
@@ -250,23 +293,29 @@ void TextureCache::loadTextures(std::span<const std::string> names) {
             continue;
         }
 
-        staging_buffers.push_back(createTexture(cmd, id, raw_data_r.value()));
+        auto upload = createTexture(cmd, id, raw_data_r.value());
+        if (upload.image == nullptr) {
+            continue;
+        }
+        staging_buffers.push_back(std::move(upload.staging_buffer));
+        images.push_back(std::move(upload.image));
         ids.push_back(id);
     }
 
-    cmd_mgr.submitOTSAsync(std::move(cmd), {}, [this, ids = std::move(ids), staging_buffers = std::move(staging_buffers)]() {
+    cmd_mgr.submitOTSAsync(std::move(cmd), {}, [this, ids = std::move(ids), staging_buffers = std::move(staging_buffers), images = std::move(images)]() {
+        if (images.empty()) {
+            return;
+        }
+
         auto& cmd_mgr = Renderer::i().commandManager();
         auto gcmd = cmd_mgr.getOTS(GCmdType::GRAPHICS);
-        for (const auto& id : ids) {
-            textures_[id].image->ownershipAcquire(gcmd);
-            textures_[id].image->transitionState(gcmd, Image::State::FS_READ);
+        for (const auto& image : images) {
+            image->ownershipAcquire(gcmd);
+            image->transitionState(gcmd, Image::State::FS_READ);
         }
         cmd_mgr.submitOTSWait(std::move(gcmd));
-        {
-            std::scoped_lock lock(mutex_);
-            for (const auto& id : ids) {
-                textures_[id].ready = true;
-            }
+        for (usize i = 0; i < ids.size(); ++i) {
+            markReady(ids[i], images[i]);
         }
     });
 }
