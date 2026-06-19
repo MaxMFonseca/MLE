@@ -529,6 +529,11 @@ class Polygon2f {
     /// Sorts the vertices counter-clockwise.
     void sortCCW();
 
+    /// Simplifies the polygon in-place using Ramer-Douglas-Peucker.
+    /// Removes vertices where the perpendicular distance to the line between
+    /// their neighbours is less than `epsilon`. Pass 0.0f to disable (no-op).
+    void simplify(f32 epsilon);
+
     template <typename U>
     [[nodiscard]] constexpr bool intersect(const U& o, f32 eps = FloatTolerance<f32>::REL) const {
         return Intersect2D::intersect(*this, o, eps);
