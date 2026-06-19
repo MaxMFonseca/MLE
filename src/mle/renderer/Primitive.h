@@ -78,6 +78,7 @@ class Primitive {
 
     [[nodiscard]] auto min() const { return min_; }
     [[nodiscard]] auto max() const { return max_; }
+    [[nodiscard]] const std::vector<vec3f>& getCpuPositions() const { return cpu_positions_; }
 
   private:
     BufferHnd vertex_buffer_;
@@ -89,6 +90,7 @@ class Primitive {
     PbrMaterial material_{};
     vec3f min_{+FLT_MAX, +FLT_MAX, +FLT_MAX};
     vec3f max_{-FLT_MAX, -FLT_MAX, -FLT_MAX};
+    std::vector<vec3f> cpu_positions_;
 };
 
 }  // namespace mle

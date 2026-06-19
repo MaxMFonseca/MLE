@@ -219,6 +219,7 @@ void Primitive::load(const GLTF& gltf, usize mesh_idx, usize primitive_idx) {
     const auto& pos_acc = gltf.getAccessor(pos_it->second);
 
     std::vector<vec3f> positions = gltf.readAccessorVec3f(pos_acc);
+    cpu_positions_ = positions;
     const usize vert_count = positions.size();
 
     min_.x = as<f32>(pos_acc.minValues[0]);

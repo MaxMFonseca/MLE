@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "mle/math/Types.h"
+#include "mle/math/Types2D.h"
 #include "mle/renderer/GLTF.h"
 #include "mle/renderer/Primitive.h"
 #include "mle/renderer/SkinBinding.h"
@@ -51,6 +52,8 @@ class Mesh {
     void evaluateBase(std::span<mat4f> out_node_globals) const;
 
     [[nodiscard]] const std::vector<usize>& getEvaluationOrder() const { return evaluation_order_; }
+
+    [[nodiscard]] Polygon2f projectPolygon(Axis axis, f32 offset = 0.0F) const;
 
   private:
     std::vector<Node> nodes_;

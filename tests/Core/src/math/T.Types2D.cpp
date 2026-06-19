@@ -365,3 +365,72 @@ TEST(Circle, ClosestPointToExternalAndInternalPoints) {
     v = glm::normalize(p_in - c.center());
     expectVec2Near(c.closestPoint(p_in), c.center() + v * c.radius(), 1e-5F);
 }
+
+// ---------------------------------------------------------------------------
+// Polygon2f::simplify (Ramer-Douglas-Peucker)
+// ---------------------------------------------------------------------------
+
+TEST(Polygon2f_Simplify, RemovesCollinearPoints) {
+    // (1,0) lies exactly on line (0,0)-(2,0): perpendicular distance = 0 < epsilon -> removed
+    Polygon2f poly(std::vector<vec2f>{{0,0},{1,0},{2,0},{2,1},{0,1}});
+    poly.simplify(0.01f);
+    ASSERT_EQ(poly.vertexCount(), 4u);
+    expectVec2Near(poly.vertex(0), {0.0f, 0.0f});
+    expectVec2Near(poly.vertex(1), {2.0f, 0.0f});
+    expectVec2Near(poly.vertex(2), {2.0f, 1.0f});
+    expectVec2Near(poly.vertex(3), {0.0f, 1.0f});
+}
+
+TEST(Polygon2f_Simplify, PreservesSignificantVertices) {
+    // (5,5) is 5 units from line (0,0)-(10,0): must survive epsilon=1
+    Polygon2f poly(std::vector<vec2f>{{0,0},{10,0},{5,5}});
+    poly.simplify(1.0f);
+    ASSERT_EQ(poly.vertexCount(), 3u);
+    expectVec2Near(poly.vertex(0), {0.0f, 0.0f});
+    expectVec2Near(poly.vertex(1), {10.0f, 0.0f});
+    expectVec2Near(poly.vertex(2), {5.0f, 5.0f});
+}
+
+TEST(Polygon2f_Simplify, ZeroEpsilonIsNoOp) {
+    Polygon2f poly(std::vector<vec2f>{{0,0},{1,0},{2,0},{2,1}});
+    poly.simplify(0.0f);
+    ASSERT_EQ(poly.vertexCount(), 4u);
+    expectVec2Near(poly.vertex(0), {0.0f, 0.0f});
+    expectVec2Near(poly.vertex(1), {1.0f, 0.0f});
+    expectVec2Near(poly.vertex(2), {2.0f, 0.0f});
+    expectVec2Near(poly.vertex(3), {2.0f, 1.0f});
+}
+
+TEST(Polygon2f_Simplify, EmptyInputNoOp) {
+    Polygon2f poly;
+    EXPECT_NO_THROW(poly.simplify(1.0f));
+    EXPECT_TRUE(poly.vertices().empty());
+}
+
+TEST(Polygon2f_Simplify, TwoPointInputNoOp) {
+    Polygon2f poly(std::vector<vec2f>{{0,0},{1,1}});
+    poly.simplify(1.0f);
+    ASSERT_EQ(poly.vertexCount(), 2u);
+    expectVec2Near(poly.vertex(0), {0.0f, 0.0f});
+    expectVec2Near(poly.vertex(1), {1.0f, 1.0f});
+}
+
+TEST(Polygon2f_Simplify, NegativeEpsilonIsNoOp) {
+    Polygon2f poly(std::vector<vec2f>{{0,0},{1,0},{2,0}});
+    poly.simplify(-1.0f);
+    ASSERT_EQ(poly.vertexCount(), 3u);
+    expectVec2Near(poly.vertex(0), {0.0f, 0.0f});
+    expectVec2Near(poly.vertex(1), {1.0f, 0.0f});
+    expectVec2Near(poly.vertex(2), {2.0f, 0.0f});
+}
+
+TEST(Polygon2f_Simplify, HighEpsilonKeepsEndPoints) {
+    // Large epsilon should simplify to only the start and end vertices
+    Polygon2f poly(std::vector<vec2f>{{0,0},{5,2},{10,0}});
+    poly.simplify(100.0f);
+    ASSERT_EQ(poly.vertexCount(), 2u);
+    expectVec2Near(poly.vertex(0), {0.0f, 0.0f});
+    expectVec2Near(poly.vertex(1), {10.0f, 0.0f});
+}
+
+

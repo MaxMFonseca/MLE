@@ -1,5 +1,6 @@
 #include "Mesh.h"
 
+#include <algorithm>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/matrix_decompose.hpp>
@@ -7,7 +8,10 @@
 #include <tuple>
 
 #include "mle/core/Assert.h"
+#include "mle/math/Types2D.h"
+#include "mle/math/Utils.h"
 #include "mle/renderer/Buffer.h"
+#include "mle/renderer/Primitive.h"
 
 namespace mle {
 namespace {
@@ -108,6 +112,7 @@ mat4f makeTRS(const vec3f& t, const quat& r, const vec3f& s) {
     return f_t * f_r * f_s;
 }
 
+// NOLINTNEXTLINE(misc-no-recursion) cool recursion
 void markNodeSubtree(const tinygltf::Model& model, usize node_index, std::vector<bool>& out_included) {
     MLE_ASSERT_LOG(node_index < model.nodes.size(), "Root node index out of range");
     if (out_included[node_index]) {
@@ -128,7 +133,7 @@ void markNodeAndAncestors(const std::vector<int>& node_parent, usize node_index,
 
     int parent = node_parent[node_index];
     while (parent >= 0) {
-        const usize parent_index = as<usize>(parent);
+        const auto parent_index = as<usize>(parent);
         MLE_ASSERT_LOG(parent_index < out_included.size(), "Invalid parent node index");
         out_included[parent_index] = true;
         parent = node_parent[parent_index];
@@ -146,6 +151,62 @@ void markSkinJointAncestors(const tinygltf::Model& model, const std::vector<int>
         MLE_ASSERT_LOG(joint_node >= 0 && joint_node < as<int>(model.nodes.size()), "Invalid skin joint node index");
         markNodeAndAncestors(node_parent, as<usize>(joint_node), out_included);
     }
+}
+
+vec2f projectTo2D(const vec3f& p, Axis axis) {
+    switch (axis) {
+        case Axis::X:
+            return {p.y, p.z};
+        case Axis::Y:
+            return {p.x, p.z};
+        case Axis::Z:
+        default:
+            return {p.x, p.y};
+    }
+}
+
+f32 cross2d(const vec2f& O, const vec2f& A, const vec2f& B) {
+    return ((A.x - O.x) * (B.y - O.y)) - ((A.y - O.y) * (B.x - O.x));
+}
+
+Polygon2f convexHull(std::vector<vec2f> pts) {
+    if (pts.size() < 2) {
+        return Polygon2f(std::move(pts));
+    }
+
+    std::sort(pts.begin(), pts.end(), [](const vec2f& a, const vec2f& b) { return a.x < b.x || (a.x == b.x && a.y < b.y); });
+    auto last = std::unique(pts.begin(), pts.end(), [](const vec2f& a, const vec2f& b) { return mle::feq(a.x, b.x) && mle::feq(a.y, b.y); });
+    pts.erase(last, pts.end());
+    if (pts.size() < 3) {
+        return Polygon2f(std::move(pts));
+    }
+
+    const usize n = pts.size();
+    std::vector<vec2f> hull;
+    hull.reserve(2 * n);
+
+    // Lower hull
+    for (usize i = 0; i < n; ++i) {
+        while (hull.size() >= 2 && cross2d(hull[hull.size() - 2], hull[hull.size() - 1], pts[i]) <= 0.0F) {
+            hull.pop_back();
+        }
+        hull.push_back(pts[i]);
+    }
+
+    // Upper hull
+    const usize lower_size = hull.size();
+    for (usize i = n - 2;; --i) {
+        while (hull.size() > lower_size && cross2d(hull[hull.size() - 2], hull[hull.size() - 1], pts[i]) <= 0.0F) {
+            hull.pop_back();
+        }
+        hull.push_back(pts[i]);
+        if (i == 0) {
+            break;
+        }
+    }
+
+    hull.pop_back();
+    return Polygon2f(std::move(hull));
 }
 }  // namespace
 
@@ -189,8 +250,7 @@ void Mesh::init(const GLTF& gltf, usize root_node) {
 
         Node& node = nodes_[nid];
         node.parent = (nid < node_parent.size()) ? node_parent[nid] : -1;
-        if (!included[nid] || (has_root_node && !single_mesh_root && nid == root_node) ||
-            (node.parent >= 0 && !included[as<usize>(node.parent)])) {
+        if (!included[nid] || (has_root_node && !single_mesh_root && nid == root_node) || (node.parent >= 0 && !included[as<usize>(node.parent)])) {
             node.parent = -1;
         }
         node.name = src_node.name;
@@ -261,6 +321,40 @@ std::optional<const Primitive*> Mesh::getPrimitiveByName(const std::string& name
     }
 
     return std::nullopt;
+}
+
+Polygon2f Mesh::projectPolygon(Axis axis, f32 /*offset*/) const {
+    usize total_verts = 0;
+    for (const auto& np : primitives_) {
+        total_verts += np.primitive.getCpuPositions().size();
+    }
+    if (total_verts == 0) {
+        return {};
+    }
+
+    const usize node_count = nodes_.size();
+    std::vector<mat4f> node_globals(node_count);
+    evaluateBase(std::span<mat4f>(node_globals));
+
+    std::vector<vec2f> all_pts;
+    all_pts.reserve(total_verts);
+    for (const auto& np : primitives_) {
+        mat4f xform = node_globals[np.node_index];
+        if (np.skin_index >= 0 && np.skin_index < as<int>(skins_.size())) {
+            const auto& skin = skins_[np.skin_index];
+            if (skin.jointCount() > 0) {
+                const auto& joint = skin.getJoints()[0];
+                xform = node_globals[joint.node_index] * joint.inverse_bind;
+            }
+        }
+
+        for (const vec3f& local_pos : np.primitive.getCpuPositions()) {
+            const vec3f world_pos = vec3f(xform * vec4f(local_pos, 1.0F));
+            all_pts.push_back(projectTo2D(world_pos, axis));
+        }
+    }
+
+    return convexHull(std::move(all_pts));
 }
 
 }  // namespace mle
