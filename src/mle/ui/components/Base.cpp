@@ -83,9 +83,9 @@ void ListenEvents::addListener(const Entt& e, const std::string& event_name, sol
                 return;
             }
             Entt ew{*ui, entity};
-            if (ew.has<DisabledFlag>()) {
-                return;
-            }
+            // if (ew.has<DisabledFlag>()) {
+            //     return;
+            // }
             fn(ew, obj);
         })
         .listen();
