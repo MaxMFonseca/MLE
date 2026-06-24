@@ -78,6 +78,68 @@ TEST(Pipeline, CreateComputePipeline) {
     EXPECT_EQ(pipeline.getPushConstantSize(), 8);
 }
 
+TEST(Pipeline, SharedVertexFragmentPushConstants) {
+    auto& shader_cache = Renderer::i().shaderCache();
+    const auto& vert = shader_cache.get("i/shared_pc.vert");
+    const auto& frag = shader_cache.get("i/shared_pc.frag");
+
+    Pipeline::CreateInfo ci;
+    ci.vertex_shader = &vert;
+    ci.fragment_shader = &frag;
+    std::array color_attachment_formats{vk::Format::eR8G8B8A8Unorm};
+    ci.color_attachment_formats = color_attachment_formats;
+    auto blend_attachments = Pipeline::makeDefaultBlendAttachments<1>();
+    ci.blend_attachments = blend_attachments;
+
+    auto& pipeline_cache = Renderer::i().pipelineCache();
+    const Pipeline& pipeline = pipeline_cache.setPipeline("test_shared_push_constants", ci);
+    const auto& pc_fields = pipeline.getPushConstantFields();
+    const auto& pc_ranges = pipeline.getPushConstantRanges();
+
+    EXPECT_FALSE(pipeline.isCompute());
+    EXPECT_TRUE(pipeline.hasPushConstants());
+    EXPECT_EQ(pipeline.getPushConstantSize(), 64);
+    EXPECT_EQ(pipeline.getPipelineLayout() != nullptr, true);
+    ASSERT_EQ(pc_ranges.size(), 1);
+    EXPECT_EQ(pc_ranges[0].offset, 0);
+    EXPECT_EQ(pc_ranges[0].size, 64);
+    EXPECT_EQ(pc_ranges[0].stageFlags, vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment);
+    ASSERT_EQ(pc_fields.size(), 1);
+    EXPECT_EQ(pc_fields[0].name, "transform");
+    EXPECT_EQ(pc_fields[0].offset, 0);
+    EXPECT_EQ(pc_fields[0].size, 64);
+    EXPECT_EQ(pc_fields[0].type, Shader::DataType::MAT4);
+}
+
+TEST(Pipeline, ContiguousVertexFragmentPushConstants) {
+    auto& shader_cache = Renderer::i().shaderCache();
+    const auto& vert = shader_cache.get("i/split_pc.vert");
+    const auto& frag = shader_cache.get("i/split_pc.frag");
+
+    Pipeline::CreateInfo ci;
+    ci.vertex_shader = &vert;
+    ci.fragment_shader = &frag;
+    std::array color_attachment_formats{vk::Format::eR8G8B8A8Unorm};
+    ci.color_attachment_formats = color_attachment_formats;
+    auto blend_attachments = Pipeline::makeDefaultBlendAttachments<1>();
+    ci.blend_attachments = blend_attachments;
+
+    auto& pipeline_cache = Renderer::i().pipelineCache();
+    const Pipeline& pipeline = pipeline_cache.setPipeline("test_split_push_constants", ci);
+    const auto& pc_ranges = pipeline.getPushConstantRanges();
+
+    EXPECT_TRUE(pipeline.hasPushConstants());
+    EXPECT_EQ(pipeline.getPushConstantSize(), 80);
+    ASSERT_EQ(pc_ranges.size(), 2);
+    EXPECT_EQ(pc_ranges[0].stageFlags, vk::ShaderStageFlagBits::eVertex);
+    EXPECT_EQ(pc_ranges[0].offset, 0);
+    EXPECT_EQ(pc_ranges[0].size, 64);
+    EXPECT_EQ(pc_ranges[1].stageFlags, vk::ShaderStageFlagBits::eFragment);
+    EXPECT_EQ(pc_ranges[1].offset, 64);
+    EXPECT_EQ(pc_ranges[1].size, 16);
+    EXPECT_EQ(pipeline.getPushConstantFields().size(), 2);
+}
+
 TEST(Pipeline, MergedDescriptors) {
     auto& shader_cache = Renderer::i().shaderCache();
     const auto& vert = shader_cache.get("mle/scene/plane.vert");
