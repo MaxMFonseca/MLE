@@ -38,7 +38,7 @@ class Pipeline final {
     [[nodiscard]] auto get() const { return o_; }
     [[nodiscard]] auto hasPushConstants() const { return pc_size_ > 0; }
     [[nodiscard]] auto getPushConstantSize() const { return pc_size_; }
-    [[nodiscard]] auto getPushConstantFragOffset() const { return pc_frag_offset_; }
+    [[nodiscard]] const auto& getPushConstantRanges() const { return pc_ranges_; }
     [[nodiscard]] auto getPipelineLayout() const { return pipeline_layout_; }
     [[nodiscard]] auto hasInstance() const { return first_instance_binding_ != max<u8>(); }
     [[nodiscard]] auto getFirstInstanceBinding() const { return first_instance_binding_; }
@@ -157,13 +157,13 @@ class Pipeline final {
     vk::PipelineLayout pipeline_layout_ = nullptr;
 
     std::vector<Shader::PushConstantField> pc_fields_;  ///< Push constant fields.
+    std::vector<vk::PushConstantRange> pc_ranges_;      ///< Push constant ranges used by the Vulkan pipeline layout.
     u8 pc_size_ = 0;                                    ///< Size of the push constant block.
-    u8 pc_frag_offset_ = max<u8>();                     ///< Offset of fragment shader push constants.
     u8 first_instance_binding_ = max<u8>();             ///< First instance attribute binding location.
     bool compute_ = false;                              ///< Whether this is a compute pipeline.
 
-    std::vector<Shader::DescriptorSet> ds_infos_;      ///< Descriptor set infos for this pipeline.
+    std::vector<Shader::DescriptorSet> ds_infos_;                            ///< Descriptor set infos for this pipeline.
     std::unordered_map<std::string, Shader::ShaderDescriptor> descriptors_;  ///< Descriptors for this pipeline.
-    std::vector<vk::DescriptorSetLayout> owned_dsls_;  ///< Descriptor set layouts owned by this pipeline.
+    std::vector<vk::DescriptorSetLayout> owned_dsls_;                        ///< Descriptor set layouts owned by this pipeline.
 };
 }  // namespace mle

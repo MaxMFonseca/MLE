@@ -3,6 +3,28 @@
 #include "Renderer.h"
 
 namespace mle {
+namespace {
+bool pushConstantFieldsMatch(std::span<const Shader::PushConstantField> a, std::span<const Shader::PushConstantField> b) {
+    if (a.size() != b.size()) {
+        return false;
+    }
+    for (usize i = 0; i < a.size(); i++) {
+        if (a[i].name != b[i].name || a[i].offset != b[i].offset || a[i].size != b[i].size || a[i].type != b[i].type) {
+            return false;
+        }
+    }
+    return true;
+}
+
+u32 pushConstantRangeEnd(const vk::PushConstantRange& range) {
+    return range.offset + range.size;
+}
+
+bool pushConstantRangesOverlap(const vk::PushConstantRange& a, const vk::PushConstantRange& b) {
+    return a.offset < pushConstantRangeEnd(b) && b.offset < pushConstantRangeEnd(a);
+}
+}  // namespace
+
 Pipeline::~Pipeline() {
     if (o_) {
         Renderer::i().destroy(o_);
@@ -95,34 +117,59 @@ void Pipeline::createPipelineLayout(const CI& ci) {
     pipeline_layout_ci.setSetLayouts(sorted_set_layouts);
 
     pc_fields_.clear();
-    pc_frag_offset_ = max<u8>();
-    int pc_count = 0;
-    std::array<vk::PushConstantRange, 2> pc_ranges{};
+    pc_ranges_.clear();
+    pc_size_ = 0;
     if ((ci.compute_shader != nullptr) && ci.compute_shader->getPushConstantRange().size != 0U) {
-        pc_ranges.at(0) = ci.compute_shader->getPushConstantRange();
+        pc_ranges_.push_back(ci.compute_shader->getPushConstantRange());
         pc_fields_ = ci.compute_shader->getPushConstantFields();
-        MLE_ASSERT_LOG(pc_ranges.at(0).offset == 0,
+        MLE_ASSERT_LOG(pc_ranges_.front().offset == 0,
                        "Compute shader push constant offset must be 0, add layout(offset = 0) to the first line of your compute shader pc block.");
-        pc_count++;
-    }
-    if ((ci.vertex_shader != nullptr) && ci.vertex_shader->getPushConstantRange().size != 0U) {
-        pc_ranges.at(0) = ci.vertex_shader->getPushConstantRange();
-        pc_fields_ = ci.vertex_shader->getPushConstantFields();
-        pc_count++;
-    }
-    if ((ci.fragment_shader != nullptr) && ci.fragment_shader->getPushConstantRange().size != 0U) {
-        pc_frag_offset_ = as<int>(pc_ranges.at(0).size);
-        pc_ranges.at(pc_count) = ci.fragment_shader->getPushConstantRange();
-        pc_fields_.insert(pc_fields_.end(), ci.fragment_shader->getPushConstantFields().begin(), ci.fragment_shader->getPushConstantFields().end());
-        MLE_ASSERT_LOG(pc_frag_offset_ == (int)pc_ranges.at(pc_count).offset,
-                       "Push constant offset mismatch, add layout(offset = {}) to the first line of your frag shader pc block.", pc_frag_offset_);
-        pc_count++;
-    }
-    pc_size_ = as<int>(pc_ranges.at(0).size + pc_ranges.at(1).size);
-    MLE_ASSERT_LOG(pc_size_ <= 128, "Push constant size too large: {}", pc_size_);
+    } else {
+        const bool has_vertex_pc = ci.vertex_shader != nullptr && ci.vertex_shader->getPushConstantRange().size != 0U;
+        const bool has_fragment_pc = ci.fragment_shader != nullptr && ci.fragment_shader->getPushConstantRange().size != 0U;
 
-    pipeline_layout_ci.setPushConstantRanges(pc_ranges);
-    pipeline_layout_ci.setPushConstantRangeCount(pc_count);
+        if (has_vertex_pc && has_fragment_pc) {
+            const auto vertex_range = ci.vertex_shader->getPushConstantRange();
+            const auto fragment_range = ci.fragment_shader->getPushConstantRange();
+            const auto& vertex_fields = ci.vertex_shader->getPushConstantFields();
+            const auto& fragment_fields = ci.fragment_shader->getPushConstantFields();
+
+            const bool same_range = vertex_range.offset == fragment_range.offset && vertex_range.size == fragment_range.size;
+            if (same_range && pushConstantFieldsMatch(vertex_fields, fragment_fields)) {
+                pc_ranges_.push_back(vertex_range);
+                pc_ranges_.back().stageFlags |= fragment_range.stageFlags;
+                pc_fields_ = vertex_fields;
+            } else {
+                MLE_ASSERT_LOG(!pushConstantRangesOverlap(vertex_range, fragment_range),
+                               "Vertex and fragment push constant ranges overlap but are not an exact reflected match. Vertex offset/size: {}/{}, "
+                               "fragment offset/size: {}/{}.",
+                               vertex_range.offset, vertex_range.size, fragment_range.offset, fragment_range.size);
+                MLE_ASSERT_LOG(pushConstantRangeEnd(vertex_range) == fragment_range.offset,
+                               "Push constant offset mismatch, add layout(offset = {}) to the first line of your frag shader pc block.",
+                               pushConstantRangeEnd(vertex_range));
+
+                pc_ranges_.push_back(vertex_range);
+                pc_ranges_.push_back(fragment_range);
+                pc_fields_ = vertex_fields;
+                pc_fields_.insert(pc_fields_.end(), fragment_fields.begin(), fragment_fields.end());
+            }
+        } else if (has_vertex_pc) {
+            pc_ranges_.push_back(ci.vertex_shader->getPushConstantRange());
+            pc_fields_ = ci.vertex_shader->getPushConstantFields();
+        } else if (has_fragment_pc) {
+            pc_ranges_.push_back(ci.fragment_shader->getPushConstantRange());
+            pc_fields_ = ci.fragment_shader->getPushConstantFields();
+        }
+    }
+
+    u32 pc_size = 0;
+    for (const auto& range : pc_ranges_) {
+        pc_size = std::max(pc_size, pushConstantRangeEnd(range));
+    }
+    MLE_ASSERT_LOG(pc_size <= 128, "Push constant size too large: {}", pc_size);
+    pc_size_ = as<u8>(pc_size);
+
+    pipeline_layout_ci.setPushConstantRanges(pc_ranges_);
 
     pipeline_layout_ = unwrap(Renderer::i().vkDevice().createPipelineLayout(pipeline_layout_ci));
 }

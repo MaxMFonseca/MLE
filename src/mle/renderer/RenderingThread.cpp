@@ -178,23 +178,11 @@ void RenderingThread::pushConstants(const void* push_constants) const {
     MLE_ASSERT_LOG(pipeline_->isCompute() || in_rendering_, "Push constants must be done inside rendering.");
     MLE_ASSERT_LOG(pipeline_->hasPushConstants(), "Pipeline does not have push constants.");
 
-    auto pc_size = pipeline_->getPushConstantSize();
-    auto pc_frag_offset = pipeline_->getPushConstantFragOffset();
     auto pipeline_layout = pipeline_->getPipelineLayout();
+    const auto& pc_ranges = pipeline_->getPushConstantRanges();
 
-    if (pipeline_->isCompute()) {
-        cmd_().pushConstants(pipeline_layout, vk::ShaderStageFlagBits::eCompute, 0, pc_size, push_constants);
-        return;
-    }
-
-    if (pc_frag_offset == max<u8>()) {
-        cmd_().pushConstants(pipeline_layout, vk::ShaderStageFlagBits::eVertex, 0, pc_size, push_constants);
-    } else if (pc_frag_offset == 0) {
-        cmd_().pushConstants(pipeline_layout, vk::ShaderStageFlagBits::eFragment, 0, pc_size, push_constants);
-    } else {
-        cmd_().pushConstants(pipeline_layout, vk::ShaderStageFlagBits::eVertex, 0, pc_frag_offset, push_constants);
-        cmd_().pushConstants(pipeline_layout, vk::ShaderStageFlagBits::eFragment, pc_frag_offset, pc_size - pc_frag_offset,
-                             rAs<const u8*>(push_constants) + pc_frag_offset);  // NOLINT
+    for (const auto& range : pc_ranges) {
+        cmd_().pushConstants(pipeline_layout, range.stageFlags, range.offset, range.size, rAs<const u8*>(push_constants) + range.offset);  // NOLINT
     }
 };
 
