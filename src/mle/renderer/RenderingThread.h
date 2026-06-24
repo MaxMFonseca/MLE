@@ -43,6 +43,7 @@ class RenderingThread {
     void setScissor(Recti scissor = {});
     void setViewportAndScissor(Rectf viewport = {});
     void setLineWidth(f32 v) const;
+    void setDepthBias(f32 constant_factor, f32 slope_factor, f32 clamp = 0.0F) const;
 
     void bindVertexBuffer(BufferRef buffer, usize offset = 0) const;
     void bindInstanceBuffer(BufferRef buffer, usize offset = 0) const;

@@ -135,6 +135,11 @@ void RenderingThread::setLineWidth(f32 v) const {
     cmd_().setLineWidth(v);
 }
 
+void RenderingThread::setDepthBias(f32 constant_factor, f32 slope_factor, f32 clamp) const {
+    MLE_ASSERT_LOG(in_rendering_, "Depth bias can only be set inside rendering.");
+    cmd_().setDepthBias(constant_factor, clamp, slope_factor);
+}
+
 void RenderingThread::bindVertexBuffer(BufferRef buffer, usize offset) const {
     MLE_ASSERT_LOG(in_rendering_, "Vertex buffer can only be bound inside rendering.");
     MLE_ASSERT_LOG(buffer, "Cannot bind a null vertex buffer.");

@@ -209,8 +209,6 @@ void Pipeline::createGraphicsPipeline(const CI& ci) {
     rasterization_state_ci.depthClampEnable = vk::False;
     rasterization_state_ci.rasterizerDiscardEnable = vk::False;
     rasterization_state_ci.depthBiasEnable = ci.depth_bias ? vk::True : vk::False;
-    rasterization_state_ci.depthBiasConstantFactor = 1.25F;
-    rasterization_state_ci.depthBiasSlopeFactor = 1.75F;
     rasterization_state_ci.depthBiasClamp = 0.0F;
     pipeline_ci.setPRasterizationState(&rasterization_state_ci);
 
@@ -268,6 +266,9 @@ void Pipeline::createGraphicsPipeline(const CI& ci) {
     dynamic_states.assign(ci.dynamic_states.begin(), ci.dynamic_states.end());
     dynamic_states.push_back(vk::DynamicState::eViewport);
     dynamic_states.push_back(vk::DynamicState::eScissor);
+    if (ci.depth_bias) {
+        dynamic_states.push_back(vk::DynamicState::eDepthBias);
+    }
     for (auto state : dynamic_states) {
         MLE_T("{}", vk::to_string(state));
     }
