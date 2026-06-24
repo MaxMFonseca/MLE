@@ -58,6 +58,9 @@ void FreeContainer::set(const sol::table& table) {
     if (const auto scroll_sensitivity_r = table["scroll_sensitivity"]; lua::valid<int>(scroll_sensitivity_r)) {
         setScrollSensitivity(lua::as<int>(scroll_sensitivity_r));
     }
+    if (const auto pack_children_r = table["pack"]; lua::valid<bool>(pack_children_r)) {
+        pack_children_ = lua::as<bool>(pack_children_r);
+    }
 }
 
 namespace {
