@@ -87,6 +87,7 @@ enum class ImageFormat : u8 {
     NORMALS,
     COLOR,
     HDR_COLOR,
+    OBJECT_ID,
     STORAGE_4U8,
     STORAGE_F32,
     STORAGE_U32,
@@ -185,6 +186,8 @@ struct formatter<mle::ImageFormat> : formatter<std::string> {
                 return format_to(ctx.out(), "COLOR");
             case mle::ImageFormat::HDR_COLOR:
                 return format_to(ctx.out(), "HDR_COLOR");
+            case mle::ImageFormat::OBJECT_ID:
+                return format_to(ctx.out(), "OBJECT_ID");
             case mle::ImageFormat::STORAGE_4U8:
                 return format_to(ctx.out(), "STORAGE_4U8");
             case mle::ImageFormat::STORAGE_F32:

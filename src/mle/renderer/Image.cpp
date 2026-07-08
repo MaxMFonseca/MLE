@@ -551,6 +551,7 @@ Expected<Image::RawData> Image::readFile(const std::string& path, int desired_ch
             return 2;
         case ImageFormat::DEPTH:
         case ImageFormat::TEXTURE_1U:
+        case ImageFormat::OBJECT_ID:
         case ImageFormat::STORAGE_F32:
         case ImageFormat::STORAGE_U32:
             return 1;

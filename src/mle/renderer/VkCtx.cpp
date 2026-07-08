@@ -437,6 +437,7 @@ void VkCtx::pickImageFormats() {
     // FIXME: fix formats!, colors should be b10g10r10a2 if possible, but the current layer suff braks alpha if I do that.
     static constexpr std::array COLOR{vk::Format::eB8G8R8A8Unorm, vk::Format::eR8G8B8A8Unorm};
     static constexpr std::array HDR_COLOR{vk::Format::eR16G16B16A16Sfloat, vk::Format::eR32G32B32A32Sfloat};
+    static constexpr std::array OBJECT_ID{vk::Format::eR32Uint};
     static constexpr std::array STORAGE_4U8{vk::Format::eR8G8B8A8Unorm};
     static constexpr std::array STORAGE_F32{vk::Format::eR32Sfloat};
     static constexpr std::array STORAGE_U32{vk::Format::eR32Uint};
@@ -456,13 +457,13 @@ void VkCtx::pickImageFormats() {
                                                                        vk::FormatFeatureFlagBits2::eSampledImage | vk::FormatFeatureFlagBits2::eTransferSrc |
                                                                        vk::FormatFeatureFlagBits2::eTransferDst | vk::FormatFeatureFlagBits2::eBlitSrc |
                                                                        vk::FormatFeatureFlagBits2::eBlitDst | vk::FormatFeatureFlagBits2::eStorageImage;
-    static constexpr vk::FormatFeatureFlags2 HDR_COLOR_REQUIRED_FEATURES = vk::FormatFeatureFlagBits2::eColorAttachment |
+    static constexpr vk::FormatFeatureFlags2 HDR_COLOR_REQUIRED_FEATURES =
+        vk::FormatFeatureFlagBits2::eColorAttachment | vk::FormatFeatureFlagBits2::eSampledImage | vk::FormatFeatureFlagBits2::eTransferSrc |
+        vk::FormatFeatureFlagBits2::eTransferDst | vk::FormatFeatureFlagBits2::eBlitSrc | vk::FormatFeatureFlagBits2::eBlitDst |
+        vk::FormatFeatureFlagBits2::eStorageImage;
+    static constexpr vk::FormatFeatureFlags2 OBJECT_ID_REQUIRED_FEATURES = vk::FormatFeatureFlagBits2::eColorAttachment |
                                                                            vk::FormatFeatureFlagBits2::eSampledImage |
-                                                                           vk::FormatFeatureFlagBits2::eTransferSrc |
-                                                                           vk::FormatFeatureFlagBits2::eTransferDst |
-                                                                           vk::FormatFeatureFlagBits2::eBlitSrc |
-                                                                           vk::FormatFeatureFlagBits2::eBlitDst |
-                                                                           vk::FormatFeatureFlagBits2::eStorageImage;
+                                                                           vk::FormatFeatureFlagBits2::eTransferSrc | vk::FormatFeatureFlagBits2::eTransferDst;
     // FIXME: FFS: this is dumb af...
     static constexpr vk::FormatFeatureFlags2 STORAGE_REQUIRED_FEATURES =
         vk::FormatFeatureFlagBits2::eStorageImage | vk::FormatFeatureFlagBits2::eTransferSrc | vk::FormatFeatureFlagBits2::eTransferDst;
@@ -482,6 +483,8 @@ void VkCtx::pickImageFormats() {
     static constexpr vk::ImageUsageFlags HDR_COLOR_USAGE = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled |
                                                            vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst |
                                                            vk::ImageUsageFlagBits::eInputAttachment | vk::ImageUsageFlagBits::eStorage;
+    static constexpr vk::ImageUsageFlags OBJECT_ID_USAGE = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled |
+                                                           vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst;
     static constexpr vk::ImageUsageFlags STORAGE_4U8_USAGE =
         vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst;
     static constexpr vk::ImageUsageFlags STORAGE_USAGE =
@@ -496,6 +499,7 @@ void VkCtx::pickImageFormats() {
     image_formats_.at(as<usize>(ImageFormat::NORMALS)) = pickOptimalFormat(p_device_.o, NORMALS, NORMALS_REQUIRED_FEATURES);
     image_formats_.at(as<usize>(ImageFormat::COLOR)) = pickOptimalFormat(p_device_.o, COLOR, COLOR_REQUIRED_FEATURES);
     image_formats_.at(as<usize>(ImageFormat::HDR_COLOR)) = pickOptimalFormat(p_device_.o, HDR_COLOR, HDR_COLOR_REQUIRED_FEATURES);
+    image_formats_.at(as<usize>(ImageFormat::OBJECT_ID)) = pickOptimalFormat(p_device_.o, OBJECT_ID, OBJECT_ID_REQUIRED_FEATURES);
     image_formats_.at(as<usize>(ImageFormat::STORAGE_4U8)) = pickOptimalFormat(p_device_.o, STORAGE_4U8, STORAGE_4U8_REQUIRED_FEATURES);
     image_formats_.at(as<usize>(ImageFormat::STORAGE_F32)) = pickOptimalFormat(p_device_.o, STORAGE_F32, STORAGE_REQUIRED_FEATURES);
     image_formats_.at(as<usize>(ImageFormat::STORAGE_U32)) = pickOptimalFormat(p_device_.o, STORAGE_U32, STORAGE_REQUIRED_FEATURES);
@@ -509,6 +513,7 @@ void VkCtx::pickImageFormats() {
     image_format_usages_.at(as<usize>(ImageFormat::NORMALS)) = NORMALS_USAGE;
     image_format_usages_.at(as<usize>(ImageFormat::COLOR)) = COLOR_USAGE;
     image_format_usages_.at(as<usize>(ImageFormat::HDR_COLOR)) = HDR_COLOR_USAGE;
+    image_format_usages_.at(as<usize>(ImageFormat::OBJECT_ID)) = OBJECT_ID_USAGE;
     image_format_usages_.at(as<usize>(ImageFormat::STORAGE_4U8)) = STORAGE_4U8_USAGE;
     image_format_usages_.at(as<usize>(ImageFormat::STORAGE_F32)) = STORAGE_USAGE;
     image_format_usages_.at(as<usize>(ImageFormat::STORAGE_U32)) = STORAGE_USAGE;
@@ -718,6 +723,8 @@ Expected<ImageFormat> VkCtx::getFormat(const char* str) {
             return ImageFormat::COLOR;
         case entt::hashed_string{"hdr_color"}:
             return ImageFormat::HDR_COLOR;
+        case entt::hashed_string{"object_id"}:
+            return ImageFormat::OBJECT_ID;
         default:
             MLE_E("Unknown format string {}", str);
             return std::unexpected(Result::INVALID_ARGUMENT);

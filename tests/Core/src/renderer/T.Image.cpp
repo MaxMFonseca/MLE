@@ -58,6 +58,28 @@ TEST(Image, HdrColorChannelCount) {
     EXPECT_EQ(img->getChannelCount(), 4);
 }
 
+TEST(Image, ObjectIdFormatIsR32UintColorAttachment) {
+    const auto format = VkCtx::getFormat("object_id");
+    ASSERT_TRUE(format.has_value());
+    EXPECT_EQ(*format, ImageFormat::OBJECT_ID);
+    EXPECT_EQ(Renderer::i().vk().getVkImageFormat(*format), vk::Format::eR32Uint);
+
+    const auto usage = Renderer::i().vk().getVkImageUsage(*format);
+    EXPECT_EQ(usage & vk::ImageUsageFlagBits::eColorAttachment, vk::ImageUsageFlagBits::eColorAttachment);
+    EXPECT_EQ(usage & vk::ImageUsageFlagBits::eSampled, vk::ImageUsageFlagBits::eSampled);
+    EXPECT_EQ(usage & vk::ImageUsageFlagBits::eTransferSrc, vk::ImageUsageFlagBits::eTransferSrc);
+    EXPECT_EQ(usage & vk::ImageUsageFlagBits::eTransferDst, vk::ImageUsageFlagBits::eTransferDst);
+}
+
+TEST(Image, ObjectIdCreateAndChannelCount) {
+    Image::CI ci{};
+    ci.extent = {8, 8};
+    ci.format = ImageFormat::OBJECT_ID;
+    auto img = Image::createHnd(ci);
+    EXPECT_NE(img->get(), vk::Image{});
+    EXPECT_EQ(img->getChannelCount(), 1);
+}
+
 TEST(Image, AspectRatio) {
     Image::CI ci{};
     ci.extent = {100, 50};
