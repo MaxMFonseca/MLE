@@ -122,6 +122,20 @@ std::string Text::getValue() const {
     return toUtf8(text);
 }
 
+std::u32string Text::makeDisplayText() const {
+    if (!input_tb) {
+        return text;
+    }
+    if (!input_tb->isFocused()) {
+        return input_tb->getText().empty() ? text : input_tb->getText();
+    }
+
+    std::u32string display = input_tb->getText();
+    const usize cursor = std::min(input_tb->getSelectionEnd(), display.size());
+    display.insert(cursor, 1, U'|');
+    return display;
+}
+
 void Text::setText(const Entt& ew, std::u32string src) {
     text = std::move(src);
     ew.requestInternalBoundsUpdate();
@@ -254,15 +268,9 @@ void Text::set(const Entt& ew, const sol::object& obj) {
 }
 
 vec2u Text::calculateBounds(const Entt& e, vec2u max_size) {
-    if (text.empty() && input_tb == nullptr) {
+    const std::u32string final_text = makeDisplayText();
+    if (final_text.empty()) {
         return {0, 0};
-    }
-
-    std::u32string final_text;
-    if (input_tb != nullptr && !input_tb->getText().empty()) {
-        final_text = input_tb->getText();
-    } else {
-        final_text = text;
     }
 
     FontRef font = Renderer::i().fontCache().get(font_id);
@@ -354,7 +362,7 @@ void Text::makeCharsBuffer(vec2u viewport_size) {
 void Text::doUpdatePacket(const Entt& ew, RenderablePacketI* packet) {
     auto& p = *as<TextPacket*>(packet);
 
-    if (text.empty() && (!input_tb || input_tb->getText().empty())) {
+    if (makeDisplayText().empty()) {
         if (p.chars_buffer) {
             Renderer::i().frameRenderer().addToGC(std::move(p.chars_buffer));
         }

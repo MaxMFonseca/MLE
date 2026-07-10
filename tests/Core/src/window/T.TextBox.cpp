@@ -66,3 +66,21 @@ TEST_F(TextBoxTest, RefocusedTextBoxListensForEscapeAgain) {
     uim.update();
     EXPECT_FALSE(text_box.isFocused());
 }
+
+TEST_F(TextBoxTest, FocusTransitionsNotifyChangedCallback) {
+    int changes = 0;
+    mle::TextBox text_box;
+    text_box.setChangedCallback([&] { ++changes; });
+
+    text_box.setFocused(true);
+    EXPECT_EQ(changes, 1);
+
+    text_box.setFocused(true);
+    EXPECT_EQ(changes, 1);
+
+    text_box.setFocused(false);
+    EXPECT_EQ(changes, 2);
+
+    text_box.setFocused(false);
+    EXPECT_EQ(changes, 2);
+}

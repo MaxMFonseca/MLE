@@ -70,6 +70,7 @@ struct Text : public RenderableI {
     void enableInputBox() const;
     void disableInputBox() const;
     [[nodiscard]] std::string getValue() const;
+    [[nodiscard]] std::u32string makeDisplayText() const;
 
     void setText(const Entt& ew, std::u32string src);
     void setText(const Entt& ew, std::string_view src);

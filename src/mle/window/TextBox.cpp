@@ -160,6 +160,9 @@ void TextBox::setFocused(bool focused) {
             ctrl_v_.listen();
             ctrl_x_.listen();
             escape_kl_.listen();
+            if (changed_callback_) {
+                changed_callback_();
+            }
         }
     }
 }

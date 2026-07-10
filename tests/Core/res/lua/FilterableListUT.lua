@@ -109,11 +109,84 @@ local function run_filtering_and_update_noop()
 		{ "Hello World", "Renderer", "High Wind Damage", "Shadow" })
 end
 
+local function run_row_update_survives_filter_rebuild()
+	local factory = make_factory()
+	local root_def = factory({
+		{ name = "Alpha A", table = { id = "A" }, background = "unselected" },
+		{ name = "Beta B", table = { id = "B" }, background = "unselected" },
+	})
+	local children = {}
+	local scroll_driver = {}
+	function scroll_driver:destroyAllChildren() children = {} end
+	function scroll_driver:addChild(row) children[#children + 1] = row end
+	function scroll_driver:requestInternalBoundsUpdate() end
+	local viewport = {}
+	function viewport:getChild(name) assert(name == "scroll_driver") return scroll_driver end
+	local results = {}
+	function results:getChild(name) assert(name == "viewport") return viewport end
+	function results:call(name, value) assert(name == "setOffset" and value == 0) end
+	local root = {}
+	function root:get(key) assert(key == "table") return root_def.table end
+	function root:getChild(name)
+		if name == "results" then return results end
+		error("unexpected root child " .. tostring(name))
+	end
+	function root:call(name, ...) return root_def.fn[name](self, ...) end
+
+	root:call("updateRows", function(row)
+		row.background = row.table.id == "B" and "selected" or "unselected"
+	end)
+	root:call("applyFilter", "b")
+	assert(#children == 1 and children[1].table.id == "B")
+	assert(children[1].background == "selected", "selected style must survive a filter rebuild")
+	root:call("applyFilter", "")
+	assert(children[1].table.id == "A" and children[1].background == "unselected")
+	assert(children[2].table.id == "B" and children[2].background == "selected")
+end
+
+local function run_row_update_survives_filter_rebuild()
+	local factory = make_factory()
+	local root_def = factory({
+		{ name = "Alpha A", table = { id = "A" }, background = "unselected" },
+		{ name = "Beta B", table = { id = "B" }, background = "unselected" },
+	})
+
+	local children = {}
+	local scroll_driver = {}
+	function scroll_driver:destroyAllChildren() children = {} end
+	function scroll_driver:addChild(row) children[#children + 1] = row end
+	function scroll_driver:requestInternalBoundsUpdate() end
+	local viewport = {}
+	function viewport:getChild(name) assert(name == "scroll_driver") return scroll_driver end
+	local results = {}
+	function results:getChild(name) assert(name == "viewport") return viewport end
+	function results:call(name, value) assert(name == "setOffset" and value == 0) end
+	local root = {}
+	function root:get(key) assert(key == "table") return root_def.table end
+	function root:getChild(name)
+		if name == "results" then return results end
+		error("unexpected root child " .. tostring(name))
+	end
+	function root:call(name, ...) return root_def.fn[name](self, ...) end
+
+	root:call("updateRows", function(row)
+		row.background = row.table.id == "B" and "selected" or "unselected"
+	end)
+	root:call("applyFilter", "b")
+	assert(#children == 1 and children[1].table.id == "B")
+	assert(children[1].background == "selected", "selected style must survive a filter rebuild")
+	root:call("applyFilter", "")
+	assert(children[1].table.id == "A" and children[1].background == "unselected")
+	assert(children[2].table.id == "B" and children[2].background == "selected")
+end
+
 local M = {}
 function M.run()
 	run_validation()
 	run_factory_shape_and_immutability()
 	run_filtering_and_update_noop()
+	run_row_update_survives_filter_rebuild()
+	run_row_update_survives_filter_rebuild()
 	return true
 end
 return M
