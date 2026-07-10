@@ -41,6 +41,37 @@ std::string toUpper(std::string_view s) {
     return result;
 }
 
+bool partialWordMatch(std::string_view text, std::string_view query) {
+    if (query.empty()) {
+        return true;
+    }
+
+    usize query_index = 0;
+    for (const unsigned char text_char : text) {
+        const auto normalized_text_char = static_cast<unsigned char>(std::tolower(text_char));
+        const auto normalized_query_char = static_cast<unsigned char>(std::tolower(static_cast<unsigned char>(query[query_index])));
+
+        if (normalized_text_char == normalized_query_char) {
+            ++query_index;
+            if (query_index == query.size()) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+std::vector<std::string> searchPartialWords(const std::vector<std::string>& items, std::string_view query) {
+    std::vector<std::string> matches;
+    for (const std::string& item : items) {
+        if (partialWordMatch(item, query)) {
+            matches.push_back(item);
+        }
+    }
+    return matches;
+}
+
 std::string toUtf8(std::u32string_view s) {
     std::string result;
     result.reserve(s.size());

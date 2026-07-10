@@ -138,6 +138,45 @@ TEST(ToUpper, NonAsciiUnchanged) {
     EXPECT_EQ(mle::toUpper("äöü Ç ñ"), "äöü Ç ñ");
 }
 
+TEST(PartialWordMatch, EmptyQueryMatchesAnyText) {
+    EXPECT_TRUE(mle::partialWordMatch("Hello", ""));
+    EXPECT_TRUE(mle::partialWordMatch("", ""));
+}
+
+TEST(PartialWordMatch, MatchesCaseInsensitiveSubsequence) {
+    EXPECT_TRUE(mle::partialWordMatch("Hello World", "hwd"));
+    EXPECT_TRUE(mle::partialWordMatch("Renderer", "RNR"));
+}
+
+TEST(PartialWordMatch, RequiresQueryOrder) {
+    EXPECT_FALSE(mle::partialWordMatch("Hello World", "whd"));
+}
+
+TEST(PartialWordMatch, RejectsMissingOrLongerQuery) {
+    EXPECT_FALSE(mle::partialWordMatch("", "a"));
+    EXPECT_FALSE(mle::partialWordMatch("abc", "abcd"));
+    EXPECT_FALSE(mle::partialWordMatch("abc", "z"));
+}
+
+TEST(SearchPartialWords, PreservesMatchingItemsAndOrder) {
+    const std::vector<std::string> items{"Hello World", "Renderer", "Shadow", "High Wind Damage"};
+    const std::vector<std::string> expected{"Hello World", "High Wind Damage"};
+
+    EXPECT_EQ(mle::searchPartialWords(items, "hwd"), expected);
+}
+
+TEST(SearchPartialWords, ReturnsNoItemsWhenNoneMatch) {
+    const std::vector<std::string> items{"alpha", "beta"};
+
+    EXPECT_TRUE(mle::searchPartialWords(items, "xyz").empty());
+}
+
+TEST(SearchPartialWords, EmptyQueryReturnsAllItems) {
+    const std::vector<std::string> items{"alpha", "beta"};
+
+    EXPECT_EQ(mle::searchPartialWords(items, ""), items);
+}
+
 TEST(ToUtf8, ASCII) {
     std::u32string s32 = U"Hello";
     EXPECT_EQ(mle::toUtf8(s32), "Hello");

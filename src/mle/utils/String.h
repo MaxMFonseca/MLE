@@ -41,6 +41,9 @@ Expected<T> strTo(std::string_view s) {
 std::string toLower(std::string_view s);
 std::string toUpper(std::string_view s);
 
+bool partialWordMatch(std::string_view text, std::string_view query);
+std::vector<std::string> searchPartialWords(const std::vector<std::string>& items, std::string_view query);
+
 std::string toUtf8(std::u32string_view s);
 std::u32string toUtf32(std::string_view s);
 
