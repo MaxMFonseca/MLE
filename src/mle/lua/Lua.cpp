@@ -6,6 +6,7 @@
 #include "mle/math/LuaUTMathTypes.h"
 #include "mle/utils/File.h"
 #include "mle/utils/LuaUTUtils.h"
+#include "mle/utils/String.h"
 
 namespace mle {
 namespace {
@@ -38,7 +39,9 @@ void Lua::init() {
     MLE_D("{}", sol_["jit"]["version"].get<std::string>());
     MLE_D("{}", sol_["package"]["path"].get<std::string>());
 
-    setGlobal("Utils", require("mle/utils"));
+    auto utils = require("mle/utils").as<sol::table>();
+    utils.set_function("partial_word_match", partialWordMatch);
+    setGlobal("Utils", std::move(utils));
 
     lua::makeUTMathTypes(*this);
     lua::makeUTStopwatch(*this);

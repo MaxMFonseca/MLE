@@ -8,6 +8,7 @@ local function create_multipanel()
 		"Inventory",
 		"NineSlice",
 		"Animation",
+		"FilterableList",
 	}
 
 	local ret = require("mle/ui/comp/multipanel")({
@@ -42,6 +43,10 @@ local function create_multipanel()
 		{
 			name = panel_names[8],
 			comp = require("i/ui/ui_tests/Animation"),
+		},
+		{
+			name = panel_names[9],
+			comp = require("i/ui/ui_tests/FilterableList"),
 		},
 	}, true)
 

@@ -42,6 +42,15 @@ TEST_F(LuaTest, ToStringWorks) {
     EXPECT_NE(s.find("x = 123"), std::string::npos);
 }
 
+TEST_F(LuaTest, PartialWordMatchLuaBindingUsesOrderedCaseInsensitiveSubsequence) {
+    auto match = lua_.getTable("Utils")["partial_word_match"];
+    ASSERT_TRUE(match.valid());
+    EXPECT_TRUE(match("Hello World", "hwd").get<bool>());
+    EXPECT_TRUE(match("Renderer", "RNR").get<bool>());
+    EXPECT_TRUE(match("anything", "").get<bool>());
+    EXPECT_FALSE(match("Hello World", "whd").get<bool>());
+}
+
 TEST_F(LuaTest, UtilsTryGetKeyAnyKey) {
     auto tbl = lua_.createTable();
     tbl["foo"] = 7;
@@ -89,6 +98,21 @@ TEST_F(LuaTest, ScrollableWithBarSyncGeometryUpdatesVisibleBarAndThumb) {
     try {
         auto scrollable_ut = lua_.require("i/ScrollableWithBarUT").as<sol::table>();
         auto result = scrollable_ut["run"]();
+        if (!result.valid()) {
+            sol::error error = result;
+            FAIL() << error.what();
+            return;
+        }
+        EXPECT_TRUE(result.get<bool>());
+    } catch (const sol::error& error) {
+        FAIL() << error.what();
+    }
+}
+
+TEST_F(LuaTest, FilterableListFactoryAndFilteringBehavior) {
+    try {
+        auto filterable_list_ut = lua_.require("i/FilterableListUT").as<sol::table>();
+        auto result = filterable_list_ut["run"]();
         if (!result.valid()) {
             sol::error error = result;
             FAIL() << error.what();
