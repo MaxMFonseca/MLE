@@ -4,6 +4,7 @@
 #include "mle/lua/Lua.h"
 #include "mle/lua/Types.h"
 #include "mle/lua/Utils.h"
+#include "mle/utils/Color.h"
 
 class LuaTest : public ::testing::Test {
   protected:
@@ -72,6 +73,31 @@ TEST_F(LuaTest, RequireHelloLua) {
     ASSERT_TRUE(hello_func.valid());
     auto result = hello_func();
     EXPECT_EQ(result.get<std::string>(), "Hello from Lua!");
+}
+
+TEST_F(LuaTest, ScrollableResizePreservesLegacyCallSequence) {
+    auto scrollable_ut = lua_.require("i/ScrollableUT").as<sol::table>();
+    try {
+        auto result = scrollable_ut["run"]();
+        EXPECT_TRUE(result.get<bool>());
+    } catch (const sol::error& error) {
+        FAIL() << error.what();
+    }
+}
+
+TEST_F(LuaTest, ScrollableWithBarSyncGeometryUpdatesVisibleBarAndThumb) {
+    try {
+        auto scrollable_ut = lua_.require("i/ScrollableWithBarUT").as<sol::table>();
+        auto result = scrollable_ut["run"]();
+        if (!result.valid()) {
+            sol::error error = result;
+            FAIL() << error.what();
+            return;
+        }
+        EXPECT_TRUE(result.get<bool>());
+    } catch (const sol::error& error) {
+        FAIL() << error.what();
+    }
 }
 
 TEST_F(LuaTest, MathUtilsSum) {
@@ -204,4 +230,67 @@ TEST_F(LuaTest, ParseMat4Usertypes) {
             EXPECT_FLOAT_EQ(expected1[i][j], from_lua[i][j]);
         }
     }
+}
+
+TEST_F(LuaTest, ScrollableWithBarFactoryBuildsCompoundWithoutMutatingContent) {
+    auto factory = lua_.require("mle/ui/comp/scrollable_with_bar").as<sol::function>();
+    auto colors = lua_.createTable("Colors");
+    colors["slate400"] = Color("#94a3b8");
+    colors["slate800"] = Color("#1e293b");
+    auto content = lua_.createTable();
+    content["name"] = "caller_name";
+    content["list"] = lua_.createTable();
+
+    auto result = factory(content).get<sol::table>();
+
+    EXPECT_EQ(content.get<std::string>("name"), "caller_name");
+    EXPECT_EQ(result["list"]["dir"].get<std::string>(), "h");
+    EXPECT_FALSE(result["list"]["cross_align"].valid());
+
+    sol::table children = result["c"];
+    sol::table viewport = children["viewport"];
+    sol::table scrollbar = children["scrollbar"];
+    sol::table scroll_driver = viewport["c"][1];
+
+    EXPECT_EQ(viewport["size_x"].get<std::string>(), "1f");
+    EXPECT_EQ(scrollbar["size_x"].get<std::string>(), "10px");
+    EXPECT_FLOAT_EQ(scrollbar["size_y"].get<float>(), 1.0F);
+    EXPECT_TRUE(scrollbar["disabled"].get<bool>());
+    EXPECT_EQ(scroll_driver["name"].get<std::string>(), "scroll_driver");
+}
+
+TEST_F(LuaTest, ScrollableWithBarFactoryRejectsInvalidArguments) {
+    auto factory = lua_.require("mle/ui/comp/scrollable_with_bar").as<sol::function>();
+    auto content = lua_.createTable();
+
+    EXPECT_THROW(
+        {
+            auto result = factory(42);
+            if (!result.valid()) {
+                throw sol::error(result);
+            }
+        },
+        sol::error);
+
+    auto options = lua_.createTable();
+    options["wheel_speed"] = -1;
+    EXPECT_THROW(
+        {
+            auto result = factory(content, options);
+            if (!result.valid()) {
+                throw sol::error(result);
+            }
+        },
+        sol::error);
+
+    options = lua_.createTable();
+    options["min_thumb_px"] = 0;
+    EXPECT_THROW(
+        {
+            auto result = factory(content, options);
+            if (!result.valid()) {
+                throw sol::error(result);
+            }
+        },
+        sol::error);
 }
