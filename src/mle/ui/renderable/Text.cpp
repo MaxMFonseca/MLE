@@ -352,7 +352,18 @@ void Text::makeCharsBuffer(vec2u viewport_size) {
 }
 
 void Text::doUpdatePacket(const Entt& ew, RenderablePacketI* packet) {
-    if (text.empty()) {
+    auto& p = *as<TextPacket*>(packet);
+
+    if (text.empty() && (!input_tb || input_tb->getText().empty())) {
+        if (p.chars_buffer) {
+            Renderer::i().frameRenderer().addToGC(std::move(p.chars_buffer));
+        }
+        p.chars_buffer = nullptr;
+        p.per_image_data.clear();
+        p.color = color;
+        p.border_color = border_color;
+        p.border_thickness = border_thickness;
+        p.bold = bold;
         return;
     }
 
@@ -360,8 +371,6 @@ void Text::doUpdatePacket(const Entt& ew, RenderablePacketI* packet) {
         auto& bounds = ew.get<comp::Bounds>();
         makeCharsBuffer(bounds.parent_px.size());
     }
-
-    auto& p = *as<TextPacket*>(packet);
 
     if (p.chars_buffer) {
         Renderer::i().frameRenderer().addToGC(std::move(p.chars_buffer));

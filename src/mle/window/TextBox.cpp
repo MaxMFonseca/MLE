@@ -20,6 +20,7 @@ TextBox::TextBox() {
     home_kl_.setKey(Key::HOME).setState(KeyState::PRESSED).setCallback([this]() { onHome(); });
     end_kl_.setKey(Key::END).setState(KeyState::PRESSED).setCallback([this]() { onEnd(); }).setRepeat(true);
     enter_kl_.setKey(Key::ENTER).setState(KeyState::PRESSED).setCallback([this]() { onEnter(); });
+    escape_kl_.setKey(Key::ESCAPE).setState(KeyState::PRESSED).setCallback([this]() { setFocused(false); });
     ctrl_a_.setKey(Key::A).setState(KeyState::PRESSED).setMods(KeyModFlagBits::CTRL).setCallback([this]() { onCtrlA(); });
     ctrl_c_.setKey(Key::C).setState(KeyState::PRESSED).setMods(KeyModFlagBits::CTRL).setCallback([this]() { onCtrlC(); });
     ctrl_v_.setKey(Key::V).setState(KeyState::PRESSED).setMods(KeyModFlagBits::CTRL).setCallback([this]() { onCtrlV(); });
@@ -138,8 +139,9 @@ void TextBox::setFocused(bool focused) {
             left_kl_.unlisten();
             right_kl_.unlisten();
             home_kl_.unlisten();
+            end_kl_.unlisten();
             enter_kl_.unlisten();
-            enter_kl_.unlisten();
+            escape_kl_.unlisten();
             ctrl_a_.unlisten();
             ctrl_c_.unlisten();
             ctrl_v_.unlisten();
@@ -151,12 +153,13 @@ void TextBox::setFocused(bool focused) {
             left_kl_.listen();
             right_kl_.listen();
             home_kl_.listen();
-            enter_kl_.listen();
+            end_kl_.listen();
             enter_kl_.listen();
             ctrl_a_.listen();
             ctrl_c_.listen();
             ctrl_v_.listen();
             ctrl_x_.listen();
+            escape_kl_.listen();
         }
     }
 }

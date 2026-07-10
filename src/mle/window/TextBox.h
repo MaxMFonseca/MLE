@@ -88,6 +88,7 @@ class TextBox final {
     KeyListener home_kl_;
     KeyListener end_kl_;
     KeyListener enter_kl_;
+    KeyListener escape_kl_;
     KeyListener ctrl_a_;
     KeyListener ctrl_c_;
     KeyListener ctrl_v_;

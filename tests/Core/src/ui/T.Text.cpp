@@ -47,3 +47,46 @@ TEST(TextTest, LuaGetterPrefersInputTextWhenPresent) {
     ASSERT_TRUE(text.is<std::string>());
     EXPECT_EQ(text.as<std::string>(), "Max");
 }
+
+TEST(TextTest, UpdatePacketUsesInputTextWhenStaticTextIsEmpty) {
+    mle::Lua lua;
+    lua.init();
+    mle::UI ui;
+    auto ew = makeTestEntt(ui);
+
+    auto table = lua.createTable();
+    table["text"] = "";
+    table["input"] = true;
+    ew.apply("text", table);
+
+    auto& text_renderable = mle::ui::renderable::Text::getFromEntt(ew)->get();
+    text_renderable.input_tb->setText(U"typed");
+    text_renderable.chars_buffer_needs_update = false;
+    text_renderable.setColor(mle::Color::ZERO);
+
+    mle::ui::renderable::TextPacket packet;
+    text_renderable.doUpdatePacket(ew, &packet);
+
+    EXPECT_EQ(packet.color, mle::Color::ZERO);
+}
+
+TEST(TextTest, UpdatePacketClearsStaleDataWhenInputAndStaticTextAreEmpty) {
+    mle::Lua lua;
+    lua.init();
+    mle::UI ui;
+    auto ew = makeTestEntt(ui);
+
+    auto table = lua.createTable();
+    table["text"] = "";
+    table["input"] = true;
+    ew.apply("text", table);
+
+    auto& text_renderable = mle::ui::renderable::Text::getFromEntt(ew)->get();
+    text_renderable.input_tb->setText(U"");
+
+    mle::ui::renderable::TextPacket packet;
+    packet.per_image_data.resize(1);
+    text_renderable.doUpdatePacket(ew, &packet);
+
+    EXPECT_TRUE(packet.per_image_data.empty());
+}

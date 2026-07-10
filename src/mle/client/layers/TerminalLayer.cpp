@@ -108,13 +108,13 @@ void TerminalLayer::toggle() {
 
 void TerminalLayer::enableInput() {
     ui::Entt e{ui_, terminal_text_entt_};
-    e.apply("text_input_enable");
     current_command_idx_ = 0;
 
     enter_key_listener_->listen();
     up_key_listener_->listen();
     down_key_listener_->listen();
     clear_key_listener_->listen();
+    e.apply("text_input_enable");
 }
 
 void TerminalLayer::disableInput() {
