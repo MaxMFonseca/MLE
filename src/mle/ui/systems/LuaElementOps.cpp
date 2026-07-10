@@ -300,6 +300,18 @@ void LuaElementOps::addBuiltingGetters() {
         }
         return Client::i().lua().createObject(text_r->get().getValue());
     });
+    addGetKeyHandler("scroll", [](const Entt& ew, const sol::object& /*params*/) -> sol::object {
+        if (!ew.has<comp::FreeContainer>()) {
+            MLE_E("Scroll getter called on entity {} without FreeContainer.", ew.fullName());
+            return {};
+        }
+
+        const auto& scroll = ew.get<comp::FreeContainer>();
+        auto table = Client::i().lua().createTable();
+        table["current_scroll_y"] = scroll.getCurrentScrollY();
+        table["max_scroll_y"] = scroll.getMaxScrollY();
+        return table;
+    });
     addGetKeyHandler("overflow", [](const Entt& ew, const sol::object& /*params*/) -> sol::object {
         if (!ew.has<comp::ContentOverflow>()) {
             return {};

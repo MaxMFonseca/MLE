@@ -1,3 +1,5 @@
+local scroll_state = require("mle.ui.comp.scroll_state")
+
 return function(scroll_driver)
 	if scroll_driver.name then
 		error("scroll_driver element must not have a name")
@@ -10,18 +12,13 @@ return function(scroll_driver)
 		end
 
 		local parent = ew:parent()
-
-		parent:apply("free", {
-			current_scroll_y = 0,
-			max_scroll_y = overflow.overflow_y,
-		})
+		scroll_state.apply_legacy(parent, 0, overflow.overflow_y)
 		parent:requestInternalBoundsUpdate()
 	end
 
-	local ret = {
+	return {
 		on_scroll = function(ew, scroll_y)
-			ew:apply("add_scroll_y", scroll_y)
-			ew:requestInternalBoundsUpdate()
+			scroll_state.add_native_wheel(ew, scroll_y)
 		end,
 
 		free = {},
@@ -30,5 +27,4 @@ return function(scroll_driver)
 			scroll_driver,
 		},
 	}
-	return ret
 end

@@ -16,7 +16,10 @@ class FreeContainer {
 
     void setScrollable(bool scrollable) { scrollable_y_ = scrollable; }
     [[nodiscard]] bool isScrollable() const { return scrollable_y_; }
-    void setMaxScrollY(int max_scroll_y) { max_scroll_y_ = max_scroll_y; }
+    void setMaxScrollY(int max_scroll_y) {
+        max_scroll_y_ = std::max(max_scroll_y, 0);
+        scroll_y_ = std::clamp(scroll_y_, 0, max_scroll_y_);
+    }
     [[nodiscard]] int getMaxScrollY() const { return max_scroll_y_; }
     void setCurrentScrollY(int val) { scroll_y_ = std::clamp(val, 0, max_scroll_y_); }
     [[nodiscard]] int getCurrentScrollY() const { return scroll_y_; }

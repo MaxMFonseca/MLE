@@ -139,6 +139,8 @@ struct DisabledFlag {
 struct ContentOverflow {
     int overflow_x{0};
     int overflow_y{0};
+
+    static void setFromSizes(const Entt& e, vec2u content_size, vec2u viewport_size);
 };
 
 }  // namespace mle::ui::comp

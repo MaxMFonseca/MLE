@@ -330,4 +330,10 @@ void EscapeParentScissorFlag::apply(const Entt& e, const sol::object& obj) {
     }
 };
 
+void ContentOverflow::setFromSizes(const Entt& e, vec2u content_size, vec2u viewport_size) {
+    auto& overflow = e.emplaceOrReplace<ContentOverflow>();
+    overflow.overflow_x = std::max(as<int>(content_size.x) - as<int>(viewport_size.x), 0);
+    overflow.overflow_y = std::max(as<int>(content_size.y) - as<int>(viewport_size.y), 0);
+}
+
 }  // namespace mle::ui::comp
