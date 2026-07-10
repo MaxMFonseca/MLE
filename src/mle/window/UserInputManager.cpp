@@ -133,6 +133,19 @@ void ScrollListener::unlisten() {
 }
 
 void UserInputManager::update() {
+    struct ListenerSnapshotEntry {
+        KeyListenerRef listener;
+        std::weak_ptr<const char> lifetime_token;
+    };
+    auto snapshotListeners = [](const auto& listeners) {
+        std::vector<ListenerSnapshotEntry> snapshot;
+        snapshot.reserve(listeners.size());
+        for (auto* listener : listeners) {
+            snapshot.emplace_back(listener, listener->lifetime_token_);
+        }
+        return snapshot;
+    };
+
     auto it = active_keys_.begin();
 
     bool text_active = !text_listeners_.empty();
@@ -142,16 +155,23 @@ void UserInputManager::update() {
 
         auto listeners = listeners_.find(packKeyKeyState(key, state));
         if (listeners != listeners_.end()) {
-            for (auto& reverse_it : std::views::reverse(listeners->second)) {
-                auto& l = *reverse_it;
+            auto listeners_snapshot = snapshotListeners(listeners->second);
+            for (auto& [listener, lifetime_token] : std::views::reverse(listeners_snapshot)) {
+                if (lifetime_token.expired()) {
+                    continue;
+                }
+                auto& l = *listener;
                 if (l.always_call_) {
                     static_cast<void>(l.tryCall(shift_, ctrl_, alt_, text_active));
                 }
             }
 
             bool handled = false;
-            for (auto& reverse_it : std::views::reverse(listeners->second)) {
-                auto& l = *reverse_it;
+            for (auto& [listener, lifetime_token] : std::views::reverse(listeners_snapshot)) {
+                if (lifetime_token.expired()) {
+                    continue;
+                }
+                auto& l = *listener;
                 if (!l.always_call_ && !handled && l.tryCall(shift_, ctrl_, alt_, text_active)) {
                     handled = true;
                 }
@@ -161,16 +181,23 @@ void UserInputManager::update() {
         if (state == KeyState::DOWN && sw.elapsedSecFloat() > key_repeat_delay_s_) {
             auto listeners = listeners_.find(packKeyKeyState(key, KeyState::PRESSED));
             if (listeners != listeners_.end()) {
-                for (auto& reverse_it : std::views::reverse(listeners->second)) {
-                    auto& l = *reverse_it;
+                auto listeners_snapshot = snapshotListeners(listeners->second);
+                for (auto& [listener, lifetime_token] : std::views::reverse(listeners_snapshot)) {
+                    if (lifetime_token.expired()) {
+                        continue;
+                    }
+                    auto& l = *listener;
                     if (l.repeat_ && l.always_call_) {
                         static_cast<void>(l.tryCall(shift_, ctrl_, alt_, text_active));
                     }
                 }
 
                 bool handled = false;
-                for (auto& reverse_it : std::views::reverse(listeners->second)) {
-                    auto& l = *reverse_it;
+                for (auto& [listener, lifetime_token] : std::views::reverse(listeners_snapshot)) {
+                    if (lifetime_token.expired()) {
+                        continue;
+                    }
+                    auto& l = *listener;
                     if (l.repeat_ && !l.always_call_ && !handled && l.tryCall(shift_, ctrl_, alt_, text_active)) {
                         handled = true;
                     }

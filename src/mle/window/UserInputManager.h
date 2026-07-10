@@ -11,6 +11,7 @@
 
 #include <chrono>
 #include <functional>
+#include <memory>
 #include <utility>
 
 #include "Types.h"
@@ -68,6 +69,7 @@ class KeyListener final {
     bool repeat_ = false;
     bool always_call_ = false;
     bool listening_ = false;
+    std::shared_ptr<const char> lifetime_token_ = std::make_shared<const char>(0);
 };
 
 class TextListener final {
