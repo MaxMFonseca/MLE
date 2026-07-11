@@ -154,7 +154,9 @@ void TextBox::setFocused(bool focused) {
             right_kl_.listen();
             home_kl_.listen();
             end_kl_.listen();
-            enter_kl_.listen();
+            if (allow_new_line_) {
+                enter_kl_.listen();
+            }
             ctrl_a_.listen();
             ctrl_c_.listen();
             ctrl_v_.listen();
@@ -176,6 +178,18 @@ void TextBox::setSelection(usize start, usize end) {
 
 void TextBox::setNewLineCtrlEnter(bool enable) {
     new_line_ctrl_enter_ = enable;
+}
+
+void TextBox::setAllowNewLine(bool allow) {
+    allow_new_line_ = allow;
+    if (!focused_) {
+        return;
+    }
+    if (allow) {
+        enter_kl_.listen();
+    } else {
+        enter_kl_.unlisten();
+    }
 }
 
 void TextBox::deleteSelection() {

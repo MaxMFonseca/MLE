@@ -84,3 +84,18 @@ TEST_F(TextBoxTest, FocusTransitionsNotifyChangedCallback) {
     text_box.setFocused(false);
     EXPECT_EQ(changes, 2);
 }
+
+TEST_F(TextBoxTest, SingleLineTextBoxDoesNotConsumeEnter) {
+    int outer_calls = 0;
+    mle::KeyListener outer([&] { ++outer_calls; }, mle::Key::ENTER);
+    outer.listen();
+
+    mle::TextBox text_box;
+    text_box.setFocused(true);
+
+    auto& uim = mle::UserInputManager::i();
+    uim.setPressed(mle::Key::ENTER);
+    uim.update();
+
+    EXPECT_EQ(outer_calls, 1);
+}
