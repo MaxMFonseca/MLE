@@ -5,6 +5,7 @@
 #include "mle/audio/AudioEngine.h"
 #include "mle/audio/Types.h"
 #include "mle/audio/Utils.h"
+#include "mle/client/ShutdownSequence.h"
 #include "mle/client/layers/PerfLayer.h"
 #include "mle/client/layers/TerminalLayer.h"
 #include "mle/core/Assert.h"
@@ -187,22 +188,26 @@ void Client::shutdown() {
     MLE_I("MLE Client shutting down after {}s", running_sw_.elapsedSecFloat());
     Renderer::i().stop();
     Stopwatch sw;
-    AudioEngine::i().shutdown();
-    {
-        std::scoped_lock lock(game_layer_render_mutex_);
-        if (game_layer_) {
-            MLE_I("Shutting down current game layer");
-            game_layer_->shutdown();
-            game_layer_.reset();
-        }
-    }
-    {
-        std::scoped_lock lock(debug_layers_render_mutex_);
-        for (auto& [_, dl] : debug_layers_) {
-            dl->shutdown();
-        }
-        debug_layers_.clear();
-    }
+    client::shutdownLayersBeforeAudio(
+        [this] {
+            std::scoped_lock lock(game_layer_render_mutex_);
+            if (game_layer_) {
+                MLE_I("Shutting down current game layer");
+                game_layer_->shutdown();
+                game_layer_.reset();
+            }
+            next_game_layer_.reset();
+            game_layer_table_ = sol::nil;
+        },
+        [this] {
+            std::scoped_lock lock(debug_layers_render_mutex_);
+            for (auto& [_, dl] : debug_layers_) {
+                dl->shutdown();
+            }
+            debug_layers_.clear();
+            debug_layers_to_remove_.clear();
+        },
+        [] { AudioEngine::i().shutdown(); });
     for (auto& cb : shutdown_callbacks_) {
         cb();
     }

@@ -3,7 +3,9 @@
 #include <AL/al.h>
 #include <AL/alc.h>
 
+#include <array>
 #include <functional>
+#include <optional>
 
 #include "mle/math/Types.h"
 #include "mle/utils/ECS.h"
@@ -21,6 +23,8 @@ struct PlayParams {
     bool spatial = false;
     u8 bus = 0;
 };
+
+inline constexpr usize STREAM_SLOT_COUNT = 8;
 
 namespace cmd {
 struct Load {
@@ -41,8 +45,21 @@ struct StartStream {
     PlayParams params{};
 };
 
+struct StartStreamGroup {
+    std::array<StartStream, STREAM_SLOT_COUNT> streams{};
+    u8 count = 0;
+};
+
 struct StopStream {
     u8 id = 0;
+    u32 fade_out_ms = 0;
+};
+
+struct SetStreamParams {
+    u8 id = 0;
+    std::optional<f32> volume;
+    std::optional<f32> pitch;
+    u32 fade_ms = 0;
 };
 
 struct PauseStream {
@@ -74,8 +91,14 @@ struct SetDistanceParams {
 struct StopAll {
     u32 fade_out_ms = 0;
 };
+
+struct SetBusVoicePolicy {
+    u8 bus = 0;
+    u16 max_voices = 0;
+    bool protected_from_other_buses = false;
+};
 }  // namespace cmd
 
-using Cmd = std::variant<cmd::Load, cmd::PlayOneShot, cmd::StartStream, cmd::StopStream, cmd::PauseStream, cmd::ResumeStream, cmd::SetVolume, cmd::SetListener,
-                         cmd::SetDistanceParams, cmd::StopAll>;
+using Cmd = std::variant<cmd::Load, cmd::PlayOneShot, cmd::StartStream, cmd::StartStreamGroup, cmd::StopStream, cmd::SetStreamParams, cmd::PauseStream,
+                         cmd::ResumeStream, cmd::SetVolume, cmd::SetListener, cmd::SetDistanceParams, cmd::StopAll, cmd::SetBusVoicePolicy>;
 }  // namespace mle::audio
