@@ -116,6 +116,11 @@ ScrollListener& ScrollListener::setCallback(CallbackFn&& callback) {
     return *this;
 }
 
+ScrollListener& ScrollListener::setAlwaysCall(bool enable) {
+    always_call_ = enable;
+    return *this;
+}
+
 void ScrollListener::listen() {
     if (listening_) {
         return;
@@ -137,7 +142,7 @@ void UserInputManager::update() {
         KeyListenerRef listener;
         std::weak_ptr<const char> lifetime_token;
     };
-    auto snapshotListeners = [](const auto& listeners) {
+    auto snapshot_listeners = [](const auto& listeners) {
         std::vector<ListenerSnapshotEntry> snapshot;
         snapshot.reserve(listeners.size());
         for (auto* listener : listeners) {
@@ -155,7 +160,7 @@ void UserInputManager::update() {
 
         auto listeners = listeners_.find(packKeyKeyState(key, state));
         if (listeners != listeners_.end()) {
-            auto listeners_snapshot = snapshotListeners(listeners->second);
+            auto listeners_snapshot = snapshot_listeners(listeners->second);
             for (auto& [listener, lifetime_token] : std::views::reverse(listeners_snapshot)) {
                 if (lifetime_token.expired()) {
                     continue;
@@ -181,7 +186,7 @@ void UserInputManager::update() {
         if (state == KeyState::DOWN && sw.elapsedSecFloat() > key_repeat_delay_s_) {
             auto listeners = listeners_.find(packKeyKeyState(key, KeyState::PRESSED));
             if (listeners != listeners_.end()) {
-                auto listeners_snapshot = snapshotListeners(listeners->second);
+                auto listeners_snapshot = snapshot_listeners(listeners->second);
                 for (auto& [listener, lifetime_token] : std::views::reverse(listeners_snapshot)) {
                     if (lifetime_token.expired()) {
                         continue;
@@ -222,8 +227,27 @@ void UserInputManager::update() {
     scroll_offset_ = scroll_offset_next_;
     scroll_offset_next_ = 0.0;
     if (scroll_offset_ != 0.0F) {
-        for (auto& listener : scroll_listeners_) {
-            listener->call(scroll_offset_);
+        struct ScrollListenerSnapshotEntry {
+            ScrollListenerRef listener;
+            std::weak_ptr<const char> lifetime_token;
+        };
+        std::vector<ScrollListenerSnapshotEntry> listeners_snapshot;
+        listeners_snapshot.reserve(scroll_listeners_.size());
+        for (auto* listener : scroll_listeners_) {
+            listeners_snapshot.emplace_back(listener, listener->lifetime_token_);
+        }
+
+        for (auto& [listener, lifetime_token] : std::views::reverse(listeners_snapshot)) {
+            if (!lifetime_token.expired() && listener->always_call_) {
+                listener->call(scroll_offset_);
+            }
+        }
+
+        for (auto& [listener, lifetime_token] : std::views::reverse(listeners_snapshot)) {
+            if (!lifetime_token.expired() && !listener->always_call_) {
+                listener->call(scroll_offset_);
+                break;
+            }
         }
     }
 

@@ -114,6 +114,7 @@ class ScrollListener final {
     ~ScrollListener() { unlisten(); }
 
     ScrollListener& setCallback(CallbackFn&& callback);
+    ScrollListener& setAlwaysCall(bool enable);
 
     void listen();
     void unlisten();
@@ -124,7 +125,9 @@ class ScrollListener final {
 
   private:
     CallbackFn callback_{};
+    bool always_call_ = false;
     bool listening_ = false;
+    std::shared_ptr<const char> lifetime_token_ = std::make_shared<const char>(0);
 };
 
 class UserInputManager {
