@@ -1,5 +1,6 @@
 #include "Init.h"
 
+#include "AudioTest.h"
 #include "ModelTest.h"
 #include "UITest.h"
 #include "mle/client/Client.h"
@@ -11,6 +12,7 @@ void InitLayer::init() {
 
     Client::i().getGameLayerTable()["init_model_test"] = []() { Client::i().pushGameLayer(std::make_unique<ModelTestLayer>()); };
     Client::i().getGameLayerTable()["init_ui_test"] = []() { Client::i().pushGameLayer(std::make_unique<UITestLayer>()); };
+    Client::i().getGameLayerTable()["init_audio_test"] = []() { Client::i().pushGameLayer(std::make_unique<AudioTestLayer>()); };
 
     ui_.setRoot("i/ui/InitLayer");
 };

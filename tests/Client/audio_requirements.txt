@@ -1,0 +1,4 @@
+# Developer-only dependencies for regenerating Client audio fixtures.
+# Runtime builds and playtests do not need Python or these packages.
+numpy==2.5.1
+scipy==1.18.0

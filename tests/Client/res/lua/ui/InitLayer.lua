@@ -184,6 +184,14 @@ return {
 					},
 				},
 				{
+					text = "Audio Test",
+					on_keys = {
+						lmb = function()
+							G.init_audio_test()
+						end,
+					},
+				},
+				{
 					text = "OneShot",
 					on_keys = {
 						lmb = function(ew)

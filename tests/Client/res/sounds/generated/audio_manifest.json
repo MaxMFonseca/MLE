@@ -1,0 +1,122 @@
+{
+  "assets": [
+    {
+      "filename": "combat_low.wav",
+      "sha256": "3c6986f677011a6f869d890708292dcfbba85a30b09b4b5a838add96d7d896b0",
+      "sample_rate": 48000,
+      "channels": 1,
+      "frames": 21600,
+      "role": "low-frequency combat layer",
+      "target_peak": 0.88,
+      "pcm_peak": 0.880001220740379
+    },
+    {
+      "filename": "combat_high.wav",
+      "sha256": "5fd04864233a06e1e121e99bd344ffbd5867c2596a9f7519358eeb014fb469e0",
+      "sample_rate": 48000,
+      "channels": 1,
+      "frames": 21600,
+      "role": "high-frequency combat layer",
+      "target_peak": 0.88,
+      "pcm_peak": 0.880001220740379
+    },
+    {
+      "filename": "ui_protected.wav",
+      "sha256": "4a613fcf7c968e2041f8fa77d8bcca8fa424065819e257a5933bb8984432a55c",
+      "sample_rate": 48000,
+      "channels": 1,
+      "frames": 67200,
+      "role": "long protected UI voice for saturation A/B test",
+      "target_peak": 0.88,
+      "pcm_peak": 0.880001220740379
+    },
+    {
+      "filename": "protection_filler.wav",
+      "sha256": "207929ef6f00abe0f32828ae251f8e73eb668b8bc1dcf9d01f9009cf9daf2bb7",
+      "sample_rate": 48000,
+      "channels": 1,
+      "frames": 240000,
+      "role": "quiet long filler for protected-bus saturation A/B test",
+      "target_peak": 0.015,
+      "pcm_peak": 0.015015106662190619
+    },
+    {
+      "filename": "hit_01.wav",
+      "sha256": "e8983009070257b722ebd6f7a5cc88567796c8022ad76b2bcc12357e6fd2a298",
+      "sample_rate": 48000,
+      "channels": 1,
+      "frames": 8544,
+      "role": "combat one-shot variant 1",
+      "target_peak": 0.88,
+      "pcm_peak": 0.880001220740379
+    },
+    {
+      "filename": "hit_02.wav",
+      "sha256": "982e4683f661c2ed07ac8bac00ead928345eedcc738280c0feab06049b7bc13d",
+      "sample_rate": 48000,
+      "channels": 1,
+      "frames": 9408,
+      "role": "combat one-shot variant 2",
+      "target_peak": 0.88,
+      "pcm_peak": 0.880001220740379
+    },
+    {
+      "filename": "hit_03.wav",
+      "sha256": "b3f62885705dd45ddeab220ef4ea56e51e5b723c2abd0808ac66959676d08cf7",
+      "sample_rate": 48000,
+      "channels": 1,
+      "frames": 10272,
+      "role": "combat one-shot variant 3",
+      "target_peak": 0.88,
+      "pcm_peak": 0.880001220740379
+    },
+    {
+      "filename": "hit_04.wav",
+      "sha256": "e18bf7d309800eb8c2fe140bb52cdebf921398e56300756b68f8bd806fdde525",
+      "sample_rate": 48000,
+      "channels": 1,
+      "frames": 11136,
+      "role": "combat one-shot variant 4",
+      "target_peak": 0.88,
+      "pcm_peak": 0.880001220740379
+    },
+    {
+      "filename": "duration_mono.wav",
+      "sha256": "78cbee4b11a058b4ab42262232390847eaa84b0846b6ee031e2a8419a583c0f7",
+      "sample_rate": 48000,
+      "channels": 1,
+      "frames": 36000,
+      "role": "known-duration mono fixture",
+      "target_peak": 0.88,
+      "pcm_peak": 0.880001220740379
+    },
+    {
+      "filename": "duration_stereo.wav",
+      "sha256": "0d0db4871be727b91ae368685e47044eb0a23fab1b248ed5e84b30bbf2266e3b",
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 60000,
+      "role": "known-duration stereo fixture",
+      "target_peak": 0.88,
+      "pcm_peak": 0.880001220740379
+    },
+    {
+      "filename": "combat_texture.wav",
+      "sha256": "05a2d27853763109a44d8cbd1a605f07d5584fba646d11c09c831108f30ef914",
+      "sample_rate": 48000,
+      "channels": 2,
+      "frames": 48000,
+      "role": "phase-aligned seamless stereo combat texture",
+      "target_peak": 0.88,
+      "pcm_peak": 0.880001220740379
+    },
+    {
+      "filename": "corrupt.wav",
+      "sha256": "b586de5fe32ff6b8c0b46c64a01f22791815c2e5e7bdc3c4466917fd1c10f4b7",
+      "sample_rate": null,
+      "channels": null,
+      "frames": null,
+      "role": "intentionally truncated RIFF header; invalid audio fixture"
+    }
+  ]
+}

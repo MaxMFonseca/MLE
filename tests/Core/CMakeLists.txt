@@ -17,7 +17,11 @@ file(GLOB_RECURSE ${test_name}_src
 )
 
 
-add_executable(${test_name} ${${test_name}_src} ${MLE_HEADERS})
+add_executable(${test_name}
+  ${${test_name}_src}
+  ${MLE_HEADERS}
+  ${CMAKE_SOURCE_DIR}/tests/Client/src/audio/CombatEventAggregator.cpp
+)
 target_link_libraries(${test_name}
   PRIVATE
     MLE
@@ -25,7 +29,10 @@ target_link_libraries(${test_name}
     GTest::gtest_main
 )
 
-target_include_directories(${test_name} PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_include_directories(${test_name} PRIVATE
+  ${CMAKE_SOURCE_DIR}/src
+  ${CMAKE_SOURCE_DIR}/tests/Client/src
+)
 
 target_compile_options(${test_name} PRIVATE
   -Wall -Wextra -Wpedantic
@@ -38,3 +45,20 @@ gtest_discover_tests(${test_name}
     LABELS "unit"
 )
 
+add_executable(AudioLifecycle
+  shutdown/T.AudioShutdown.cpp
+)
+target_link_libraries(AudioLifecycle
+  PRIVATE
+    MLE
+    GTest::gtest_main
+)
+target_include_directories(AudioLifecycle PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_compile_options(AudioLifecycle PRIVATE
+  -Wall -Wextra -Wpedantic
+)
+gtest_discover_tests(AudioLifecycle
+  DISCOVERY_MODE PRE_TEST
+  PROPERTIES
+    LABELS "unit"
+)
