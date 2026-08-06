@@ -16,7 +16,15 @@ layout(push_constant) uniform PC {
 void main()
 {
   float value = texture(in_color, in_uv).r;
-  bool in_text = value >= (1 - pc.text_thickness);
-  bool in_border = value >= (1 - pc.text_thickness - pc.border_thickness);
-  out_color = in_text ? pc.color : (in_border ? pc.border_color : vec4(0.0));
+  float text_edge = 1.0 - pc.text_thickness;
+  float sdf_per_px = max(length(vec2(dFdx(value), dFdy(value))), 1.0 / 255.0);
+  float border_edge = text_edge - pc.border_thickness * sdf_per_px;
+  float aa = sdf_per_px * 0.5;
+
+  float text_coverage = smoothstep(text_edge - aa, text_edge + aa, value);
+  float border_coverage = smoothstep(border_edge - aa, border_edge + aa, value);
+  float text_mix = clamp(text_coverage / max(border_coverage, 0.00001), 0.0, 1.0);
+
+  out_color = mix(pc.border_color, pc.color, text_mix);
+  out_color.a *= border_coverage;
 }

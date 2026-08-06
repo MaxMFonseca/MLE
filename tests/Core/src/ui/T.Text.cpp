@@ -157,3 +157,21 @@ TEST(TextTest, UpdatePacketClearsStaleDataWhenInputAndStaticTextAreEmpty) {
 
     EXPECT_TRUE(packet.per_image_data.empty());
 }
+
+TEST(TextTest, BorderThicknessUsesPixelsWithoutAtlasScaling) {
+    mle::Lua lua;
+    lua.init();
+    mle::UI ui;
+    auto ew = makeTestEntt(ui);
+
+    auto table = lua.createTable();
+    table["text"] = "";
+    table["border_thickness"] = 1.0F;
+    ew.apply("text", table);
+
+    auto& text_renderable = mle::ui::renderable::Text::getFromEntt(ew)->get();
+    mle::ui::renderable::TextPacket packet;
+    text_renderable.doUpdatePacket(ew, &packet);
+
+    EXPECT_FLOAT_EQ(packet.border_thickness, 1.0F);
+}

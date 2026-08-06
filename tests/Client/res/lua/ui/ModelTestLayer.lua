@@ -7,10 +7,8 @@ local function panel_button(text, callback)
 		size_y = "30px",
 		text = {
 			text = text,
-			height = "17px",
+			height = "22px",
 			color = Colors.slate50,
-			border_thickness = 1,
-			border_color = Colors.slate950,
 		},
 		background = Colors.slate800:withA(0.92),
 		border = {
@@ -33,13 +31,11 @@ end
 local function make_label(text, color, height)
 	return {
 		size_x = "1f",
-		size_y = height or "20px",
+		size_y = height or "23px",
 		text = {
 			text = text,
-			height = height or "18px",
+			height = height or "23px",
 			color = color or Colors.slate100,
-			border_thickness = 1,
-			border_color = Colors.slate950,
 		},
 	}
 end
@@ -47,13 +43,13 @@ end
 local function make_slider(label, value, callback)
 	return {
 		size_x = "1f",
-		size_y = "36px",
+		size_y = "40px",
 		list = {
 			pack = true,
 			gap = "4px",
 		},
 		c = {
-			make_label(label, Colors.slate200, "15px"),
+			make_label(label, Colors.slate200, "20px"),
 			{
 				size_x = "1f",
 				size_y = "16px",
@@ -74,7 +70,7 @@ end
 
 local function make_section(title, children)
 	local section_children = {
-		make_label(title, Colors.sky200, "19px"),
+		make_label(title, Colors.sky200, "25px"),
 	}
 
 	for _, child in ipairs(children) do
@@ -142,10 +138,8 @@ local function make_asset_selector(empty_label, options, callback)
 		size_y = "36px",
 		children_base = {
 			text = {
-				height = "17px",
+				height = "22px",
 				color = Colors.WHITE,
-				border_thickness = 1,
-				border_color = Colors.slate950,
 			},
 		},
 		c = {
@@ -247,7 +241,7 @@ local function make_shader_options_dock()
 		Wireframe = {
 			name = "Wireframe",
 			size_x = "1f",
-			size_y = "36px",
+			size_y = "40px",
 			disabled = true,
 			list = {
 				pack = true,
@@ -303,7 +297,7 @@ return {
 				gap = "8px",
 			},
 			c = {
-				make_label("Model Test", Colors.WHITE, "22px"),
+				make_label("Model Test", Colors.WHITE, "29px"),
 				make_section("Camera", {
 					make_slider("Orbit yaw", 0.5, function(value)
 						G.model_test_set_camera_yaw(value)
@@ -327,7 +321,7 @@ return {
 							if selected == "Cartoon" then
 								shader_options:apply("size_y", "350px")
 							elseif selected == "Wireframe" then
-								shader_options:apply("size_y", "36px")
+								shader_options:apply("size_y", "40px")
 							else
 								shader_options:apply("size_y", "0px")
 							end
@@ -363,7 +357,7 @@ return {
 					end),
 				}),
 				make_section("Assets", {
-					make_label("Model", Colors.slate200, "15px"),
+					make_label("Model", Colors.slate200, "20px"),
 					(function()
 						local selector = make_asset_selector("No GLB models", models, function(selected, ew)
 							G.model_test_set_model(selected)
@@ -376,7 +370,7 @@ return {
 						selector.name = "model_selector"
 						return selector
 					end)(),
-					make_label("Held Item", Colors.slate200, "15px"),
+					make_label("Held Item", Colors.slate200, "20px"),
 					(function()
 						local selector = make_asset_selector("No held items", held_items, function(selected)
 							G.model_test_set_held_item(selected)
@@ -387,7 +381,7 @@ return {
 					make_slider("Held scale", 0.322, function(value)
 						G.model_test_set_held_item_scale(value)
 					end),
-					make_label("Animation", Colors.slate200, "15px"),
+					make_label("Animation", Colors.slate200, "20px"),
 					(function()
 						local selector = make_asset_selector("No GLB animations", animations, function(selected)
 							G.model_test_set_animation(selected)
@@ -408,7 +402,7 @@ return {
 					end),
 				}),
 				make_section("Projection", {
-					make_label("Display", Colors.slate200, "15px"),
+					make_label("Display", Colors.slate200, "20px"),
 					(function()
 						local selector = make_asset_selector("Off", { "Off", "On" }, function(selected)
 							G.model_test_set_show_projection(selected == "On")

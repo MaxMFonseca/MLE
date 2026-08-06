@@ -166,7 +166,7 @@ void Text::setBold(bool t) {
 }
 void Text::setBorderThickness(f32 t) {
     versionUp();
-    border_thickness = t / 16;
+    border_thickness = t;
 }
 
 void Text::setFontHeight(const Entt& ew, const sol::object& obj) {
