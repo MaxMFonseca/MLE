@@ -99,3 +99,56 @@ TEST_F(TextBoxTest, SingleLineTextBoxDoesNotConsumeEnter) {
 
     EXPECT_EQ(outer_calls, 1);
 }
+
+TEST_F(TextBoxTest, FocusedSingleLineRoutesSubmitAndComplete) {
+    std::vector<std::string> calls;
+    mle::TextBox text_box;
+    text_box.setText(U"i/hero.glb");
+    text_box.setSubmitCallback([&](std::string_view value) { calls.emplace_back("submit:" + std::string(value)); });
+    text_box.setCompleteCallback([&](std::string_view value) { calls.emplace_back("complete:" + std::string(value)); });
+    text_box.setFocused(true);
+
+    auto& uim = mle::UserInputManager::i();
+    uim.setPressed(mle::Key::ENTER);
+    uim.update();
+    uim.setReleased(mle::Key::ENTER);
+    uim.lateUpdate();
+    uim.setPressed(mle::Key::TAB);
+    uim.update();
+
+    EXPECT_EQ(calls, (std::vector<std::string>{"submit:i/hero.glb", "complete:i/hero.glb"}));
+}
+
+TEST_F(TextBoxTest, UnfocusedInputRoutesNeitherSubmitNorComplete) {
+    std::vector<std::string> calls;
+    mle::TextBox text_box;
+    text_box.setText(U"i/hero.glb");
+    text_box.setSubmitCallback([&](std::string_view value) { calls.emplace_back("submit:" + std::string(value)); });
+    text_box.setCompleteCallback([&](std::string_view value) { calls.emplace_back("complete:" + std::string(value)); });
+
+    auto& uim = mle::UserInputManager::i();
+    uim.setPressed(mle::Key::ENTER);
+    uim.update();
+    uim.setReleased(mle::Key::ENTER);
+    uim.lateUpdate();
+    uim.setPressed(mle::Key::TAB);
+    uim.update();
+
+    EXPECT_TRUE(calls.empty());
+}
+
+TEST_F(TextBoxTest, MultilineEnterInsertsNewlineWithoutSubmit) {
+    std::vector<std::string> calls;
+    mle::TextBox text_box;
+    text_box.setText(U"line");
+    text_box.setSubmitCallback([&](std::string_view value) { calls.emplace_back(value); });
+    text_box.setAllowNewLine(true);
+    text_box.setFocused(true);
+
+    auto& uim = mle::UserInputManager::i();
+    uim.setPressed(mle::Key::ENTER);
+    uim.update();
+
+    EXPECT_EQ(text_box.getText(), U"line\n");
+    EXPECT_TRUE(calls.empty());
+}
