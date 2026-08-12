@@ -72,20 +72,24 @@ void TargetBound::set(f32 v, Type t) {
 }
 
 void TargetBound::set(std::string_view str) {
+    str = trim(str);
+
     if (str.empty()) {
         val = 0.0F;
         type = Type::DEFAULT;
         return;
     }
     if (str.size() == 1) {
-        if (std::isdigit(str[0])) {
+        if (std::isdigit(as<unsigned char>(str[0]))) {
             val = static_cast<f32>(str[0] - '0');
             type = Type::DEFAULT;
             return;
         }
-        val = charToSize(str[0]);
-        type = Type::RELATIVE;
-        return;
+        if (matchAny(str, "l", "t", "r", "b", "x", "c")) {
+            val = charToSize(str[0]);
+            type = Type::RELATIVE;
+            return;
+        }
     }
 
     auto [num, suffix] = splitNumSuffix(str);
@@ -95,11 +99,11 @@ void TargetBound::set(std::string_view str) {
         return;
     }
 
-    bool is_percent_type = suffix[0] == '%';
+    const char first = str[0];
+    const bool has_numeric_token = std::isdigit(as<unsigned char>(first)) != 0 || first == '.' || first == '+' || first == '-';
 
-    if (num == 0 && suffix[0] != '0') {
-        num = is_percent_type ? 100 : 1;
-        return;
+    if (!has_numeric_token) {
+        num = suffix[0] == '%' ? 100 : 1;
     }
 
     set(num, stringToType(suffix));
