@@ -115,6 +115,25 @@ void Text::applyInputClear(const Entt& ew, const sol::object& /*obj*/) {
     ew.requestInternalBoundsUpdate();
 }
 
+void Text::applyInputSet(const Entt& ew, const sol::object& obj) {
+    if (!lua::valid<std::string>(obj)) {
+        MLE_E("Text::applyInputSet expected a string for entt {}.", ew.fullName());
+        return;
+    }
+    auto text_r = getFromEntt(ew);
+    if (!text_r) {
+        MLE_E("Text::applyInputSet called on entt {} without Text renderable.", ew.fullName());
+        return;
+    }
+    auto& text_comp = text_r->get();
+    if (!text_comp.input_tb) {
+        MLE_W("Text::applyInputSet called on entt {} without TextBox.", ew.fullName());
+        return;
+    }
+    text_comp.input_tb->setText(toUtf32(lua::as<std::string>(obj)));
+    ew.requestInternalBoundsUpdate();
+}
+
 std::string Text::getValue() const {
     if (input_tb) {
         return toUtf8(input_tb->getText());
@@ -417,6 +436,14 @@ void Text::makeInputBox(const Entt& e, const sol::object& obj) {
         auto table = obj.as<sol::table>();
         lua::tryGetKeyAs(table, "multiline", multiline_input);
         lua::tryGetKeyAs(table, "ctrl_enter_newline", ctrl_enter_newline);
+        if (const sol::object submit_r = table["on_submit"]; lua::valid<sol::function>(submit_r)) {
+            auto on_submit = lua::as<sol::function>(submit_r);
+            input_tb->setSubmitCallback([e, on_submit = std::move(on_submit)](std::string_view value) mutable { on_submit(e, value); });
+        }
+        if (const sol::object complete_r = table["on_complete"]; lua::valid<sol::function>(complete_r)) {
+            auto on_complete = lua::as<sol::function>(complete_r);
+            input_tb->setCompleteCallback([e, on_complete = std::move(on_complete)](std::string_view value) mutable { on_complete(e, value); });
+        }
     }
 
     if (multiline_input) {

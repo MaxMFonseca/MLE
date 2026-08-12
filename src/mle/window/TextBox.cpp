@@ -20,11 +20,17 @@ TextBox::TextBox() {
     home_kl_.setKey(Key::HOME).setState(KeyState::PRESSED).setCallback([this]() { onHome(); });
     end_kl_.setKey(Key::END).setState(KeyState::PRESSED).setCallback([this]() { onEnd(); }).setRepeat(true);
     enter_kl_.setKey(Key::ENTER).setState(KeyState::PRESSED).setCallback([this]() { onEnter(); });
+    tab_kl_.setKey(Key::TAB).setState(KeyState::PRESSED).setCallback([this]() { onComplete(); });
     escape_kl_.setKey(Key::ESCAPE).setState(KeyState::PRESSED).setCallback([this]() { setFocused(false); });
     ctrl_a_.setKey(Key::A).setState(KeyState::PRESSED).setMods(KeyModFlagBits::CTRL).setCallback([this]() { onCtrlA(); });
     ctrl_c_.setKey(Key::C).setState(KeyState::PRESSED).setMods(KeyModFlagBits::CTRL).setCallback([this]() { onCtrlC(); });
     ctrl_v_.setKey(Key::V).setState(KeyState::PRESSED).setMods(KeyModFlagBits::CTRL).setCallback([this]() { onCtrlV(); });
     ctrl_x_.setKey(Key::X).setState(KeyState::PRESSED).setMods(KeyModFlagBits::CTRL).setCallback([this]() { onCtrlX(); });
+}
+
+TextBox::~TextBox() {
+    enter_kl_.unlisten();
+    tab_kl_.unlisten();
 }
 
 void TextBox::onTextInput(char32 codepoint) {
@@ -75,6 +81,9 @@ void TextBox::onEnd() {
 
 void TextBox::onEnter() {
     if (!allow_new_line_) {
+        if (submit_callback_) {
+            submit_callback_(getTextUtf8());
+        }
         return;
     }
 
@@ -83,6 +92,12 @@ void TextBox::onEnter() {
         insertChar(U'\n');
         selection_end_ = selection_start_;
         endChange();
+    }
+}
+
+void TextBox::onComplete() {
+    if (complete_callback_) {
+        complete_callback_(getTextUtf8());
     }
 }
 
@@ -141,6 +156,7 @@ void TextBox::setFocused(bool focused) {
             home_kl_.unlisten();
             end_kl_.unlisten();
             enter_kl_.unlisten();
+            tab_kl_.unlisten();
             escape_kl_.unlisten();
             ctrl_a_.unlisten();
             ctrl_c_.unlisten();
@@ -154,8 +170,11 @@ void TextBox::setFocused(bool focused) {
             right_kl_.listen();
             home_kl_.listen();
             end_kl_.listen();
-            if (allow_new_line_) {
+            if (allow_new_line_ || submit_callback_) {
                 enter_kl_.listen();
+            }
+            if (complete_callback_) {
+                tab_kl_.listen();
             }
             ctrl_a_.listen();
             ctrl_c_.listen();
@@ -180,12 +199,34 @@ void TextBox::setNewLineCtrlEnter(bool enable) {
     new_line_ctrl_enter_ = enable;
 }
 
+void TextBox::setSubmitCallback(std::move_only_function<void(std::string_view)>&& callback) {
+    submit_callback_ = std::move(callback);
+    if (focused_ && !allow_new_line_) {
+        if (submit_callback_) {
+            enter_kl_.listen();
+        } else {
+            enter_kl_.unlisten();
+        }
+    }
+}
+
+void TextBox::setCompleteCallback(std::move_only_function<void(std::string_view)>&& callback) {
+    complete_callback_ = std::move(callback);
+    if (focused_) {
+        if (complete_callback_) {
+            tab_kl_.listen();
+        } else {
+            tab_kl_.unlisten();
+        }
+    }
+}
+
 void TextBox::setAllowNewLine(bool allow) {
     allow_new_line_ = allow;
     if (!focused_) {
         return;
     }
-    if (allow) {
+    if (allow || submit_callback_) {
         enter_kl_.listen();
     } else {
         enter_kl_.unlisten();

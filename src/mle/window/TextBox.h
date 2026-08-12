@@ -14,7 +14,7 @@ class TextBox final {
     MLE_NO_COPY_MOVE(TextBox)
 
     TextBox();
-    ~TextBox() = default;
+    ~TextBox();
 
     void setFocused(bool focused);
     [[nodiscard]] bool isFocused() const { return focused_; }
@@ -31,6 +31,8 @@ class TextBox final {
     void setSelection(usize start, usize end);
 
     void setChangedCallback(std::move_only_function<void()>&& callback) { changed_callback_ = std::move(callback); }
+    void setSubmitCallback(std::move_only_function<void(std::string_view)>&& callback);
+    void setCompleteCallback(std::move_only_function<void(std::string_view)>&& callback);
 
     void setNewLineCtrlEnter(bool enable);
     void setAllowNewLine(bool allow);
@@ -46,6 +48,7 @@ class TextBox final {
     void onHome();
     void onEnd();
     void onEnter();
+    void onComplete();
     void onCtrlA();
     void onCtrlC();
     void onCtrlV();
@@ -78,6 +81,8 @@ class TextBox final {
     bool new_line_ctrl_enter_ = false;
 
     std::move_only_function<void()> changed_callback_;
+    std::move_only_function<void(std::string_view)> submit_callback_;
+    std::move_only_function<void(std::string_view)> complete_callback_;
 
     TextListener text_listener_;
 
@@ -88,6 +93,7 @@ class TextBox final {
     KeyListener home_kl_;
     KeyListener end_kl_;
     KeyListener enter_kl_;
+    KeyListener tab_kl_;
     KeyListener escape_kl_;
     KeyListener ctrl_a_;
     KeyListener ctrl_c_;

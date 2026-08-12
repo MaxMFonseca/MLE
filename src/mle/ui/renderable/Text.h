@@ -104,6 +104,7 @@ struct Text : public RenderableI {
     static void applyInputEnable(const Entt& ew, const sol::object& obj);
     static void applyInputDisable(const Entt& ew, const sol::object& obj);
     static void applyInputClear(const Entt& ew, const sol::object& obj);
+    static void applyInputSet(const Entt& ew, const sol::object& obj);
 
     static Expected<std::reference_wrapper<Text>> getFromEntt(const Entt& ew);
 };

@@ -282,6 +282,7 @@ void LuaElementOps::addBuiltingApply() {
     addApplyKeyHandler("text_input_enable", ui::renderable::Text::applyInputEnable);
     addApplyKeyHandler("text_input_disable", ui::renderable::Text::applyInputDisable);
     addApplyKeyHandler("text_input_clear", ui::renderable::Text::applyInputClear);
+    addApplyKeyHandler("text_input_set", ui::renderable::Text::applyInputSet);
 
     addApplyKeyHandler("blur", ui::shader::Blur::apply);
     addApplyKeyHandler("shader", ui::shader::LuaShader::apply);
