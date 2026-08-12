@@ -1,8 +1,10 @@
 #include "GLTF.h"
 
+#include <algorithm>
+#include <cctype>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/matrix_decompose.hpp>
-
+#include <ranges>
 #include <unordered_map>
 
 #include "mle/core/Assert.h"
@@ -37,7 +39,8 @@ Result GLTF::load(const Path& path) {
         return Result::FAILED_TO_OPEN;
     }
 
-    const auto ext = path.extension();
+    std::string ext = path.extension().generic_string();
+    std::ranges::transform(ext, ext.begin(), [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
     if (ext != ".glb" && ext != ".gltf") {
         MLE_E("Only GLB and glTF model files are supported: {}", path);
         return Result::FAILED_TO_OPEN;
