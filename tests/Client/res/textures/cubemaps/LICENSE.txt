@@ -1,0 +1,7 @@
+Planet Surface Skyboxes
+Source: https://opengameart.org/content/planet-surface-skyboxes
+Author: Screaming Brain Studios
+License: CC0 / Public Domain
+Downloaded file: sbs_-_planet_surface_skyboxes_-_cubemap.zip
+Local changes: four horizontal-cross cubemap PNGs split into six face PNGs per cubemap folder.
+Attribution required: no

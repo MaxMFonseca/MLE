@@ -3,7 +3,9 @@
 #include <spdlog/fmt/fmt.h>
 
 #include <algorithm>
+#include <filesystem>
 #include <glm/gtc/matrix_transform.hpp>
+#include <ranges>
 #include <string_view>
 #include <unordered_map>
 
@@ -37,6 +39,19 @@ struct LightingUniform {
     vec4f sun_color_ambient;
     vec4f camera_pos;
 };
+
+std::string longestCommonPrefix(const std::vector<std::string>& values) {
+    if (values.empty()) {
+        return {};
+    }
+
+    std::string prefix = values.front();
+    for (auto it = std::next(values.begin()); it != values.end(); ++it) {
+        const usize common = std::ranges::mismatch(prefix, *it).in1 - prefix.begin();
+        prefix.resize(common);
+    }
+    return prefix;
+}
 
 template <usize Size>
 auto makeNoBlendAttachments() {
@@ -96,12 +111,13 @@ const Pipeline* getModelTestGBufferPipeline(Primitive::VertexKind kind, bool wir
     return pipelines[idx];
 }
 
-const Pipeline* getModelTestResolvePipeline(ModelTestShaderMode mode) {
-    static std::array<const Pipeline*, as<usize>(ModelTestShaderMode::COUNT)> pipelines{};
+const Pipeline* getModelTestResolvePipeline(ModelTestShaderMode mode, bool blend) {
+    static std::array<const Pipeline*, as<usize>(ModelTestShaderMode::COUNT) * 2> pipelines{};
     const usize idx = as<usize>(mode);
-    if (pipelines[idx] == nullptr) {
+    const usize pipeline_idx = (blend ? as<usize>(ModelTestShaderMode::COUNT) : 0) + idx;
+    if (pipelines[pipeline_idx] == nullptr) {
         const auto& descriptor = modelTestShaderModeDescriptor(mode);
-        MLE_I("ModelTest: creating resolve pipeline mode={}", descriptor.display_name);
+        MLE_I("ModelTest: creating resolve pipeline mode={} blend={}", descriptor.display_name, blend);
         Pipeline::CI pipeline_ci{};
         pipeline_ci.vertex_shader = &Renderer::i().shaderCache().get("mle/fs_triangle.vert");
         pipeline_ci.fragment_shader = &Renderer::i().shaderCache().get(std::string{descriptor.resolve_fragment_shader});
@@ -109,7 +125,7 @@ const Pipeline* getModelTestResolvePipeline(ModelTestShaderMode mode) {
         std::array color_attachment_formats = {Renderer::i().vk().getVkImageFormat(ImageFormat::HDR_COLOR)};
         pipeline_ci.color_attachment_formats = color_attachment_formats;
         auto blend_attachments = Pipeline::makeDefaultBlendAttachments<1>();
-        blend_attachments[0].blendEnable = vk::False;
+        blend_attachments[0].blendEnable = blend ? vk::True : vk::False;
         pipeline_ci.blend_attachments = blend_attachments;
         pipeline_ci.topology = vk::PrimitiveTopology::eTriangleList;
         pipeline_ci.cull_mode = vk::CullModeFlagBits::eNone;
@@ -117,10 +133,11 @@ const Pipeline* getModelTestResolvePipeline(ModelTestShaderMode mode) {
         pipeline_ci.depth_write = false;
         pipeline_ci.push_descriptor = 0;
 
-        pipelines[idx] = &Renderer::i().pipelineCache().setPipeline(std::string{descriptor.resolve_pipeline}, pipeline_ci);
-        MLE_I("ModelTest: created resolve pipeline '{}'", descriptor.resolve_pipeline);
+        const std::string name = blend ? std::string{descriptor.resolve_pipeline} + "_blend" : std::string{descriptor.resolve_pipeline};
+        pipelines[pipeline_idx] = &Renderer::i().pipelineCache().setPipeline(name, pipeline_ci);
+        MLE_I("ModelTest: created resolve pipeline '{}'", name);
     }
-    return pipelines[idx];
+    return pipelines[pipeline_idx];
 }
 
 const Pipeline* getModelTestOutlinePipeline() {
@@ -146,12 +163,12 @@ const Pipeline* getModelTestOutlinePipeline() {
     return pipeline;
 }
 
-const Pipeline* getModelTestProjectionPipeline(bool blend) {
-    static std::array<const Pipeline*, 2> pipelines{};
-    const usize idx = blend ? 1 : 0;
-    if (pipelines[idx] == nullptr) {
+const Pipeline* getModelTestProjectionPipeline(bool blend, bool depth) {
+    static std::array<const Pipeline*, 4> pipelines{};
+    const usize idx = (depth ? 2 : 0) + (blend ? 1 : 0);
+    if (pipelines.at(idx) == nullptr) {
         const auto& descriptor = modelTestProjectionPipelineDescriptor();
-        MLE_I("ModelTest: creating flat projection pipeline blend={}", blend);
+        MLE_I("ModelTest: creating flat projection pipeline blend={} depth={}", blend, depth);
         Pipeline::CI pipeline_ci{};
         pipeline_ci.vertex_shader = &Renderer::i().shaderCache().get(std::string{descriptor.vertex_shader});
         pipeline_ci.fragment_shader = &Renderer::i().shaderCache().get(std::string{descriptor.fragment_shader});
@@ -162,14 +179,17 @@ const Pipeline* getModelTestProjectionPipeline(bool blend) {
         pipeline_ci.blend_attachments = blend_attachments;
         pipeline_ci.topology = vk::PrimitiveTopology::eTriangleFan;
         pipeline_ci.cull_mode = vk::CullModeFlagBits::eNone;
-        pipeline_ci.depth = false;
+        pipeline_ci.depth = depth;
         pipeline_ci.depth_write = false;
 
-        const std::string name = blend ? std::string{descriptor.pipeline} : std::string{descriptor.pipeline} + "_opaque";
-        pipelines[idx] = &Renderer::i().pipelineCache().setPipeline(name, pipeline_ci);
+        std::string name = blend ? std::string{descriptor.pipeline} : std::string{descriptor.pipeline} + "_opaque";
+        if (depth) {
+            name += "_depth";
+        }
+        pipelines.at(idx) = &Renderer::i().pipelineCache().setPipeline(name, pipeline_ci);
         MLE_I("ModelTest: created flat projection pipeline '{}'", name);
     }
-    return pipelines[idx];
+    return pipelines.at(idx);
 }
 
 const Pipeline* getModelTestTonemapPipeline(bool blend) {
@@ -198,6 +218,86 @@ const Pipeline* getModelTestTonemapPipeline(bool blend) {
     return pipelines[idx];
 }
 
+const Pipeline* getModelTestSkyboxPipeline() {
+    static const Pipeline* pipeline{};
+    if (pipeline == nullptr) {
+        MLE_I("ModelTest: creating skybox pipeline");
+        Pipeline::CI pipeline_ci{};
+        pipeline_ci.vertex_shader = &Renderer::i().shaderCache().get("mle/scene/skybox.vert");
+        pipeline_ci.fragment_shader = &Renderer::i().shaderCache().get("mle/scene/skybox.frag");
+        std::array color_attachment_formats = {Renderer::i().vk().getVkImageFormat(ImageFormat::HDR_COLOR)};
+        pipeline_ci.color_attachment_formats = color_attachment_formats;
+        auto blend_attachments = makeNoBlendAttachments<1>();
+        pipeline_ci.blend_attachments = blend_attachments;
+        pipeline_ci.topology = vk::PrimitiveTopology::eTriangleList;
+        pipeline_ci.cull_mode = vk::CullModeFlagBits::eNone;
+        pipeline_ci.depth = false;
+        pipeline_ci.depth_write = false;
+        pipeline_ci.push_descriptor = 0;
+
+        pipeline = &Renderer::i().pipelineCache().setPipeline("model_test_skybox", pipeline_ci);
+        MLE_I("ModelTest: created skybox pipeline");
+    }
+    return pipeline;
+}
+
+void drawModelTestSkybox(RenderingThread& thread, ImageRef hdr_scene, ImageRef cubemap_image, const mat4f& camera_view, const mat4f& camera_proj,
+                         vec2u render_extent) {
+    AttachmentInfo skybox_attachment{};
+    skybox_attachment.image = hdr_scene;
+    skybox_attachment.load_op = vk::AttachmentLoadOp::eClear;
+    skybox_attachment.clear_value.color = vk::ClearColorValue{std::array{0.0F, 0.0F, 0.0F, 0.0F}};
+    std::array skybox_attachments = {skybox_attachment};
+    thread.setColorAttachments(skybox_attachments);
+    thread.setDepthAttachment({});
+    thread.beginRendering();
+    thread.setViewportAndScissor(Rectf{0.0F, 0.0F, as<f32>(render_extent.x), as<f32>(render_extent.y)});
+
+    const Pipeline* skybox_pipeline = getModelTestSkyboxPipeline();
+    thread.setPipeline(skybox_pipeline);
+    auto cubemap_di = cubemap_image->getDescriptorInfo();
+    auto skybox_writes = skybox_pipeline->makeWrites(0, nullptr, &cubemap_di);
+    thread.pushDescriptor(0, skybox_writes);
+
+    struct SkyboxPushConstants {
+        mat4f view;
+        mat4f proj;
+    } skybox_pc{
+        .view = camera_view,
+        .proj = camera_proj,
+    };
+    thread.pushConstants(&skybox_pc);
+    thread.draw(36, 1);
+    thread.endRendering();
+}
+
+void drawModelTestTonemap(RenderingThread& thread, ImageRef target, ImageRef hdr_scene, Rectf target_rect, bool blend, bool bypass_tonemap) {
+    hdr_scene->transitionState(thread.cmd(), Image::State::FS_READ);
+    AttachmentInfo tonemap_attachment{};
+    tonemap_attachment.image = target;
+    tonemap_attachment.load_op = vk::AttachmentLoadOp::eLoad;
+    std::array tonemap_attachments = {tonemap_attachment};
+    thread.setColorAttachments(tonemap_attachments);
+    thread.setDepthAttachment({});
+    thread.beginRendering();
+    thread.setViewportAndScissor(target_rect);
+
+    const Pipeline* tonemap_pipeline = getModelTestTonemapPipeline(blend);
+    thread.setPipeline(tonemap_pipeline);
+    auto hdr_scene_di = hdr_scene->getDescriptorInfo();
+    auto writes = tonemap_pipeline->makeWrites(0, nullptr, &hdr_scene_di);
+    thread.pushDescriptor(0, writes);
+
+    struct TonemapPushConstants {
+        vec4f params;
+    } tonemap_pc{
+        .params = vec4f{1.0F, bypass_tonemap ? 1.0F : 0.0F, 0.0F, 0.0F},
+    };
+    thread.pushConstants(&tonemap_pc);
+    thread.draw(3, 1);
+    thread.endRendering();
+}
+
 mat4f makeModelMatrix(const std::vector<Mesh::NodePrimitive>& meshes) {
     vec3f min_v{+FLT_MAX, +FLT_MAX, +FLT_MAX};
     vec3f max_v{-FLT_MAX, -FLT_MAX, -FLT_MAX};
@@ -224,18 +324,21 @@ mat4f makeModelMatrix(const std::vector<Mesh::NodePrimitive>& meshes) {
     return glm::scale(mat4f{1.0F}, vec3f{scale}) * glm::translate(mat4f{1.0F}, -center);
 }
 
-mat4f makeViewProj(vec2u extent, const ModelTestCameraState& camera) {
-    const f32 aspect = extent.y > 0 ? as<f32>(extent.x) / as<f32>(extent.y) : 1.0F;
+mat4f makeCameraView(const ModelTestCameraState& camera) {
     const f32 pitch_cos = std::cos(camera.pitch);
     const vec3f orbit_dir{
         std::sin(camera.yaw) * pitch_cos,
         std::sin(camera.pitch),
         std::cos(camera.yaw) * pitch_cos,
     };
-    mat4f view = glm::lookAt(camera.target + orbit_dir * camera.distance, camera.target, vec3f{0.0F, 1.0F, 0.0F});
+    return glm::lookAt(camera.target + orbit_dir * camera.distance, camera.target, vec3f{0.0F, 1.0F, 0.0F});
+}
+
+mat4f makeCameraProjection(vec2u extent) {
+    const f32 aspect = extent.y > 0 ? as<f32>(extent.x) / as<f32>(extent.y) : 1.0F;
     mat4f proj = glm::perspective(glm::radians(45.0F), aspect, 0.01F, 1000.0F);
     proj[1][1] *= -1.0F;
-    return proj * view;
+    return proj;
 }
 
 entt::id_type makeAssetId(const std::string& name) {
@@ -305,6 +408,10 @@ void ModelTestLayer::init() {
     MLE_I("ModelTestLayer::init()");
 
     initializeScene();
+    refreshCubemapPaths();
+    if (!submitCubemap("i/cubemaps/lava_planet")) {
+        MLE_W("ModelTest: failed to load default lava cubemap: {}", background_status_);
+    }
 
     for (bool wireframe : {false, true}) {
         MLE_I("ModelTest: warming G-buffer pipelines wireframe={}", wireframe);
@@ -315,15 +422,19 @@ void ModelTestLayer::init() {
     }
     for (const auto& descriptor : modelTestShaderModeDescriptors()) {
         MLE_I("ModelTest: warming resolve pipeline mode={}", descriptor.display_name);
-        getModelTestResolvePipeline(descriptor.mode);
+        getModelTestResolvePipeline(descriptor.mode, false);
+        getModelTestResolvePipeline(descriptor.mode, true);
     }
     MLE_I("ModelTest: warming outline pipeline");
     getModelTestOutlinePipeline();
     MLE_I("ModelTest: warming flat projection pipeline");
-    getModelTestProjectionPipeline(true);
+    getModelTestProjectionPipeline(true, false);
+    getModelTestProjectionPipeline(true, true);
     MLE_I("ModelTest: warming HDR tonemap pipeline");
     getModelTestTonemapPipeline(false);
     getModelTestTonemapPipeline(true);
+    MLE_I("ModelTest: warming skybox pipeline");
+    getModelTestSkyboxPipeline();
     MLE_I("ModelTest: pipeline warmup complete");
     Client::i().getGameLayerTable()["model_test_reset_camera"] = [this]() { camera_.reset(); };
     Client::i().getGameLayerTable()["model_test_set_sun_yaw"] = [this](f32 value) { setSunYaw01(value); };
@@ -354,6 +465,24 @@ void ModelTestLayer::init() {
         return scene_ != nullptr ? scene_->status() : std::string{"Resource state unavailable"};
     };
     Client::i().getGameLayerTable()["model_test_refresh_resource_paths"] = [this]() { return refreshResourcePaths(); };
+    Client::i().getGameLayerTable()["model_test_background_modes"] = []() {
+        auto modes = Client::i().lua().createTable();
+        modes[1] = "clear_color";
+        modes[2] = "cubemap";
+        return modes;
+    };
+    Client::i().getGameLayerTable()["model_test_cubemap_names"] = [this]() {
+        auto names = Client::i().lua().createTable();
+        for (usize i = 0; i < cubemap_names_.size(); ++i) {
+            names[i + 1] = cubemap_names_[i];
+        }
+        return names;
+    };
+    Client::i().getGameLayerTable()["model_test_set_background_mode"] = [this](const std::string& mode) { return setBackgroundMode(mode); };
+    Client::i().getGameLayerTable()["model_test_submit_cubemap"] = [this](const std::string& name) { return submitCubemap(name); };
+    Client::i().getGameLayerTable()["model_test_clear_cubemap"] = [this]() { clearCubemap(); };
+    Client::i().getGameLayerTable()["model_test_complete_cubemap"] = [this](const std::string& query) { return completeCubemapForLua(query); };
+    Client::i().getGameLayerTable()["model_test_background_status"] = [this]() { return background_status_; };
     Client::i().getGameLayerTable()["model_test_clear_held_item"] = [this]() { clearHeldItem(); };
     Client::i().getGameLayerTable()["model_test_clear_animation"] = [this]() { clearAnimation(); };
     Client::i().getGameLayerTable()["return_to_init"] = []() { Client::i().pushGameLayer(std::make_unique<InitLayer>()); };
@@ -462,9 +591,28 @@ ImageRef ModelTestLayer::getHdrSceneImage(vec2u size) {
 
 void ModelTestLayer::renderModel(ImageRef target, const ModelTestViewportLayout& viewport_layout) {
     const vec2u render_extent = viewport_layout.render_extent;
-    if (!target || render_extent.x == 0 || render_extent.y == 0 || !model_ || model_->getPrimitives().empty()) {
-        MLE_I("ModelTest: renderModel skipped target={} model={} mesh_count={}", fmt::ptr(target), fmt::ptr(model_),
-              model_ ? model_->getPrimitives().size() : 0);
+    if (!target || render_extent.x == 0 || render_extent.y == 0) {
+        MLE_I("ModelTest: renderModel skipped target={} extent={}x{}", fmt::ptr(target), render_extent.x, render_extent.y);
+        return;
+    }
+
+    if (!model_ || model_->getPrimitives().empty()) {
+        {
+            std::scoped_lock lock{background_mutex_};
+            if (background_mode_ == ModelTestBackgroundMode::CUBEMAP && cubemap_image_ != nullptr) {
+                RenderingThread thread;
+                thread.init();
+                ImageRef hdr_scene = getHdrSceneImage(render_extent);
+                const mat4f camera_view = makeCameraView(camera_.state());
+                const mat4f camera_proj = makeCameraProjection(render_extent);
+                drawModelTestSkybox(thread, hdr_scene, cubemap_image_.get(), camera_view, camera_proj, render_extent);
+                drawModelTestTonemap(thread, target, hdr_scene, viewport_layout.target_rect.asF32(), false, false);
+                thread.executeCommands();
+                return;
+            }
+        }
+
+        MLE_I("ModelTest: renderModel skipped model={} mesh_count={}", fmt::ptr(model_), model_ ? model_->getPrimitives().size() : 0);
         return;
     }
 
@@ -561,7 +709,9 @@ void ModelTestLayer::renderModel(ImageRef target, const ModelTestViewportLayout&
 
     const mat4f preview_model = makeModelMatrix(meshes);
     const auto& camera = camera_.state();
-    pc.view_proj = makeViewProj(render_extent, camera);
+    const mat4f camera_view = makeCameraView(camera);
+    const mat4f camera_proj = makeCameraProjection(render_extent);
+    pc.view_proj = camera_proj * camera_view;
     const mat4f inv_view_proj = glm::inverse(pc.view_proj);
 
     const vec3f sun_dir = makeSunDirection(sun_yaw_, sun_pitch_);
@@ -677,6 +827,17 @@ void ModelTestLayer::renderModel(ImageRef target, const ModelTestViewportLayout&
     auto depth_di = gbuffer.depth->getDescriptorInfo();
     const auto resolve_settings = makeModelTestResolveSettings(renderer_state_, animation_time_);
     const auto composition_plan = makeModelTestCompositionPlan(renderer_state_, show_projection_, projection_color_srgb_);
+    bool draw_cubemap = false;
+    {
+        std::scoped_lock lock{background_mutex_};
+        draw_cubemap = background_mode_ == ModelTestBackgroundMode::CUBEMAP && cubemap_image_ != nullptr;
+        if (draw_cubemap) {
+            MLE_D("ModelTest: begin skybox pass cubemap={}", fmt::ptr(cubemap_image_.get()));
+            drawModelTestSkybox(thread, hdr_scene, cubemap_image_.get(), camera_view, camera_proj, render_extent);
+            MLE_D("ModelTest: end skybox pass");
+        }
+    }
+
     const auto composition_target = [hdr_scene, target](ModelTestCompositionTarget target_kind) -> ImageRef {
         switch (target_kind) {
             case ModelTestCompositionTarget::HDR_SCENE:
@@ -687,12 +848,12 @@ void ModelTestLayer::renderModel(ImageRef target, const ModelTestViewportLayout&
         MLE_UNREACHABLE;
         return nullptr;
     };
-    const auto composition_pipeline = [](const ModelTestCompositionPass& pass) -> const Pipeline* {
+    const auto composition_pipeline = [draw_cubemap](const ModelTestCompositionPass& pass) -> const Pipeline* {
         switch (pass.pipeline) {
             case ModelTestCompositionPipeline::MODE_RESOLVE:
-                return getModelTestResolvePipeline(pass.shader_mode);
+                return getModelTestResolvePipeline(pass.shader_mode, draw_cubemap);
             case ModelTestCompositionPipeline::FLAT_PROJECTION:
-                return getModelTestProjectionPipeline(pass.blend);
+                return getModelTestProjectionPipeline(pass.blend, draw_cubemap);
             case ModelTestCompositionPipeline::TONEMAP:
                 return getModelTestTonemapPipeline(pass.blend);
         }
@@ -703,11 +864,21 @@ void ModelTestLayer::renderModel(ImageRef target, const ModelTestViewportLayout&
     for (const ModelTestCompositionPass& pass : composition_plan.activePasses()) {
         AttachmentInfo color_attachment{};
         color_attachment.image = composition_target(pass.target);
-        color_attachment.load_op = pass.kind == ModelTestCompositionPassKind::RESOLVE ? vk::AttachmentLoadOp::eClear : vk::AttachmentLoadOp::eLoad;
+        if (pass.kind == ModelTestCompositionPassKind::PROJECTION && draw_cubemap) {
+            color_attachment.image = hdr_scene;
+        }
+        color_attachment.load_op = pass.kind == ModelTestCompositionPassKind::RESOLVE && !draw_cubemap ? vk::AttachmentLoadOp::eClear : vk::AttachmentLoadOp::eLoad;
         color_attachment.clear_value.color = vk::ClearColorValue{std::array{0.0F, 0.0F, 0.0F, 0.0F}};
         std::array color_attachments = {color_attachment};
         thread.setColorAttachments(color_attachments);
-        thread.setDepthAttachment({});
+        if (pass.kind == ModelTestCompositionPassKind::PROJECTION && draw_cubemap) {
+            AttachmentInfo projection_depth_attachment{};
+            projection_depth_attachment.image = gbuffer.depth.get();
+            projection_depth_attachment.load_op = vk::AttachmentLoadOp::eLoad;
+            thread.setDepthAttachment(projection_depth_attachment);
+        } else {
+            thread.setDepthAttachment({});
+        }
 
         const Pipeline* pipeline = composition_pipeline(pass);
         switch (pass.kind) {
@@ -814,7 +985,9 @@ void ModelTestLayer::renderModel(ImageRef target, const ModelTestViewportLayout&
 
                 MLE_D("ModelTest: begin flat projection pass vertices={}", vertex_count);
                 thread.beginRendering();
-                thread.setViewportAndScissor(viewport_layout.target_rect.asF32());
+                const Rectf projection_rect =
+                    draw_cubemap ? Rectf{0.0F, 0.0F, as<f32>(render_extent.x), as<f32>(render_extent.y)} : viewport_layout.target_rect.asF32();
+                thread.setViewportAndScissor(projection_rect);
                 thread.setPipeline(pipeline);
                 struct ProjectionPushConstants {
                     mat4f mvp;
@@ -833,30 +1006,10 @@ void ModelTestLayer::renderModel(ImageRef target, const ModelTestViewportLayout&
             case ModelTestCompositionPassKind::TONEMAP: {
                 const auto& pass_shader_descriptor = modelTestShaderModeDescriptor(pass.shader_mode);
                 MLE_D("ModelTest: begin HDR tonemap pass mode={}", pass_shader_descriptor.display_name);
-                thread.beginRendering();
-                thread.setViewportAndScissor(viewport_layout.target_rect.asF32());
-                thread.setPipeline(pipeline);
-                switch (pass.input) {
-                    case ModelTestCompositionInput::HDR_SCENE: {
-                        auto hdr_scene_di = hdr_scene->getDescriptorInfo();
-                        auto writes = pipeline->makeWrites(0, nullptr, &hdr_scene_di);
-                        thread.pushDescriptor(0, writes);
-                        break;
-                    }
-                    case ModelTestCompositionInput::NONE:
-                        MLE_UNREACHABLE;
-                }
-
-                struct TonemapPushConstants {
-                    vec4f params;
-                } tonemap_pc{
-                    .params = vec4f{1.0F, pass.bypass_tonemap ? 1.0F : 0.0F, 0.0F, 0.0F},
-                };
-                thread.pushConstants(&tonemap_pc);
+                MLE_ASSERT(pass.input == ModelTestCompositionInput::HDR_SCENE);
+                drawModelTestTonemap(thread, target, hdr_scene, viewport_layout.target_rect.asF32(), pass.blend, pass.bypass_tonemap);
                 MLE_D("ModelTest: draw tonemap triangle");
-                thread.draw(3, 1);
                 MLE_D("ModelTest: end HDR tonemap pass");
-                thread.endRendering();
                 break;
             }
         }
@@ -934,6 +1087,62 @@ bool ModelTestLayer::refreshResourcePaths() {
     return paths.has_value();
 }
 
+bool ModelTestLayer::refreshCubemapPaths() {
+    cubemap_names_.clear();
+    cubemap_completion_candidates_.clear();
+    cubemap_completion_initial_query_.clear();
+    cubemap_completion_last_output_.clear();
+    cubemap_completion_index_ = 0;
+    cubemap_completion_started_ = false;
+
+    const Path cubemaps_root = Path{ResPath::RES} / ResPath::TEXTURES / ResPath::USER_SUBDIR / "cubemaps";
+    std::error_code ec;
+    if (!std::filesystem::exists(cubemaps_root, ec)) {
+        background_status_ = ec ? "Could not inspect cubemap directory: " + ec.message() : "No cubemap directory found";
+        return false;
+    }
+    if (ec || !std::filesystem::is_directory(cubemaps_root, ec)) {
+        background_status_ = ec ? "Could not inspect cubemap directory: " + ec.message() : "Cubemap path is not a directory";
+        return false;
+    }
+
+    std::filesystem::directory_iterator it{cubemaps_root, std::filesystem::directory_options::none, ec};
+    const std::filesystem::directory_iterator end;
+    if (ec) {
+        background_status_ = "Could not scan cubemap directory: " + ec.message();
+        return false;
+    }
+
+    while (it != end) {
+        const auto entry = *it;
+        it.increment(ec);
+        if (ec) {
+            background_status_ = "Could not scan cubemap directory: " + ec.message();
+            return false;
+        }
+
+        std::error_code entry_ec;
+        if (!entry.is_directory(entry_ec)) {
+            if (entry_ec) {
+                background_status_ = "Could not inspect cubemap entry: " + entry_ec.message();
+                return false;
+            }
+            continue;
+        }
+
+        const std::string resource_id = std::string{ResPath::USER_SUBDIR} + "/cubemaps/" + entry.path().filename().string();
+        if (Image::readCubemapFolder(resource_id).has_value()) {
+            cubemap_names_.push_back(resource_id);
+        }
+    }
+
+    std::ranges::sort(cubemap_names_);
+    const auto unique_range = std::ranges::unique(cubemap_names_);
+    cubemap_names_.erase(unique_range.begin(), unique_range.end());
+    background_status_ = "Found " + std::to_string(cubemap_names_.size()) + " cubemap(s)";
+    return true;
+}
+
 sol::table ModelTestLayer::completeResourceForLua(ModelResourceKind kind, const std::string& query) {
     auto table = Client::i().lua().createTable();
     if (scene_ == nullptr) {
@@ -952,6 +1161,134 @@ sol::table ModelTestLayer::completeResourceForLua(ModelResourceKind kind, const 
     }
     table["suggestions"] = suggestions;
     return table;
+}
+
+sol::table ModelTestLayer::completeCubemapForLua(const std::string& query) {
+    CompletionResult result;
+    if (!cubemap_completion_candidates_.empty() && (query == cubemap_completion_initial_query_ || query == cubemap_completion_last_output_)) {
+        if (!cubemap_completion_started_) {
+            cubemap_completion_started_ = true;
+            cubemap_completion_index_ = 0;
+        } else {
+            cubemap_completion_index_ = (cubemap_completion_index_ + 1) % cubemap_completion_candidates_.size();
+        }
+        cubemap_completion_last_output_ = cubemap_completion_candidates_[cubemap_completion_index_];
+        result = CompletionResult{
+            .replacement = cubemap_completion_last_output_,
+            .suggestions = cubemap_completion_candidates_,
+            .message = std::to_string(cubemap_completion_index_ + 1) + " of " + std::to_string(cubemap_completion_candidates_.size()) + " completions",
+        };
+    } else {
+        std::vector<std::string> candidates;
+        for (const auto& name : cubemap_names_) {
+            if (name.starts_with(query)) {
+                candidates.push_back(name);
+            }
+        }
+
+        if (candidates.empty()) {
+            cubemap_completion_candidates_.clear();
+            cubemap_completion_initial_query_.clear();
+            cubemap_completion_last_output_.clear();
+            cubemap_completion_index_ = 0;
+            cubemap_completion_started_ = false;
+            result = CompletionResult{.replacement = query, .suggestions = {}, .message = "No completion"};
+        } else if (candidates.size() == 1) {
+            cubemap_completion_candidates_.clear();
+            cubemap_completion_initial_query_.clear();
+            cubemap_completion_last_output_.clear();
+            cubemap_completion_index_ = 0;
+            cubemap_completion_started_ = false;
+            result = CompletionResult{.replacement = candidates.front(), .suggestions = std::move(candidates), .message = {}};
+        } else {
+            std::string replacement = longestCommonPrefix(candidates);
+            cubemap_completion_candidates_ = candidates;
+            cubemap_completion_initial_query_ = query;
+            cubemap_completion_last_output_ = replacement;
+            cubemap_completion_index_ = 0;
+            cubemap_completion_started_ = false;
+            if (replacement == query) {
+                replacement = cubemap_completion_candidates_.front();
+                cubemap_completion_last_output_ = replacement;
+                cubemap_completion_started_ = true;
+            }
+            result = CompletionResult{
+                .replacement = replacement,
+                .suggestions = std::move(candidates),
+                .message = std::to_string(cubemap_completion_candidates_.size()) + " completions",
+            };
+        }
+    }
+
+    auto table = Client::i().lua().createTable();
+    table["replacement"] = result.replacement;
+    table["message"] = result.message;
+    auto suggestions = Client::i().lua().createTable();
+    for (usize i = 0; i < result.suggestions.size(); ++i) {
+        suggestions[i + 1] = result.suggestions[i];
+    }
+    table["suggestions"] = suggestions;
+    return table;
+}
+
+bool ModelTestLayer::setBackgroundMode(const std::string& mode) {
+    std::scoped_lock lock{background_mutex_};
+    if (mode == "clear_color") {
+        background_mode_ = ModelTestBackgroundMode::CLEAR_COLOR;
+        background_status_ = "Clear color background selected";
+        return true;
+    }
+    if (mode == "cubemap" && cubemap_image_) {
+        background_mode_ = ModelTestBackgroundMode::CUBEMAP;
+        background_status_ = "Cubemap background selected: " + selected_cubemap_;
+        return true;
+    }
+
+    background_status_ = mode == "cubemap" ? "Load a cubemap before selecting cubemap background" : "Unknown background mode: " + mode;
+    return false;
+}
+
+bool ModelTestLayer::submitCubemap(const std::string& name) {
+    if (std::ranges::find(cubemap_names_, name) == cubemap_names_.end()) {
+        background_status_ = "Unknown cubemap: " + name;
+        return false;
+    }
+
+    const auto data = Image::readCubemapFolder(name);
+    if (!data.has_value()) {
+        background_status_ = "Failed to load cubemap '" + name + "': " + toString(data.error());
+        MLE_W("ModelTestLayer cubemap submit failed: {}", background_status_);
+        return false;
+    }
+
+    ImageHnd new_image = Image::createCubemapHnd(*data);
+    ImageHnd retired_image;
+    {
+        std::scoped_lock lock{background_mutex_};
+        retired_image = std::move(cubemap_image_);
+        cubemap_image_ = std::move(new_image);
+        selected_cubemap_ = name;
+        background_mode_ = ModelTestBackgroundMode::CUBEMAP;
+        background_status_ = "Loaded cubemap: " + name;
+    }
+    if (retired_image) {
+        Renderer::i().frameRenderer().addToGC(std::move(retired_image));
+    }
+    return true;
+}
+
+void ModelTestLayer::clearCubemap() {
+    ImageHnd retired_image;
+    {
+        std::scoped_lock lock{background_mutex_};
+        retired_image = std::move(cubemap_image_);
+        selected_cubemap_.clear();
+        background_mode_ = ModelTestBackgroundMode::CLEAR_COLOR;
+        background_status_ = "Clear color background selected";
+    }
+    if (retired_image) {
+        Renderer::i().frameRenderer().addToGC(std::move(retired_image));
+    }
 }
 
 bool ModelTestLayer::submitModel(const std::string& resource_id) {

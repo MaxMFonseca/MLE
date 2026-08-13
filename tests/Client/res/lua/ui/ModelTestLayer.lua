@@ -15,6 +15,7 @@ local RESOURCE_INPUT_NAMES = {
 	"held_item_input",
 	"animation_input",
 	"attachment_input",
+	"cubemap_input",
 }
 
 local RESOURCE_TEXT_COLOR = {
@@ -74,7 +75,7 @@ local function selector_arrow(value, direction, name)
 	local button = panel_button(value, function(ew)
 		ew:parent():call("select", direction)
 	end, name)
-	button.size_x = "44px"
+	button.size_x = "16px"
 	return button
 end
 
@@ -215,6 +216,7 @@ local function make_cycle_selector(name, empty_label, options, initial_id, callb
 		name = name,
 		size_x = 1,
 		size_y = "fit",
+		padding = "2px",
 		list = {
 			dir = "h",
 			cross_align = "start",
@@ -343,8 +345,8 @@ local function make_color_picker_control(name, label, h, s, v, callback)
 			{
 				size_x = 1,
 				size_y = "130px",
-				comp = color_picker(h, s, v, function(_, new_color)
-					callback(new_color)
+				comp = color_picker(h, s, v, function(ew, new_color)
+					callback(new_color, ew:get("table"))
 				end),
 			},
 		},
@@ -504,17 +506,32 @@ local assets_section = make_section("Resources", {
 	end, function(value)
 		return G.model_test_complete_model(value)
 	end),
-	make_resource_input("Held item", "held_item", "i/path/item.glb#Node", function(value)
-		return G.model_test_submit_held_item(value)
-	end, function(value)
-		return G.model_test_complete_held_item(value)
-	end),
 	make_resource_input("Animation", "animation", "i/path/model.glb#Clip", function(value)
 		return G.model_test_submit_animation(value)
 	end, function(value)
 		return G.model_test_complete_animation(value)
 	end),
-	make_resource_input("Attachment node", "attachment", "Hand.R", function(value)
+	panel_button("T pose / clear animation", function(ew)
+		G.model_test_clear_animation()
+		ew:parent():getChild("animation_field"):getChild("status"):apply("text", G.model_test_resource_status())
+	end),
+	panel_button("Refresh resource paths", function(ew)
+		G.model_test_refresh_resource_paths()
+		local status = G.model_test_resource_status()
+		local section = ew:parent()
+		for _, name in ipairs({ "model_field", "animation_field" }) do
+			section:getChild(name):getChild("status"):apply("text", status)
+		end
+	end),
+}, "resources_section")
+
+local held_item_section = make_section("Held item", {
+	make_resource_input("Model", "held_item", "i/path/item.glb#Node", function(value)
+		return G.model_test_submit_held_item(value)
+	end, function(value)
+		return G.model_test_complete_held_item(value)
+	end),
+	make_resource_input("Bone", "attachment", "Hand.R", function(value)
 		return G.model_test_submit_attachment(value)
 	end, function(value)
 		return G.model_test_complete_attachment(value)
@@ -528,21 +545,6 @@ local assets_section = make_section("Resources", {
 		input:apply("text", { color = RESOURCE_TEXT_COLOR.inactive })
 		field:getChild("status"):apply("text", G.model_test_resource_status())
 	end, "held_item_clear"),
-	panel_button("T pose / clear animation", function(ew)
-		G.model_test_clear_animation()
-		ew:parent():getChild("animation_field"):getChild("status"):apply("text", G.model_test_resource_status())
-	end),
-	panel_button("Refresh resource paths", function(ew)
-		G.model_test_refresh_resource_paths()
-		local status = G.model_test_resource_status()
-		local section = ew:parent()
-		for _, name in ipairs({ "model_field", "held_item_field", "animation_field", "attachment_field" }) do
-			section:getChild(name):getChild("status"):apply("text", status)
-		end
-	end),
-}, "resources_section")
-
-local held_transform_section = make_section("Held item transform", {
 	make_value_slider("held_translation_x", "Translation X", -2, 2, 0, function(value)
 		set_held_translation(1, value)
 	end),
@@ -566,7 +568,7 @@ local held_transform_section = make_section("Held item transform", {
 		G.model_test_set_held_item_scale(value)
 	end),
 	panel_button("Reset held transform", reset_held_transform, "held_transform_reset"),
-}, "held_transform_section")
+}, "held_item_section")
 
 local camera_section = make_section("Viewport camera", {
 	make_label("Left drag: orbit", Colors.slate200, FONT.small),
@@ -599,11 +601,169 @@ local sun_section = make_section("Sun", {
 	end),
 }, "sun_section")
 
-local clear_color_section = make_section("Clear color", {
-	make_color_picker_control("clear_color_picker", "Background", 0, 0, 1, function(color)
-		G.model_test_set_clear_color(color)
-	end),
-}, "clear_color_section")
+local background_state = {
+	mode = "cubemap",
+	clear_color = { h = 0, s = 0, v = 1 },
+	cubemap_name = "i/cubemaps/lava_planet",
+}
+
+local function make_background_cubemap_input()
+	local active_name = background_state.cubemap_name
+	return {
+		name = "cubemap_field",
+		size_x = 1,
+		size_y = "fit",
+		list = {
+			pack = true,
+			gap = "5px",
+		},
+		c = {
+			make_label("Cubemap", Colors.slate200, FONT.small),
+			{
+				name = "cubemap_input",
+				size_x = 1,
+				size_y = "fit",
+				table = {
+					active_value = active_name,
+				},
+				padding = { "10px", "8px" },
+				background = Colors.slate950:withA(0.78),
+				border = {
+					thickness = "1px",
+					color = Colors.slate500,
+					roundness = "5px",
+				},
+				text = text_style(
+					active_name or "i/cubemaps/name",
+					FONT.button,
+					active_name and RESOURCE_TEXT_COLOR.active or RESOURCE_TEXT_COLOR.inactive,
+					{
+						input = {
+							on_submit = function(ew, value)
+								local activated = G.model_test_submit_cubemap(value)
+								ew:parent()
+									:parent()
+									:parent()
+									:getChild("background_status")
+									:apply("text", G.model_test_background_status())
+								if activated then
+									background_state.cubemap_name = value
+									ew:get("table").active_value = value
+									ew:apply("text", { color = RESOURCE_TEXT_COLOR.active })
+									ew:apply("text_input_disable")
+								end
+							end,
+							on_complete = function(ew, value)
+								local result = G.model_test_complete_cubemap(value) or {}
+								if type(result.replacement) == "string" then
+									ew:apply("text_input_set", result.replacement)
+								end
+								ew:parent()
+									:parent()
+									:parent()
+									:getChild("background_status")
+									:apply("text", completion_status(result))
+							end,
+						},
+					}
+				),
+				on_create = function(ew)
+					if background_state.cubemap_name ~= nil then
+						ew:apply("text_input_disable")
+					end
+				end,
+				on_keys = {
+					lmb = function(ew)
+						ew:ui():getRoot():getChild("responsive_layout"):call("focusResourceInput", "cubemap_input")
+					end,
+				},
+			},
+		},
+	}
+end
+
+local function make_background_mode_rows(mode)
+	if mode == "cubemap" then
+		return {
+			make_background_cubemap_input(),
+			panel_button("Remove cubemap", function(ew)
+				G.model_test_clear_cubemap()
+				background_state.cubemap_name = nil
+				local input = ew:parent():getChild("cubemap_field"):getChild("cubemap_input")
+				input:get("table").active_value = nil
+				input:apply("text_input_disable")
+				input:apply("text", { color = RESOURCE_TEXT_COLOR.inactive })
+				ew:parent():parent():getChild("background_selector"):call("select", -1)
+			end, "cubemap_clear"),
+		}
+	end
+	local clear_color = background_state.clear_color
+	return {
+		make_color_picker_control(
+			"clear_color_picker",
+			"Background",
+			clear_color.h,
+			clear_color.s,
+			clear_color.v,
+			function(color, picker_state)
+				background_state.clear_color = {
+					h = picker_state.h / 360,
+					s = picker_state.s,
+					v = picker_state.v,
+				}
+				G.model_test_set_clear_color(color)
+			end
+		),
+	}
+end
+
+local function make_background_rows()
+	return {
+		name = "background_rows",
+		size_x = 1,
+		size_y = "fit",
+		list = {
+			pack = true,
+			gap = "8px",
+		},
+		fn = {
+			rebuild = function(ew, mode)
+				ew:destroyAllChildren()
+				for _, row in ipairs(make_background_mode_rows(mode)) do
+					ew:addChild(row)
+				end
+				ew:requestExternalBoundsUpdate()
+			end,
+		},
+		on_create = function(ew)
+			ew:call("rebuild", background_state.mode)
+		end,
+	}
+end
+
+local background_rows = make_background_rows()
+local background_selector = make_cycle_selector(
+	"background_selector",
+	"No background modes",
+	{
+		{ id = "clear_color", display_name = "Clear color" },
+		{ id = "cubemap", display_name = "Cubemap" },
+	},
+	"cubemap",
+	function(selected, ew)
+		background_state.mode = selected.id
+		G.model_test_set_background_mode(selected.id)
+		local section = ew:parent()
+		section:getChild("background_rows"):call("rebuild", selected.id)
+		section:getChild("background_status"):apply("text", G.model_test_background_status())
+	end
+)
+
+local background_section = make_section("BG", {
+	background_selector,
+	background_rows,
+	make_label("", Colors.slate400, FONT.small, "background_status"),
+}, "background_section")
 
 local projection_section = make_section("Projection", {
 	make_bool_toggle("projection_toggle", "Projection", false, function(enabled)
@@ -628,11 +788,11 @@ local inspector_content = {
 	c = {
 		make_label("Model Test", Colors.WHITE, FONT.title),
 		camera_section,
+		assets_section,
 		shader_section,
 		sun_section,
-		clear_color_section,
-		assets_section,
-		held_transform_section,
+		held_item_section,
+		background_section,
 		projection_section,
 	},
 }

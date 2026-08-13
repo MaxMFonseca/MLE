@@ -2,6 +2,7 @@
 
 #include <array>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -14,6 +15,8 @@
 #include "mle/utils/ECS.h"
 
 namespace mle::user {
+enum class ModelTestBackgroundMode : u8 { CLEAR_COLOR, CUBEMAP };
+
 class ModelTestLayer : public mle::client::Layer {
   public:
     MLE_NO_COPY_MOVE(ModelTestLayer)
@@ -33,7 +36,10 @@ class ModelTestLayer : public mle::client::Layer {
     void renderModel(ImageRef target, const ModelTestViewportLayout& viewport_layout);
     void initializeScene();
     bool refreshResourcePaths();
+    bool refreshCubemapPaths();
     [[nodiscard]] sol::table completeResourceForLua(ModelResourceKind kind, const std::string& query);
+    [[nodiscard]] sol::table completeCubemapForLua(const std::string& query);
+    bool setBackgroundMode(const std::string& mode);
     bool submitModel(const std::string& resource_id);
     bool submitHeldItem(const std::string& resource_id);
     bool submitAnimation(const std::string& resource_id);
@@ -47,6 +53,8 @@ class ModelTestLayer : public mle::client::Layer {
     void setHeldItemScale(f32 value);
     void clearHeldItem();
     void clearAnimation();
+    bool submitCubemap(const std::string& name);
+    void clearCubemap();
 
     std::unique_ptr<ModelTestScene> scene_;
     MeshRef model_ = nullptr;
@@ -66,6 +74,17 @@ class ModelTestLayer : public mle::client::Layer {
     f32 projection_epsilon_ = 0.0f;
     vec4f clear_color_srgb_{1.0F};
     vec4f projection_color_srgb_{0.0F, 0.8F, 1.0F, 1.0F};
+    std::mutex background_mutex_;
+    ModelTestBackgroundMode background_mode_ = ModelTestBackgroundMode::CLEAR_COLOR;
+    std::string selected_cubemap_;
+    ImageHnd cubemap_image_;
+    std::vector<std::string> cubemap_names_;
+    std::string background_status_;
+    std::vector<std::string> cubemap_completion_candidates_;
+    std::string cubemap_completion_initial_query_;
+    std::string cubemap_completion_last_output_;
+    usize cubemap_completion_index_ = 0;
+    bool cubemap_completion_started_ = false;
 
     UI ui_;
 

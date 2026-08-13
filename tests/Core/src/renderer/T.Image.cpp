@@ -3,6 +3,9 @@
 
 #include <cstddef>
 #include <filesystem>
+#include <fstream>
+
+#include <stb_image_write.h>
 
 #include "mle/renderer/Buffer.h"
 #include "mle/renderer/CommandManager.h"
@@ -11,6 +14,38 @@
 #include "mle/renderer/Types.h"
 
 using namespace mle;  // NOLINT
+
+namespace {
+constexpr std::array<std::string_view, 6> CUBEMAP_FACE_NAMES{"px", "nx", "py", "ny", "pz", "nz"};
+
+class TemporaryCubemapFolder {
+  public:
+    TemporaryCubemapFolder(u32 width = 8, u32 height = 8) {
+        const auto* test_info = testing::UnitTest::GetInstance()->current_test_info();
+        path_ = std::filesystem::temp_directory_path() / (std::string{"mle_"} + test_info->test_suite_name() + "_" + test_info->name());
+        std::filesystem::remove_all(path_);
+        std::filesystem::create_directories(path_);
+        for (const std::string_view face : CUBEMAP_FACE_NAMES) {
+            writeFace(face, width, height);
+        }
+    }
+
+    ~TemporaryCubemapFolder() { std::filesystem::remove_all(path_); }
+
+    MLE_NO_COPY_MOVE(TemporaryCubemapFolder)
+
+    [[nodiscard]] const std::filesystem::path& path() const { return path_; }
+
+    void writeFace(std::string_view face, u32 width, u32 height) const {
+        const std::vector<u8> pixels(as<usize>(width) * height * 4, 255);
+        const auto file = path_ / (std::string{face} + ".png");
+        ASSERT_EQ(stbi_write_png(file.c_str(), as<int>(width), as<int>(height), 4, pixels.data(), as<int>(width * 4)), 1);
+    }
+
+  private:
+    std::filesystem::path path_;
+};
+}  // namespace
 
 TEST(Image, CreateAndDestroy) {
     Image::CI ci{};
@@ -29,6 +64,50 @@ TEST(Image, DefaultView) {
     auto img = Image::createHnd(ci);
     auto view = img->getDefaultView();
     EXPECT_NE(view, vk::ImageView{});
+}
+
+TEST(Image, CubemapMetadata) {
+    Image::CI ci{};
+    ci.extent = {4, 4};
+    ci.format = Image::Format::TEXTURE_4U;
+    ci.array_layers = 6;
+    ci.view_type = vk::ImageViewType::eCube;
+    ci.create_flags = vk::ImageCreateFlagBits::eCubeCompatible;
+    auto img = Image::createHnd(ci);
+    ASSERT_NE(img, nullptr);
+    EXPECT_EQ(img->getLayerCount(), 6);
+    EXPECT_EQ(img->getDefaultViewType(), vk::ImageViewType::eCube);
+}
+
+TEST(Image, CubemapFolderRejectsUnsupportedDesiredChannels) {
+    const auto cubemap = Image::readCubemapFolder("unused", 3);
+    ASSERT_FALSE(cubemap.has_value());
+    EXPECT_EQ(cubemap.error(), Result::INVALID_ARGUMENT);
+}
+
+TEST(Image, CubemapFolderRejectsRectangularFaces) {
+    const TemporaryCubemapFolder folder{8, 4};
+    const auto cubemap = Image::readCubemapFolder(folder.path().string());
+    ASSERT_FALSE(cubemap.has_value());
+    EXPECT_EQ(cubemap.error(), Result::INVALID_ARGUMENT);
+}
+
+TEST(Image, CubemapFolderRejectsCorruptPng) {
+    const TemporaryCubemapFolder folder;
+    std::ofstream{folder.path() / "nz.png", std::ios::binary | std::ios::trunc} << "not a png";
+
+    const auto cubemap = Image::readCubemapFolder(folder.path().string());
+    ASSERT_FALSE(cubemap.has_value());
+    EXPECT_EQ(cubemap.error(), Result::INVALID_ARGUMENT);
+}
+
+TEST(Image, CubemapFolderRejectsExtraFile) {
+    const TemporaryCubemapFolder folder;
+    std::ofstream{folder.path() / "extra.png", std::ios::binary} << "extra";
+
+    const auto cubemap = Image::readCubemapFolder(folder.path().string());
+    ASSERT_FALSE(cubemap.has_value());
+    EXPECT_EQ(cubemap.error(), Result::INVALID_ARGUMENT);
 }
 
 TEST(Image, CreateView) {
