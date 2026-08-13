@@ -3,7 +3,9 @@
 #include <stb_image.h>
 #include <stb_image_write.h>
 
+#include <array>
 #include <cstring>
+#include <filesystem>
 #include <mutex>
 #include <vulkan/vulkan_enums.hpp>
 #include <vulkan/vulkan_structs.hpp>
@@ -18,6 +20,10 @@
 
 namespace mle {
 namespace {
+static constexpr std::array<std::string_view, 6> CUBEMAP_FACE_NAMES{
+    "px", "nx", "py", "ny", "pz", "nz",
+};
+
 [[maybe_unused]] std::pair<std::mutex&, std::vector<Image*>&> getAliveObjects() {
     static std::vector<Image*> alloc_info;
     static std::mutex mutex;
@@ -67,6 +73,8 @@ Image::Image(Image&& other) noexcept :
     usage_(other.usage_),
     queue_data_idx_(other.queue_data_idx_),
     extent_(other.extent_),
+    array_layers_(other.array_layers_),
+    default_view_type_(other.default_view_type_),
     allocation_(other.allocation_),
     allocation_info_(other.allocation_info_),
     state_(other.state_),
@@ -85,6 +93,8 @@ Image& Image::operator=(Image&& other) noexcept {
         usage_ = other.usage_;
         queue_data_idx_ = other.queue_data_idx_;
         extent_ = other.extent_;
+        array_layers_ = other.array_layers_;
+        default_view_type_ = other.default_view_type_;
         allocation_ = other.allocation_;
         allocation_info_ = other.allocation_info_;
         state_ = other.state_;
@@ -100,6 +110,8 @@ Image& Image::operator=(Image&& other) noexcept {
 void Image::init(const CI& ci) {
     extent_ = ci.extent;
     format_ = ci.format;
+    array_layers_ = ci.array_layers;
+    default_view_type_ = ci.view_type;
 
     if (ci.format != Format::SWAPCHAIN) {
         vk_format_ = Renderer::i().vk().getVkImageFormat(ci.format);
@@ -113,13 +125,14 @@ void Image::init(const CI& ci) {
 
     if (!ci.non_owned_image) {
         vk::ImageCreateInfo image_ci{};
+        image_ci.flags = ci.create_flags;
         image_ci.imageType = vk::ImageType::e2D;
         image_ci.format = vk_format_;
         image_ci.extent.width = extent_.x;
         image_ci.extent.height = extent_.y;
         image_ci.extent.depth = 1;
         image_ci.mipLevels = 1;
-        image_ci.arrayLayers = 1;
+        image_ci.arrayLayers = array_layers_;
         image_ci.samples = vk::SampleCountFlagBits::e1;
         image_ci.tiling = vk::ImageTiling::eOptimal;
         image_ci.usage = usage_;
@@ -147,7 +160,7 @@ void Image::init(const CI& ci) {
 vk::ImageView Image::createView(const ViewCI& ci) {
     vk::ImageViewCreateInfo image_view_ci{};
     image_view_ci.image = o_;
-    image_view_ci.viewType = vk::ImageViewType::e2D;
+    image_view_ci.viewType = ci.view_type.value_or(default_view_type_);
     image_view_ci.format = vk_format_;
     image_view_ci.components.r = ci.r;
     image_view_ci.components.g = ci.g;
@@ -158,7 +171,7 @@ vk::ImageView Image::createView(const ViewCI& ci) {
     image_view_ci.subresourceRange.baseMipLevel = 0;
     image_view_ci.subresourceRange.levelCount = 1;
     image_view_ci.subresourceRange.baseArrayLayer = 0;
-    image_view_ci.subresourceRange.layerCount = 1;
+    image_view_ci.subresourceRange.layerCount = array_layers_;
 
     vk::ImageView vkhnd = unwrap(Renderer::i().vk().getDevice().createImageView(image_view_ci));
     views_.push_back(vkhnd);
@@ -175,6 +188,10 @@ void Image::checkQueueOwnership(const CommandBuffer& cmd) {
 }
 
 void Image::copyBuffer(const CommandBuffer& cmd, Buffer& src, vec2u extent, vec2i offset) {
+    copyBufferLayer(cmd, src, extent, offset, 0);
+}
+
+void Image::copyBufferLayer(const CommandBuffer& cmd, Buffer& src, vec2u extent, vec2i offset, u32 layer) {
     checkQueueOwnership(cmd);
 
     if (extent.x == 0) {
@@ -186,6 +203,7 @@ void Image::copyBuffer(const CommandBuffer& cmd, Buffer& src, vec2u extent, vec2
 
     MLE_ASSERT(extent.x > 0 && extent.y > 0);
     MLE_ASSERT_LOG(offset.x + extent.x <= extent_.x && offset.y + extent.y <= extent_.y, "{} {} {}", offset, extent, extent_);
+    MLE_ASSERT(layer < array_layers_);
 
     vk::BufferImageCopy region{};
     region.bufferOffset = 0;
@@ -193,7 +211,7 @@ void Image::copyBuffer(const CommandBuffer& cmd, Buffer& src, vec2u extent, vec2
     region.bufferImageHeight = 0;
     region.imageSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
     region.imageSubresource.mipLevel = 0;
-    region.imageSubresource.baseArrayLayer = 0;
+    region.imageSubresource.baseArrayLayer = layer;
     region.imageSubresource.layerCount = 1;
     region.imageOffset = vk::Offset3D{offset.x, offset.y, 0};
     region.imageExtent = toVkExtent3D(extent);
@@ -461,7 +479,7 @@ void Image::clear(const CommandBuffer& cmd, vk::ClearColorValue color) {
     range.baseMipLevel = 0;
     range.levelCount = 1;
     range.baseArrayLayer = 0;
-    range.layerCount = 1;
+    range.layerCount = array_layers_;
     cmd().clearColorImage(o_, vk::ImageLayout::eTransferDstOptimal, color, range);
 }
 
@@ -474,11 +492,19 @@ void Image::clear(const CommandBuffer& cmd, vk::ClearDepthStencilValue depth) {
     range.baseMipLevel = 0;
     range.levelCount = 1;
     range.baseArrayLayer = 0;
-    range.layerCount = 1;
+    range.layerCount = array_layers_;
     cmd().clearDepthStencilImage(o_, vk::ImageLayout::eTransferDstOptimal, depth, range);
 }
 
 BufferHnd Image::copyRaw(CommandBuffer& cmd, const RawData& data, vec2i offset) {
+    return copyRawLayer(cmd, data, 0, offset);
+}
+
+BufferHnd Image::copyRawLayer(CommandBuffer& cmd, const RawData& data, u32 layer) {
+    return copyRawLayer(cmd, data, layer, {});
+}
+
+BufferHnd Image::copyRawLayer(const CommandBuffer& cmd, const RawData& data, u32 layer, vec2i offset) {
     Buffer::CI staging_ci{};
     staging_ci.size = data.pixels.size();
     staging_ci.usage = vk::BufferUsageFlagBits::eTransferSrc;
@@ -486,12 +512,13 @@ BufferHnd Image::copyRaw(CommandBuffer& cmd, const RawData& data, vec2i offset) 
 
     MLE_ASSERT(offset.x + data.extent.x <= extent_.x && offset.y + data.extent.y <= extent_.y);
     MLE_ASSERT(data.channels == getChannelCount());
+    MLE_ASSERT(layer < array_layers_);
 
     auto staging = Buffer::createHnd(staging_ci);
 
     staging->write(data.pixels.data(), data.pixels.size());
 
-    copyBuffer(cmd, *staging, data.extent, offset);
+    copyBufferLayer(cmd, *staging, data.extent, offset, layer);
 
     return staging;
 }
@@ -520,8 +547,12 @@ Expected<Image::RawData> Image::readFile(const std::string& path, int desired_ch
 
     int width = 0, height = 0, channels = 0;
     stbi_uc* pixels = stbi_load(path.c_str(), &width, &height, &channels, desired_channels);
-    MLE_ASSERT_LOG(pixels && width > 0 && height > 0 && channels > 0, "Problem loading image: {}, pixels: {}, w: {}, h: {}, c: {}", path, as<void*>(pixels),
-                   width, height, channels);
+    if (pixels == nullptr || width <= 0 || height <= 0 || channels <= 0) {
+        MLE_E("Problem loading image: {}, pixels: {}, w: {}, h: {}, c: {}, reason: {}", path, as<void*>(pixels), width, height, channels,
+              stbi_failure_reason());
+        stbi_image_free(pixels);
+        return std::unexpected(Result::INVALID_ARGUMENT);
+    }
 
     if (desired_channels) {
         channels = desired_channels;
@@ -535,6 +566,105 @@ Expected<Image::RawData> Image::readFile(const std::string& path, int desired_ch
 
     stbi_image_free(pixels);
     return data;
+}
+
+Expected<Image::CubemapRawData> Image::readCubemapFolder(const std::string& folder, int desired_channels, bool srgb) {
+    MLE_ASSERT_LOG(!folder.empty(), "Cubemap folder is empty");
+
+    if (desired_channels != 4) {
+        MLE_E("Cubemap images require 4 desired channels, got {}", desired_channels);
+        return std::unexpected(Result::INVALID_ARGUMENT);
+    }
+
+    const auto cubemap_path = std::filesystem::path{"res/textures"} / folder;
+    std::error_code ec;
+    if (!std::filesystem::exists(cubemap_path, ec)) {
+        return std::unexpected(ec ? Result::FAILED_TO_OPEN : Result::NOT_FOUND);
+    }
+    if (ec || !std::filesystem::is_directory(cubemap_path, ec)) {
+        return std::unexpected(ec ? Result::FAILED_TO_OPEN : Result::INVALID_ARGUMENT);
+    }
+
+    usize entry_count = 0;
+    std::filesystem::directory_iterator it{cubemap_path, std::filesystem::directory_options::none, ec};
+    const std::filesystem::directory_iterator end;
+    while (!ec && it != end) {
+        const auto& entry = *it;
+        const std::string filename = entry.path().filename().string();
+        const bool expected_face =
+            std::ranges::any_of(CUBEMAP_FACE_NAMES, [&filename](std::string_view face) { return filename == std::string{face} + ".png"; });
+        if (!expected_face || !entry.is_regular_file(ec)) {
+            MLE_E("Cubemap folder contains unsupported entry: {}", entry.path().string());
+            return std::unexpected(ec ? Result::FAILED_TO_OPEN : Result::INVALID_ARGUMENT);
+        }
+        ++entry_count;
+        it.increment(ec);
+    }
+    if (ec) {
+        MLE_E("Could not inspect cubemap folder {}: {}", cubemap_path.string(), ec.message());
+        return std::unexpected(Result::FAILED_TO_OPEN);
+    }
+    if (entry_count != CUBEMAP_FACE_NAMES.size()) {
+        MLE_E("Cubemap folder must contain exactly {} face files: {}", CUBEMAP_FACE_NAMES.size(), cubemap_path.string());
+        return std::unexpected(Result::INVALID_ARGUMENT);
+    }
+
+    CubemapRawData data;
+    for (usize i = 0; i < CUBEMAP_FACE_NAMES.size(); ++i) {
+        const auto face_path = cubemap_path / (std::string{CUBEMAP_FACE_NAMES[i]} + ".png");
+        auto face = readFile(face_path.string(), desired_channels);
+        if (!face.has_value()) {
+            return std::unexpected(face.error());
+        }
+
+        face->srgb = srgb;
+        if (face->extent.x != face->extent.y) {
+            MLE_E("Cubemap face is not square: {}", face_path.string());
+            return std::unexpected(Result::INVALID_ARGUMENT);
+        }
+        if (i != 0 && (face->extent != data[0].extent || face->channels != data[0].channels)) {
+            MLE_E("Cubemap face does not match {}: {}", cubemap_path.string(), face_path.string());
+            return std::unexpected(Result::INVALID_ARGUMENT);
+        }
+        data[i] = std::move(*face);
+    }
+    return data;
+}
+
+ImageHnd Image::createCubemapHnd(const CubemapRawData& data) {
+    const auto& first_face = data[0];
+    MLE_ASSERT(first_face.extent.x > 0 && first_face.extent.y > 0);
+    MLE_ASSERT(first_face.extent.x == first_face.extent.y);
+    MLE_ASSERT(first_face.channels == 4);
+    for (const auto& face : data) {
+        MLE_ASSERT(face.extent == first_face.extent);
+        MLE_ASSERT(face.channels == first_face.channels);
+        MLE_ASSERT(face.srgb == first_face.srgb);
+    }
+
+    CI ci{};
+    ci.extent = first_face.extent;
+    ci.format = first_face.srgb ? Format::TEXTURE_4SRGB : Format::TEXTURE_4U;
+    ci.extra_usage = vk::ImageUsageFlagBits::eTransferDst;
+    ci.array_layers = as<u32>(data.size());
+    ci.view_type = vk::ImageViewType::eCube;
+    ci.create_flags = vk::ImageCreateFlagBits::eCubeCompatible;
+    auto image = createHnd(ci);
+
+    auto& cmd_mgr = Renderer::i().cmdMgr();
+    auto transfer_cmd = cmd_mgr.getOTS(GCmdType::TRANSFER);
+    std::array<BufferHnd, 6> staging_buffers;
+    for (u32 layer = 0; layer < data.size(); ++layer) {
+        staging_buffers[layer] = image->copyRawLayer(transfer_cmd, data[layer], layer);
+    }
+    cmd_mgr.submitOTSWait(std::move(transfer_cmd));
+
+    image->ownershipReleaseOTSAcquireOTSWait(GCmdType::GRAPHICS);
+    auto graphics_cmd = cmd_mgr.getOTS(GCmdType::GRAPHICS);
+    image->transitionState(graphics_cmd, State::FS_READ);
+    cmd_mgr.submitOTSWait(std::move(graphics_cmd));
+
+    return image;
 }
 
 [[nodiscard]] int Image::getChannelCount() const {
@@ -581,7 +711,7 @@ void Image::transitionLayout(const CommandBuffer& cmd, TransitionLayoutInfo info
     barrier.subresourceRange.baseMipLevel = 0;
     barrier.subresourceRange.levelCount = 1;
     barrier.subresourceRange.baseArrayLayer = 0;
-    barrier.subresourceRange.layerCount = 1;
+    barrier.subresourceRange.layerCount = array_layers_;
 
     vk::DependencyInfo dep_info{};
     dep_info.setImageMemoryBarriers(barrier);
@@ -667,7 +797,7 @@ void Image::ownershipRelease(const CommandBuffer& cmd, QueueDataIdx dst_queue_da
     mb.subresourceRange.baseMipLevel = 0;
     mb.subresourceRange.levelCount = 1;
     mb.subresourceRange.baseArrayLayer = 0;
-    mb.subresourceRange.layerCount = 1;
+    mb.subresourceRange.layerCount = array_layers_;
 
     vk::DependencyInfo dep{};
     dep.imageMemoryBarrierCount = 1;
@@ -726,7 +856,7 @@ void Image::ownershipAcquire(const CommandBuffer& cmd, vk::PipelineStageFlags2 d
     mb.subresourceRange.baseMipLevel = 0;
     mb.subresourceRange.levelCount = 1;
     mb.subresourceRange.baseArrayLayer = 0;
-    mb.subresourceRange.layerCount = 1;
+    mb.subresourceRange.layerCount = array_layers_;
 
     vk::DependencyInfo dep{};
     dep.imageMemoryBarrierCount = 1;

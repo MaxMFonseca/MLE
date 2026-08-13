@@ -1,5 +1,9 @@
 #pragma once
 
+#include <array>
+#include <optional>
+#include <string_view>
+
 #include "Types.h"
 #include "mle/core/Assert.h"
 #include "mle/math/Types2D.h"
@@ -13,6 +17,7 @@
 
 namespace mle {
 struct ImageViewCreateInfo {
+    std::optional<vk::ImageViewType> view_type;
     vk::ComponentSwizzle r = vk::ComponentSwizzle::eIdentity;
     vk::ComponentSwizzle g = vk::ComponentSwizzle::eIdentity;
     vk::ComponentSwizzle b = vk::ComponentSwizzle::eIdentity;
@@ -47,11 +52,15 @@ class Image final {
         bool srgb = true;
         Bytes pixels;
     };
+    using CubemapRawData = std::array<RawData, 6>;
 
     struct CreateInfo {
         vec2u extent;
         Format format;
         vk::ImageUsageFlags extra_usage;
+        u32 array_layers = 1;
+        vk::ImageViewType view_type = vk::ImageViewType::e2D;
+        vk::ImageCreateFlags create_flags{};
 
         vk::Image non_owned_image = {};
     };
@@ -80,6 +89,7 @@ class Image final {
     [[nodiscard]] BufferHnd copyToBufferOTS(vec2u extent = {0, 0}, vec2i offset = {0, 0});
 
     [[nodiscard]] BufferHnd copyRaw(CommandBuffer& cmd, const RawData& data, vec2i offset = {0, 0});
+    [[nodiscard]] BufferHnd copyRawLayer(CommandBuffer& cmd, const RawData& data, u32 layer);
 
     void clear(const CommandBuffer& cmd, vk::ClearColorValue color);
     void clear(const CommandBuffer& cmd, const Color& color = Color::ZERO) { clear(cmd, toVkColor(color)); }
@@ -103,6 +113,8 @@ class Image final {
     [[nodiscard]] vk::Format getVkFormat() const { return vk_format_; }
     [[nodiscard]] vk::ImageUsageFlags getUsage() const { return usage_; }
     [[nodiscard]] vec2u getExtent() const { return extent_; }
+    [[nodiscard]] u32 getLayerCount() const { return array_layers_; }
+    [[nodiscard]] vk::ImageViewType getDefaultViewType() const { return default_view_type_; }
     [[nodiscard]] State getCurrentState() const { return state_; }
     [[nodiscard]] vk::ImageLayout getLayout() const { return layout_; }
     [[nodiscard]] vk::Extent2D getVkExtent() const { return {extent_.x, extent_.y}; }
@@ -120,10 +132,12 @@ class Image final {
     [[nodiscard]] vk::DescriptorImageInfo getDescriptorInfo(vk::Sampler sampler = nullptr, vk::ImageView view = nullptr) const;
 
     static Expected<RawData> readFile(const std::string& path, int desired_channels = 0);
+    static Expected<CubemapRawData> readCubemapFolder(const std::string& folder, int desired_channels = 4, bool srgb = true);
 
     void saveToPng(const std::string& path);
 
     static ImageHnd createHnd(const CI& ci);
+    static ImageHnd createCubemapHnd(const CubemapRawData& data);
 
     static void logAliveObjects();
 
@@ -137,6 +151,8 @@ class Image final {
     };
     void transitionLayout(const CommandBuffer& cmd, TransitionLayoutInfo info);
     void checkQueueOwnership(const CommandBuffer& cmd);
+    void copyBufferLayer(const CommandBuffer& cmd, Buffer& src, vec2u extent, vec2i offset, u32 layer);
+    [[nodiscard]] BufferHnd copyRawLayer(const CommandBuffer& cmd, const RawData& data, u32 layer, vec2i offset);
 
     static constexpr StateProps getStateProps(State state);
 
@@ -150,6 +166,8 @@ class Image final {
     QueueDataIdx queue_data_idx_ = NO_QUEUE;
     QueueDataIdx prev_queue_data_idx_ = NO_QUEUE;
     vec2u extent_{};
+    u32 array_layers_ = 1;
+    vk::ImageViewType default_view_type_ = vk::ImageViewType::e2D;
     VmaAllocation allocation_ = {};
     VmaAllocationInfo allocation_info_ = {};
     State state_ = State::INITIAL;
