@@ -11,6 +11,15 @@ const vec3 vtxs[8] = vec3[8](
     vec3( 1.0,  1.0,  1.0)
 );
 
+const int indices[36] = int[36](
+    4, 5, 7, 4, 7, 6,
+    0, 3, 1, 0, 2, 3,
+    0, 4, 6, 0, 6, 2,
+    1, 3, 7, 1, 7, 5,
+    0, 1, 5, 0, 5, 4,
+    2, 6, 7, 2, 7, 3
+);
+
 layout(push_constant) uniform PushConsts {
     mat4 view;
     mat4 proj;
@@ -19,7 +28,7 @@ layout(push_constant) uniform PushConsts {
 layout(location = 0) out vec3 out_v_dir;
 
 void main() {
-    vec3 position = vtxs[gl_VertexIndex];
+    vec3 position = vtxs[indices[gl_VertexIndex]];
 
     mat4 view_rot = mat4(mat3(pc.view));
 
@@ -30,4 +39,3 @@ void main() {
 
     out_v_dir = position;
 }
-

@@ -7,5 +7,5 @@ layout(location = 0) in vec3 in_v_dir;
 layout(location = 0) out vec4 out_color;
 
 void main() {
-    out_color = texture(in_cubemap, normalize(in_v_dir));
+    out_color = vec4(texture(in_cubemap, normalize(in_v_dir)).rgb, 1.0);
 }
