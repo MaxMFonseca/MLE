@@ -178,6 +178,7 @@ return {
 		},
 		make_label("Typewriter"),
 		{
+			name = "typewriter_text",
 			text = {
 				text = [[Letters reveal without changing layout!
 Lorem ipsum dolor sit amet, consectetur adipiscing elit.
@@ -193,6 +194,34 @@ Aliquam porttitor mauris sit amet orci. Aenean dignissim pellentesque felis.]],
 					cps = 18,
 					start_delay = 0.25,
 				},
+			},
+		},
+		{
+			size_x = "140px",
+			size_y = "36px",
+			background = Colors.indigo700,
+			border = {
+				thickness = "1px",
+				color = Colors.indigo200,
+				roundness = "6px",
+			},
+			text = {
+				text = "Reset text",
+				height = "16px",
+				color = Colors.WHITE,
+				justify = "center",
+			},
+			on_keys = {
+				lmb = function(ew)
+					local typewriter = ew:parent():getChild("typewriter_text")
+					typewriter:apply("text", { visible_chars = 0 })
+					typewriter:apply("animation", {
+						typewriter = {
+							cps = 18,
+							start_delay = 0.25,
+						},
+					})
+				end,
 			},
 		},
 	},

@@ -239,6 +239,7 @@ void Animation::set(const Entt& ew, const sol::object& obj) {
     }
 
     auto table = lua::as<sol::table>(obj);
+    elapsed = 0.0F;
     tracks.clear();
     sprite.reset();
     typewriter.reset();
