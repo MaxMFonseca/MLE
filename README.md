@@ -18,13 +18,13 @@ Linux is the currently tested development platform. MLE is intended to work on W
 
 ### Model tests
 
-https://github.com/user-attachments/assets/ae60b8b8-0e75-4497-9bf5-92e2ad5f9415
+<https://github.com/user-attachments/assets/ae60b8b8-0e75-4497-9bf5-92e2ad5f9415>
 
 Interactive model viewer exercising glTF loading, skinned animation, cubemap backgrounds, camera controls, and multiple rendering modes.
 
 ### UI tests
 
-https://github.com/user-attachments/assets/9d4125bd-5d11-46eb-9f94-4d2127072869
+<https://github.com/user-attachments/assets/9d4125bd-5d11-46eb-9f94-4d2127072869>
 
 Interactive gallery for layout, scrolling, forms, popups, sprites, nine-slice panels, reusable Lua components, and native UI animation.
 
@@ -239,13 +239,6 @@ tests/Client/ Interactive engine test application
 tools/        Engine-based tools
 scripts/      Build, shader, test, and documentation helpers
 ~~~
-
-## Conventions
-
-- Owning handles use the <code>Hnd</code> suffix; non-owning references use <code>Ref</code>.
-- <code>as&lt;T&gt;</code> replaces <code>static_cast&lt;T&gt;</code>; <code>asPtr&lt;T&gt;</code> and <code>rAs&lt;T&gt;</code> cover reinterpret-style casts.
-- Exceptions are disabled. Fallible operations use <code>Expected&lt;T&gt;</code> and <code>Result</code>.
-- Public APIs should use Doxygen-style comments where documentation adds value.
 
 <hr>
 
