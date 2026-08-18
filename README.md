@@ -1,84 +1,258 @@
-# MLE
+<p align="center">
+  <img src="res/textures/mle.png" alt="MLE" width="400">
+</p>
 
-MLE is a custom Vulkan based rendering engine purpose-built for large-scale open-world games. It combines high-performance C++ for core systems with Lua for user-modifiable game logic, providing a flexible and efficient development environment.
+<p align="center">
+  A C++23 game engine built around Vulkan, Lua, and tools that grow out of a game in progress.
+</p>
 
-The engine renders fully procedurally generated terrain, dynamic entities, and complex lighting interactions. It's designed for infinite, modifiable worlds with rich environmental interaction and minimal dependencies.
+## Project status
 
-This doc is very incomplete, and possibly wrong. It will be updated as the project evolves. For now, it serves as a basic overview of the MLE engine and its features.
+> MLE is under active development. It is not a finished engine, a stable SDK, or a drop-in framework yet.
 
-## Planed Features
+Most features are being built alongside a game rather than in isolation. Some systems already live in the engine, while others still sit on the game or test-client side until their shape is proven. They will move into MLE over time. Expect APIs, resource formats, and project layout to change.
 
-- **Vulkan Core**
+Linux is the currently tested development platform. MLE is intended to work on Windows because its main dependencies are cross-platform, but Windows builds have not been tested yet. The helper scripts and a few compiler/linker settings are still Linux-oriented.
 
-  - Real-time rendering systems
+## In motion
 
-* **Modding with Lua**
+### Model tests
 
-  * Lua scripting for gameplay and logic
-  * Safe bindings and helper functions for geometry, transforms, and asset references
+https://github.com/user-attachments/assets/ae60b8b8-0e75-4497-9bf5-92e2ad5f9415
 
-* **UI and Tools**
+Interactive model viewer exercising glTF loading, skinned animation, cubemap backgrounds, camera controls, and multiple rendering modes.
 
-  * Custom in-engine static UI system with post-processing support
-  * Tooling for asset generation, visualization, and debugging
+### UI tests
 
-* **Engine Internals**
+https://github.com/user-attachments/assets/9d4125bd-5d11-46eb-9f94-4d2127072869
 
-  - Custom in-engine static UI system with post-processing support
-  - Toolchain for asset generation, visualization, and debugging
+Interactive gallery for layout, scrolling, forms, popups, sprites, nine-slice panels, reusable Lua components, and native UI animation.
 
-* **Logging and Debugging**
+## What exists today
 
-  * `spdlog`-based logging system
-  * Extensive macro support for logging, assertions, and debugging
+### Rendering
 
-* **Engine Tools**
+- Vulkan renderer using dynamic rendering.
+- Swapchain and frame lifecycle management.
+- Graphics, compute, and transfer queue support.
+- Command pools, synchronization helpers, frame-local buffers, and deferred GPU-resource deletion.
+- VMA-backed image and buffer wrappers with explicit layouts and queue ownership.
+- SPIR-V shader loading and reflection for vertex inputs, descriptor sets, and push constants.
+- Graphics and compute pipeline creation with shader and pipeline caches.
+- Push descriptors, descriptor sets, push constants, indexed drawing, instancing, and compute dispatch.
+- Off-screen render targets plus image copy, blit, blend, and composition operations.
+- Texture, font, shader, pipeline, mesh, skeleton, and animation caches.
+- Texture atlases and SDF font rendering.
+- Asynchronous asset upload paths.
+- Cubemap image loading and skybox rendering.
+- HDR rendering, tonemapping, and presentation color correction.
 
-  * Internal tools built using the engine itself
-  * These tools are located in the `tools` directory
-  * The currently in-development `MLECubes` tool helps create and visualize voxel-based assets
+### Models and animation
+
+- glTF 2.0 loading through tinygltf.
+- Static and skinned meshes.
+- Color and textured PBR vertex formats.
+- Materials with base color, emissive, metallic, and roughness data.
+- Skeletons, skin bindings, animation clips, and animation evaluation.
+- Model and animation resource selectors used by the interactive test client.
+- Model-test render modes: PBR, cartoon, wireframe, normals, albedo, hologram, and flat projection.
+- Orbit, pan, and zoom camera controls in the model test.
+- Runtime cubemap background selection.
+
+### Lua UI
+
+- Retained-mode UI backed by EnTT entities and described in Lua tables.
+- Named children, reusable styles, component composition, tags, IDs, and per-element state/functions.
+- Vertical, horizontal, reversed, wrapping, packed, and free-position layouts.
+- Pixel, relative, flexible, fit-content, anchor, margin, padding, border, origin, and sibling-dependent bounds.
+- Scrollable containers, scroll state, clipping, and optional parent-scissor escape.
+- Solid backgrounds, rounded borders, sprites, atlas UV regions, nine-slice panels, and render-image elements.
+- SDF text with wrapping, justification, color, borders, placeholders, and visible-character control.
+- Single-line and multiline text input, focus management, selection/caret display, submit/change callbacks, and programmatic input operations.
+- Mouse, keyboard, hover, and scroll handlers.
+- Create, update, destroy, resize, and custom event callbacks.
+- Native tween tracks for scale, position, size, and color.
+- Sprite-sheet and typewriter animation.
+- Compute blur and custom Lua-configured shaders.
+- Reusable Lua components including color picker, range slider, progress bars, filterable lists, dropdown selectors, carousel selector, multipanel, and scrollbars.
+- Built-in performance and terminal debug layers.
+- Interactive UI pages for animation, forms, inventory, popups, scrolling, filtering, sprites, and nine-slice rendering.
+
+### Audio
+
+- OpenAL audio engine running through a command mailbox.
+- WAV loading through dr_libs.
+- One-shot playback with priority-based voice allocation.
+- Fixed stream slots, grouped stream startup, looping, pause, resume, stop, and stop-all commands.
+- Per-stream volume and pitch changes.
+- Start offsets, bounded durations, fade-in, and fade-out.
+- Eight volume buses with voice limits and protection policies.
+- Spatial and non-spatial source-state handling.
+- Lua bindings and an interactive audio test layer.
+
+Listener and distance-control commands exist but are not complete yet; 3D audio should be treated as unfinished.
+
+### Runtime and platform
+
+- SDL3 window creation and event handling.
+- Keyboard and mouse input with prioritized listeners.
+- Text-input routing and focus-aware key handling.
+- Resize and close events.
+- Layer-based client loop with game and debug-layer composition.
+- LuaJIT runtime with sol2 bindings for engine, math, UI, input, and audio data.
+- C++23 core with exceptions and RTTI disabled.
+- <code>Result</code>/<code>Expected</code>-based error handling.
+- spdlog logging, compile-time log filtering, assertions, runtime configuration, and configuration listeners.
+- Thread pool, performance tracking, timers, thread-safe queues, and locked-data helpers.
+- GLM-backed 2D/3D math, rectangles, intersection helpers, and JSON/Lua conversion.
+- UTF-8/UTF-32 conversion through ICU and utfcpp.
+- General utilities for colors, hashing, IDs, RNG, file access, flags, ECS helpers, and rectangle packing.
+
+### Tests, tools, and documentation
+
+- GoogleTest Core suite covering engine utilities and subsystems.
+- Interactive Client with Model, UI, and Audio test layers.
+- Shader compilation helpers using <code>glslangValidator</code>.
+- Doxygen generation support.
+- <code>MLECubes</code>, an early voxel-asset tool under <code>tools/</code>.
+- Early fixed-timestep server and communication scaffolding. Networking and multi-client behavior are not production-ready.
 
 ## Building
 
-> **Requirements**
->
-> - Clang v17+
-> - CMake 3.18+
-> - Vulkan SDK 1.3+
+### Requirements
 
-Then there is a helper script that automates the rest or the process:
+- Git
+- CMake 3.16 or newer
+- C++23-capable compiler; Clang is preferred
+- Vulkan SDK and a Vulkan-capable driver
+- ICU development libraries
+- OpenAL development libraries
+- GNU Make for building LuaJIT
+- <code>glslangValidator</code> for compiling shaders
+- Bash for the project helper commands
 
-```bash
-source ./scripts/envsetup.sh
-mle_setup -> Fetches all submodules and set up the environment
-mle_config -> Config cmake and tooling
-mle_build -> Build the engine and tools
-```
+Dependencies kept as git submodules include SDL3, LuaJIT, sol2, GLM, EnTT, spdlog, SPIRV-Reflect, stb, tinygltf, cereal, utfcpp, and dr_libs.
 
-## Running a Tool
+### Recommended setup
 
-Use the helper script to run any internal tool:
+Run from repository root:
 
-```bash
-./scripts/run_tool.sh -n <tool_name> -t Release -- "--arg1 value1 --arg2"
-```
+~~~bash
+git clone https://github.com/MaxMFonseca/MLE.git
+cd MLE
 
-Arguments after `--` are passed directly to the tool. The script handles environment configuration and ensures the correct build is used.
+source scripts/envsetup.sh
+mle_setup
+mle_config -t Debug
+mle_build -t Debug
+~~~
 
-## Coding Conventions
+<code>mle_setup</code> initializes submodules and builds LuaJIT. <code>mle_config</code> creates <code>build/Debug</code>. <code>mle_build</code> compiles shaders before building MLE and enabled test targets.
 
-* Exceptions are disabled; all errors use `Expected<T>` and `Result`
-* Ownership is explicit:
+Release build:
 
-  * `<T>Hnd` = owning (`std::unique_ptr<T>`)
-  * `<T>Ref` = non-owning and must outlive the receiver
-* Safe casting helpers:
+~~~bash
+source scripts/envsetup.sh
+mle_config -t Release
+mle_build -t Release
+~~~
 
-  * `as<T>` replaces `static_cast<T>`
-  * `asPtr<T>` replaces `reinterpret_cast<T*>`
-* Public API elements should be documented with Doxygen-style comments
-* Inline and field comments are preferred where they improve clarity without adding noise
+Useful configuration options:
 
-## License
+~~~bash
+# Build engine without test targets
+mle_config -t Release -- -DMLE_BUILD_TESTS=OFF
 
-This project is private and is not currently licensed for external distribution.
+# Enable Doxygen configuration
+mle_config -t Debug -- -DMLE_ENABLE_DOXYGEN=ON
+~~~
+
+### Plain CMake
+
+Helper scripts are preferred because they compile shaders and prepare resource links. For build-system integration, equivalent core steps are:
+
+~~~bash
+git submodule update --init --recursive
+make -C external/LuaJIT
+
+cmake -S . -B build/Debug \
+  -DCMAKE_BUILD_TYPE=Debug \
+  -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+
+cmake --build build/Debug -j
+~~~
+
+Compiled SPIR-V files are present in the repository, but shader changes require <code>mle_compile_shaders_all</code> or an equivalent <code>glslangValidator</code> invocation.
+
+## Running
+
+Load helper commands first:
+
+~~~bash
+source scripts/envsetup.sh
+~~~
+
+Build and launch the interactive Client:
+
+~~~bash
+mle_ber -n Client -t Debug
+~~~
+
+Launch an already-built Client:
+
+~~~bash
+mle_run_test -n Client -t Debug
+~~~
+
+Run Core unit tests:
+
+~~~bash
+mle_run_test -n Core -t Debug
+~~~
+
+Arguments after <code>--</code> are forwarded to the selected executable:
+
+~~~bash
+mle_run_test -n Core -t Debug -- --gtest_filter=AnimationTest.*
+~~~
+
+The Client opens a menu for Model Test, UI Test, and Audio Test.
+
+## Repository map
+
+~~~text
+src/mle/
+  audio/      OpenAL playback, streaming, buses, and voice allocation
+  client/     Application loop and composited layers
+  core/       Startup, logging, results, config, threads, and performance
+  lua/        LuaJIT state and C++/Lua bindings
+  math/       GLM-backed math and intersection helpers
+  renderer/   Vulkan resources, pipelines, caches, models, and frames
+  server/     Experimental server scaffolding
+  ui/         EnTT-backed Lua UI
+  utils/      Shared containers and utilities
+  window/     SDL3 window, input, and text handling
+
+res/          Engine shaders, Lua, models, fonts, textures, and sounds
+tests/Core/   GoogleTest suite
+tests/Client/ Interactive engine test application
+tools/        Engine-based tools
+scripts/      Build, shader, test, and documentation helpers
+~~~
+
+## Conventions
+
+- Owning handles use the <code>Hnd</code> suffix; non-owning references use <code>Ref</code>.
+- <code>as&lt;T&gt;</code> replaces <code>static_cast&lt;T&gt;</code>; <code>asPtr&lt;T&gt;</code> and <code>rAs&lt;T&gt;</code> cover reinterpret-style casts.
+- Exceptions are disabled. Fallible operations use <code>Expected&lt;T&gt;</code> and <code>Result</code>.
+- Public APIs should use Doxygen-style comments where documentation adds value.
+
+<hr>
+
+<p align="center">
+  <img src="docs/media/gameplay.png" alt="In-game scene built alongside MLE" width="100%">
+</p>
+
+<p align="center">
+  <em>Scene from the game being developed alongside MLE. Engine integration is ongoing. A Steam page is coming soon; more of the game will be shown once it is public.</em>
+</p>
