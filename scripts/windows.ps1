@@ -84,13 +84,14 @@ function Initialize-Vcpkg {
         )
     }
 
+    $bootstrapScript = Join-Path $VcpkgRoot "bootstrap-vcpkg.bat"
     $currentRevision = (& git -C $VcpkgRoot rev-parse HEAD 2>$null)
-    if ($LASTEXITCODE -ne 0 -or $currentRevision -ne $baseline) {
+    if ($LASTEXITCODE -ne 0 -or $currentRevision -ne $baseline -or -not (Test-Path -LiteralPath $bootstrapScript)) {
         Invoke-Native -FilePath "git" -ArgumentList @("-C", $VcpkgRoot, "checkout", $baseline)
     }
 
     if (-not (Test-Path -LiteralPath $VcpkgExe)) {
-        Invoke-Native -FilePath (Join-Path $VcpkgRoot "bootstrap-vcpkg.bat") -ArgumentList @("-disableMetrics")
+        Invoke-Native -FilePath $bootstrapScript -ArgumentList @("-disableMetrics")
     }
 }
 
