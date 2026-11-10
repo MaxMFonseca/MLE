@@ -517,12 +517,12 @@ Result FrameRenderer::beginFrame() {
     std::array<u64, 2> timestamps{};
     auto query_result =
         device.getQueryPoolResults(next_frame.query_pool, 0, 2, timestamps.size() * sizeof(u64), timestamps.data(), sizeof(u64), vk::QueryResultFlagBits::e64);
-    if (query_result == vk::Result::eSuccess || query_result == vk::Result::eNotReady) {
+    if (query_result == vk::Result::eSuccess) {
         auto elapsed = std::chrono::nanoseconds(as<u64>(as<f32>(timestamps.at(1) - timestamps.at(0)) * Renderer::i().vk().getTimestampPeriod()));
         static const PerfTracker::CounterId FRAME_TIME_COUNTER_ID = PerfTracker::i().registerCounter("FrameRenderer.GPU");
         PerfTracker::i().record(FRAME_TIME_COUNTER_ID, elapsed);
         MLE_T("Frame GPU time: {} ns", elapsed.count());
-    } else {
+    } else if (query_result != vk::Result::eNotReady) {
         MLE_E("Failed to get query pool result: {}", vk::to_string(query_result));
     }
 
@@ -556,7 +556,7 @@ Result FrameRenderer::beginFrame() {
     current_primary_cmd_ = f.cmd_pool.getPrimary();
 
     cmd()().resetQueryPool(f.query_pool, 0, 2);
-    cmd()().writeTimestamp2(vk::PipelineStageFlagBits2::eBottomOfPipe, f.query_pool, 0);
+    cmd()().writeTimestamp2(vk::PipelineStageFlagBits2::eTopOfPipe, f.query_pool, 0);
 
     for (auto& it : f.call_on_frame_begin) {
         it();
@@ -583,7 +583,7 @@ void FrameRenderer::endFrame(ImageRef frame_image) {
     }
     current_swapchain_image_->transitionState(cmd, Image::State::PRESENT);
 
-    cmd().writeTimestamp2(vk::PipelineStageFlagBits2::eTopOfPipe, f.query_pool, 1);
+    cmd().writeTimestamp2(vk::PipelineStageFlagBits2::eBottomOfPipe, f.query_pool, 1);
 
     vk::CommandBuffer command_buffer = cmd();
     vk::CommandBufferSubmitInfo command_buffer_info{};
