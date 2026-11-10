@@ -18,12 +18,30 @@ target_compile_definitions(MLE PUBLIC
 
 # Vulkan: Graphics and compute API
 find_package(Vulkan REQUIRED)
-target_link_libraries(MLE vulkan)
-target_include_directories(MLE PUBLIC VULKAN_HPP_NO_EXCEPTIONS)
+target_link_libraries(MLE Vulkan::Vulkan)
+target_compile_definitions(MLE PUBLIC VULKAN_HPP_NO_EXCEPTIONS)
 
 # LuaJIT: Just-In-Time Compiler for Lua
 target_include_directories(MLE PUBLIC LuaJIT/src)
-target_link_libraries(MLE ${CMAKE_CURRENT_SOURCE_DIR}/LuaJIT/src/libluajit.a)
+if(WIN32)
+  set(LUAJIT_LIBRARY ${CMAKE_CURRENT_SOURCE_DIR}/LuaJIT/src/lua51.lib)
+  set(LUAJIT_RUNTIME ${CMAKE_CURRENT_SOURCE_DIR}/LuaJIT/src/lua51.dll)
+  if(NOT EXISTS ${LUAJIT_LIBRARY} OR NOT EXISTS ${LUAJIT_RUNTIME})
+    message(FATAL_ERROR
+      "LuaJIT Windows artifacts are missing. Run scripts/windows.ps1 -Action Setup first.")
+  endif()
+  add_library(LuaJIT::LuaJIT SHARED IMPORTED GLOBAL)
+  set_target_properties(LuaJIT::LuaJIT PROPERTIES
+    IMPORTED_IMPLIB ${LUAJIT_LIBRARY}
+    IMPORTED_LOCATION ${LUAJIT_RUNTIME}
+  )
+else()
+  add_library(LuaJIT::LuaJIT STATIC IMPORTED GLOBAL)
+  set_target_properties(LuaJIT::LuaJIT PROPERTIES
+    IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/LuaJIT/src/libluajit.a
+  )
+endif()
+target_link_libraries(MLE LuaJIT::LuaJIT)
 
 # sol2: C++ <-> Lua binding library
 target_include_directories(MLE SYSTEM PUBLIC sol2/include)
@@ -40,7 +58,7 @@ target_link_libraries(MLE ICU::uc ICU::i18n)
 
 # OpenAL: Cross-platform 3D audio API
 find_package(OpenAL REQUIRED)
-target_link_libraries(MLE ${OPENAL_LIBRARY})
+target_link_libraries(MLE OpenAL::OpenAL)
 
 # stb: Single-file public domain libraries for images, fonts, etc.
 target_include_directories(MLE PUBLIC stb)
@@ -63,7 +81,9 @@ target_include_directories(MLE PUBLIC json)
 
 # stdc++exp: C++ experimental library, for stacktrace
 # TODO: remove on release builds
-target_link_libraries(MLE stdc++exp)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  target_link_libraries(MLE stdc++exp)
+endif()
 
 # ceral: C++11 serialization library
 target_include_directories(MLE PUBLIC ceral/include)
