@@ -1,11 +1,6 @@
 #include <gtest/gtest.h>
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wkeyword-macro"
-#define private public
 #include "mle/window/UserInputManager.h"
-#undef private
-#pragma clang diagnostic pop
 
 #include "mle/window/TextBox.h"
 

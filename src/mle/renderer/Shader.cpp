@@ -144,7 +144,7 @@ void reflectVertexInput(auto& reflection, auto& vertex_attributes_, auto& vertex
         last_location = attribute.location;
     }
 
-    bool has_instance_attributes = first_instance_attribute_location_ != max<uint>();
+    bool has_instance_attributes = first_instance_attribute_location_ != max<u32>();
     bool has_vertex_attributes = !vertex_attributes_.empty() && (!has_instance_attributes || first_instance_attribute_location_ > 0);
     u32 last_vertex_attribute = has_instance_attributes ? first_instance_attribute_location_ - 1 : vertex_attributes_.size() - 1;
     u32 vert_bind_stride = 0;

@@ -1,7 +1,5 @@
 #include "UserInputManager.h"
 
-#include <bits/ranges_algo.h>
-
 #include <algorithm>
 #include <ranges>
 #include <utility>

@@ -25,6 +25,8 @@
 #include "vulkan/vulkan.hpp"
 
 namespace mle {
+FrameRenderer::~FrameRenderer() = default;
+
 void FrameRenderer::init() {
     MLE_I("Initializing FrameRenderer");
 
@@ -656,7 +658,7 @@ void FrameRenderer::defaultPresentPass(CommandBuffer& cmd, Image& src, Image& sw
 
     auto src_info = src.getDescriptorInfo();
     auto writes = pipeline.makeWrites(0, nullptr, &src_info);
-    cmd().pushDescriptorSet(vk::PipelineBindPoint::eGraphics, pipeline.getPipelineLayout(), 0, writes);
+    cmd().pushDescriptorSetKHR(vk::PipelineBindPoint::eGraphics, pipeline.getPipelineLayout(), 0, writes);
 
     cmd().draw(3, 1, 0, 0);
     cmd().endRendering();

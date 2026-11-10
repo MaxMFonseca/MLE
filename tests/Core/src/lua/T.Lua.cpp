@@ -272,10 +272,12 @@ TEST_F(LuaTest, ScrollableWithBarFactoryBuildsCompoundWithoutMutatingContent) {
     EXPECT_FALSE(result["list"]["cross_align"].valid());
 
     sol::table children = result["c"];
-    sol::table viewport = children["viewport"];
-    sol::table scrollbar = children["scrollbar"];
+    sol::table viewport = children[1];
+    sol::table scrollbar = children[2];
     sol::table scroll_driver = viewport["c"][1];
 
+    EXPECT_EQ(viewport["name"].get<std::string>(), "viewport");
+    EXPECT_EQ(scrollbar["name"].get<std::string>(), "scrollbar");
     EXPECT_EQ(viewport["size_x"].get<std::string>(), "1f");
     EXPECT_EQ(scrollbar["size_x"].get<std::string>(), "10px");
     EXPECT_FLOAT_EQ(scrollbar["size_y"].get<float>(), 1.0F);

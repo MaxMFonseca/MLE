@@ -19,7 +19,11 @@ target_compile_definitions(MLE PUBLIC
 # Vulkan: Graphics and compute API
 find_package(Vulkan REQUIRED)
 target_link_libraries(MLE Vulkan::Vulkan)
-target_compile_definitions(MLE PUBLIC VULKAN_HPP_NO_EXCEPTIONS)
+find_path(VMA_INCLUDE_DIR vk_mem_alloc.h
+  HINTS ${Vulkan_INCLUDE_DIR}/vma
+  REQUIRED
+)
+target_include_directories(MLE SYSTEM PUBLIC ${VMA_INCLUDE_DIR})
 
 # LuaJIT: Just-In-Time Compiler for Lua
 target_include_directories(MLE PUBLIC LuaJIT/src)

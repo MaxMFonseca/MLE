@@ -37,6 +37,9 @@ target_include_directories(${test_name} PRIVATE
 target_compile_options(${test_name} PRIVATE
   -Wall -Wextra -Wpedantic
 )
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+  target_compile_options(${test_name} PRIVATE -fno-access-control)
+endif()
 
 include(GoogleTest)
 gtest_discover_tests(${test_name}

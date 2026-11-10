@@ -145,7 +145,9 @@ void Image::init(const CI& ci) {
 
         VkImage vk_image = VK_NULL_HANDLE;
 
-        auto create_result = vmaCreateImage(Renderer::i().vk().getVma(), image_ci, &alloc_ci, &vk_image, &allocation_, &allocation_info_);
+        const auto& raw_image_ci = static_cast<const VkImageCreateInfo&>(image_ci);
+        auto create_result =
+            vmaCreateImage(Renderer::i().vk().getVma(), &raw_image_ci, &alloc_ci, &vk_image, &allocation_, &allocation_info_);
         addAliveObject(this);
         check(create_result);
         o_ = vk_image;
@@ -402,7 +404,7 @@ void Image::blend(const CommandBuffer& cmd, Image& src, f32 opacity, Recti src_r
     auto b0_0_in_tex = src.getDescriptorInfo();
     auto s0 = pipeline->makeWrites(0, nullptr, &b0_0_in_tex);
 
-    cmd.get().pushDescriptorSet(vk::PipelineBindPoint::eGraphics, pipeline->getPipelineLayout(), 0, s0);
+    cmd.get().pushDescriptorSetKHR(vk::PipelineBindPoint::eGraphics, pipeline->getPipelineLayout(), 0, s0);
 
     Rectf src_f = src_rect.asF32();
     vec2f src_extent_f = vec2f(src.getExtent());

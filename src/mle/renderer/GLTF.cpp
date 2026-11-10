@@ -56,11 +56,12 @@ Result GLTF::load(const Path& path) {
     }
 
     bool ok = false;
+    const auto narrow_path = path.string();
 
     if (ext == ".glb") {
-        ok = loader.LoadBinaryFromFile(&model_, &err, &warn, path);
+        ok = loader.LoadBinaryFromFile(&model_, &err, &warn, narrow_path);
     } else {
-        ok = loader.LoadASCIIFromFile(&model_, &err, &warn, path);
+        ok = loader.LoadASCIIFromFile(&model_, &err, &warn, narrow_path);
     }
 
     if (!warn.empty()) {
@@ -514,7 +515,7 @@ std::vector<vec4f> GLTF::readAccessorWeights4f(const tinygltf::Accessor& accesso
             case TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT:
                 return sizeof(u16) * 4;
             default:
-                return 0UL;
+                return usize{0};
         }
     }();
 

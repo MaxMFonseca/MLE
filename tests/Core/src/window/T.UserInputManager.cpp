@@ -2,12 +2,7 @@
 
 #include <memory>
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wkeyword-macro"
-#define private public
 #include "mle/window/UserInputManager.h"
-#undef private
-#pragma clang diagnostic pop
 
 namespace {
 class UserInputManagerTest : public ::testing::Test {

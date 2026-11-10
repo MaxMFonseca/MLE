@@ -40,6 +40,7 @@
     {                                \
         MLE_C(__VA_ARGS__);          \
         assert(!"Unreachable code"); \
+        std::abort();                 \
     }
 #else
 #define MLE_UNREACHABLE_LOG(...) std::unreachable();

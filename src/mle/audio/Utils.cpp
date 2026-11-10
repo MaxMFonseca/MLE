@@ -7,7 +7,12 @@
 namespace mle {
 mle::Expected<WavData> loadWavFile(const Path& path) {
     drwav wav{};
-    if (!drwav_init_file(&wav, path.c_str(), nullptr)) {
+#ifdef _WIN32
+    const bool initialized = drwav_init_file_w(&wav, path.c_str(), nullptr);
+#else
+    const bool initialized = drwav_init_file(&wav, path.c_str(), nullptr);
+#endif
+    if (!initialized) {
         MLE_E("Failed to open WAV file: {}", path);
         return std::unexpected(Result::FAILED_TO_OPEN);
     }

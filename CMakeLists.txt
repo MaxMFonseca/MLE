@@ -41,6 +41,9 @@ target_include_directories(MLE PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_compile_features(MLE PUBLIC cxx_std_23)
 target_compile_options(MLE PUBLIC -Wall -Wextra -Wpedantic -Werror -fno-rtti -Wno-c2y-extensions)
 target_compile_options(MLE PRIVATE -fno-exceptions)
+if(WIN32 AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  target_compile_options(MLE PRIVATE -Wno-microsoft-enum-value)
+endif()
 
 # Optionally enable Doxygen documentation
 if (MLE_ENABLE_DOXYGEN)

@@ -22,8 +22,11 @@ VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE;
 
 namespace mle {
 namespace {
-[[maybe_unused]] VkBool32 VKAPI_CALL debugCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT message_severity, vk::DebugUtilsMessageTypeFlagsEXT message_types,
-                                                   vk::DebugUtilsMessengerCallbackDataEXT const* callback_data, [[maybe_unused]] void* _) {
+[[maybe_unused]] VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT raw_message_severity,
+                                                   VkDebugUtilsMessageTypeFlagsEXT raw_message_types,
+                                                   const VkDebugUtilsMessengerCallbackDataEXT* callback_data, [[maybe_unused]] void* _) {
+    const auto message_severity = static_cast<vk::DebugUtilsMessageSeverityFlagBitsEXT>(raw_message_severity);
+    const auto message_types = static_cast<vk::DebugUtilsMessageTypeFlagsEXT>(raw_message_types);
     std::stringstream formatted_msg;
 
     formatted_msg << vk::to_string(message_severity) << ": ";

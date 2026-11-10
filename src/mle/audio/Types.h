@@ -6,6 +6,7 @@
 #include <array>
 #include <functional>
 #include <optional>
+#include <variant>
 
 #include "mle/math/Types.h"
 #include "mle/utils/ECS.h"

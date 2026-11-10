@@ -79,6 +79,15 @@ return function(rows, options)
 			last_query = "",
 		},
 		fn = {
+			updateRows = function(root, updater)
+				if type(updater) ~= "function" then
+					error("filterable_list updater must be a function")
+				end
+				local state = root:get("table")
+				for _, row in ipairs(state.rows) do
+					updater(row)
+				end
+			end,
 			applyFilter = function(root, query)
 				local state = root:get("table")
 				local results_ew = root:getChild("results")

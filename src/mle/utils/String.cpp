@@ -1,5 +1,7 @@
 #include "String.h"
 
+#include <array>
+
 #include "mle/utils/Utils.h"
 
 namespace mle {
@@ -140,7 +142,7 @@ std::pair<f32, std::string_view> splitNumSuffix(std::string_view s) {
 }
 
 std::string bitsToString(u64 b) {
-    std::array u = {"B", "KB", "MB", "GB", "TB"};
+    constexpr std::array<std::string_view, 5> u = {"B", "KB", "MB", "GB", "TB"};
     int i = 0;
     auto v = as<f64>(b);
     while (v >= 1024.0 && i < 4) {

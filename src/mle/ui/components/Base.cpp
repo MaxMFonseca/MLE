@@ -144,6 +144,7 @@ void Tags::apply(const Entt& ew, const sol::object& obj) {
     if (!tags_c) {
         tags_c = &ew.emplace<Tags>();
     }
+    tags_c->tags.clear();
 
     if (lua::valid<sol::table>(obj)) {
         auto table = lua::as<sol::table>(obj);

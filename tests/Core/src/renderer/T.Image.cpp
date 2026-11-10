@@ -39,7 +39,8 @@ class TemporaryCubemapFolder {
     void writeFace(std::string_view face, u32 width, u32 height) const {
         const std::vector<u8> pixels(as<usize>(width) * height * 4, 255);
         const auto file = path_ / (std::string{face} + ".png");
-        ASSERT_EQ(stbi_write_png(file.c_str(), as<int>(width), as<int>(height), 4, pixels.data(), as<int>(width * 4)), 1);
+        const auto file_name = file.string();
+        ASSERT_EQ(stbi_write_png(file_name.c_str(), as<int>(width), as<int>(height), 4, pixels.data(), as<int>(width * 4)), 1);
     }
 
   private:

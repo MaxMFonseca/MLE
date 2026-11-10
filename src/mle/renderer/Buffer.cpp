@@ -123,7 +123,8 @@ void Buffer::create(const CI& ci) {
 
     VkBuffer temp_buffer = VK_NULL_HANDLE;
     auto* vma = Renderer::i().vk().getVma();
-    auto create_result = vmaCreateBuffer(vma, buffer_ci, &allocation_ci,  // NOLINT
+    const auto& raw_buffer_ci = static_cast<const VkBufferCreateInfo&>(buffer_ci);
+    auto create_result = vmaCreateBuffer(vma, &raw_buffer_ci, &allocation_ci,  // NOLINT
                                          &temp_buffer, &allocation_, &allocation_info_);
     check(create_result);
     addAliveObject(this);
