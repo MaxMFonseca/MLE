@@ -372,9 +372,7 @@ vk::PresentModeKHR chooseSwapchainPresentMode(const auto& p_device) {
     return vk::PresentModeKHR::eFifo;
 }
 
-u32 chooseSwapchainImageCount(const auto& p_device) {
-    const auto surface_capabilities = unwrap(p_device.getSurfaceCapabilitiesKHR(Renderer::i().vk().getSurface()));
-
+u32 chooseSwapchainImageCount(const vk::SurfaceCapabilitiesKHR& surface_capabilities) {
     u32 target_img_count = 3;
     bool target_triple_buffer = RuntimeConfig::i().getBool("renderer.swapchain.triple_buffer").value_or(true);
     if (!target_triple_buffer) {
@@ -398,11 +396,14 @@ Result FrameRenderer::createSwapchain() {
     auto device = Renderer::i().vkDevice();
     auto surface = Renderer::i().vk().getSurface();
 
-    auto surface_capabilities = unwrap(p_device.getSurfaceCapabilitiesKHR(surface));
-    swapchain_extent_ = {surface_capabilities.currentExtent.width, surface_capabilities.currentExtent.height};
+    surface_format_ = chooseSwapchainSurfaceFormat(p_device);
+    present_mode_ = chooseSwapchainPresentMode(p_device);
 
-    if (swapchain_extent_.x == 0xFFFFFFFF || swapchain_extent_.y == 0xFFFFFFFF || swapchain_extent_.x == 0 || swapchain_extent_.y == 0) {
-        MLE_I("Surface capabilities has zero or undefined extent. Checking window state...");
+    // Query capabilities last so the extent and image count come from the
+    // same, freshest surface snapshot when the window is being resized.
+    const auto surface_capabilities = unwrap(p_device.getSurfaceCapabilitiesKHR(surface));
+    const bool extent_is_undefined = surface_capabilities.currentExtent.width == max<u32>() || surface_capabilities.currentExtent.height == max<u32>();
+    if (extent_is_undefined) {
         auto window_size = Window::i().getSize();
         if (window_size.x == 0 || window_size.y == 0) {
             MLE_I("Window is iconified, cannot create swapchain.");
@@ -412,15 +413,24 @@ Result FrameRenderer::createSwapchain() {
             return Result::SWAPCHAIN_NOT_VISIBLE;
         }
 
-        swapchain_extent_ = window_size;
+        swapchain_extent_ = {
+            std::clamp(as<u32>(window_size.x), surface_capabilities.minImageExtent.width, surface_capabilities.maxImageExtent.width),
+            std::clamp(as<u32>(window_size.y), surface_capabilities.minImageExtent.height, surface_capabilities.maxImageExtent.height),
+        };
+    } else {
+        swapchain_extent_ = {surface_capabilities.currentExtent.width, surface_capabilities.currentExtent.height};
+        if (swapchain_extent_.x == 0 || swapchain_extent_.y == 0) {
+            MLE_I("Surface has zero extent, cannot create swapchain.");
+            iconified_ = true;
+            swapchain_dirty_.store(true, std::memory_order_relaxed);
+            swapchain_visible_ = false;
+            return Result::SWAPCHAIN_NOT_VISIBLE;
+        }
     }
-
-    surface_format_ = chooseSwapchainSurfaceFormat(p_device);
-    present_mode_ = chooseSwapchainPresentMode(p_device);
 
     vk::SwapchainCreateInfoKHR swapchain_ci{};
     swapchain_ci.surface = surface;
-    swapchain_ci.minImageCount = chooseSwapchainImageCount(p_device);
+    swapchain_ci.minImageCount = chooseSwapchainImageCount(surface_capabilities);
     swapchain_ci.imageFormat = surface_format_.format;
     swapchain_ci.imageColorSpace = surface_format_.colorSpace;
     swapchain_ci.imageExtent = toVkExtent2D(swapchain_extent_);
@@ -460,6 +470,7 @@ Result FrameRenderer::createSwapchain() {
 
     swapchain_dirty_.store(false, std::memory_order_relaxed);
     swapchain_visible_ = true;
+    iconified_ = false;
 
     MLE_I("Swapchain created successfully!");
 
