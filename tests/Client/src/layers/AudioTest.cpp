@@ -283,7 +283,7 @@ void AudioTestLayer::submitSustainedFrame() {
     }
 }
 
-void AudioTestLayer::update() {
+void AudioTestLayer::update(const mle::client::UpdateTiming& /*timing*/) {
     // Producer exclusivity keeps fixed-update PlayOneShot submission <= 4.
     if (sustained_) {
         submitSustainedFrame();
@@ -331,7 +331,7 @@ void AudioTestLayer::update() {
     ui_.update();
 }
 
-ImageRef AudioTestLayer::render() {
+ImageRef AudioTestLayer::render(const mle::client::RenderTiming& /*timing*/) {
     auto* image = render_target_.getImage();
     if (auto* ui_image = ui_.render()) {
         image->blend(Renderer::i().frameRenderer().cmd(), *ui_image);

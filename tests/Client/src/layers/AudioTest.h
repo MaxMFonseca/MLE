@@ -17,8 +17,8 @@ class AudioTestLayer : public mle::client::Layer {
 
     void init() override;
     void shutdown() override;
-    void update() override;
-    ImageRef render() override;
+    void update(const mle::client::UpdateTiming& timing) override;
+    ImageRef render(const mle::client::RenderTiming& timing) override;
 
   private:
     enum class PendingAction : u8 { NONE, STOP_TEXTURE, REPLACE_RAMP, COMBAT_STEAL_ATTEMPT, START_PROTECTED_PHASE };

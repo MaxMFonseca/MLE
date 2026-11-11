@@ -17,11 +17,11 @@ void InitLayer::init() {
     ui_.setRoot("i/ui/InitLayer");
 };
 
-void InitLayer::update() {
+void InitLayer::update(const mle::client::UpdateTiming& /*timing*/) {
     ui_.update();
 };
 
-ImageRef InitLayer::render() {
+ImageRef InitLayer::render(const mle::client::RenderTiming& /*timing*/) {
     auto* image = render_target_.getImage();
 
     auto* ui_image = ui_.render();

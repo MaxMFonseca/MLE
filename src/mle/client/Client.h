@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "Layer.h"
+#include "SimulationClock.h"
 #include "mle/lua/Lua.h"
 #include "mle/renderer/Types.h"
 #include "mle/utils/ColorCache.h"
@@ -29,6 +30,7 @@ class Client final {
     void removeDebugLayer(const std::string& name);
 
     [[nodiscard]] const auto& getRunningStopwatch() const { return running_sw_; }
+    [[nodiscard]] client::RenderTiming getRenderTiming() const { return simulation_clock_.renderTiming(client::SimulationClock::Clock::now()); }
 
     ImageRef render();
 
@@ -40,7 +42,7 @@ class Client final {
     void addShutdownCallback(std::move_only_function<void(void)> cb) { shutdown_callbacks_.emplace_back(std::move(cb)); }
 
   private:
-    void update();
+    void update(const client::UpdateTiming& timing);
     void shutdown();
     void checkNextGameLayer();
 
@@ -65,6 +67,7 @@ class Client final {
     std::set<std::string> debug_layers_to_remove_;
 
     Stopwatch running_sw_{};
+    client::SimulationClock simulation_clock_{};
 
     ColorCache color_cache_{};
 

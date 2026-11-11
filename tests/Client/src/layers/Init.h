@@ -14,8 +14,8 @@ class InitLayer : public mle::client::Layer {
     void init() override;
     void shutdown() override;
 
-    void update() override;
-    ImageRef render() override;
+    void update(const mle::client::UpdateTiming& timing) override;
+    ImageRef render(const mle::client::RenderTiming& timing) override;
 
   private:
     UI ui_;

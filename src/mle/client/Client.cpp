@@ -80,20 +80,16 @@ void Client::addTerminalLayer() {
 void Client::run() {
     MLE_I("MLE Client starting main loop...");
 
-    using ns = std::chrono::nanoseconds;
     using namespace std::chrono_literals;
 
-    constexpr auto FIXED_DT = 16'666'667ns;
-    constexpr int MAX_CATCH_UP = 5;
+    constexpr std::uint32_t MAX_CATCH_UP = 5;
     constexpr auto SLEEP_GUARD = 200'000ns;
 
     state_ = SystemState::RUNNING;
 
-    auto& sw = running_sw_;
     running_sw_.reset();
 
-    auto t_prev = running_sw_.elapsed<ns>();
-    std::chrono::nanoseconds accumulator = 0ns;
+    simulation_clock_.start(client::SimulationClock::Clock::now());
 
     Stopwatch test_sw;
     AudioEngine::i().enqueueCmd(audio::cmd::Load{
@@ -110,20 +106,8 @@ void Client::run() {
     addTerminalLayer();
 
     while (state_ == SystemState::RUNNING) {
-        const auto t_now = sw.elapsed<ns>();
-        accumulator += std::chrono::duration_cast<ns>(t_now - t_prev);
-        t_prev = t_now;
-
-        int updates = 0;
-        while (accumulator >= FIXED_DT && updates < MAX_CATCH_UP) {
-            update();
-            accumulator -= FIXED_DT;
-            ++updates;
-        }
-
-        if (updates == MAX_CATCH_UP && accumulator >= FIXED_DT) {
-            accumulator %= FIXED_DT;
-        }
+        const auto now = client::SimulationClock::Clock::now();
+        simulation_clock_.runDueUpdates(now, MAX_CATCH_UP, [this](const client::UpdateTiming& timing) { update(timing); });
 
         client_table_["time"] = running_sw_.elapsedSecFloat();
 
@@ -134,13 +118,9 @@ void Client::run() {
         //     });
         // }
 
-        // const f64 alpha = static_cast<f64>(accumulator.count()) / static_cast<f64>(FIXED_DT.count());
-
-        if (accumulator < FIXED_DT) {
-            ns sleep_time = FIXED_DT - accumulator;
-            if (sleep_time > SLEEP_GUARD) {
-                std::this_thread::sleep_for(sleep_time - SLEEP_GUARD);
-            }
+        const auto sleep_time = simulation_clock_.nextScheduledTime() - client::SimulationClock::Clock::now();
+        if (sleep_time > SLEEP_GUARD) {
+            std::this_thread::sleep_for(sleep_time - SLEEP_GUARD);
         }
     }
 
@@ -148,7 +128,7 @@ void Client::run() {
     shutdown();
 }
 
-void Client::update() {
+void Client::update(const client::UpdateTiming& timing) {
     MLE_PERF_SCOPE("ClientUpdate");
 
     checkNextGameLayer();
@@ -158,13 +138,13 @@ void Client::update() {
 
     {
         MLE_PERF_SCOPE("ClientUpdate.GameLayer");
-        game_layer_->update();
+        game_layer_->update(timing);
     }
 
     {
         MLE_PERF_SCOPE("ClientUpdate.DebugLayers");
         for (auto& [_, dl] : debug_layers_) {
-            dl->update();
+            dl->update(timing);
         }
 
         if (!debug_layers_to_remove_.empty()) {
@@ -251,6 +231,7 @@ void Client::checkNextGameLayer() {
 }
 
 ImageRef Client::render() {
+    const auto timing = getRenderTiming();
     ImageRef game_layer_img = nullptr;
 
     {
@@ -258,7 +239,7 @@ ImageRef Client::render() {
         if (!game_layer_) {
             return nullptr;
         }
-        game_layer_img = game_layer_->render();
+        game_layer_img = game_layer_->render(timing);
     }
 
     if (!game_layer_img) {
@@ -268,7 +249,7 @@ ImageRef Client::render() {
     if (!debug_layers_.empty()) {
         std::scoped_lock lock(debug_layers_render_mutex_);
         for (auto& [_, dl] : debug_layers_) {
-            dl->renderTo(game_layer_img);
+            dl->renderTo(game_layer_img, timing);
         }
     }
 

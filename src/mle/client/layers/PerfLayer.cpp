@@ -27,7 +27,7 @@ void PerfLayer::shutdown() {
     ui_.clear();
 };
 
-void PerfLayer::update() {
+void PerfLayer::update(const UpdateTiming& /*timing*/) {
     if (!enabled_) {
         return;
     }
@@ -92,14 +92,14 @@ PerfLayer::ParsedSamples PerfLayer::parseNewSamples() {
     return ret;
 }
 
-ImageRef PerfLayer::render() {
+ImageRef PerfLayer::render(const RenderTiming& /*timing*/) {
     if (!enabled_) {
         return nullptr;
     }
     return ui_.render();
 }
 
-void PerfLayer::renderTo(ImageRef target) {
+void PerfLayer::renderTo(ImageRef target, const RenderTiming& /*timing*/) {
     if (!enabled_) {
         return;
     }

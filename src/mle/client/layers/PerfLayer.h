@@ -16,9 +16,9 @@ class PerfLayer : public mle::client::Layer {
     void init() override;
     void shutdown() override;
 
-    void update() override;
-    ImageRef render() override;
-    void renderTo(ImageRef target) override;
+    void update(const UpdateTiming& timing) override;
+    ImageRef render(const RenderTiming& timing) override;
+    void renderTo(ImageRef target, const RenderTiming& timing) override;
 
   private:
     void toggle();

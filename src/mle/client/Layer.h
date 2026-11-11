@@ -2,6 +2,7 @@
 
 #include <array>
 
+#include "SimulationClock.h"
 #include "mle/renderer/Types.h"
 #include "mle/utils/Color.h"
 #include "mle/utils/Utils.h"
@@ -17,9 +18,9 @@ class Layer {
     virtual void init() {};
     virtual void shutdown() {};
 
-    virtual void update() {};
-    virtual ImageRef render() { return nullptr; };
-    virtual void renderTo([[maybe_unused]] ImageRef target) {};
+    virtual void update([[maybe_unused]] const UpdateTiming& timing) {};
+    virtual ImageRef render([[maybe_unused]] const RenderTiming& timing) { return nullptr; };
+    virtual void renderTo([[maybe_unused]] ImageRef target, [[maybe_unused]] const RenderTiming& timing) {};
 
   private:
 };

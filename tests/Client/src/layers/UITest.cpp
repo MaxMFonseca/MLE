@@ -15,11 +15,11 @@ void UITestLayer::init() {
     ui_.setRoot("i/ui/ui_tests/Layer");
 };
 
-void UITestLayer::update() {
+void UITestLayer::update(const mle::client::UpdateTiming& /*timing*/) {
     ui_.update();
 };
 
-ImageRef UITestLayer::render() {
+ImageRef UITestLayer::render(const mle::client::RenderTiming& /*timing*/) {
     auto* image = render_target_.getImage();
 
     auto* ui_image = ui_.render();

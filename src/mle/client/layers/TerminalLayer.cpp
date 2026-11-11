@@ -180,21 +180,21 @@ void TerminalLayer::shutdown() {
     ui_.clear();
 };
 
-void TerminalLayer::update() {
+void TerminalLayer::update(const UpdateTiming& /*timing*/) {
     if (!enabled_) {
         return;
     }
     ui_.update();
 }
 
-ImageRef TerminalLayer::render() {
+ImageRef TerminalLayer::render(const RenderTiming& /*timing*/) {
     if (!enabled_) {
         return nullptr;
     }
     return ui_.render();
 }
 
-void TerminalLayer::renderTo(ImageRef target) {
+void TerminalLayer::renderTo(ImageRef target, const RenderTiming& /*timing*/) {
     if (!enabled_) {
         return;
     }

@@ -495,7 +495,7 @@ void ModelTestLayer::init() {
     MLE_I("ModelTestLayer resource state: {}", scene_ != nullptr ? scene_->status() : "unavailable");
 };
 
-void ModelTestLayer::update() {
+void ModelTestLayer::update(const mle::client::UpdateTiming& /*timing*/) {
     animation_time_ += 1.0F / 60.0F;
     ui_.update();
 
@@ -527,7 +527,7 @@ void ModelTestLayer::update() {
     camera_.update(camera_input);
 };
 
-ImageRef ModelTestLayer::render() {
+ImageRef ModelTestLayer::render(const mle::client::RenderTiming& /*timing*/) {
     auto* image = render_target_.getImage(Color{clear_color_srgb_});
 
     renderModel(image, viewport_layout_);
